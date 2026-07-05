@@ -1641,6 +1641,8 @@ const overrides: Catalog = {
   noteOverridesEditorDefaultToggle: "Varsayılan",
   noteOverridesEditorIdField: "Tanımlayıcı (id=)",
   noteOverridesEditorIdHelper: "Kısıtlamalar ve setval tarafından kullanılır",
+  noteOverridesEditorQuestionIdField: "Soru kimliği (id=)",
+  noteOverridesEditorQuestionIdHelper: "Bu sorunun kimliğini sabitler; böylece kayıtlı yanıtlar sonraki metin veya seçenek düzenlemelerinden sağ çıkar. Metinden türetmek için boş bırakın.",
   noteOverridesEditorAddTranslation: "Çeviri ekle",
   noteOverridesEditorRemoveTranslation: "Çeviriyi kaldır",
   noteOverridesEditorConstraintsHeader: "Kısıtlamalar (diğer seçeneklere id ile başvurur)",

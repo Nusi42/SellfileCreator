@@ -1641,6 +1641,8 @@ const catalog: Catalog = {
   noteOverridesEditorDefaultToggle: "Padrão",
   noteOverridesEditorIdField: "Identificador (id=)",
   noteOverridesEditorIdHelper: "Referenciado por restrições e setval",
+  noteOverridesEditorQuestionIdField: "Id da pergunta (id=)",
+  noteOverridesEditorQuestionIdHelper: "Fixa a identidade desta pergunta para que respostas salvas sobrevivam a edições futuras do texto ou das opções. Deixe vazio para derivá-la do texto.",
   noteOverridesEditorAddTranslation: "Adicionar tradução",
   noteOverridesEditorRemoveTranslation: "Remover tradução",
   noteOverridesEditorConstraintsHeader: "Restrições (referenciam outras opções por id)",

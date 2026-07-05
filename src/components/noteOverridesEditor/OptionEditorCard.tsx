@@ -27,6 +27,7 @@ import type { Metaset } from '../../lib/metasets'
 import { EffectBodyBuilder } from './EffectBodyBuilder'
 import { LocalizedStringField } from './LocalizedStringField'
 import { OverridesNumberField } from './OverridesNumberField'
+import { MONO_INPUT_SX } from './editorStyles'
 
 // Kind dropdown entries: canonical DSL keyword per logical group type.
 const KIND_OPTIONS: Array<{ type: NoteQuestionGroupType; labelKey: I18nKey }> = [
@@ -46,9 +47,6 @@ const CONSTRAINT_FIELDS: Array<{ field: 'setTokens' | 'unsetTokens' | 'excludedT
 
 // Section caption shared by constraints / slider / effects headers (one look everywhere).
 const SECTION_CAPTION_SX = { fontWeight: 700, color: 'text.secondary', letterSpacing: 0.2 } as const
-
-// Monospace input styling for token-ish fields.
-const MONO_INPUT_SX = { '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: '0.8rem' } } as const
 
 export interface OptionEditorCardProps {
   hostDomain: OverridesDomain

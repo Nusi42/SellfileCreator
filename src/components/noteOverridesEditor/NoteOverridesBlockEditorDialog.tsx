@@ -13,11 +13,12 @@ import { useCallback, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  MenuItem, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  MenuItem, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useI18n } from '../../lib/i18n'
 import type { NoteQuestionGroupType } from '../../lib/noteOverridesParser'
+import { normalizeQuestionToken } from '../../lib/noteOverridesParser'
 import type { DraftOption, OverridesBlockDraft, OverridesDomain } from '../../lib/overridesDraftTypes'
 import {
   createDraftOption,
@@ -30,6 +31,7 @@ import { collectKnownSelectorTags } from '../../lib/overridesEditorModel'
 import { serializeOverridesBlock } from '../../lib/overridesSerializer'
 import { OptionEditorCard } from './OptionEditorCard'
 import { LocalizedStringField } from './LocalizedStringField'
+import { MONO_INPUT_SX } from './editorStyles'
 import type { Metaset } from '../../lib/metasets'
 
 /** Open request: edit an existing block span, or create a new one at an offset.
@@ -50,10 +52,14 @@ export interface NoteOverridesBlockEditorDialogProps {
 }
 
 // Structural identity of the English base texts — edits here re-hash question/option
-// ids and reset stored answers to defaults, which the info Alert explains.
+// ids and reset stored answers to defaults, which the info Alert explains. A pinned
+// question `id=` overrides that hash, so with a pin the identity tracks the pin alone:
+// prompt/label edits no longer reset answers, and the Alert stays hidden for them.
 const baseIdentitySignature = (draft: OverridesBlockDraft): string => (
   draft.kind === 'question'
-    ? JSON.stringify([draft.prompt.base, draft.options.map((o) => [o.label.base, o.groupType])])
+    ? draft.explicitId
+      ? JSON.stringify(['pinned', draft.explicitId])
+      : JSON.stringify([draft.prompt.base, draft.options.map((o) => [o.label.base, o.groupType])])
     : 'spacer'
 )
 
@@ -232,6 +238,18 @@ function EditorContent({ request, noteText, metasets, substatColors, onApply, on
                 <MenuItem value={0}>{t('noteOverridesEditorColumnsAuto')}</MenuItem>
                 {[1, 2, 3, 4, 5, 6].map((cols) => <MenuItem key={cols} value={cols}>{cols}</MenuItem>)}
               </TextField>
+              {/* Optional pinned question id. Empty → id derives from prompt+options; a value pins
+                  the identity so saved answers survive later prompt/option edits. Normalized to a
+                  valid token (or null) so the serializer never emits a malformed id=. */}
+              <Tooltip title={t('noteOverridesEditorQuestionIdHelper')}>
+                <TextField
+                  label={t('noteOverridesEditorQuestionIdField')}
+                  value={draft.explicitId ?? ''}
+                  onChange={(event) => update({ ...draft, explicitId: normalizeQuestionToken(event.target.value) })}
+                  size="small"
+                  sx={{ width: 200, ...MONO_INPUT_SX }}
+                />
+              </Tooltip>
             </Box>
             {/* Options list with add menu (one accordion expanded at a time). */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>

@@ -1641,6 +1641,8 @@ const overrides: Catalog = {
   noteOverridesEditorDefaultToggle: "По умолчанию",
   noteOverridesEditorIdField: "Идентификатор (id=)",
   noteOverridesEditorIdHelper: "Используется ограничениями и setval",
+  noteOverridesEditorQuestionIdField: "Id вопроса (id=)",
+  noteOverridesEditorQuestionIdHelper: "Закрепляет идентичность вопроса, чтобы сохранённые ответы пережили последующие изменения текста или вариантов. Оставьте пустым, чтобы вывести его из текста.",
   noteOverridesEditorAddTranslation: "Добавить перевод",
   noteOverridesEditorRemoveTranslation: "Удалить перевод",
   noteOverridesEditorConstraintsHeader: "Ограничения (ссылаются на другие варианты по id)",

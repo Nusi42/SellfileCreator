@@ -1641,6 +1641,8 @@ const overrides: Catalog = {
   noteOverridesEditorDefaultToggle: "Predefinito",
   noteOverridesEditorIdField: "Identificatore (id=)",
   noteOverridesEditorIdHelper: "Riferito da vincoli e setval",
+  noteOverridesEditorQuestionIdField: "Id domanda (id=)",
+  noteOverridesEditorQuestionIdHelper: "Fissa l'identità di questa domanda così che le risposte salvate sopravvivano a successive modifiche del testo o delle opzioni. Lascia vuoto per derivarla dal testo.",
   noteOverridesEditorAddTranslation: "Aggiungi traduzione",
   noteOverridesEditorRemoveTranslation: "Rimuovi traduzione",
   noteOverridesEditorConstraintsHeader: "Vincoli (riferimento ad altre opzioni per id)",

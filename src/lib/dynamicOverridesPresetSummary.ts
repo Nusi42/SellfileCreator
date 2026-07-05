@@ -15,8 +15,10 @@
  * subtext and the long per-option `detail` are dropped to keep the tooltip compact.
  *
  * Both override domains expose the same minimal question shape, so one generic
- * over that shape covers both rather than forking the logic. Slider questions
- * (empty option labels, numeric answers) surface their selected numeric value.
+ * over that shape covers both rather than forking the logic. A question may mix
+ * groups (e.g. a safeguard count card is an activation radio group PLUS a slider),
+ * so each answer VALUE is classified independently: known option ids resolve to
+ * their label, everything else is a slider value (numeric string / toggle sentinel).
  */
 import {
   resolveRecipeOverridesTags,
@@ -110,28 +112,28 @@ const summarizeQuestions = (
   for (const question of questions) {
     const resolved = Array.isArray(question.answer) ? question.answer : []
     const defaultSet = new Set(question.defaultAnswer)
-    // Slider questions carry empty option labels; their answer is a numeric value string.
-    const isSlider = question.groups.some((group) => group.type === 'slider')
-    let answers: DynamicOverridesSummaryAnswer[]
-    if (isSlider) {
-      // A slider with an on/off toggle shows the toggle wording + value, e.g. "Yes - 25";
-      // a plain count slider shows the numeric value alone. A toggle that is off behaves
-      // like any other unchecked checkbox — it contributes no answer (so its question line
-      // drops out), rather than printing a placeholder for the off state.
-      const toggleLabel = question.options[0]?.sliderToggle?.label
-      answers = resolved
-        .filter((value) => value.trim().length > 0 && value !== SLIDER_TOGGLE_OFF)
-        .map((value) => ({
-          label: toggleLabel ? `${toggleLabel} — ${value}` : value,
-          isDefault: defaultSet.has(value),
-        }))
-    } else {
-      const optionById = new Map(question.options.map((o) => [o.id, o]))
-      // Resolve each option id to its label (single-lined), dropping ids that no longer exist.
-      answers = resolved
-        .map((id) => optionById.get(id))
-        .filter((option): option is SummarizableQuestion['options'][number] => option != null)
-        .map((option) => ({ label: normalizeOptionLabelText(option.label), isDefault: defaultSet.has(option.id) }))
+    // A question may mix groups: e.g. the safeguard count cards carry a `single` radio
+    // group (activation mode) AND a `slider` group (count) at once. So classify each
+    // answer VALUE, not the whole question — an id that matches a real option resolves to
+    // that option's label; anything else is a slider value (numeric string / toggle sentinel).
+    const optionById = new Map(question.options.map((o) => [o.id, o]))
+    // The slider's on/off toggle wording (if any) lives on whichever option carries it; the
+    // count card's slider option has no toggle, so this is usually undefined (plain value).
+    const toggleLabel = question.options.find((o) => o.sliderToggle)?.sliderToggle?.label
+    const answers: DynamicOverridesSummaryAnswer[] = []
+    for (const value of resolved) {
+      const option = optionById.get(value)
+      if (option) {
+        // A real option id → show its display label (single-lined), never the raw id.
+        answers.push({ label: normalizeOptionLabelText(option.label), isDefault: defaultSet.has(option.id) })
+        continue
+      }
+      // Not an option id → a slider value. Blank/toggle-off values contribute no answer
+      // (an off toggle behaves like an unchecked checkbox), rather than printing a placeholder.
+      if (value.trim().length === 0 || value === SLIDER_TOGGLE_OFF) continue
+      // A slider with an on/off toggle shows the toggle wording + value, e.g. "Yes — 25";
+      // a plain count slider shows the numeric value alone.
+      answers.push({ label: toggleLabel ? `${toggleLabel} — ${value}` : value, isDefault: defaultSet.has(value) })
     }
     // A question whose selection resolves to nothing contributes nothing.
     if (answers.length === 0) continue

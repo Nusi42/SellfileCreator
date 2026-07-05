@@ -1641,6 +1641,8 @@ const overrides: Catalog = {
   noteOverridesEditorDefaultToggle: "Типово",
   noteOverridesEditorIdField: "Ідентифікатор (id=)",
   noteOverridesEditorIdHelper: "Використовується обмеженнями та setval",
+  noteOverridesEditorQuestionIdField: "Ід питання (id=)",
+  noteOverridesEditorQuestionIdHelper: "Закріплює ідентичність цього питання, щоб збережені відповіді пережили подальші зміни тексту чи варіантів. Залиште порожнім, щоб вивести його з тексту.",
   noteOverridesEditorAddTranslation: "Додати переклад",
   noteOverridesEditorRemoveTranslation: "Видалити переклад",
   noteOverridesEditorConstraintsHeader: "Обмеження (посилаються на інші варіанти за id)",

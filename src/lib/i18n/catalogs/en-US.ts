@@ -1641,6 +1641,8 @@ const enUS: Catalog = {
   noteOverridesEditorDefaultToggle: "Default",
   noteOverridesEditorIdField: "Identifier (id=)",
   noteOverridesEditorIdHelper: "Referenced by constraints and setval",
+  noteOverridesEditorQuestionIdField: "Question id (id=)",
+  noteOverridesEditorQuestionIdHelper: "Pins this question's identity so saved answers survive later prompt or option edits. Leave empty to derive it from the text.",
   noteOverridesEditorAddTranslation: "Add translation",
   noteOverridesEditorRemoveTranslation: "Remove translation",
   noteOverridesEditorConstraintsHeader: "Constraints (reference other options by id)",

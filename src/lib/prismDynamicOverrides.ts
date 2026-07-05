@@ -241,7 +241,8 @@ function recipeOverrides(Prism: Refractor): void {
         // Both aliases are equal; `$count.TOKEN` cross-slider form is also matched here.
         'sg-value-ref': /\$(?:count(?:\.\w[\w-]*)?|value)\b/,
 
-        // `id=TOKEN` – defines a stable cross-question option identifier.
+        // `id=TOKEN` – defines a stable identifier: on an option it names a cross-question
+        // target; right after a `q` prompt it PINS the question id (see the parser/EBNF).
         // Split into three inner tokens so the `id` keyword joins the blue structural-keyword
         // family (q, cb, tag) while the defined token name keeps its bright amber.
         'id-assign': {

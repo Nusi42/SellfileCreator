@@ -104,6 +104,34 @@ test('whole-note re-serialization preserves signatures and default answers', () 
   )
 })
 
+test('a pinned question id= survives parse → draft → serialize → re-parse', () => {
+  // The serializer must re-emit `q "…" id=TOKEN`; if it drops the pin, re-serialization would
+  // re-hash the id and orphan saved answers (the exact regression that lost the v1.0.34 sets).
+  const block = '<!-- recipe-overrides\n  q "Prompt" id=pinned_id\n  rb "A" * id=a {}\n  rb "B" id=b {}\n-->'
+  const first = parseOverridesBlockDraft(block)
+  assert.equal(first.diagnostics.length, 0, 'the pinned-id block should parse clean')
+  assert.ok(first.draft && first.draft.kind === 'question')
+  assert.equal((first.draft as Extract<typeof first.draft, { kind: 'question' }>).explicitId, 'pinned_id',
+    'the draft carries the pinned id')
+  const serialized = serializeOverridesBlock(first.draft)
+  assert.ok(serialized.includes('id=pinned_id'), `serialized block must re-emit the pin, got: ${serialized}`)
+  const second = parseOverridesBlockDraft(serialized)
+  assert.equal(second.diagnostics.length, 0, 're-serialized pinned block must stay diagnostic-free')
+  assert.equal((second.draft as Extract<typeof second.draft, { kind: 'question' }>).explicitId, 'pinned_id',
+    'the pin survives the full round-trip')
+  // And the resolved question id equals the pin (not a content hash).
+  assert.equal(resolveRecipeOverridesTags(serialized).questions[0]!.id, 'pinned_id')
+})
+
+test('a derived (unpinned) question id stays byte-identical — no spurious id= emitted', () => {
+  // Questions without a pin must serialize without an `id=`, so existing notes never churn.
+  const block = '<!-- recipe-overrides\n  q "Prompt"\n  rb "A" * id=a {}\n-->'
+  const draft = parseOverridesBlockDraft(block).draft!
+  assert.equal((draft as Extract<typeof draft, { kind: 'question' }>).explicitId, null, 'no pin parsed')
+  const serialized = serializeOverridesBlock(draft)
+  assert.ok(!/q\s+"Prompt"\s+id=/.test(serialized), `unpinned question must not gain an id=, got: ${serialized}`)
+})
+
 test('localization survives the round-trip', () => {
   for (const ref of refs) {
     const draft = parseOverridesBlockDraft(ref.raw).draft!
@@ -274,6 +302,11 @@ test('validation rejects marker-breaking strings and reserved ids', () => {
   draft.prompt = { base: 'ok', locales: [] }
   draft.options[0]!.explicitId = 'set'
   assert.ok(validateOverridesBlockDraft(draft).some((d) => d.message.includes('reserved')))
+  // A malformed pinned QUESTION id is validated the same way as an option id.
+  draft.options[0]!.explicitId = null
+  draft.explicitId = 'not a token'
+  assert.ok(validateOverridesBlockDraft(draft).some((d) => d.message.includes('question id')),
+    'an invalid pinned question id must be flagged')
 })
 
 test('raw-body validation flags unbalanced braces and stray tokens', () => {

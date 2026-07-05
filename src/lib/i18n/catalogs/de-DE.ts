@@ -1641,6 +1641,8 @@ const overrides: Catalog = {
   noteOverridesEditorDefaultToggle: "Standard",
   noteOverridesEditorIdField: "Kennung (id=)",
   noteOverridesEditorIdHelper: "Wird von Abhängigkeiten und setval referenziert",
+  noteOverridesEditorQuestionIdField: "Frage-ID (id=)",
+  noteOverridesEditorQuestionIdHelper: "Fixiert die Identität dieser Frage, damit gespeicherte Antworten spätere Änderungen am Text oder an den Optionen überstehen. Leer lassen, um sie aus dem Text abzuleiten.",
   noteOverridesEditorAddTranslation: "Übersetzung hinzufügen",
   noteOverridesEditorRemoveTranslation: "Übersetzung entfernen",
   noteOverridesEditorConstraintsHeader: "Abhängigkeiten (verweisen per id auf andere Optionen)",

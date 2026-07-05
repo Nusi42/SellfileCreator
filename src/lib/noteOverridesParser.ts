@@ -979,7 +979,11 @@ export type ParsedOverridesQuestion<S, O> = {
   layoutColumns: number
   // Explicit option-grid column count (from `optcols=N`); 0 = auto-fit by available width.
   optionColumns: number
+  // The effective question id (explicit `id=` when present, otherwise the content hash).
   questionId: string
+  // The author-pinned `id=` verbatim, or null when the id was derived from prompt+options.
+  // Kept distinct from `questionId` so the serializer/editor can re-emit only real pins.
+  explicitId: string | null
   options: ParsedOverridesOption<S, O>[]
   fallback: { blocks: OverridesSelectorBlock<S, O>[]; crossBlocks: unknown[] } | null
 }
@@ -1541,6 +1545,23 @@ export function parseOverridesMarkerBody<S, O>(
   const promptToken = cursor.consumeString()
   if (!promptToken) return null
   const prompt = promptToken.value
+  // Optional explicit question id (`q "…" id=TOKEN`), consumed immediately after the prompt
+  // and before any option group. When present it PINS the question's identity, so later edits
+  // to the prompt or option set never re-hash the id and orphan saved answers. Without it the
+  // id is derived from prompt+options (see buildQuestionKey). Mirrors the option-level `id=`.
+  let explicitId: string | null = null
+  if (cursor.peek()?.kind === 'word' && cursor.peek()!.value.toLowerCase() === 'id'
+      && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') {
+    cursor.next() // 'id'
+    cursor.next() // '='
+    const valueToken = cursor.peek()
+    if (valueToken && (valueToken.kind === 'word' || valueToken.kind === 'string')) {
+      cursor.next()
+      reportReservedIdToken(valueToken, diags, blockOffset)
+      const candidate = normalizeQuestionToken(valueToken.value)
+      if (candidate) explicitId = candidate
+    }
+  }
   const parsedOptions: ParsedOverridesOption<S, O>[] = []
   let fallbackBlocks: OverridesSelectorBlock<S, O>[] | null = null
   let fallbackCrossBlocks: unknown[] = []
@@ -1565,7 +1586,8 @@ export function parseOverridesMarkerBody<S, O>(
     parsedOptions.push(parsed)
   }
   if (parsedOptions.length === 0) return null
-  const questionId = buildQuestionKey(
+  // An explicit `id=` pins the question's identity; otherwise fall back to the content hash.
+  const questionId = explicitId ?? buildQuestionKey(
     prompt,
     parsedOptions.map((opt) => ({ label: opt.label, groupType: opt.groupType })),
   )
@@ -1580,6 +1602,7 @@ export function parseOverridesMarkerBody<S, O>(
     layoutColumns: markerOptions.columns,
     optionColumns: markerOptions.optionColumns,
     questionId,
+    explicitId,
     options: parsedOptions,
     fallback: (fallbackBlocks || fallbackCrossBlocks.length > 0)
       ? { blocks: fallbackBlocks ?? [], crossBlocks: fallbackCrossBlocks }

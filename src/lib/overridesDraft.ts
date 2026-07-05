@@ -321,6 +321,8 @@ export function parseOverridesBlockDraft(rawBlock: string): OverridesBlockParse 
       kind: 'question',
       columns: question.layoutColumns,
       optionColumns: question.optionColumns,
+      // Preserve a pinned `id=` verbatim so re-serialization keeps the question's identity.
+      explicitId: question.explicitId,
       prompt: toLocalizedText(question.prompt),
       options: question.options.map((option) => toDraftOption(domain, rawBlock, option, diagnostics)),
       fallback,
@@ -357,7 +359,8 @@ export function createDraftOption(groupType: NoteQuestionGroupType): DraftOption
 export function createEmptyOverridesBlockDraft(domain: OverridesDomain): OverridesBlockDraft {
   const first = createDraftOption('single')
   first.isDefault = true
-  return { domain, kind: 'question', columns: 0, optionColumns: 0, prompt: { base: '', locales: [] }, options: [first], fallback: null }
+  // New blocks derive their id from content (explicitId null) until the author pins one.
+  return { domain, kind: 'question', columns: 0, optionColumns: 0, explicitId: null, prompt: { base: '', locales: [] }, options: [first], fallback: null }
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -439,6 +442,8 @@ export function validateOverridesBlockDraft(draft: OverridesBlockDraft): Diagnos
   checkCount(draft.optionColumns, 'optcols')
   if (draft.options.length === 0) sink.push(draftDiag('a question needs at least one option'))
   validateLocalizedText(draft.prompt, 'prompt', sink)
+  // A pinned question id must be a valid token (same grammar as an option id).
+  if (draft.explicitId !== null) validateToken(draft.explicitId, 'question id', sink)
   draft.options.forEach((option, index) => {
     const name = `option ${index + 1}`
     validateLocalizedText(option.label, `${name} label`, sink)

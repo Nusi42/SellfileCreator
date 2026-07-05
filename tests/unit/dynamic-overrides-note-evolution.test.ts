@@ -120,6 +120,24 @@ test('a mutual set/unset cycle resolves to a bounded, valid result (no hang/over
   }
 })
 
+test('an explicit question id= pins the identity so prompt/option edits do NOT orphan saved answers', () => {
+  // v1: a plain single-choice question with a pinned id. The user saves an answer.
+  const v1 = ['<!-- recipe-overrides', 'q "Old prompt" id=pinned_q', 'rb "A" * id=a {}', 'rb "B" id=b {}', '-->'].join('\n')
+  const r1 = resolveRecipeOverridesTags(v1)
+  assert.equal(r1.questions[0]!.id, 'pinned_q', 'explicit id= is used verbatim as the question id')
+  const saved = applyRecipeOverridesAnswerChange(v1, {}, r1.questions[0]!, [optId(v1, 'b')], 'sentinel')
+  // v2: the prompt is reworded AND a new option is added — a content change that WOULD
+  // re-hash a derived id, but the pinned id keeps the question stable.
+  const v2 = [
+    '<!-- recipe-overrides', 'q "Reworded prompt with more words" id=pinned_q',
+    'rb "A" * id=a {}', 'rb "B" id=b {}', 'rb "C (new)" id=c {}', '-->',
+  ].join('\n')
+  const r2 = resolveRecipeOverridesTags(v2, saved)
+  assert.equal(r2.questions[0]!.id, 'pinned_q', 'the id survives a prompt + option-set change')
+  // The saved "B" selection still applies rather than falling back to the "A" default.
+  assert.deepEqual(r2.questions[0]!.answer, [optId(v2, 'b')], 'the pinned id lets the saved answer survive the edit')
+})
+
 test('preset apply against an updated note keeps only still-valid selections', () => {
   const v1 = ['<!-- recipe-overrides', 'q "Q"', 'cb "X" id=x {}', 'cb "Y" id=y {}', '-->'].join('\n')
   const savedFull = applyRecipeOverridesAnswerChange(v1, {}, resolveRecipeOverridesTags(v1).questions[0]!, [optId(v1, 'x'), optId(v1, 'y')], 'y')

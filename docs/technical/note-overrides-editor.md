@@ -3,7 +3,8 @@
 The note dialog's edit mode includes a visual editor that can **create and edit whole
 `<!-- recipe-overrides … -->` / `<!-- safeguard-overrides … -->` blocks** without typing
 DSL — every construct the parser accepts round-trips through it (prompt/label/detail
-strings with `[[cc]]` locale variants, `rb`/`cb`/`slider` options, `*` defaults, `id=`,
+strings with `[[cc]]` locale variants, an optional pinned question `id=`, `rb`/`cb`/`slider`
+options, `*` defaults, option `id=`,
 constraint tokens, slider params incl. marks/toggle/unit, and `{ @selector { ops } }`
 effect bodies with `else` and cross-domain blocks). The acceptance fixture is
 `presets/lategame.sfc`: all of its 22 blocks map to the fully structured editor model.
@@ -33,14 +34,19 @@ following options — the lenient parser cannot flag that itself).
 - canonical form is a `serialize∘parse` fixed point;
 - whole-note re-serialization preserves `buildNote*OverridesSignature` and default
   answers — **pure re-serialization never invalidates stored answers** (only real base-text
-  edits do, because question/option ids hash the English base text);
+  edits do, because question/option ids hash the English base text — *unless* the question
+  carries an explicit `id=` pin, in which case its id is fixed and base-text edits no longer
+  reset its answers; the pin itself round-trips verbatim);
 - exhaustive emit↔parse tables cover every operation/selector kind lategame doesn't use.
 
 ## UI (`src/components/noteOverridesEditor/`)
 
 - `NoteOverridesBlockEditorDialog.tsx` — modal shell (`maxWidth="md"`, keyed remount per
-  open via a request `nonce`), prompt + columns, options list (add/remove/reorder/
-  duplicate; radio-default exclusivity), live validation (Apply disabled while
+  open via a request `nonce`), prompt + columns + an optional pinned **question `id=`**
+  (empty → id derived from prompt+options; a value pins the identity so saved answers
+  survive later prompt/option edits — the base-identity signature becomes pin-only, so the
+  answers-reset Alert stays hidden for text edits under a pin), options list (add/remove/
+  reorder/duplicate; radio-default exclusivity), live validation (Apply disabled while
   `validateOverridesBlockDraft` reports problems), dirty-close confirm, and an info
   Alert when English base text changed (answers reset to defaults).
 - `OptionEditorCard.tsx` — one accordion per option: kind select, default, `id=`,

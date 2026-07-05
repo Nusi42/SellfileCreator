@@ -119,7 +119,9 @@ const SLIDER_NUMERIC_PARAMS = SLIDER_PARAM_KEYWORDS
 const MARKER_OPTIONS_LINES = `markerOptions := "[" markerOption ("," markerOption)* "]"
 markerOption  := (${quoteTok(NOTE_OVERRIDES_MARKER_COLUMNS_KEY)} | ${quoteTok(NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY)}) "=" number`
 
-const QUESTION_LINE = `question      := (${alt(NOTE_OVERRIDES_QUESTION_KEYWORDS)}) string group+ [fallbackBlock]`
+const QUESTION_LINE = `question      := (${alt(NOTE_OVERRIDES_QUESTION_KEYWORDS)}) string ["id" "=" token] group+ [fallbackBlock]
+             // id=token PINS the question's identity: saved answers survive later prompt/option
+             // edits (without it, the id is re-hashed from prompt+options and old answers orphan)`
 
 const EXPR_LINES = `expr          := notExpr ((${alt(NOTE_OVERRIDES_LOGIC_KEYWORDS)} | "&&" | "||") notExpr)*
 notExpr       := ("not" | "!") notExpr | "(" expr ")" | term`

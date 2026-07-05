@@ -161,3 +161,27 @@ test('"Reset Options to Defaults" re-applies the default-mode forces over a dirt
     .setValueDirectives.find((d) => d.token === 'min_spd_pieces')!.value
   assert.equal(afterReset[spdQ.id]?.[0], String(lategameForce), 'reset applies the Lategame speed-set force')
 })
+
+test('the 5 safeguard count cards keep their v1.0.34-compatible pinned ids (regression: saved-set rescue)', () => {
+  // The safeguard count cards gained an activation-mode radio group after v1.0.34, which
+  // re-hashed their derived ids and orphaned sets saved with the older (slider-only) ids.
+  // Pinning each question's `id=` back to the v1.0.34 hash keeps those saved answers valid.
+  // These literals ARE the ids v1.0.34 produced — do not "fix" them to the new hashes, or
+  // every set saved before the radios were added stops loading.
+  const expected: Record<string, string> = {
+    min_spdbanner_pieces: 'q_ta25kl',
+    min_spd_pieces: 'q_bk3r8j',
+    min_debuffer_pieces: 'q_416mju',
+    min_dmgsurv_pieces: 'q_tk0vqr',
+  }
+  const { questions } = resolveNoteSafeguardOverridesTags(note)
+  for (const [sliderToken, wantId] of Object.entries(expected)) {
+    const q = questions.find((x) => x.options.some((o) => o.token === sliderToken))
+    assert.ok(q, `safeguard card with slider ${sliderToken} should exist`)
+    assert.equal(q!.id, wantId, `${sliderToken}'s card must keep pinned id ${wantId}`)
+  }
+  // The Mercurial card's slider has no id= token, so match it by prompt instead.
+  const mercurial = questions.find((x) => x.prompt.includes('Mercurial'))
+  assert.ok(mercurial, 'the Mercurial safeguard card should exist')
+  assert.equal(mercurial!.id, 'q_muougk', 'the Mercurial card must keep pinned id q_muougk')
+})

@@ -60,6 +60,29 @@ test('slider safeguard questions surface their numeric value', () => {
   assert.ok(line, `slider value should appear as an answer, got ${JSON.stringify(lines)}`)
 })
 
+test('mixed radio+slider safeguard: radio answer resolves to its LABEL, not the raw option id (regression)', () => {
+  // The safeguard count cards carry BOTH a `single` activation radio group AND a `slider`
+  // count group. The summary used to treat any question containing a slider as slider-only,
+  // dumping the radio's raw option id (e.g. "q_xxx:plus missing slots#2") verbatim instead of
+  // resolving it to "Plus missing slots". Assert both group answers surface correctly.
+  const sg = resolveNoteSafeguardOverridesTags(note)
+  const mixedQ = sg.questions.find(
+    (q) => q.groups.some((g) => g.type === 'single') && q.groups.some((g) => g.type === 'slider'),
+  )
+  assert.ok(mixedQ, 'preset should contain a mixed radio+slider safeguard question')
+  // Pick a concrete radio option to store alongside a slider value.
+  const radioGroup = mixedQ!.groups.find((g) => g.type === 'single')!
+  const radioOpt = radioGroup.options[0]!
+  const { lines } = buildDynamicOverridesPresetSummary(note, {}, { [mixedQ!.id]: [radioOpt.id, '21'] })
+  const line = lines.find((l) => l.answers.some((a) => a.label === radioOpt.label))
+  assert.ok(line, `radio answer should resolve to its label "${radioOpt.label}", got ${JSON.stringify(lines.flatMap((l) => l.answers))}`)
+  // The raw option id must never leak into an answer label.
+  const allLabels = lines.flatMap((l) => l.answers.map((a) => a.label))
+  assert.ok(!allLabels.includes(radioOpt.id), `raw option id "${radioOpt.id}" must not appear as a label`)
+  // The slider value from the same question still surfaces alongside the radio label.
+  assert.ok(line!.answers.some((a) => a.label === '21'), `slider value should appear on the same line, got ${JSON.stringify(line!.answers)}`)
+})
+
 test('saving snapshots the FULL resolved selection (defaults included)', () => {
   // Save from an empty live map — the snapshot must still record the resolved defaults.
   const full = snapshotDynamicOverridesFullSelection(note, {}, {})

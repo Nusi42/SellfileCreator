@@ -599,6 +599,10 @@ export function serializeOverridesBlock(draft: OverridesBlockDraft): string {
   b.open(`<!-- ${keyword}${columnsAttr}`)
   b.open('  q')
   emitLocalized(b, draft.prompt)
+  // Emit a pinned question id (`q "…" id=TOKEN`) right after the prompt, before the options —
+  // matching the parser's consume order so a re-parse recovers the same id. Omitted when the
+  // id is derived from content, so notes that never pinned an id stay byte-identical.
+  if (draft.explicitId) b.token(`id=${draft.explicitId}`)
   for (const option of draft.options) emitOption(b, draft.domain, option)
   if (draft.fallback) {
     // Question-level fallback (applies when no group has selections).

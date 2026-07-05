@@ -139,6 +139,9 @@ export type OverridesBlockDraft =
       columns: number
       // Option-grid column count (`optcols=N`); 0 = omit the attribute (auto-fit by width).
       optionColumns: number
+      // Author-pinned question id (`q "…" id=TOKEN`), or null to derive it from prompt+options.
+      // A pin keeps saved answers valid across later prompt/option edits — see buildQuestionKey.
+      explicitId: string | null
       prompt: DraftLocalizedText
       options: DraftOption[]
       fallback: DraftQuestionFallback | null
