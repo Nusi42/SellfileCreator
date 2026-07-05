@@ -908,7 +908,10 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
           the block above is invalid until one is added, so spell it out and point at
           the add button on the row below. */}
       {needsOperation && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main' }}>
+        // Testid on the callout so e2e targets this exact node instead of a whole-DOM
+        // getByText walk — that walk crashes Firefox's text engine when it races this
+        // Box unmounting (can't read ownerDocument.head of a mid-detach node).
+        <Box data-testid="overrides-editor-op-required" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main' }}>
           <ArrowForwardIcon sx={{ fontSize: '1rem' }} />
           <Typography variant="caption" sx={{ fontWeight: 600 }}>
             {t('noteOverridesEditorOperationRequired')}

@@ -148,6 +148,38 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
     },
   )
 
+  // Kill CSS transitions/animations for the whole app under test.
+  // Why: MUI Accordion/Collapse/Tooltip animate open over ~300ms. Specs that click a
+  // control the instant it appears inside a still-expanding Collapse race the transition —
+  // Playwright can see a momentarily-stable box mid-animation, dispatch the click, and on
+  // Firefox the event lands during reflow so the React handler never fires (the click is
+  // lost, no state change). Zeroing every transition/animation makes reveal instant, so no
+  // click can ever race an in-flight animation. `!important` beats MUI's inline transition
+  // styles; the rule is injected as the first <head> child on every document (survives the
+  // post-prepareApp navigation because it runs as an init script, not addStyleTag).
+  await page.addInitScript(`
+    ;(() => {
+      var STYLE_ID = '__pw_disable_animations';
+      var install = function () {
+        if (!document.head || document.getElementById(STYLE_ID)) return;
+        var style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent =
+          '*, *::before, *::after {' +
+          ' transition-duration: 0s !important;' +
+          ' transition-delay: 0s !important;' +
+          ' animation-duration: 0s !important;' +
+          ' animation-delay: 0s !important;' +
+          ' scroll-behavior: auto !important;' +
+          ' }';
+        document.head.insertBefore(style, document.head.firstChild);
+      };
+      // <head> may not exist yet at init time; install now if it does, otherwise on ready.
+      if (document.head) install();
+      else document.addEventListener('DOMContentLoaded', install, { once: true });
+    })();
+  `)
+
   // Patch Playwright's WebSocket mock to decode binary frames with
   // Uint8Array.fromBase64 (Chrome 118+, native, sub-millisecond) instead of
   // the injected char-by-char atob loop.  For large binary frames the original

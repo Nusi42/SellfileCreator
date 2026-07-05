@@ -93,7 +93,7 @@ test('structured body builder adds an @all export=disabled effect', async ({ pag
   await expect(page.getByTestId('overrides-editor-term-kind')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // A freshly added block has no assignment yet, so it shows the required-assignment
   // call-to-action (persistent, not a hover tooltip) pointing at the add button.
-  const opRequiredHint = page.getByText('Add an assignment to make this rule do something')
+  const opRequiredHint = page.getByTestId('overrides-editor-op-required')
   await expect(opRequiredHint).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Pick field `export` and value `disabled` — the dropdowns show the same
   // localized labels as the rest of the UI, while the DSL keeps its tokens.
