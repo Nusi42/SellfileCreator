@@ -13,13 +13,13 @@
  * "Create & switch"), so both flows share one look and feel. The button itself is FILLED
  * with the active account's accent (label contrast-adapted); "no accent" is a valid
  * choice. Rows mark the active account with a leading arrow and show the accent as a
- * trailing square swatch.
+ * trailing person glyph, followed by a toggleable auto-push button and the manage gear.
  */
 import React, { useMemo, useState } from 'react'
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
   Divider, FormControlLabel, IconButton, ListItemIcon, Menu, MenuItem,
-  Switch, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  Switch, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
@@ -75,25 +75,34 @@ export type AccountSwitcherProps = {
 // 'manage' edits the identified account live (registry updates re-render instantly).
 type AccountDialogState = { mode: 'create' } | { mode: 'manage'; accountId: string } | null
 
-// Small square accent swatch at each row's trailing edge; the raw user colour is fine as
-// a *background* (it never renders as text, so no contrast adaptation is needed — same as
-// other colour swatches). Accounts without an accent render an invisible spacer of the
-// same size so the trailing manage icons stay column-aligned across rows.
-function AccentSquare({ color, size = 12 }: { color: string | undefined; size?: number }) {
+// Trailing accent marker at each row's edge: the same person glyph the switcher button
+// uses, filled with the account's accent so the colour reads at a glance (a tiny square
+// swatch was too small to register). The raw user colour is fine as a *background* here —
+// it never renders as text, so no contrast adaptation is needed (same as other swatches).
+// Accounts without an accent render an outlined person on the default surface so the
+// trailing manage icons stay column-aligned across rows. glyphColor is the scheme text
+// pushed to contrast ON the accent fill (computed by the caller with the same colour-SSOT
+// primitive the switcher button label uses); it is ignored when there is no accent.
+function AccentPerson({ color, glyphColor, size = 26 }: { color: string | undefined; glyphColor: string | undefined; size?: number }) {
   return (
     <Box
       component="span"
       sx={{
-        width: size, height: size, borderRadius: '2px', flexShrink: 0, display: 'inline-block',
-        ...(color
-          ? {
-              bgcolor: color,
-              // Hairline outline keeps light accents visible on light surfaces (and vice versa).
-              border: '1px solid', borderColor: 'divider',
-            }
-          : { visibility: 'hidden' }),
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        // Hairline outline keeps the marker visible whether or not it carries an accent.
+        border: '1px solid', borderColor: 'divider',
+        ...(color ? { bgcolor: color } : {}),
       }}
-    />
+    >
+      <PersonIcon
+        sx={{
+          // Glyph reads as the accent's contrast colour when filled, muted when absent.
+          fontSize: size * 0.62,
+          color: color ? glyphColor : 'text.disabled',
+        }}
+      />
+    </Box>
   )
 }
 
@@ -108,9 +117,13 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const { colorScheme } = useColorScheme()
   const schemePalette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
   const accent = activeAccount.accentColor
-  // 4.5:1 (normal-text AA) — the default 3.0 UI-component target reads too faint for the
-  // small button label on an arbitrary accent fill.
-  const accentLabel = accent ? ensureContrastOnBg(schemePalette.text.primary, accent, WCAG_NORMAL_TEXT_CONTRAST) : undefined
+  // One definition of "scheme text pushed to contrast ON this accent fill" (colour-SSOT):
+  // the switcher button label and the per-row accent-person glyph both read through it.
+  // 4.5:1 (normal-text AA) — the default 3.0 UI-component target reads too faint for a
+  // small mark on an arbitrary accent fill. undefined accent → undefined (no fill to adapt).
+  const accentGlyphColor = (fill: string | undefined): string | undefined =>
+    fill ? ensureContrastOnBg(schemePalette.text.primary, fill, WCAG_NORMAL_TEXT_CONTRAST) : undefined
+  const accentLabel = accentGlyphColor(accent)
   // Hover feedback mirrors MUI's action model: scheme text blended over the fill at a low step.
   const accentHoverBg = accent ? blendAlpha(accent, schemePalette.text.primary, ALPHA.a10) : undefined
 
@@ -118,24 +131,33 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const menuOpen = menuAnchor !== null
   const closeMenu = () => setMenuAnchor(null)
+  // Bumped whenever a row toggles auto-push in place, so the per-account summary memo
+  // (which reads the raw scoped auto-push key) recomputes and the glyph reflects the flip.
+  const [summaryNonce, setSummaryNonce] = useState(0)
 
   // Per-account saved-at/counts, computed lazily on each menu open (the SFC summary
   // needs a full document parse per account — cheap enough at menu-open frequency).
   const accountSummaries = useMemo(() => {
+    // Referencing summaryNonce keeps it a genuine dependency (both hook linters agree):
+    // an in-place auto-push toggle bumps it so the summaries — which read the raw scoped
+    // auto-push key imperatively — recompute and the row glyph reflects the flip. The void
+    // is intentional; the value itself does not shape the map, only that it changed.
+    void summaryNonce
     if (!menuOpen) return new Map<string, ReturnType<typeof readAccountListSummary>>()
     return new Map(accounts.map((account) => [account.id, readAccountListSummary(account.id)]))
-  }, [menuOpen, accounts])
+  }, [menuOpen, accounts, summaryNonce])
 
   // Account label with the shared name → Player ID resolution; localized fallback when
   // an account has neither (names are optional).
   const accountLabel = (account: SfcAccount): string => accountDisplayLabel(account) || t('accountUnnamed')
 
   // Preset-menu-style caption block, one fact per line for scanability: "Saved <date>",
-  // "Pushed <date>" (+ the auto-push state icon), "N recipes · M safeguards · K rules".
-  // Saved (local autosave) and pushed (what RSL Helper has) are DIFFERENT facts — the
-  // push line is always present so the saved line can never be misread as push state.
+  // "Pushed <date>", "N recipes · M safeguards · K rules". Saved (local autosave) and
+  // pushed (what RSL Helper has) are DIFFERENT facts — the push line is always present so
+  // the saved line can never be misread as push state. Auto-push state is NOT a caption
+  // line: it lives in its own toggleable trailing column (read from the SSOT scoped key).
   // The gear outcome chip (total / sold / kept / safeguarded) renders separately below.
-  const summaryRow = (accountId: string): { savedLine: string | null; pushedLine: string; countsLine: string | null; autoPush: boolean } | null => {
+  const summaryRow = (accountId: string): { savedLine: string | null; pushedLine: string; countsLine: string | null } | null => {
     const summary = accountSummaries.get(accountId)
     if (!summary) return null
     // formatLocalDateTime returns null on unparsable input — gate before interpolating.
@@ -150,7 +172,6 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
       savedLine: savedDate ? t('accountSummarySavedAt', { date: savedDate }) : null,
       pushedLine: pushedDate ? t('accountSummaryPushedAt', { date: pushedDate }) : t('accountSummaryNeverPushed'),
       countsLine: countParts.length > 0 ? countParts.join(' · ') : null,
-      autoPush: summary.autoPush,
     }
   }
 
@@ -350,6 +371,9 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
         {accounts.map((account) => {
           const summary = accountSummaries.get(account.id)
           const row = summaryRow(account.id)
+          // Auto-push state read straight from the SSOT scoped key (same source the summary
+          // uses) so the toggle is correct even before the per-account summary is computed.
+          const autoPushOn = getSellfileAutoPushForAccount(account.id)
           // Failed background push → dated error line (toast-free background feedback).
           const errorDate = summary?.lastPushErrorAt ? formatLocalDateTime(summary.lastPushErrorAt) : null
           return (
@@ -374,15 +398,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
                   <Typography variant="caption" noWrap sx={captionSx}>{row.savedLine}</Typography>
                 ) : null}
                 {row ? (
-                  <Typography variant="caption" noWrap sx={{ ...captionSx, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {row.pushedLine}
-                    {/* The account's auto-push contract as a glyph: green send = on, dim = off.
-                        titleAccess carries the localized state for tooltip + screen readers. */}
-                    <SendIcon
-                      titleAccess={t(row.autoPush ? 'accountSummaryAutoPushOn' : 'accountSummaryAutoPushOff')}
-                      sx={{ fontSize: 13, color: row.autoPush ? 'success.main' : 'text.disabled' }}
-                    />
-                  </Typography>
+                  <Typography variant="caption" noWrap sx={captionSx}>{row.pushedLine}</Typography>
                 ) : null}
                 {row?.countsLine ? (
                   <Typography variant="caption" noWrap sx={captionSx}>{row.countsLine}</Typography>
@@ -407,17 +423,38 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
                   </Box>
                 ) : null}
               </Box>
-              {/* Trailing accent swatch (square) sits where a status glyph would otherwise be. */}
-              <AccentSquare color={account.accentColor} />
+              {/* Trailing accent marker: the account's person glyph filled with its accent,
+                  large enough to read at a glance (glyph contrast-adapted ON the fill). */}
+              <AccentPerson color={account.accentColor} glyphColor={accentGlyphColor(account.accentColor)} />
+              {/* Auto-push contract as a toggleable column, mirroring the manage gear:
+                  green send = on, dim = off. Clicking flips the raw scoped key in place
+                  (no switch, no dialog) and bumps the summary nonce so the glyph updates.
+                  Tooltip + aria carry the localized state for pointer and screen readers. */}
+              <Tooltip title={t(autoPushOn ? 'accountSummaryAutoPushOn' : 'accountSummaryAutoPushOff')}>
+                <IconButton
+                  size="small"
+                  aria-label={t(autoPushOn ? 'accountSummaryAutoPushOn' : 'accountSummaryAutoPushOff')}
+                  sx={{ ml: 1 }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSellfileAutoPushForAccount(account.id, !autoPushOn)
+                    setSummaryNonce((n) => n + 1)
+                  }}
+                >
+                  <SendIcon fontSize="small" sx={{ color: autoPushOn ? 'success.main' : 'text.disabled' }} />
+                </IconButton>
+              </Tooltip>
               {/* Manage THIS account without switching to it (name, id, auto-push, …). */}
-              <IconButton
-                size="small"
-                aria-label={t('accountMenuManage')}
-                sx={{ ml: 1 }}
-                onClick={(e) => { e.stopPropagation(); openManage(account) }}
-              >
-                <SettingsOutlinedIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title={t('accountMenuManage')}>
+                <IconButton
+                  size="small"
+                  aria-label={t('accountMenuManage')}
+                  sx={{ ml: 1 }}
+                  onClick={(e) => { e.stopPropagation(); openManage(account) }}
+                >
+                  <SettingsOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </MenuItem>
           )
         })}
