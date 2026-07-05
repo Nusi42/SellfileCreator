@@ -88,29 +88,38 @@ static const char* SFC_CONTENT =
     "  \"SafeguardsEnabled\": false"
     "}";
 
-/* Two artifacts: #1 matches (5★ Epic with SPD), #2 does not. */
+/* Two artifacts in the RAW RSL-Helper wire shape (kindId/rankId/primary/secondary) —
+ * exactly what RSL Helper pipes in. #1 matches (5★ Epic with SPD), #2 does not.
+ * SPD is stat id 4, flat (isAbsolute=1). #1 is equipped by champion 5000 (see below). */
 static const char* ARTIFACT_ARRAY =
     "["
     "  {"
-    "    \"ID\": 1001,"
-    "    \"type\": 1,"     /* Weapon */
-    "    \"rank\": 5,"
-    "    \"rarity\": 4,"   /* Epic */
-    "    \"lvl\": 16,"
-    "    \"aset\": 10,"
-    "    \"mid\": 1, \"mfl\": 0,"
-    "    \"s1id\": 4, \"s1lvl\": 4, \"s1fl\": 1"  /* SPD (stat_id=4, flat) */
+    "    \"id\": 1001,"
+    "    \"kindId\": 1,"    /* Weapon */
+    "    \"rankId\": 5,"
+    "    \"rarityId\": 4,"  /* Epic */
+    "    \"level\": 16,"
+    "    \"setKindId\": 10,"
+    "    \"primary\": { \"id\": 1, \"isAbsolute\": 0 },"
+    "    \"secondary\": [ { \"id\": 4, \"level\": 4, \"isAbsolute\": 1 } ]"  /* SPD */
     "  },"
     "  {"
-    "    \"ID\": 1002,"
-    "    \"type\": 2,"     /* Helmet */
-    "    \"rank\": 4,"
-    "    \"rarity\": 3,"   /* Rare */
-    "    \"lvl\": 0,"
-    "    \"aset\": 5,"
-    "    \"mid\": 2, \"mfl\": 0,"
-    "    \"s1id\": 2, \"s1lvl\": 1, \"s1fl\": 0"
+    "    \"id\": 1002,"
+    "    \"kindId\": 2,"    /* Helmet */
+    "    \"rankId\": 4,"
+    "    \"rarityId\": 3,"  /* Rare */
+    "    \"level\": 0,"
+    "    \"setKindId\": 5,"
+    "    \"primary\": { \"id\": 2, \"isAbsolute\": 0 },"
+    "    \"secondary\": [ { \"id\": 2, \"level\": 1, \"isAbsolute\": 0 } ]"
     "  }"
+    "]";
+
+/* Raw champions array — champion 5000 equips artifact 1001 in slot 1 (the DLL inverts
+ * this to fill cID / equipped_in_collection). Mirrors the separate `champions` packet. */
+static const char* CHAMPION_ARRAY =
+    "["
+    "  { \"id\": 5000, \"artifacts\": { \"1\": 1001 } }"
     "]";
 
 /* Build the outer NativeInput JSON, embedding the SFC as a JSON string value. */
@@ -133,6 +142,8 @@ static std::string build_input() {
     result += sfc_escaped;
     result += "\", \"artifacts\": ";
     result += ARTIFACT_ARRAY;
+    result += ", \"champions\": ";
+    result += CHAMPION_ARRAY;
     result += "}";
     return result;
 }

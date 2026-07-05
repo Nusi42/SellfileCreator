@@ -33,62 +33,37 @@ use rule_engine_core::{
 };
 use rule_engine_core::safeguards::fast_path_types::SafeguardWasmSubstatIn;
 
+// Public so the integration parity test (tests/parity.rs) can drive the normaliser directly.
+pub mod artifact_log;
+use artifact_log::{
+    NativeArtifactIn,
+    RawArtifactLogRow,
+    RawChampionRow,
+    build_equipped_by_artifact_map,
+    parse_artifact_log_array,
+};
+
 // ---------------------------------------------------------------------------
 // Input schema
 // ---------------------------------------------------------------------------
 
-// Compact artifact row — mirrors the GearDbArtifactRow fields sent by the websocket.
-// Only the subset consumed by the DLL pipeline is declared; extra JSON fields are ignored.
-#[derive(Debug, Deserialize)]
-struct NativeArtifactIn {
-    // Artifact ID (primary key; used in ImprovementChanceEntry.artifact_id).
-    #[serde(rename = "ID")]
-    id:     Option<i64>,
-    // Slot id matching ArtifactType enum (1=Weapon … 9=Banner).
-    #[serde(rename = "type")]
-    slot:   i64,
-    // Star rank (1–6).
-    #[serde(default)]
-    rank:   Option<i64>,
-    // Rarity code (1=Common … 6=Legendary).
-    #[serde(default)]
-    rarity: Option<i64>,
-    // Level milestone (0 / 4 / 8 / 12 / 16).
-    #[serde(default)]
-    lvl:    Option<i64>,
-    // Set id for artifact slots (slot ≤ 6).
-    #[serde(default)]
-    aset:   Option<i64>,
-    // Set id for accessory slots (slot > 6).
-    #[serde(default)]
-    accset: Option<i64>,
-    // Main stat numeric id.
-    #[serde(default)]
-    mid:    Option<i64>,
-    // Main stat flat flag (0 = percentage, 1 = flat).
-    #[serde(default)]
-    mfl:    Option<i64>,
-    // Substats: id / roll-count / flat flag for slots 1–4.
-    #[serde(default)] s1id: Option<i64>, #[serde(default)] s1lvl: Option<i64>, #[serde(default)] s1fl: Option<i64>,
-    #[serde(default)] s2id: Option<i64>, #[serde(default)] s2lvl: Option<i64>, #[serde(default)] s2fl: Option<i64>,
-    #[serde(default)] s3id: Option<i64>, #[serde(default)] s3lvl: Option<i64>, #[serde(default)] s3fl: Option<i64>,
-    #[serde(default)] s4id: Option<i64>, #[serde(default)] s4lvl: Option<i64>, #[serde(default)] s4fl: Option<i64>,
-    // Equipped champion id — presence marks the artifact as equipped_in_collection.
-    #[serde(rename = "cID", default)]
-    c_id:    Option<i64>,
-    // Pre-resolved faction id for the equipped champion; 0 = Any when absent.
-    #[serde(default)]
-    faction: i64,
-}
-
-// Top-level DLL input: raw SFC file text + artifact array.
+// Top-level DLL input: raw SFC file text + the RAW RSL-Helper wire payloads.
+//
+// `artifacts` and `champions` are the exact shapes RSL Helper sends over its JSON-RPC
+// endpoint (kindId/rankId/primary/secondary/…, and champions[].artifacts slot-maps),
+// so RSL Helper can pipe its packets straight in. The DLL normalises them internally
+// (see artifact_log.rs) — the caller does NOT pre-run the app's TypeScript.
 #[derive(Debug, Deserialize)]
 struct NativeInput {
     // Raw SFC JSON as a string (the .sfc file contents).  Passed verbatim to parse_sfc.
     sfc:       String,
-    // Artifact rows to evaluate; may be empty (rules still generated, improvement chances empty).
+    // Raw ArtifactLog rows to evaluate; may be empty (rules still generated, chances empty).
     #[serde(default)]
-    artifacts: Vec<NativeArtifactIn>,
+    artifacts: Vec<RawArtifactLogRow>,
+    // Raw champion rows — only their id + artifacts slot-map are read, to fill cID
+    // (equipped_in_collection). Optional: absent → every artifact treated as unequipped.
+    #[serde(default)]
+    champions: Vec<RawChampionRow>,
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +179,12 @@ fn run(input_json: &str) -> Result<String, String> {
     let input: NativeInput = serde_json::from_str(input_json)
         .map_err(|e| format!("Invalid input JSON: {e}"))?;
 
+    // 1b. Normalise the raw RSL-Helper wire payloads into compact artifact rows.
+    //     Build the artifact→champion equipped map first (for cID / equipped_in_collection),
+    //     then run the raw ArtifactLog rows through the same parser logic the app uses.
+    let equipped_by_artifact = build_equipped_by_artifact_map(&input.champions);
+    let compact_artifacts = parse_artifact_log_array(&input.artifacts, &equipped_by_artifact);
+
     // 2. Parse the SFC string into normalised builder inputs.
     //    parse_sfc handles label → code conversion, all SFC schema variants, and
     //    the sub-minima table used by auto-min-count logic.
@@ -234,7 +215,7 @@ fn run(input_json: &str) -> Result<String, String> {
     // 5. Normalise the input artifacts into SafeguardCollectRowIn rows.
     //    Each row carries both the canonical SafeguardWasmArtifactIn and the
     //    TestItemRaw needed by the item-evaluator matcher.
-    let rows: Vec<SafeguardCollectRowIn> = input.artifacts.iter()
+    let rows: Vec<SafeguardCollectRowIn> = compact_artifacts.iter()
         .map(|a| {
             let (artifact, item) = normalize_artifact(a);
             SafeguardCollectRowIn {
@@ -380,32 +361,32 @@ mod tests {
         "SafeguardsEnabled": false
     }"#;
 
-    // Two sample artifacts: first matches (5★ Epic, has SPD), second does not.
-    // Substats use stat_id=4 for SPD (variant = 4<<8|1 = 1025).
+    // Two sample artifacts in the RAW RSL-Helper wire shape (kindId/rankId/primary/secondary):
+    // first matches (5★ Epic, has SPD), second does not. SPD is stat id 4, flat (isAbsolute=1).
     const SAMPLE_ARTIFACTS_JSON: &str = r#"[
         {
-            "ID": 1001,
-            "type": 1,
-            "rank": 5,
-            "rarity": 4,
-            "lvl": 16,
-            "aset": 10,
-            "mid": 1, "mfl": 0,
-            "s1id": 4, "s1lvl": 4, "s1fl": 1
+            "id": 1001,
+            "kindId": 1,
+            "rankId": 5,
+            "rarityId": 4,
+            "level": 16,
+            "setKindId": 10,
+            "primary": { "id": 1, "isAbsolute": 0 },
+            "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1 } ]
         },
         {
-            "ID": 1002,
-            "type": 2,
-            "rank": 4,
-            "rarity": 3,
-            "lvl": 0,
-            "aset": 5,
-            "mid": 2, "mfl": 0,
-            "s1id": 2, "s1lvl": 1, "s1fl": 0
+            "id": 1002,
+            "kindId": 2,
+            "rankId": 4,
+            "rarityId": 3,
+            "level": 0,
+            "setKindId": 5,
+            "primary": { "id": 2, "isAbsolute": 0 },
+            "secondary": [ { "id": 2, "level": 1, "isAbsolute": 0 } ]
         }
     ]"#;
 
-    // Build a NativeInput JSON string from the SFC content string and an artifact array.
+    // Build a NativeInput JSON string from the SFC content string and a raw artifact array.
     fn make_input(sfc_content: &str, artifacts_json: &str) -> String {
         // sfc_content is the raw SFC JSON — it must be serialised as a JSON string value.
         let sfc_str = serde_json::to_string(sfc_content).unwrap();

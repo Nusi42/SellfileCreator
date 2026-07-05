@@ -1,0 +1,2240 @@
+{
+ "jsonrpc": "2.0",
+ "method": "artifacts",
+ "params": {
+  "artifacts": [
+   {
+    "id": 7380,
+    "revision": 486384,
+    "sellPrice": 86400,
+    "price": 1728000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 6,
+    "rerollsCount": null,
+    "ascendRerollsCount": 1,
+    "kindId": 8,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 12,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 8,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 1717986918,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 8,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 515396075,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 90194313216,
+      "mValue": 0,
+      "glyphValue": 25769803776
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 38654705664
+     },
+     {
+      "id": 1,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 6206227742720,
+      "mValue": 0,
+      "glyphValue": 1610612736000
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 85899345920,
+      "mValue": 0,
+      "glyphValue": 85899345920
+     }
+    ]
+   },
+   {
+    "id": 7733,
+    "revision": 440520,
+    "sellPrice": 86400,
+    "price": 1728000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 8,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 6,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 5,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 146028888064,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     },
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 90194313216,
+      "mValue": 0,
+      "glyphValue": 25769803776
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 107374182400,
+      "mValue": 0,
+      "glyphValue": 73014444032
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 115964116992,
+      "mValue": 0,
+      "glyphValue": 34359738368
+     }
+    ]
+   },
+   {
+    "id": 7800,
+    "revision": 110527,
+    "sellPrice": 59400,
+    "price": 1188000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 7,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 0,
+    "requiredFraction": 10,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 4329327034368,
+      "mValue": 0,
+      "glyphValue": 1181116006400
+     },
+     {
+      "id": 2,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 558345747,
+      "mValue": 0,
+      "glyphValue": 171798691
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 128849018
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 98784247808,
+      "mValue": 0,
+      "glyphValue": 42949672960
+     }
+    ]
+   },
+   {
+    "id": 7861,
+    "revision": 489989,
+    "sellPrice": 100800,
+    "price": 2016000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 9,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1709396983808,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 38654705664,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 3,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 73014444032,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 1915555414016,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 19078,
+    "revision": 496068,
+    "sellPrice": 75600,
+    "price": 1512000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 6,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 0,
+    "requiredFraction": 2,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 124554051584,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 73014444032,
+      "mValue": 0,
+      "glyphValue": 8589934592
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 64424509440,
+      "mValue": 0,
+      "glyphValue": 73014444032
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 98784247808,
+      "mValue": 0,
+      "glyphValue": 34359738368
+     }
+    ]
+   },
+   {
+    "id": 21382,
+    "revision": 501147,
+    "sellPrice": 100800,
+    "price": 2016000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 1,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 3,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 68719476736,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 21545,
+    "revision": 296269,
+    "sellPrice": 100800,
+    "price": 2016000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 8,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1709396983808,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 2,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 42949672
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 68719476736,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 111669149696,
+      "mValue": 0,
+      "glyphValue": 81604378624
+     }
+    ]
+   },
+   {
+    "id": 25068,
+    "revision": 405775,
+    "sellPrice": 79200,
+    "price": 1584000,
+    "level": 12,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 7,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 5,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 11300058955776,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 1,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 730144438,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 558345747,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 25287,
+    "revision": 423552,
+    "sellPrice": 100800,
+    "price": 2016000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 3,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 5,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 73014444032,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 77309411328,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 1632087572480,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 25798,
+    "revision": 495975,
+    "sellPrice": 59400,
+    "price": 1188000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 7,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 0,
+    "requiredFraction": 13,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 2,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 816043784,
+      "mValue": 0,
+      "glyphValue": 171798691
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 1176821039104,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 25867,
+    "revision": 267343,
+    "sellPrice": 100800,
+    "price": 2016000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 9,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 0,
+    "requiredFraction": 15,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 5,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 3,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 730144438,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 558345747,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 1997159792640,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 124554051584,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 25878,
+    "revision": 205568,
+    "sellPrice": 64800,
+    "price": 1296000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 8,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 0,
+    "requiredFraction": 16,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     },
+     {
+      "id": 6,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 137438953472,
+      "mValue": 0,
+      "glyphValue": 21474836480
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 1988569858048,
+      "mValue": 0,
+      "glyphValue": 966367641600
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 124554051584,
+      "mValue": 0,
+      "glyphValue": 30064771072
+     }
+    ]
+   },
+   {
+    "id": 2817,
+    "revision": 313346,
+    "sellPrice": 68400,
+    "price": 1368000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 19,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1752346656768,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 2302102470656,
+      "mValue": 0,
+      "glyphValue": 1181116006400
+     },
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 77309411328,
+      "mValue": 0,
+      "glyphValue": 12884901888
+     },
+     {
+      "id": 7,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 2823,
+    "revision": 354906,
+    "sellPrice": 68400,
+    "price": 1368000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 19,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 111669149696,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 81604378624,
+      "mValue": 0,
+      "glyphValue": 25769803776
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 64424509440,
+      "mValue": 0,
+      "glyphValue": 12884901888
+     },
+     {
+      "id": 7,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 8,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 2966,
+    "revision": 503048,
+    "sellPrice": 43200,
+    "price": 864000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 2,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 27,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 5,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 257698037,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 38654705664,
+      "mValue": 0,
+      "glyphValue": 12884901888
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 77309411328,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     },
+     {
+      "id": 7,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 103079215104,
+      "mValue": 0,
+      "glyphValue": 60129542144
+     }
+    ]
+   },
+   {
+    "id": 3652,
+    "revision": 200880,
+    "sellPrice": 45000,
+    "price": 810000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 4,
+    "rankId": 5,
+    "rarityId": 4,
+    "setKindId": 38,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 4,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 171798691840,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 386547055,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 7,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 601295419,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 6,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 38654705664,
+      "mValue": 0,
+      "glyphValue": 25769803776
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 171798691,
+      "mValue": 0,
+      "glyphValue": 214748364
+     }
+    ]
+   },
+   {
+    "id": 4394,
+    "revision": 374214,
+    "sellPrice": 75000,
+    "price": 1350000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 6,
+    "rankId": 5,
+    "rarityId": 5,
+    "setKindId": 21,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 966367641600,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 7,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 601295419,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 81604378624,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 42949672960,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 4622,
+    "revision": 401131,
+    "sellPrice": 108000,
+    "price": 2160000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 6,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 558345747,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 51539607552,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 7,
+      "level": 3,
+      "isAbsolute": 0,
+      "statValue": 1030792148,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 5217,
+    "revision": 493587,
+    "sellPrice": 21600,
+    "price": 432000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 2,
+    "rankId": 6,
+    "rarityId": 3,
+    "setKindId": 4,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 412316860416,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 5,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 81604378624,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 5817,
+    "revision": 394614,
+    "sellPrice": 54000,
+    "price": 1080000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 1,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 38,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1752346656768,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 133143986176,
+      "mValue": 0,
+      "glyphValue": 21474836480
+     },
+     {
+      "id": 3,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 201863462912,
+      "mValue": 0,
+      "glyphValue": 30064771072
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     }
+    ]
+   },
+   {
+    "id": 5818,
+    "revision": 395053,
+    "sellPrice": 102600,
+    "price": 2052000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 38,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 111669149696,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 94489280512,
+      "mValue": 0,
+      "glyphValue": 21474836480
+     },
+     {
+      "id": 1,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 5531917877248,
+      "mValue": 0,
+      "glyphValue": 1610612736000
+     },
+     {
+      "id": 7,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 171798691
+     }
+    ]
+   },
+   {
+    "id": 6801,
+    "revision": 447456,
+    "sellPrice": 32400,
+    "price": 648000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 6,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 4,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 4,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": true,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 4,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 193273528320,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 858993459,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 7,
+      "level": 3,
+      "isAbsolute": 0,
+      "statValue": 1073741821,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 171798691
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 128849018
+     },
+     {
+      "id": 8,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 2936,
+    "revision": 137693,
+    "sellPrice": 81000,
+    "price": 1620000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 1,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 2,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 429496728,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 25769803776,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 6,
+      "level": 3,
+      "isAbsolute": 1,
+      "statValue": 176093659136,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 4402,
+    "revision": 386095,
+    "sellPrice": 102600,
+    "price": 2052000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 16,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 5,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 94489280512,
+      "mValue": 0,
+      "glyphValue": 30064771072
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 51539607552,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 601295420,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   },
+   {
+    "id": 4621,
+    "revision": 340168,
+    "sellPrice": 102600,
+    "price": 2052000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 94489280512,
+      "mValue": 0,
+      "glyphValue": 38654705664
+     },
+     {
+      "id": 2,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 171798691
+     },
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 42949672960,
+      "mValue": 0,
+      "glyphValue": 8589934592
+     }
+    ]
+   },
+   {
+    "id": 5400,
+    "revision": 496018,
+    "sellPrice": 21600,
+    "price": 432000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 1,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 7,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 111669149696,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 90194313216,
+      "mValue": 0,
+      "glyphValue": 34359738368
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     },
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 42949672960,
+      "mValue": 0,
+      "glyphValue": 42949672960
+     }
+    ]
+   },
+   {
+    "id": 9070,
+    "revision": 495982,
+    "sellPrice": 27000,
+    "price": 540000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 1,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 4,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 111669149696,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 42949672960,
+      "mValue": 0,
+      "glyphValue": 38654705664
+     },
+     {
+      "id": 7,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 73014444032,
+      "mValue": 0,
+      "glyphValue": 8589934592
+     },
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 115964116992,
+      "mValue": 0,
+      "glyphValue": 73014444032
+     }
+    ]
+   },
+   {
+    "id": 9567,
+    "revision": 441844,
+    "sellPrice": 36000,
+    "price": 720000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 6,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 4,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 4,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 25769803776,
+      "mValue": 0,
+      "glyphValue": 4294967296
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 128849018
+     },
+     {
+      "id": 8,
+      "level": 3,
+      "isAbsolute": 0,
+      "statValue": 1073741821,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 38654705664,
+      "mValue": 0,
+      "glyphValue": 12884901888
+     }
+    ]
+   },
+   {
+    "id": 14263,
+    "revision": 433578,
+    "sellPrice": 86400,
+    "price": 1728000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 6,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 2,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 38,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 2576980377,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 6,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 124554051584,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 128849018
+     },
+     {
+      "id": 4,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 77309411328,
+      "mValue": 0,
+      "glyphValue": 21474836480
+     },
+     {
+      "id": 8,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 214748364,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 2,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 300647710720,
+      "mValue": 0,
+      "glyphValue": 47244640256
+     }
+    ]
+   },
+   {
+    "id": 15245,
+    "revision": 496136,
+    "sellPrice": 61200,
+    "price": 1224000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 3,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 11,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 2576980377,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 257698037,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 85899345920,
+      "mValue": 0,
+      "glyphValue": 73014444032
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 128849018
+     },
+     {
+      "id": 4,
+      "level": 3,
+      "isAbsolute": 1,
+      "statValue": 94489280512,
+      "mValue": 0,
+      "glyphValue": 12884901888
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 2151778615296,
+      "mValue": 0,
+      "glyphValue": 1395864371200
+     }
+    ]
+   },
+   {
+    "id": 15718,
+    "revision": 355286,
+    "sellPrice": 81000,
+    "price": 1620000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 1,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 1,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 17523466567680,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 4,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 21474836480,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 7,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 816043784,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 171798691
+     },
+     {
+      "id": 6,
+      "level": 2,
+      "isAbsolute": 1,
+      "statValue": 128849018880,
+      "mValue": 0,
+      "glyphValue": 25769803776
+     }
+    ]
+   },
+   {
+    "id": 15723,
+    "revision": 406198,
+    "sellPrice": 108000,
+    "price": 2160000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 6,
+    "rankId": 6,
+    "rarityId": 5,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 51539607552,
+      "mValue": 0,
+      "glyphValue": 8589934592
+     },
+     {
+      "id": 5,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 38654705664,
+      "mValue": 0,
+      "glyphValue": 17179869184
+     },
+     {
+      "id": 7,
+      "level": 2,
+      "isAbsolute": 0,
+      "statValue": 730144438,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 515396074,
+      "mValue": 0,
+      "glyphValue": 171798691
+     }
+    ]
+   },
+   {
+    "id": 16067,
+    "revision": 290193,
+    "sellPrice": 68400,
+    "price": 1368000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": null,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 5,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 38,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 2,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 1138166333440,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": null,
+    "secondary": [
+     {
+      "id": 6,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 90194313216,
+      "mValue": 0,
+      "glyphValue": 34359738368
+     },
+     {
+      "id": 4,
+      "level": 1,
+      "isAbsolute": 1,
+      "statValue": 47244640256,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 8,
+      "level": 1,
+      "isAbsolute": 0,
+      "statValue": 472446401,
+      "mValue": 0,
+      "glyphValue": 0
+     },
+     {
+      "id": 1,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 2220498092032,
+      "mValue": 0,
+      "glyphValue": 751619276800
+     }
+    ]
+   },
+   {
+    "id": 16634,
+    "revision": 479171,
+    "sellPrice": 64800,
+    "price": 1296000,
+    "level": 16,
+    "upgradeTimeTicks": null,
+    "ascendLevel": 2,
+    "rerollsCount": null,
+    "ascendRerollsCount": null,
+    "kindId": 4,
+    "rankId": 6,
+    "rarityId": 4,
+    "setKindId": 18,
+    "requiredFraction": 0,
+    "failedUpgrades": 0,
+    "isActivated": false,
+    "isSeen": true,
+    "readOnly": false,
+    "primary": {
+     "id": 4,
+     "level": 0,
+     "isAbsolute": 1,
+     "statValue": 193273528320,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "ascend": {
+     "id": 3,
+     "level": 0,
+     "isAbsolute": 0,
+     "statValue": 257698037,
+     "mValue": 0,
+     "glyphValue": 0
+    },
+    "secondary": [
+     {
+      "id": 2,
+      "level": 0,
+      "isAbsolute": 1,
+      "statValue": 64424509440,
+      "mValue": 0,
+      "glyphValue": 60129542144
+     },
+     {
+      "id": 6,
+      "level": 3,
+      "isAbsolute": 1,
+      "statValue": 188978561024,
+      "mValue": 0,
+      "glyphValue": 30064771072
+     },
+     {
+      "id": 3,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 257698037,
+      "mValue": 0,
+      "glyphValue": 85899345
+     },
+     {
+      "id": 7,
+      "level": 0,
+      "isAbsolute": 0,
+      "statValue": 300647710,
+      "mValue": 0,
+      "glyphValue": 0
+     }
+    ]
+   }
+  ]
+ }
+}

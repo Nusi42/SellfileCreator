@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-# cdylib produces a native shared library (.dll / .so / .dylib).
-# No wasm-bindgen dependency — JSON strings are passed over the C ABI.
-crate-type = ["cdylib"]
+# cdylib produces a native shared library (.dll / .so / .dylib) for RSL Helper.
+# rlib additionally lets the integration parity test (tests/parity.rs) link the crate
+# as a normal library. No wasm-bindgen dependency — JSON strings pass over the C ABI.
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rule_engine_core = { path = "../rule_engine_core" }
