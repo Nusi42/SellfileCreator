@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics, seedSafeguardAnswersFromRecipeDefaults } from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
+import { listOverrideBlocks, parseOverridesBlockDraft } from '../../src/lib/overridesDraft.js'
 
 // Load the real shipped preset note so we validate the actual authored markup.
 const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
@@ -162,26 +163,41 @@ test('"Reset Options to Defaults" re-applies the default-mode forces over a dirt
   assert.equal(afterReset[spdQ.id]?.[0], String(lategameForce), 'reset applies the Lategame speed-set force')
 })
 
-test('the 5 safeguard count cards keep their v1.0.34-compatible pinned ids (regression: saved-set rescue)', () => {
+// Every non-spacer question's id, frozen to its v1.0.34 hash. These literals ARE the ids
+// v1.0.34 produced — never "fix" them to a freshly-derived hash, or every override set saved
+// before the corresponding question was edited stops loading. Each question carries an explicit
+// `id=` pin (see the "all questions are pinned" test below) so the id is stable regardless of
+// later prompt/option edits. Order follows the note (recipe first, then safeguard).
+const EXPECTED_QUESTION_IDS = [
+  'q_2tq5i', 'q_kkcisb', 'q_evol16', 'q_y3oudu', 'q_ie2b4p', 'q_tfgi84', 'q_903a0o',
+  'q_2ye83x', 'q_62mbb3', 'q_wmwi89', 'q_gs7912', 'q_6df61p', 'q_6aowi9',
+  'q_ta25kl', 'q_bk3r8j', 'q_416mju', 'q_tk0vqr', 'q_muougk', 'q_uiw6og', 'q_nfb217',
+] as const
+
+test('every lategame question carries a v1.0.34-compatible pinned id= (regression: saved-set rescue)', () => {
   // The safeguard count cards gained an activation-mode radio group after v1.0.34, which
   // re-hashed their derived ids and orphaned sets saved with the older (slider-only) ids.
-  // Pinning each question's `id=` back to the v1.0.34 hash keeps those saved answers valid.
-  // These literals ARE the ids v1.0.34 produced — do not "fix" them to the new hashes, or
-  // every set saved before the radios were added stops loading.
-  const expected: Record<string, string> = {
-    min_spdbanner_pieces: 'q_ta25kl',
-    min_spd_pieces: 'q_bk3r8j',
-    min_debuffer_pieces: 'q_416mju',
-    min_dmgsurv_pieces: 'q_tk0vqr',
+  // To prevent the whole class of breakage, EVERY question is pinned to its v1.0.34 hash via
+  // an explicit `id=`. This test enforces two properties on the shipped preset:
+  //   (1) each non-spacer question parses with a non-null explicitId (i.e. it IS pinned), and
+  //   (2) the full set of resolved question ids equals the frozen v1.0.34 set.
+  // A future author who adds an unpinned question, or whose edit drifts an id, trips this.
+
+  // (1) Every non-spacer question block carries an explicit id= pin.
+  const questionDrafts = listOverrideBlocks(note)
+    .map((block) => parseOverridesBlockDraft(block.raw).draft)
+    .filter((draft): draft is Extract<NonNullable<typeof draft>, { kind: 'question' }> =>
+      draft != null && draft.kind === 'question')
+  for (const draft of questionDrafts) {
+    assert.notEqual(draft.explicitId, null,
+      `question "${draft.prompt.base.slice(0, 48)}…" must carry an explicit id= pin`)
   }
-  const { questions } = resolveNoteSafeguardOverridesTags(note)
-  for (const [sliderToken, wantId] of Object.entries(expected)) {
-    const q = questions.find((x) => x.options.some((o) => o.token === sliderToken))
-    assert.ok(q, `safeguard card with slider ${sliderToken} should exist`)
-    assert.equal(q!.id, wantId, `${sliderToken}'s card must keep pinned id ${wantId}`)
-  }
-  // The Mercurial card's slider has no id= token, so match it by prompt instead.
-  const mercurial = questions.find((x) => x.prompt.includes('Mercurial'))
-  assert.ok(mercurial, 'the Mercurial safeguard card should exist')
-  assert.equal(mercurial!.id, 'q_muougk', 'the Mercurial card must keep pinned id q_muougk')
+
+  // (2) The resolved ids across both domains match the frozen v1.0.34 set exactly.
+  const resolvedIds = [
+    ...resolveRecipeOverridesTags(note).questions,
+    ...resolveNoteSafeguardOverridesTags(note).questions,
+  ].filter((q) => !q.id.startsWith('spacer')).map((q) => q.id)
+  assert.deepEqual(resolvedIds, [...EXPECTED_QUESTION_IDS],
+    'the shipped question ids must equal (and stay in the order of) the frozen v1.0.34 set')
 })
