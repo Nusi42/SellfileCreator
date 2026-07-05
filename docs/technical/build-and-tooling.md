@@ -37,7 +37,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
 - `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
-- `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
+- `npm run release-notes:catchup` — back-fill `docs/HISTORY.md` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
 
 ### Scripts Layout
 
@@ -333,7 +333,7 @@ Coding patterns adopted during the refactor (required for PRs):
   - `SellfileCreator.html` — from `dist/index.html`
   - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
-  - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
+  - `HISTORY.txt` — copied from `docs/HISTORY.md` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
   - `Sellfiles/Midgame_Lategame_Endgame_Sample.sfc` — copied from `presets/lategame.sfc` (with any `presets/lategame.patch.json` applied)
   - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `lategame` recipe-override preset applied
@@ -421,14 +421,14 @@ Localization status
 
 ## Release Notes Workflow
 
-Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). The script is `scripts/release/run-release-notes-catchup.sh`. Only `docs/HISTORY.txt` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
+Release history lives in `docs/HISTORY.md` (UTF-8 with BOM). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). The script is `scripts/release/run-release-notes-catchup.sh`. Only `docs/HISTORY.md` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
 
 ### Modes
 
 The script picks a mode per release based on the total changed lines (numstat add+delete) in the commit range:
 
-- **Single-pass** (≤ `RELEASE_NOTES_SINGLE_PASS_LINES`, default 5000): one Claude run reads the diffs directly, writes the bilingual entry to `docs/HISTORY.txt`, and appends maintainer review items to a per-release scratch file.
-- **Map-reduce** (above the threshold): commits are split into chunks of at most `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500). A worker Claude run handles each chunk, emitting a `chunk-NNN.bullets.md` file with player-facing bullets and appending maintainer concerns directly to a shared scratch file. A final reducer run consolidates the bullet files into `docs/HISTORY.txt`. Workers default to Haiku; reducer/single-pass default to Sonnet — override with `RELEASE_NOTES_WORKER_MODEL` and `RELEASE_NOTES_REDUCER_MODEL` (set either to empty string to inherit the CLI default).
+- **Single-pass** (≤ `RELEASE_NOTES_SINGLE_PASS_LINES`, default 5000): one Claude run reads the diffs directly, writes the bilingual entry to `docs/HISTORY.md`, and appends maintainer review items to a per-release scratch file.
+- **Map-reduce** (above the threshold): commits are split into chunks of at most `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500). A worker Claude run handles each chunk, emitting a `chunk-NNN.bullets.md` file with player-facing bullets and appending maintainer concerns directly to a shared scratch file. A final reducer run consolidates the bullet files into `docs/HISTORY.md`. Workers default to Haiku; reducer/single-pass default to Sonnet — override with `RELEASE_NOTES_WORKER_MODEL` and `RELEASE_NOTES_REDUCER_MODEL` (set either to empty string to inherit the CLI default).
 
 Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on success). After every release the script mechanically prepends the collected maintainer items to `PRE-RELEASE-CHECKLIST.md` under a new `## v<version> — <date>` heading, keeping that file newest-first.
 
@@ -437,6 +437,6 @@ Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on s
 1. **Sync history** — `npm run release-notes:catchup`  
    Default behaviour updates only the newest missing release entry plus the in-progress version derived from `package.json`. Pass `-- --all` (or set `RELEASE_NOTES_CATCHUP_ALL=1`) to back-fill every gap. Override the heading date for the in-progress entry with `RELEASE_NOTES_DATE=yyyy-mm-dd`; pin the scanned branch with `RELEASE_NOTES_BRANCH=<ref>`.
 2. **Review the checklist** — Skim `PRE-RELEASE-CHECKLIST.md` for items the run flagged (unfinished cleanups, drifted docs, suspect regressions, schema concerns). Act on them or delete them; the file is intentionally a working document, not an archive.
-3. **Gate the release** — Before packaging, confirm `docs/HISTORY.txt` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
+3. **Gate the release** — Before packaging, confirm `docs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
 
 Claude inspects diffs, not just commit messages — some commits run thousands of lines, which is why the chunker budgets by changed lines rather than commit count. Large asset updates under `examples/` are skipped unless they change player-facing behaviour. The final notes list English bullets first, then German translations covering the same points.

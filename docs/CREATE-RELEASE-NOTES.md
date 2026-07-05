@@ -1,6 +1,6 @@
 # Release Notes Prompt
 
-Update `docs/HISTORY.txt` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
+Update `docs/HISTORY.md` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
 
 The script that invokes you is `scripts/release/run-release-notes-catchup.sh`. It calls you in one of two modes:
 - **Single-pass** — one Claude run handles a release whose changed-line total fits the budget. `BULLETS_DIR` is empty; you read commits directly.
@@ -22,13 +22,13 @@ The script also prints a "Context for this run" block with the current values so
 ## Workflow
 
 ### 1. Re-read baseline docs
-- `CLAUDE.md` and the top of `docs/HISTORY.txt` so your tone, structure, and ordering match prior releases.
+- `CLAUDE.md` and the top of `docs/HISTORY.md` so your tone, structure, and ordering match prior releases.
 
 ### 2. Gather the changes
 - **Single-pass mode** (`BULLETS_DIR` empty): run `git log --reverse --stat "$COMMIT_RANGE"` to get the overview, then `git show <hash>` on every commit that might affect what players or release operators experience. Treat commit messages as introductory — open the diff. Some commits run thousands of lines; budget your reading. Skip large binary diffs and `examples/` unless they directly change shipping behavior.
 - **Reducer mode** (`BULLETS_DIR` set): read every `*.bullets.md` file in that directory. Each bullet ends with a short hash in parens for dedupe. Do not re-run `git show` — workers already inspected those commits. Only fall back to git if a bullet is too vague to convert into a player-facing note.
 
-### 3. Compose the entry in `docs/HISTORY.txt`
+### 3. Compose the entry in `docs/HISTORY.md`
 
 The file is UTF-8 with BOM, ordered newest → oldest. Honor `RELEASE_STATUS`:
 - `new-entry`: insert a new section at the top (under any existing file header).
@@ -77,13 +77,13 @@ If you find no concerns, leave `$CHECKLIST_FILE` untouched.
 - Keep tone factual and player-focused. No hype, no marketing fluff. **Plain language first** — backend terms (cache, threads, async, mutex, invalidat*, race condition) are banned unless the player literally interacts with that concept. A "caching problem" is acceptable when it genuinely explains the symptom; internal implementation details are not.
 - **Bug fixes: frame as happy little accidents.** A bug that slipped in while making the app better should be presented sympathetically — not as a failure, but as a side-effect of ambitious improvements. Never describe a bug in stark technical terms; describe the symptom the player experienced and, if context helps, briefly note the optimization that unintentionally caused it (in plain language).
 - **Only mention changes that meaningfully affect players.** Skip minor UI polish, cosmetic tweaks, and internal-only improvements unless there are no other changes for the release — in that case they may be included. If in doubt, leave it out.
-- **Do not mention developer/creator-native features in the history.** Note DSL syntax (e.g. `setval`, `unit=`, `needs=`, `toggleside`), editor syntax highlighting, inline diagnostics for malformed override configs, and similar authoring tools are internal features; omit them from HISTORY.txt entirely. Only mention what players who *use* a note (not those who *write* one) will notice.
+- **Do not mention developer/creator-native features in the history.** Note DSL syntax (e.g. `setval`, `unit=`, `needs=`, `toggleside`), editor syntax highlighting, inline diagnostics for malformed override configs, and similar authoring tools are internal features; omit them from HISTORY.md entirely. Only mention what players who *use* a note (not those who *write* one) will notice.
 - **Be aware of what is new vs. already released.** Before writing a bullet, check whether the feature or behavior it describes already existed in a previous release entry. Fixes and extensions for things that were not yet shipped belong to the same release window and should be dropped. Do not write "Fixed: …" for a bug that was introduced *and* fixed within the same window — it never affected users.
 - Drop features added and removed within the same release window.
 - Drop fixes for features added in the same release window.
 - Do not mention or hint at easter eggs.
 - One bullet per distinct change. Do not collapse unrelated improvements into a single line. Break long sentences instead of writing paragraphs.
-- Honor One Definition Rule and other CLAUDE.md guidelines if you ever need to edit code-adjacent files (you usually do not — this run only touches `docs/HISTORY.txt` and the checklist).
+- Honor One Definition Rule and other CLAUDE.md guidelines if you ever need to edit code-adjacent files (you usually do not — this run only touches `docs/HISTORY.md` and the checklist).
 
 ## Quality check before reporting back
 

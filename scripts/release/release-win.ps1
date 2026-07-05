@@ -203,8 +203,8 @@ try {
     Convert-ReadmeToTxt -SourcePath $file.FullName -DestinationPath (Join-Path $staging $destName) -VersionLabel $versionLabel
   }
 
-  # Include release history at the root of the archive
-  $historySrc = Join-Path $RepoRoot 'docs\HISTORY.txt'
+  # Include release history at the root of the archive (source is Markdown; shipped as .txt for end users)
+  $historySrc = Join-Path $RepoRoot 'docs\HISTORY.md'
   if (-not (Test-Path -LiteralPath $historySrc)) { throw "Release history not found: $historySrc" }
   Copy-Item -LiteralPath $historySrc -Destination (Join-Path $staging 'HISTORY.txt') -Force
 
