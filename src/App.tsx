@@ -6043,6 +6043,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const ruleIndex = mergedRulesRef.current.findIndex((rule) => getRuleRecipeIndex(rule) === recipeIdx)
     handleGearInspectorRuleView(ruleIndex, recipeIdx)
   }, [handleGearInspectorRuleView])
+  // Whole-row preview click: route the clicked row to its source recipe or safeguard, reusing the
+  // same select+mode-switch+scroll path as the Gear Inspector "jump to rule" affordance.
+  // Why a shared handler: builder-mode switch, chip scroll, and preview focus already live in
+  // handleGearInspectorRuleView; forking them here would violate the single-source-of-truth gate.
+  const handleActivateRuleRow = useCallback((rule: HsfRuleWithRecipe) => {
+    // Filtered views preserve rule object identity (filterHsfRules pushes originals), so identity
+    // lookup resolves the clicked row back to its absolute mergedRules index for rule-view focus.
+    const ruleIndex = mergedRulesRef.current.indexOf(rule)
+    if (ruleIndex < 0) return
+    // Recipe index is null for safeguard rows; handleGearInspectorRuleView branches on __source.
+    const recipeIdx = getRuleRecipeIndex(rule)
+    handleGearInspectorRuleView(ruleIndex, recipeIdx)
+  }, [handleGearInspectorRuleView])
   const handleGearInspectorRuleTemplateCreate = useCallback((row: GearInspectorPreviewRow, intent: 'keep' | 'sell') => {
     const artifact = row.artifact
     // Build the baseline template based on level, rolls, and the item’s current stats.
@@ -9711,6 +9724,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 onFocusRuleSettled={handleFocusRuleSettled}
                 onSelectRecipeIdx={handleRulesTableSelectRecipeIdx}
                 onSelectSafeguardRule={handleSafeguardPreviewStarSelect}
+                onActivateRuleRow={handleActivateRuleRow}
                 emptyDueToFilter={hsfTableEmptyDueToFilters}
                 limitExceeded={limitExceeded}
                 onRecipeAction={handleRulesTableRecipeAction}

@@ -254,7 +254,7 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onRecipeAction, onClearBase, onConfigureFinalSell, substatColors, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
+export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onActivateRuleRow, onRecipeAction, onClearBase, onConfigureFinalSell, substatColors, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
   recipeFgColors?: readonly (string | null | undefined)[]
@@ -268,6 +268,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
   onSelectRecipeIdx: (idx: number) => void
   // Safeguard star rows route either to Gear Inspector or Safeguards management.
   onSelectSafeguardRule?: (selection: SafeguardStarSelection) => void
+  // Whole-row activation: route a clicked preview row to its source recipe/safeguard,
+  // switching builder view mode and scrolling the source into view. Receives the clicked rule
+  // so App can resolve its provenance (recipe idx / safeguard ordinal) and delegate.
+  onActivateRuleRow?: (rule: HsfRuleWithRecipe) => void
   onRecipeAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
   onConfigureFinalSell: () => void
@@ -1563,8 +1567,18 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
               onClick={() => {
                 // HSF-embedded indices reference a foreign SFC; clicking must not navigate to active recipes.
                 if (resolvedSource === RULE_SOURCE_HSF) return
+                // Whole-row activation: route the clicked row to its source recipe or safeguard.
+                // App switches the builder view mode to match, selects the source, and scrolls it into view.
+                // Both recipe rows (recipeIdxNumber !== null) and safeguard rows (RULE_SOURCE_SAFEGUARDS)
+                // qualify; App resolves which from the rule's provenance. When wired, this supersedes the
+                // legacy recipe-only onSelectRecipeIdx path so scroll-to is no longer suppressed.
+                if (onActivateRuleRow) {
+                  onActivateRuleRow(rule)
+                  return
+                }
                 if (recipeIdxNumber !== null) {
-                  // Keep-override rows surface in the preview but do not map to chips, so only real recipes trigger selection + auto-scroll.
+                  // Fallback (no whole-row handler): keep-override rows surface in the preview but do not map
+                  // to chips, so only real recipes trigger selection + auto-scroll.
                   suppressNextScrollRef.current = true
                   onSelectRecipeIdx(recipeIdxNumber)
                 }
