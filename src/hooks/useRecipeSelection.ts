@@ -44,7 +44,10 @@ import {
 } from '../history/recipeCollectionDescriptors'
 import { buildInsertionLocation, snapshotRecipeLabel } from '../history/historyLabelUtils'
 import { collectChangedFields } from '../history/builderUpdateDescriptor'
-import { setRecipeHoverIndex } from '../lib/recipeHoverBridge'
+import { setChipHover } from '../lib/chipHoverBridge'
+// Recipe chip/row hover feeds the shared chip-hover bridge as a recipe-kind target.
+const setRecipeHoverIndex = (idx: number | null): void =>
+  setChipHover(idx === null ? null : { kind: 'recipe', id: idx })
 import { useItemListManager, type ItemMutationOp } from './useItemListManager'
 
 // ── param / result types ──────────────────────────────────────────────────────
@@ -70,7 +73,6 @@ export type UseRecipeSelectionResult = {
   multiselectActive: boolean
   selectionAnchor: number | null
   prepareDragSelection: (idx: number) => number[]
-  setHoveredRecipeIdx: (idx: number | null) => void
   handleRecipeHoverIdx: (idx: number | null) => void
   multiSelectedRecipes: BuilderRecipe[]
   multiEditDraftState: MultiEditDraftState | null
@@ -192,11 +194,7 @@ export function useRecipeSelection({
     setMultiEditDraftState,
   } = mgr
 
-  // ── hover state (recipe-specific) ─────────────────────────────────────
-
-  const setHoveredRecipeIdx = useCallback((idx: number | null) => {
-    setRecipeHoverIndex(idx)
-  }, [])
+  // ── hover state (recipe chip → shared chip-hover bridge) ──────────────
 
   const handleRecipeHoverIdx = useCallback((idx: number | null) => {
     setRecipeHoverIndex(idx)
@@ -434,7 +432,6 @@ export function useRecipeSelection({
     multiselectActive: mgr.multiselectActive,
     selectionAnchor: mgr.selectionAnchor,
     prepareDragSelection: mgr.prepareDragSelection,
-    setHoveredRecipeIdx,
     handleRecipeHoverIdx,
     multiSelectedRecipes: mgr.multiSelectedItems,
     multiEditDraftState,

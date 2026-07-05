@@ -13,6 +13,7 @@ import SellIcon from '@mui/icons-material/Sell'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_SFC, RULE_SOURCE_SAFEGUARDS, type HsfRuleWithRecipe, type RuleSource } from '../lib/merge'
+import type { ChipHoverTarget } from '../lib/chipHoverBridge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -254,11 +255,12 @@ export type SafeguardStarSelection = {
   isPlaceholder: boolean
 }
 
-export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], setHoveredRecipeIdx, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onActivateRuleRow, onRecipeAction, onClearBase, onConfigureFinalSell, substatColors, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
+export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], onHoverChipTarget, selectedRecipeIdx, selectedSafeguardOrdinal = null, multiselectActive, selectionScrollRequest, onSelectRecipeIdx, onSelectSafeguardRule, onActivateRuleRow, onRecipeAction, onClearBase, onConfigureFinalSell, substatColors, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled, isSideBySide = false }: {
   rules: HsfRuleWithRecipe[]
   recipeNames?: readonly (string | null | undefined)[]
   recipeFgColors?: readonly (string | null | undefined)[]
-  setHoveredRecipeIdx: (idx: number | null) => void
+  // Hover→chip link: emits the source chip target (recipe OR safeguard) for the hovered row, or null.
+  onHoverChipTarget: (target: ChipHoverTarget) => void
   selectedRecipeIdx: number | null
   // 1-based safeguard ordinal to highlight (mirrors selectedRecipeIdx for safeguard rows).
   selectedSafeguardOrdinal?: number | null
@@ -788,14 +790,18 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
 
   // Gate hover highlighting to the table area only
   const [isHoveringArea, setIsHoveringArea] = useState(false)
-  // DOM-based hover highlight to avoid re-rendering rows during hover.
-  const lastDomHoverRecipeRef = useRef<number | null>(null)
+  // DOM-based hover highlight to avoid re-rendering rows during hover. Targets carry a `kind` so the
+  // same machinery highlights recipe rows and safeguard rows (and links their respective chips).
+  const lastDomHoverTargetRef = useRef<ChipHoverTarget>(null)
   const hoveredRowElsRef = useRef<HTMLElement[] | null>(null)
-  const lastPropagatedHoverRef = useRef<number | null>(null)
+  const lastPropagatedHoverRef = useRef<ChipHoverTarget>(null)
   const hoverThrottleTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const hoverRafIdRef = useRef<number | null>(null)
-  const pendingLocalHoverRef = useRef<number | null>(null)
-  const pendingHoverTargetRef = useRef<number | null>(null)
+  const pendingLocalHoverRef = useRef<ChipHoverTarget>(null)
+  const pendingHoverTargetRef = useRef<ChipHoverTarget>(null)
+  // Structural equality for hover targets (null-safe); shared by the throttle + rAF coalescers.
+  const hoverTargetsEqual = (a: ChipHoverTarget, b: ChipHoverTarget): boolean =>
+    a === null || b === null ? a === b : a.kind === b.kind && a.id === b.id
   const selectedRowElsRef = useRef<HTMLElement[] | null>(null)
   const lastSelectedRecipeRef = useRef<number | null>(null)
   const applyDomSelection = useCallback((recipeIdx: number | null) => {
@@ -843,13 +849,13 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
       try { el.setAttribute('data-selected-safeguard', 'true') } catch {}
     }
   }, [])
-  const scheduleHoverPropagation = (next: number | null) => {
-    if (lastPropagatedHoverRef.current === next) {
+  const scheduleHoverPropagation = (next: ChipHoverTarget) => {
+    if (hoverTargetsEqual(lastPropagatedHoverRef.current, next)) {
       return
     }
     if (hoverThrottleTimerRef.current !== null) {
-      const previousPending = pendingHoverTargetRef.current ?? null
-      if (previousPending === next) {
+      const previousPending = pendingHoverTargetRef.current
+      if (hoverTargetsEqual(previousPending, next)) {
         return
       }
       pendingHoverTargetRef.current = next
@@ -861,37 +867,41 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     // when users scrub the table quickly.
     hoverThrottleTimerRef.current = window.setTimeout(() => {
       hoverThrottleTimerRef.current = null
-      const target = pendingHoverTargetRef.current ?? null
+      const target = pendingHoverTargetRef.current
       const prevPropagated = lastPropagatedHoverRef.current
-      if (target === prevPropagated) {
+      if (hoverTargetsEqual(target, prevPropagated)) {
         lastPropagatedHoverRef.current = target
         pendingHoverTargetRef.current = target
         return
       }
       lastPropagatedHoverRef.current = target
       pendingHoverTargetRef.current = target
-      try { setHoveredRecipeIdx(target) } catch {}
+      try { onHoverChipTarget(target) } catch {}
     }, RULES_TABLE_HOVER_PROPAGATION_MS)
   }
 
   // Per-frame throttle for local hover updates (row highlight). Coalesces rapid
   // mouseenter events into a single state update per animation frame.
-  const applyDomHover = (recipeIdx: number | null) => {
+  const applyDomHover = (target: ChipHoverTarget) => {
     const container = tableContainerRef.current
     if (!container) return
     if (hoveredRowElsRef.current) {
-      for (const el of hoveredRowElsRef.current) { try { el.classList.remove('recipe-hover') } catch {} }
+      for (const el of hoveredRowElsRef.current) { try { el.classList.remove('row-hover') } catch {} }
       hoveredRowElsRef.current = null
     }
-    lastDomHoverRecipeRef.current = recipeIdx
-    if (recipeIdx === null || recipeIdx === undefined) {
+    lastDomHoverTargetRef.current = target
+    if (target === null) {
       return
     }
-    const list = Array.from(container.querySelectorAll(`tr[data-recipe-idx="${recipeIdx}"]`)) as HTMLElement[]
-    for (const el of list) { try { el.classList.add('recipe-hover') } catch {} }
+    // Recipe rows key on data-recipe-idx (0-based); safeguard rows on data-safeguard-ordinal (1-based).
+    const selector = target.kind === 'safeguard'
+      ? `tr[data-safeguard-ordinal="${target.id + 1}"]`
+      : `tr[data-recipe-idx="${target.id}"]`
+    const list = Array.from(container.querySelectorAll(selector)) as HTMLElement[]
+    for (const el of list) { try { el.classList.add('row-hover') } catch {} }
     hoveredRowElsRef.current = list
   }
-  const scheduleLocalHover = (next: number | null) => {
+  const scheduleLocalHover = (next: ChipHoverTarget) => {
     pendingLocalHoverRef.current = next
     if (hoverRafIdRef.current !== null) {
       return
@@ -900,8 +910,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
     // recalculations with the table virtualization updates.
     hoverRafIdRef.current = requestAnimationFrame(() => {
       hoverRafIdRef.current = null
-      const target = pendingLocalHoverRef.current ?? null
-      if (target !== lastDomHoverRecipeRef.current) applyDomHover(target)
+      const target = pendingLocalHoverRef.current
+      if (!hoverTargetsEqual(target, lastDomHoverTargetRef.current)) applyDomHover(target)
       scheduleHoverPropagation(target)
     })
   }
@@ -927,9 +937,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
 
   useEffect(() => {
     // Virtualization swaps row elements as the user scrolls; reapply the hover class so
-    // newly mounted rows for the active recipe keep their highlight without extra renders.
-    const hovered = lastDomHoverRecipeRef.current
-    if (hovered !== null && hovered !== undefined) {
+    // newly mounted rows for the active recipe/safeguard keep their highlight without extra renders.
+    const hovered = lastDomHoverTargetRef.current
+    if (hovered !== null) {
       applyDomHover(hovered)
     }
     // Reapply both recipe and safeguard highlights after every render (virtualization churn).
@@ -1560,7 +1570,14 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
                 if (!isHoveringArea) return
                 // HSF-embedded indices reference a foreign SFC, so hovering should not highlight active recipes.
                 if (resolvedSource === RULE_SOURCE_HSF) return
-                const next = recipeIdxNumber
+                // Resolve the row's source chip: safeguard rows link their safeguard chip (ordinal→0-based
+                // id), everything else links its recipe chip. Rows with neither emit null (no link).
+                const next: ChipHoverTarget =
+                  resolvedSource === RULE_SOURCE_SAFEGUARDS && typeof rule.__safeguardRuleOrdinal === 'number'
+                    ? { kind: 'safeguard', id: rule.__safeguardRuleOrdinal - 1 }
+                    : recipeIdxNumber !== null
+                      ? { kind: 'recipe', id: recipeIdxNumber }
+                      : null
                 scheduleLocalHover(next)
               }}
               // Do not clear on row leave; container onMouseLeave clears once.
@@ -2037,9 +2054,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], se
             ...reserveScrollbarGutterSpace(),
             // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
             contain: 'layout paint',
-            // CSS-only hover highlight class for hovered recipe rows (added imperatively)
-            '& tr.recipe-hover[data-selected-recipe="true"]': { backgroundColor: selectedHoverBg },
-            '& tr.recipe-hover:not([data-selected-recipe="true"])': { backgroundColor: hoverBg },
+            // CSS-only hover highlight class for hovered rows (recipe or safeguard; added imperatively).
+            // Selected recipe rows get the stronger selected-hover bg; all other hovered rows the plain one.
+            '& tr.row-hover[data-selected-recipe="true"]': { backgroundColor: selectedHoverBg },
+            '& tr.row-hover:not([data-selected-recipe="true"])': { backgroundColor: hoverBg },
             // Stacked: cap the scroller so the page (not the table) owns the long scroll. Side-by-side
             // (native or forced-zoom): fill the paper's fixed height instead — driven by the
             // isSideBySide prop, not a viewport-width media query, so it tracks the dynamic-zoom layout.

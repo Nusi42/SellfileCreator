@@ -389,7 +389,7 @@ import {
 // Local tag for Gear Inspector reset triggers; persists only in memory.
 // Endpoint pushes get their own reason so the Gear Inspector grid can stay interactive.
 type GearInspectorMatchResetReason = 'restore' | 'sfc' | 'gearDbManual' | 'gearDbEndpoint'
-import { getRecipeHoverIndex, setRecipeHoverIndex, subscribeRecipeHover } from './lib/recipeHoverBridge'
+import { getChipHover, setChipHover, subscribeChipHover, type ChipHoverTarget } from './lib/chipHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/recipeMultiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
@@ -2051,7 +2051,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     multiselectActive,
     selectionAnchor,
     prepareDragSelection,
-    setHoveredRecipeIdx,
     handleRecipeHoverIdx,
     multiSelectedRecipes,
     multiEditDraftState,
@@ -6226,26 +6225,43 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return next
     })
   }, [filterPresets, previewMode, orPresetApplied, clearFilters, setRulesFilter])
-  const prevHoveredChipRef = React.useRef<number | null>(null)
-  const hoverCountRef = React.useRef(customRecipes.length)
-  useLayoutEffect(() => { hoverCountRef.current = customRecipes.length })
+  // Previously-highlighted chip target, so we can clear it when the hover moves or ends.
+  const prevHoveredChipRef = React.useRef<ChipHoverTarget>(null)
+  // Live chip counts per kind, read inside the (mount-once) subscriber to bound-check targets.
+  const hoverRecipeCountRef = React.useRef(customRecipes.length)
+  const hoverSafeguardCountRef = React.useRef(safeguardRules.length)
+  useLayoutEffect(() => { hoverRecipeCountRef.current = customRecipes.length })
+  useLayoutEffect(() => { hoverSafeguardCountRef.current = safeguardRules.length })
   React.useEffect(() => {
     if (typeof document === 'undefined') return undefined
-    const applyChipLinkedHover = (idx: number | null, active: boolean) => {
-      if (idx === null || idx < 0 || idx >= hoverCountRef.current) return
-      const el = document.getElementById(`recipe-chip-${idx}`)
-      if (!el) return
+    // Resolve the chip DOM element + valid count for a target's kind (SSOT for both chip lists).
+    const resolveChip = (target: NonNullable<ChipHoverTarget>): { el: HTMLElement | null; max: number } => {
+      if (target.kind === 'safeguard') {
+        // Safeguard chips key on data-safeguard-chip-index (0-based rule index).
+        const el = document.querySelector(`[data-safeguard-chip-index="${target.id}"]`) as HTMLElement | null
+        return { el, max: hoverSafeguardCountRef.current }
+      }
+      // Recipe chips key on their id (0-based recipe index).
+      return { el: document.getElementById(`recipe-chip-${target.id}`), max: hoverRecipeCountRef.current }
+    }
+    // Toggle the linked-hover attribute on the chip a target points at, if it is in range + mounted.
+    const applyChipLinkedHover = (target: ChipHoverTarget, active: boolean) => {
+      if (target === null || target.id < 0) return
+      const { el, max } = resolveChip(target)
+      if (target.id >= max || !el) return
       el.setAttribute('data-linked-hover', active ? 'true' : 'false')
     }
-    const unsubscribe = subscribeRecipeHover((idx) => {
-      const max = hoverCountRef.current
-      const clamped = typeof idx === 'number' && (idx < 0 || idx >= max) ? null : idx
-      if (idx !== clamped) {
-        setRecipeHoverIndex(clamped)
+    const unsubscribe = subscribeChipHover((target) => {
+      // Drop out-of-range targets (list shrank under a stale hover) back to null.
+      const max = target === null ? 0 : (target.kind === 'safeguard' ? hoverSafeguardCountRef.current : hoverRecipeCountRef.current)
+      const clamped: ChipHoverTarget = target !== null && (target.id < 0 || target.id >= max) ? null : target
+      if (clamped !== target) {
+        setChipHover(clamped)
         return
       }
       const prev = prevHoveredChipRef.current
-      if (prev !== null && prev !== clamped) {
+      // Clear the previous chip whenever the target changed (different chip, kind, or cleared).
+      if (prev !== null && (clamped === null || prev.kind !== clamped.kind || prev.id !== clamped.id)) {
         applyChipLinkedHover(prev, false)
       }
       if (clamped !== null) {
@@ -6261,12 +6277,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       unsubscribe()
     }
   }, [])
+  // Reconcile a stale hover when either chip list shrinks (e.g. deleting the hovered recipe/safeguard).
   React.useEffect(() => {
-    const current = getRecipeHoverIndex()
-    if (typeof current === 'number' && (current < 0 || current >= customRecipes.length)) {
-      setRecipeHoverIndex(null)
-    }
-  }, [customRecipes.length])
+    const current = getChipHover()
+    if (current === null) return
+    const max = current.kind === 'safeguard' ? safeguardRules.length : customRecipes.length
+    if (current.id < 0 || current.id >= max) setChipHover(null)
+  }, [customRecipes.length, safeguardRules.length])
   const visibleRecipeCount = useMemo(() => {
     if (visibleRecipeIndices) return visibleRecipeIndices.size
     return customRecipes.length
@@ -9713,7 +9730,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 rules={hsfRulesForTable}
                 recipeNames={recipeNamesForGrid}
                 recipeFgColors={recipeFgColorsForGrid}
-                setHoveredRecipeIdx={setHoveredRecipeIdx}
+                onHoverChipTarget={setChipHover}
                 selectedRecipeIdx={previewSelectedRecipeIdx}
                 selectedSafeguardOrdinal={previewSelectedSafeguardOrdinal}
                 multiselectActive={multiselectActive}
