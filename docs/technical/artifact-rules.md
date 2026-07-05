@@ -60,9 +60,9 @@ builder interprets rank/rarity codes, roll schedules, and minima defaults lives 
 
 ## Substat by Slot
 
-- `Weapon`: `HP`, `HP%`, `ATK`, `ATK%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
-- `Helmet`: `HP`, `HP%`, `ATK`, `ATK%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
-- `Shield`: `HP`, `HP%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
+- `Weapon`: `HP`, `HP%`, `ATK%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD` (no flat `ATK` — that is the fixed main)
+- `Helmet`: `HP%`, `ATK`, `ATK%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD` (no flat `HP` — that is the fixed main)
+- `Shield`: `HP`, `HP%`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD` (no flat `DEF` — that is the fixed main)
 - `Gauntlets`: `HP`, `HP%`, `ATK`, `ATK%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
 - `Chestplate`: `HP`, `HP%`, `ATK`, `ATK%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
 - `Boots`: `HP`, `HP%`, `ATK`, `ATK%`, `DEF`, `DEF%`, `CR%`, `CDMG%`, `ACC`, `RES`, `SPD`
@@ -74,12 +74,16 @@ builder interprets rank/rarity codes, roll schedules, and minima defaults lives 
 
 | Rank | HP | HP% | ATK | ATK% | DEF | DEF% | CR% | CDMG% | ACC | RES | SPD |
 | ---- | -- | --- | --- | ---- | --- | ---- | --- | ----- | --- | --- | --- |
-| 5★   | 160 | 4% | 12 | 4% | 12 | 4% | 4% | 4% | 8 | 8 | 4 |
 | 6★   | 200 | 5% | 15 | 5% | 15 | 5% | 5% | 5% | 9 | 9 | 5 |
+| 5★   | 136 | 4% | 12 | 4% | 12 | 4% | 4% | 4% | 8 | 8 | 4 |
+| 4★   | 97  | 3% | 7  | 3% | 7  | 3% | 3% | 3% | 6 | 6 | 3 |
+| 3★   | 79  | 2% | 5  | 2% | 5  | 2% | 2% | 2% | 5 | 5 | 2 |
+| 2★   | 50  | 1% | 4  | 1% | 4  | 1% | 2% | 2% | 4 | 4 | 1 |
+| 1★   | 43  | 1% | 4  | 1% | 4  | 1% | 1% | 1% | 3 | 3 | 1 |
 
-- Interim baseline for 1–4★ gear (temporary implementation detail): use the 5★ target minus one unit for each stat (e.g., `HP = 159`, `HP% = 3%`, `SPD = 3`).
-- When new substats are added at the level milestones they enter at least at these minimum values; actual in-game rolls can exceed them.
-- The runtime factory defaults consumed by the builder (`defaultSubstatTargets()`, including the 1–4★ floors) live in [Rules and Data → HSF Semantics](rules-and-data.md#hsf-semantics-as-used-here).
+- These are the **minimum** (single-roll) values per rank — the `.min` of each per-roll range. Actual in-game rolls fall anywhere in the `[min, max]` band and can exceed them; a substat added at a level milestone enters at least at its minimum.
+- The 6★ row is high-confidence; lower-star rows are community-sourced estimates.
+- This table is a human-readable snapshot. The live SSOT is `SUBSTAT_ROLL_RANGES_BY_STAR` in `src/lib/generated/domainConstants.ts` (generated from `shared/domain-constants.json`), whose `.min` values feed `defaultSubstatTargets()` (`src/lib/hsfBuilder.ts`). See [Rules and Data → HSF Semantics](rules-and-data.md#hsf-semantics-as-used-here). If the generated constants change, treat them — not this table — as authoritative.
 
 ## Gear and its sources
 
