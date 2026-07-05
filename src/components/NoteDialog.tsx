@@ -84,6 +84,7 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   collectCrossDomainSliderWrites,
+  collectTierOwnedSliderQuestionIds,
   seedSafeguardAnswersFromRecipeDefaults,
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
@@ -4624,9 +4625,19 @@ export default function NoteDialog({
       sliderByToken,
       (optionId) => !before.has(optionId),
     )
-    if (writes.length > 0) {
+    // Clear-forces on tier switch-back: a tier question whose newly-selected option carries no force
+    // for a slider it OWNS (e.g. the default Lategame tier, which now forces nothing) must release that
+    // slider back to its `default=` instead of leaving the previous tier's stuck value. `question` is
+    // the changed question; if it owns any tier sliders, drop every owned slider the writes don't set.
+    const ownedByThisQuestion = collectTierOwnedSliderQuestionIds([question], sliderByToken)
+    const writtenIds = new Set(writes.map((w) => w.questionId))
+    // Owned sliders NOT (re)written by the new selection → delete so they fall back to `default=`.
+    const toClear = [...ownedByThisQuestion].filter((id) => !writtenIds.has(id))
+    if (writes.length > 0 || toClear.length > 0) {
       onSafeguardOverridesAnswersChange((prevSg) => {
         const nextSg = { ...prevSg }
+        // Release stuck tier sliders first, then apply the newly-selected tier's forces.
+        for (const id of toClear) delete nextSg[id]
         for (const w of writes) nextSg[w.questionId] = [w.value]
         return nextSg
       })

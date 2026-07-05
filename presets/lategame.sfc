@@ -1225,7 +1225,7 @@
       "autoMinCount": false,
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": false,
-      "lockedMinRequiredRolls": 4,
+      "lockedMinRequiredRolls": 3,
       "artifactTypeNames": [
         "Weapon",
         "Helmet",
@@ -1534,7 +1534,7 @@
       "autoMinCount": false,
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": false,
-      "lockedMinRequiredRolls": 4,
+      "lockedMinRequiredRolls": 3,
       "artifactTypeNames": [
         "Chestplate",
         "Boots"
@@ -1884,7 +1884,7 @@
       ],
       "minCount": 4,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -1940,7 +1940,7 @@
       "minCount": 3,
       "autoMinCount": false,
       "autoSubstatFlex": true,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -1987,7 +1987,7 @@
       ],
       "minCount": 3,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -2046,7 +2046,7 @@
       ],
       "minCount": 2,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -2090,7 +2090,7 @@
       ],
       "minCount": 2,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 3,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 0,
       "artifactTypeNames": [
@@ -2161,7 +2161,7 @@
       ],
       "minCount": 3,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 0,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 3,
       "artifactTypeNames": [
@@ -2231,7 +2231,7 @@
       ],
       "minCount": 3,
       "autoMinCount": false,
-      "minRequiredRolls": 4,
+      "minRequiredRolls": 0,
       "autoMinRequiredRolls": false,
       "lockedMinRequiredRolls": 3,
       "artifactTypeNames": [
@@ -10463,15 +10463,11 @@
       "Rarity": "Mythical",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -10525,7 +10521,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -10554,15 +10557,11 @@
       "Rarity": "Mythical",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -10624,7 +10623,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -10653,15 +10659,11 @@
       "Rarity": "≥ Legendary",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -10715,7 +10717,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -10744,15 +10753,11 @@
       "Rarity": "≥ Legendary",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -10814,7 +10819,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -10843,15 +10855,11 @@
       "Rarity": "Epic",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -10905,7 +10913,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -10934,15 +10949,11 @@
       "Rarity": "Epic",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
       "minLevel": 0,
@@ -11004,7 +11015,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [
         {
           "name": "Savage"
@@ -11033,18 +11051,14 @@
       "Rarity": "Mythical",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11095,7 +11109,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11119,18 +11140,14 @@
       "Rarity": "Mythical",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11189,7 +11206,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11213,18 +11237,14 @@
       "Rarity": "≥ Legendary",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11275,7 +11295,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11299,18 +11326,14 @@
       "Rarity": "≥ Legendary",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11369,7 +11392,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11393,18 +11423,14 @@
       "Rarity": "Epic",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11455,7 +11481,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11479,18 +11512,14 @@
       "Rarity": "Epic",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 0,
+      "minLevel": 12,
       "maxLevel": 16,
       "substats": [
         {
@@ -11549,7 +11578,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": [
         "Damage - Limited Sets",
@@ -11573,18 +11609,14 @@
       "Rarity": "Auto",
       "Faction": "Any",
       "mainStats": [
-        "CR%",
         "CDMG%",
         "ACC",
         "RES",
-        "HP%",
         "HP",
-        "ATK%",
         "ATK",
-        "DEF%",
         "DEF"
       ],
-      "minLevel": 16,
+      "minLevel": 0,
       "maxLevel": 16,
       "earlyKeepMode": "late",
       "substats": [
@@ -11637,7 +11669,14 @@
       "minRequiredRolls": 0,
       "autoMinRequiredRolls": true,
       "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
+      "artifactTypeNames": [
+        "Weapon",
+        "Helmet",
+        "Shield",
+        "Ring",
+        "Amulet",
+        "Banner"
+      ],
       "artifactSetNames": [],
       "artifactMetaSetNames": []
     },
@@ -11651,7 +11690,7 @@
         "ore6legendary_allsets"
       ],
       "keep": true,
-      "SellfileVisibility": "Active",
+      "SellfileVisibility": "Disabled",
       "Rank": "6★",
       "Rarity": "Auto",
       "Faction": "Any",
@@ -11660,7 +11699,7 @@
         "ATK",
         "DEF"
       ],
-      "minLevel": 16,
+      "minLevel": 0,
       "maxLevel": 16,
       "earlyKeepMode": "late",
       "substats": [
@@ -11753,7 +11792,7 @@
       "appearance": {
         "name": "Protect: Best SPD Banner"
       },
-      "requiredCount": 16,
+      "requiredCount": 12,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -11974,7 +12013,7 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -11988,7 +12027,7 @@
       "appearance": {
         "name": "Protect: Best SPD Boots"
       },
-      "requiredCount": 1,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12032,7 +12071,7 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12062,7 +12101,7 @@
       "appearance": {
         "name": "Protect: Best SPD Boots"
       },
-      "requiredCount": 1,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12103,7 +12142,7 @@
         "spd"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12178,7 +12217,7 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12192,7 +12231,7 @@
       "appearance": {
         "name": "Protect: Speed Set (Any Set)"
       },
-      "requiredCount": 16,
+      "requiredCount": 12,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12238,7 +12277,7 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12295,7 +12334,7 @@
         "speed_set"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12324,7 +12363,7 @@
       "appearance": {
         "name": "Protect: Speed Set Boots (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 12,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12368,7 +12407,7 @@
         "speed_set_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12444,7 +12483,7 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12505,7 +12544,7 @@
         "bomber"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12562,7 +12601,7 @@
         "slowdebuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12624,7 +12663,7 @@
         "slowdebuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12681,7 +12720,7 @@
         "slowdebuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12736,7 +12775,7 @@
         "slowdebuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12760,7 +12799,7 @@
       "appearance": {
         "name": "Protect: Debuffer (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12808,7 +12847,7 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12874,7 +12913,7 @@
         "debuffer"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -12889,7 +12928,7 @@
       "appearance": {
         "name": "Protect: Debuffer Chestplate and Boots (SPD/ACC, Set Agnostic)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12937,7 +12976,7 @@
         "debuffer_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14434,7 +14473,7 @@
       "appearance": {
         "name": "Protect: Damage Top Row"
       },
-      "requiredCount": 3,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14481,7 +14520,7 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14512,7 +14551,7 @@
       "appearance": {
         "name": "Protect: Damage Top Row (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14559,7 +14598,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14579,7 +14618,7 @@
       "appearance": {
         "name": "Protect: Damage Gauntlets (CDMG%+HP%/ATK%)"
       },
-      "requiredCount": 3,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14626,7 +14665,7 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14650,7 +14689,7 @@
       "appearance": {
         "name": "Protect: Damage Gauntlets (CDMG%+HP%/DEF%)"
       },
-      "requiredCount": 3,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14697,7 +14736,7 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14769,7 +14808,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14790,7 +14829,7 @@
       "appearance": {
         "name": "Protect: Damage Gauntlets (CDMG%+ACC)"
       },
-      "requiredCount": 3,
+      "requiredCount": 2,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14837,7 +14876,7 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14859,7 +14898,7 @@
       "appearance": {
         "name": "Protect: Damage Gauntlets (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -14906,7 +14945,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -14985,7 +15024,7 @@
         "damage_primary"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15052,7 +15091,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15073,7 +15112,7 @@
       "appearance": {
         "name": "Protect: Damage Chestplate and Boots (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -15125,7 +15164,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15146,7 +15185,7 @@
       "appearance": {
         "name": "Protect: Damage Boots (ACC, Set Agnostic)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -15194,7 +15233,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15215,7 +15254,7 @@
       "appearance": {
         "name": "Protect: Damage Boots (HP%, Set Agnostic)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -15263,7 +15302,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15284,7 +15323,7 @@
       "appearance": {
         "name": "Protect: Damage Boots (ATK%, Set Agnostic)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -15332,7 +15371,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15353,7 +15392,7 @@
       "appearance": {
         "name": "Protect: Damage Boots (DEF%, Set Agnostic)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -15401,7 +15440,7 @@
         "damage_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15467,7 +15506,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15534,7 +15573,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15601,7 +15640,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15668,7 +15707,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15730,7 +15769,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15792,7 +15831,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15856,7 +15895,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15924,7 +15963,7 @@
         "damage"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -15985,7 +16024,7 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16046,7 +16085,7 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16116,7 +16155,7 @@
         "crit_shield"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16184,7 +16223,7 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16205,7 +16244,7 @@
       "appearance": {
         "name": "Protect: Survivability Top Row (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -16249,7 +16288,7 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16318,7 +16357,7 @@
         "survivability"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16340,7 +16379,7 @@
       "appearance": {
         "name": "Protect: Survivability Bottom Row (Any Set)"
       },
-      "requiredCount": 32,
+      "requiredCount": 24,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -16389,7 +16428,7 @@
         "survivability_fallback"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16453,7 +16492,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16518,7 +16557,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16586,7 +16625,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16660,7 +16699,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16733,7 +16772,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16809,7 +16848,7 @@
         "utility"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16834,7 +16873,7 @@
       "appearance": {
         "name": "Protect: Speed (Mercurial)"
       },
-      "requiredCount": 12,
+      "requiredCount": 8,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -16875,7 +16914,7 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16932,7 +16971,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -16989,7 +17028,7 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17059,7 +17098,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17121,7 +17160,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17183,7 +17222,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17248,7 +17287,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17307,7 +17346,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17366,7 +17405,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17425,7 +17464,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17484,7 +17523,7 @@
         "mercurial4"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17543,7 +17582,7 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -17607,7 +17646,7 @@
         "mercurial8"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -18598,7 +18637,7 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -18677,7 +18716,7 @@
         "catchrest"
       ],
       "improvementChanceThreshold": {
-        "atLevel0": 50,
+        "atLevel0": 33,
         "atLevel4": null,
         "atLevel8": null,
         "atLevel12": null
@@ -18768,7 +18807,7 @@
     "     \"[[de]]Ich schaffe die meisten **Normal**-Modi und Dungeons bis Level 25.\\nIch ziele auf **5★ Seltene** Ausrüstung und besser.\" id=midgame ^midgame +keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_22 +acc_rolls_22 +marius_open +fwh_no +la_no +eg_no +acc_early_no +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap +ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical +ore6_lvlcap +ore6_nbr -ore6as_epic +ore6as_legendary +ore6as_mythical +ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=8 min_spd_pieces=8 min_debuffer_pieces=16 min_dmgsurv_pieces=16 impr_art=25 impr_acc=50 {}",
     "  cb \"`Lategame`\"",
     "     \"I can clear all **Normal** game modes and most stages in any **Hard** mode.\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\"",
-    "     \"[[de]]Ich schaffe alle **Normal**-Modi und die meisten Stages in jedem **Hart**-Modus.\\nIch ziele auf **6★ Epic**-Artefakte und besser, plus sehr gute **5★**-Schmuckstücke.\" * id=lategame ^lategame -keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_33 +acc_rolls_32 +marius_finished +fwh_no +la_no +eg_no +acc_early_no +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap +ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical -ore6_lvlcap +ore6_nbr -ore6as_epic +ore6as_legendary +ore6as_mythical -ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=12 min_spd_pieces=12 min_debuffer_pieces=24 min_dmgsurv_pieces=24 impr_art=33 impr_acc=50 {}",
+    "     \"[[de]]Ich schaffe alle **Normal**-Modi und die meisten Stages in jedem **Hart**-Modus.\\nIch ziele auf **6★ Epic**-Artefakte und besser, plus sehr gute **5★**-Schmuckstücke.\" * id=lategame ^lategame -keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_33 +acc_rolls_32 +marius_finished +fwh_no +la_no +eg_no +acc_early_no +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap +ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical -ore6_lvlcap +ore6_nbr -ore6as_epic +ore6as_legendary +ore6as_mythical -ore6as_lvlcap +ore6as_nbr {}",
     "  cb \"`Endgame`\"",
     "     \"I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars.**\\nI aim for **6★ Epic** and higher artifacts, and very good **5★** accessories.\"",
     "     \"[[de]]Ich schaffe alle **Hart**-Modi inklusive **Verfluchte Stadt** / **Soulcross** und **Fraktionskriege.**\\nIch ziele auf **6★ Epic**-Artefakte und besser, plus sehr gute **5★**-Schmuckstücke.\" id=endgame ^endgame -keep_general +keep_limited +keep_acc +keep_spd -keep_safeguards +rolls_43 +acc_rolls_33 +marius_finished +fwh_yes16 +la_yes16 +eg_early +acc_early_yesspider +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap -ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical +ore6_lvlcap +ore6_nbr -ore6as_epic -ore6as_legendary +ore6as_mythical +ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=16 min_spd_pieces=16 min_debuffer_pieces=32 min_dmgsurv_pieces=32 impr_art=50 impr_acc=50 {}",
@@ -19019,7 +19058,7 @@
     "     \"[[de]]Plus fehlende Arten\" * { @tag=spd or tag=spd_fallback { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd or tag=spd_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_spdbanner_pieces min=1 max=64 step=1 default=16 unit=\" pieces\"",
+    "  slider \"\" id=min_spdbanner_pieces min=1 max=64 step=1 default=12 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=spd { count=$value / 8 } @tag=spd_fallback { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
@@ -19033,7 +19072,7 @@
     "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
+    "  slider \"\" id=min_spd_pieces min=1 max=64 default=12 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=speed_set { count=$value/2 } @tag=speed_set_fallback { count=$value } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
@@ -19047,7 +19086,7 @@
     "     \"[[de]]Plus fehlende Arten\" * { @tag=debuffer or tag=debuffer_fallback { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=debuffer_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=32 unit=\" pieces\"",
+    "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=24 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=debuffer { count=$value/16 } @tag=debuffer_fallback { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
@@ -19061,7 +19100,7 @@
     "     \"[[de]]Plus fehlende Arten\" * { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_dmgsurv_pieces min=1 max=64 default=32 unit=\" pieces\"",
+    "  slider \"\" id=min_dmgsurv_pieces min=1 max=64 default=24 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=survivability { count=$value/16 } @tag=survivability_fallback { count=$value } @tag=damage_primary { count=$value/12 } @tag=damage_fallback { count=$value } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
@@ -19082,7 +19121,7 @@
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
     "     \"[[de]]Möchtest du **Artefakte** (keine Schmuckstücke) nach ihrer **Verbesserungschance** schützen?\\nDas behält Ausrüstung mit einer guten Chance, besser zu werden als das, was du hast; der Slider legt die Mindest-Chance fest.\" id=q_uiw6og",
-    "  slider \"\" id=impr_art min=0 max=90 step=1 default=25 toggle=\"Yes\"",
+    "  slider \"\" id=impr_art min=0 max=90 step=1 default=33 toggle=\"Yes\"",
     "     \"[[de]]Ja\" toggleside=left marks=10:\"Soft\"",
     "     \"[[de]]Sanft\",25:\"Balanced\"",
     "     \"[[de]]Ausgewogen\",33:\"Moderate\"",
@@ -19092,7 +19131,7 @@
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",
     "     \"[[de]]Möchtest du **Schmuckstücke** (Ringe, Amulette, Banner) nach ihrer **Verbesserungschance** schützen?\\nGleiche Idee wie bei den Artefakten; Schmuckstücke bekommen etwas höhere Werte, also behält dieselbe Einstellung mehr davon.\" id=q_nfb217",
-    "  slider \"\" id=impr_acc min=0 max=90 step=1 default=25 toggle=\"Yes\"",
+    "  slider \"\" id=impr_acc min=0 max=90 step=1 default=50 toggle=\"Yes\"",
     "     \"[[de]]Ja\" toggleside=left marks=10:\"Soft\"",
     "     \"[[de]]Sanft\",25:\"Balanced\"",
     "     \"[[de]]Ausgewogen\",33:\"Moderate\"",

@@ -575,6 +575,41 @@ export const collectCrossDomainSliderWrites = (
 }
 
 /**
+ * SSOT for "which safeguard sliders does a set of recipe OPTIONS own?" — the union of every
+ * slider questionId any option in the passed questions targets via `setval`/`+`/`-` (regardless
+ * of whether that option is currently selected). Callers pass the account-tier question's options.
+ *
+ * Why this exists: the default `* Lategame` tier carries NO slider forces (its values live in the
+ * re-baselined slider `default=`), so switching a stricter tier → Lategame writes nothing and would
+ * leave the prior tier's slider answers stuck. The change handler uses this set to clear every
+ * tier-owned slider the newly-selected tier does not itself write, so those sliders fall back to
+ * their (Lategame) `default=`. Reads the same directive fields as {@link collectCrossDomainSliderWrites}.
+ */
+export const collectTierOwnedSliderQuestionIds = (
+  tierQuestions: readonly NoteQuestionDefinition[],
+  sliderByToken: ReadonlyMap<string, CrossDomainSliderTarget>,
+): Set<string> => {
+  // Accumulate every slider questionId any option's directives address.
+  const owned = new Set<string>()
+  for (const question of tierQuestions) {
+    for (const option of question.options) {
+      // Every directive kind that collectCrossDomainSliderWrites reads: setval + set/unset toggles.
+      const tokens = [
+        ...option.setValueDirectives.map((d) => d.token),
+        ...option.setTokens,
+        ...option.unsetTokens,
+      ]
+      // Map each token to its slider question; skip tokens that name no known slider id.
+      for (const token of tokens) {
+        const target = sliderByToken.get(token)
+        if (target) owned.add(target.questionId)
+      }
+    }
+  }
+  return owned
+}
+
+/**
  * Compute the safeguard-overrides answers a note's INITIAL recipe selection forces, for
  * seeding at SFC/preset LOAD time. The cross-domain WRITE otherwise only fires on a recipe
  * selection CHANGE, so a preset shipping a default-selected account mode (e.g. `* Lategame`)

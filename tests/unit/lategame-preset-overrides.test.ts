@@ -2,8 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics, seedSafeguardAnswersFromRecipeDefaults } from '../../src/lib/noteRecipeOverrides.js'
-import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
+import {
+  resolveRecipeOverridesTags,
+  collectRecipeOverridesDiagnostics,
+  seedSafeguardAnswersFromRecipeDefaults,
+  applyRecipeOverridesAnswerChange,
+  collectCrossDomainSliderWrites,
+  collectTierOwnedSliderQuestionIds,
+} from '../../src/lib/noteRecipeOverrides.js'
+import { resolveNoteSafeguardOverridesTags, buildSafeguardSliderTokenMap } from '../../src/lib/noteSafeguardOverrides.js'
 import { listOverrideBlocks, parseOverridesBlockDraft } from '../../src/lib/overridesDraft.js'
 
 // Load the real shipped preset note so we validate the actual authored markup.
@@ -100,67 +107,59 @@ test('the improvement-chance sliders carry the setval target ids', () => {
   assert.ok(sliderTokens.includes('impr_acc'), 'accessory slider has id=impr_acc')
 })
 
-test('each account mode forces the same set of keep-piece + improvement-chance sliders', () => {
-  // The mode radios live in the account-tier question (acctQ); read each option's setval.
+test('the default Lategame tier forces no sliders; every stricter tier forces the full set', () => {
+  // The account-tier is the resting state: its stored recipes/safeguards already equal Lategame,
+  // so Lategame carries NO cross-domain slider force — the slider values live in each slider's
+  // re-baselined `default=`. Every OTHER tier still forces the full 6-slider set so it overrides
+  // the Lategame base when selected.
   const setvalTokens = (token: string): string[] => {
     const opt = acctQ.options.find((o) => o.token === token)!
     return opt.setValueDirectives.map((d) => d.token).sort()
   }
-  // Structural contract (not the exact authored numbers, which are content): every tier forces
-  // the full slider set so switching modes / loading a preset always seeds all of them.
-  const expectedTokens = ['impr_acc', 'impr_art', 'min_debuffer_pieces', 'min_dmgsurv_pieces', 'min_spd_pieces', 'min_spdbanner_pieces'].sort()
-  for (const tier of ['midgame', 'lategame', 'endgame', 'endgameplus']) {
-    assert.deepEqual(setvalTokens(tier), expectedTokens, `${tier} forces every keep-piece/improv slider`)
-  }
-  // Spot-check the default Lategame values (the seeding-relevant mode) are concrete + finite.
-  const lategame = Object.fromEntries(
-    acctQ.options.find((o) => o.token === 'lategame')!.setValueDirectives.map((d) => [d.token, d.value]),
-  )
-  for (const [token, value] of Object.entries(lategame)) {
-    assert.ok(Number.isFinite(value) && value > 0, `lategame ${token} is a positive number (${value})`)
+  const fullSet = ['impr_acc', 'impr_art', 'min_debuffer_pieces', 'min_dmgsurv_pieces', 'min_spd_pieces', 'min_spdbanner_pieces'].sort()
+  // Lategame (the `*` default) forces nothing — that is the whole point of the re-baseline.
+  assert.deepEqual(setvalTokens('lategame'), [], 'default Lategame tier carries no slider forces')
+  // The stricter/looser tiers still force every slider (they diff against the Lategame base).
+  for (const tier of ['midgame', 'endgame', 'endgameplus']) {
+    assert.deepEqual(setvalTokens(tier), fullSet, `${tier} forces every keep-piece/improv slider`)
+    for (const d of acctQ.options.find((o) => o.token === tier)!.setValueDirectives) {
+      assert.ok(Number.isFinite(d.value) && d.value > 0, `${tier} ${d.token} is a positive number (${d.value})`)
+    }
   }
 })
 
-test('loading the preset seeds every slider from the default Lategame mode (not slider defaults)', () => {
-  // Fresh load (empty answers) → the `*` default Lategame is selected; its setval forces must seed
-  // the safeguard sliders to the FORCED values, NOT leave them at each slider's own `default=`.
-  // Expected values are read from the resolved Lategame option so the test tracks the authored
-  // preset rather than hardcoding numbers the author keeps tuning.
-  const lategameForces = new Map(
-    acctQ.options.find((o) => o.token === 'lategame')!.setValueDirectives.map((d) => [d.token, d.value]),
-  )
+test('loading the preset leaves tier sliders empty; they resolve to the Lategame default=', () => {
+  // Fresh load (empty answers) → the `*` default Lategame is selected. Because Lategame forces no
+  // sliders, the seed writes NOTHING, so every tier-owned slider answer stays absent and resolves
+  // via its own `default=`. Those defaults were re-baselined to the Lategame values, so a fresh
+  // load == native Lategame with no override touching the stored rules. This is the new SSOT.
   const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
+  assert.deepEqual(seeded, {}, 'default Lategame seeds no slider answers (nothing forced)')
   const sg = resolveNoteSafeguardOverridesTags(note, seeded)
-  const seededValue = (token: string): string | undefined => {
-    const q = sg.questions.find((x) => x.options.some((o) => o.token === token))!
-    return seeded[q.id]?.[0]
-  }
-  // Every forced token must be seeded to exactly its forced value, and must DIFFER from the
-  // slider's own default for at least one token (else the test couldn't catch the original bug).
-  let differsFromDefault = false
-  for (const [token, value] of lategameForces) {
-    assert.equal(seededValue(token), String(value), `${token} seeded to Lategame force ${value}`)
-    const slider = sg.questions.flatMap((q) => q.options).find((o) => o.token === token)!
-    if (value !== (slider.sliderDefault ?? slider.sliderMin)) differsFromDefault = true
-  }
-  assert.ok(differsFromDefault, 'at least one forced value differs from the slider default (guards the original bug)')
+  // The improvement-chance sliders must resolve to the Lategame numbers via their default= (33/50).
+  const sliderDefault = (token: string): number | undefined =>
+    sg.questions.flatMap((q) => q.options).find((o) => o.token === token)?.sliderDefault
+  assert.equal(sliderDefault('impr_art'), 33, 'impr_art default= re-baselined to the Lategame 33%')
+  assert.equal(sliderDefault('impr_acc'), 50, 'impr_acc default= re-baselined to the Lategame 50%')
+  assert.equal(sliderDefault('min_spd_pieces'), 12, 'min_spd_pieces default= re-baselined to Lategame 12')
 })
 
-test('"Reset Options to Defaults" re-applies the default-mode forces over a dirtied state', () => {
+test('"Reset Options to Defaults" clears a dirtied tier slider back to the Lategame default=', () => {
   // Reproduce the reset handler: it clears recipe answers and computes safeguard answers via
   // seedSafeguardAnswersFromRecipeDefaults(note) with NO `existing` map — so prior user edits
-  // (e.g. a dragged-away slider) are discarded and every default-mode force is re-applied.
+  // (e.g. a dragged-away slider) are discarded. Since Lategame forces nothing, the reset produces
+  // an empty answer map and the slider falls back to its re-baselined `default=` (the Lategame value).
   const spdQ = resolveNoteSafeguardOverridesTags(note).questions
     .find((x) => x.options.some((o) => o.token === 'min_spd_pieces'))!
-  // Simulate a user who dragged the speed-set slider to a non-default, non-forced value.
+  // Simulate a user who dragged the speed-set slider to a non-default value.
   const dirtied = { [spdQ.id]: ['64'] }
-  // The reset call (matches NoteDialog.handleResetRecipeOverridesAnswers) ignores `dirtied`.
   const afterReset = seedSafeguardAnswersFromRecipeDefaults(note)
+  assert.equal(afterReset[spdQ.id], undefined, 'reset discards the dragged value (slider answer cleared)')
   assert.notEqual(afterReset[spdQ.id]?.[0], dirtied[spdQ.id]?.[0], 'reset discards the dragged value')
-  // It lands on the authored Lategame force, not the slider default.
-  const lategameForce = acctQ.options.find((o) => o.token === 'lategame')!
-    .setValueDirectives.find((d) => d.token === 'min_spd_pieces')!.value
-  assert.equal(afterReset[spdQ.id]?.[0], String(lategameForce), 'reset applies the Lategame speed-set force')
+  // With no stored answer the slider resolves to its default=, re-baselined to the Lategame 12.
+  const spdSlider = resolveNoteSafeguardOverridesTags(note, afterReset).questions
+    .flatMap((q) => q.options).find((o) => o.token === 'min_spd_pieces')!
+  assert.equal(spdSlider.sliderDefault, 12, 'reset lands the speed-set slider on the Lategame default 12')
 })
 
 // Every non-spacer question's id, frozen to its v1.0.34 hash. These literals ARE the ids
@@ -200,4 +199,74 @@ test('every lategame question carries a v1.0.34-compatible pinned id= (regressio
   ].filter((q) => !q.id.startsWith('spacer')).map((q) => q.id)
   assert.deepEqual(resolvedIds, [...EXPECTED_QUESTION_IDS],
     'the shipped question ids must equal (and stay in the order of) the frozen v1.0.34 set')
+})
+
+// ── Tier switch-back clear-forces (the stuck-slider regression) ───────────────────────────────
+// After the re-baseline, the default Lategame tier forces no sliders. Switching a stricter tier
+// (Endgame) → Lategame therefore writes nothing, and — without the clear-forces logic — would leave
+// Endgame's stored slider values stuck. `collectTierOwnedSliderQuestionIds` lets the NoteDialog
+// handler release those owned sliders so they fall back to the (Lategame) `default=`. This replicates
+// the core of NoteDialog.handleRecipeOverridesAnswerChange to guard that behavior at the unit level.
+
+// Replicate the handler's cross-domain slider effect: apply a tier selection over prior answers.
+const simTierSwitch = (
+  recipeAnswers: Record<string, string[]>,
+  sgAnswers: Record<string, string[]>,
+  targetToken: string,
+): { recipeAnswers: Record<string, string[]>; sgAnswers: Record<string, string[]> } => {
+  const question = seed.questions.find((q) => q.id === acctQ.id)!
+  const opt = acctQ.options.find((o) => o.token === targetToken)!
+  const sliderByToken = buildSafeguardSliderTokenMap(resolveNoteSafeguardOverridesTags(note).questions)
+  // Options selected BEFORE this change (only newly-selected options contribute writes).
+  const before = new Set(resolveRecipeOverridesTags(note, recipeAnswers).questions.flatMap((q) => q.answer))
+  const nextRecipe = applyRecipeOverridesAnswerChange(note, recipeAnswers, question, [opt.id], opt.id, undefined)
+  const writes = collectCrossDomainSliderWrites(
+    resolveRecipeOverridesTags(note, nextRecipe).questions, sliderByToken, (id) => !before.has(id),
+  )
+  // Clear-forces: drop every tier-owned slider the newly-selected tier does not itself write.
+  const owned = collectTierOwnedSliderQuestionIds([question], sliderByToken)
+  const written = new Set(writes.map((w) => w.questionId))
+  const nextSg = { ...sgAnswers }
+  for (const id of owned) if (!written.has(id)) delete nextSg[id]
+  for (const w of writes) nextSg[w.questionId] = [w.value]
+  return { recipeAnswers: nextRecipe, sgAnswers: nextSg }
+}
+
+const spdQuestionId = resolveNoteSafeguardOverridesTags(note).questions
+  .find((x) => x.options.some((o) => o.token === 'min_spd_pieces'))!.id
+const imprArtQuestionId = resolveNoteSafeguardOverridesTags(note).questions
+  .find((x) => x.options.some((o) => o.token === 'impr_art'))!.id
+
+test('the account-tier question owns exactly the six cross-domain sliders', () => {
+  const sliderByToken = buildSafeguardSliderTokenMap(resolveNoteSafeguardOverridesTags(note).questions)
+  const acctQuestion = seed.questions.find((q) => q.id === acctQ.id)!
+  const owned = collectTierOwnedSliderQuestionIds([acctQuestion], sliderByToken)
+  // Every one of the six tier sliders (by question id) must be owned.
+  const sg = resolveNoteSafeguardOverridesTags(note)
+  const idOf = (token: string) => sg.questions.find((q) => q.options.some((o) => o.token === token))!.id
+  for (const token of ['min_spdbanner_pieces', 'min_spd_pieces', 'min_debuffer_pieces', 'min_dmgsurv_pieces', 'impr_art', 'impr_acc']) {
+    assert.ok(owned.has(idOf(token)), `${token} is a tier-owned slider`)
+  }
+})
+
+test('switching Endgame→Lategame clears the stuck Endgame slider values (fall back to Lategame default=)', () => {
+  // Fresh Lategame load: no slider answers stored.
+  let state = { recipeAnswers: {} as Record<string, string[]>, sgAnswers: {} as Record<string, string[]> }
+  assert.equal(state.sgAnswers[spdQuestionId], undefined, 'fresh load has no speed-set slider answer')
+
+  // Switch to Endgame — it forces every slider (min_spd_pieces=16, impr_art=50).
+  state = simTierSwitch(state.recipeAnswers, state.sgAnswers, 'endgame')
+  assert.equal(state.sgAnswers[spdQuestionId]?.[0], '16', 'Endgame writes the speed-set slider to 16')
+  assert.equal(state.sgAnswers[imprArtQuestionId]?.[0], '50', 'Endgame writes the art improvement slider to 50')
+
+  // Switch back to Lategame — it forces nothing, so the clear-forces logic must RELEASE those sliders.
+  state = simTierSwitch(state.recipeAnswers, state.sgAnswers, 'lategame')
+  assert.equal(state.sgAnswers[spdQuestionId], undefined, 'Lategame releases the stuck speed-set slider')
+  assert.equal(state.sgAnswers[imprArtQuestionId], undefined, 'Lategame releases the stuck art-improvement slider')
+
+  // The released sliders now resolve to their re-baselined Lategame default= (12 and 33).
+  const sg = resolveNoteSafeguardOverridesTags(note, state.sgAnswers)
+  const sliderDefault = (token: string) => sg.questions.flatMap((q) => q.options).find((o) => o.token === token)?.sliderDefault
+  assert.equal(sliderDefault('min_spd_pieces'), 12, 'speed-set slider back to the Lategame default 12')
+  assert.equal(sliderDefault('impr_art'), 33, 'art-improvement slider back to the Lategame default 33')
 })
