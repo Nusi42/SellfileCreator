@@ -3,6 +3,7 @@
  *
  * Compact scrollable list of scored safeguard candidates for the weight popover.
  * Shows: rank number, slot (icon OR text), set (icon OR text), faction (icon OR text, accessories only),
+ * gear star rank + rarity (rarity contrast-adapted to its colour), main stat, substats,
  * score, kept/sold badge. A quota cutoff divider separates kept from sold candidates.
  *
  * Display flags mirror the global HSF table preferences: when an icon flag is on the corresponding
@@ -33,7 +34,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
 import { safeguardFocusGroupKeyFor } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
-import { artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
+import { artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, rarityRankValueI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
@@ -41,7 +42,7 @@ import { FactionIcon, FACTION_ICON_HALO_PAD_PX } from './FactionIcon'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { CircledDigitBadge } from './CircledDigitBadge'
-import { useRarityGlyphColor } from '../lib/rarityColorContext'
+import { useRarityGlyphColor, useRarityTextColor } from '../lib/rarityColorContext'
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
@@ -66,6 +67,10 @@ export type StatCellWidths = {
   mainstatCellWidthPx: number
   // Width for each substat column — widest label + circled-4 roll glyph across all variants.
   substatCellWidthPx: number
+  // Width for the gear star-rank column (e.g. "6★") — widest rank label across ranks 1–6.
+  rankCellWidthPx: number
+  // Width for the rarity column (e.g. "Legendary") — widest rarity word across rarities 1–6.
+  rarityCellWidthPx: number
 }
 
 // Measures exact pixel widths for mainstat and substat columns in a single canvas pass.
@@ -83,7 +88,12 @@ export function measureStatCellWidths(
   const fontSizePx = FONT_SIZE_SECONDARY_REM * (Number.isFinite(rootFontSizePx) ? rootFontSizePx : 16)
   if (!ctx) {
     // Canvas unavailable — fall back to a rough per-char estimate.
-    return { mainstatCellWidthPx: Math.ceil(fontSizePx * 4), substatCellWidthPx: Math.ceil(fontSizePx * 7) }
+    return {
+      mainstatCellWidthPx: Math.ceil(fontSizePx * 4),
+      substatCellWidthPx: Math.ceil(fontSizePx * 7),
+      rankCellWidthPx: Math.ceil(fontSizePx * 2),
+      rarityCellWidthPx: Math.ceil(fontSizePx * 6),
+    }
   }
   ctx.font = `${fontSizePx}px ${theme.typography.fontFamily ?? 'sans-serif'}`
   // CSS badge outer size ≈ 1× the context em square; add it to the label measurement
@@ -96,10 +106,20 @@ export function measureStatCellWidths(
     maxMainstat = Math.max(maxMainstat, ctx.measureText(label).width)
     maxSubstat = Math.max(maxSubstat, ctx.measureText(label).width + badgeWidthPx)
   }
+  // Rank ("6★") and rarity ("Legendary") columns — widest label across the 1–6 value range,
+  // so both columns stay a consistent width regardless of which gear a row shows.
+  let maxRank = 0
+  let maxRarity = 0
+  for (let value = 1; value <= 6; value += 1) {
+    maxRank = Math.max(maxRank, ctx.measureText(t(starRankValueI18nKey(value))).width)
+    maxRarity = Math.max(maxRarity, ctx.measureText(t(rarityRankValueI18nKey(value))).width)
+  }
   const buffer = 4  // px safety buffer for subpixel rounding
   return {
     mainstatCellWidthPx: Math.ceil(maxMainstat) + buffer,
     substatCellWidthPx: Math.ceil(maxSubstat) + buffer,
+    rankCellWidthPx: Math.ceil(maxRank) + buffer,
+    rarityCellWidthPx: Math.ceil(maxRarity) + buffer,
   }
 }
 // Card preview uses the same column profile and scale factor as the db-update-history toast.
@@ -287,7 +307,7 @@ export default function SafeguardCandidateRankList({
 
   // Uniform fixed widths for mainstat and substat cells — measured once across ALL stat variants
   // so column widths are consistent regardless of which substats the current rule selects.
-  const { mainstatCellWidthPx, substatCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
+  const { mainstatCellWidthPx, substatCellWidthPx, rankCellWidthPx, rarityCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
 
   // Focus state: when set, the list is scoped to a single count-group (the group of the candidate
   // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
@@ -430,6 +450,8 @@ export default function SafeguardCandidateRankList({
     ruleOrdinal,
     mainstatCellWidthPx,
     substatCellWidthPx,
+    rankCellWidthPx,
+    rarityCellWidthPx,
     substatColumnCount: resolvedSubstatColumnCount,
     substatColors: substatColors ?? {},
     useStatButtonColors: useStatButtonColors ?? false,
@@ -607,6 +629,8 @@ function CandidateRow({
   ruleOrdinal,
   mainstatCellWidthPx,
   substatCellWidthPx,
+  rankCellWidthPx,
+  rarityCellWidthPx,
   substatColumnCount,
   isFiltered,
   substatColors,
@@ -641,6 +665,10 @@ function CandidateRow({
   mainstatCellWidthPx: number
   // Uniform fixed pixel width for every substat cell — measured from the longest label + roll glyph.
   substatCellWidthPx: number
+  // Uniform fixed pixel width for the gear star-rank cell — measured from the widest rank label.
+  rankCellWidthPx: number
+  // Uniform fixed pixel width for the rarity cell — measured from the widest rarity word.
+  rarityCellWidthPx: number
   // Number of substat columns to render (real cells + placeholder pads) — from parent's max-across-candidates.
   substatColumnCount: number
   // True when the artifact is hidden by the current Gear Inspector filter — renders dimmed.
@@ -671,6 +699,9 @@ function CandidateRow({
 }) {
   // Always-on rarity tint for the slot icon (glyph coloured by rarity, like v1.0.26 — not scope-gated).
   const rarityIconColor = useRarityGlyphColor(artifact?.rarity)
+  // Scope-gated contrast-adapted colour for the rarity WORD in the rarity column (undefined when the
+  // rarity colour scope is off → falls back to text.secondary like the other text cells).
+  const rarityTextColor = useRarityTextColor(artifact?.rarity)
   // Determine the actual outcome for this candidate.
   // When previewRow is available its match field is ground truth — use it to drive the icon.
   // Fall back to isWithinQuota only when no preview data exists (e.g. popover opened before
@@ -750,6 +781,11 @@ function CandidateRow({
         rowSurfacePaper,
       )
     : null
+
+  // Gear rank (stars) + rarity labels — gear-piece attributes shown left of the mainstat.
+  // Rank is neutral text; rarity is contrast-adapted to its rarity colour (rarityTextColor).
+  const rankLabel = artifact ? t(starRankValueI18nKey(artifact.rank)) : null
+  const rarityLabel = artifact ? t(rarityRankValueI18nKey(artifact.rarity)) : null
 
   // Mainstat: label + color (follows the same stat-button-color flag as substats).
   const mainStatLabel = artifact ? t(statVariantI18nKey(artifact.mainStat)) : null
@@ -897,6 +933,44 @@ function CandidateRow({
           score/badge/match to the right edge, keeping them aligned across all rows regardless
           of how many substats an artifact has. */}
       <Box sx={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {/* Gear star rank (e.g. "6★") — neutral text, fixed-width so the column stays aligned. */}
+        {rankLabel && (
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
+              color: 'text.secondary',
+              width: rankCellWidthPx,
+              flexGrow: 0,
+              flexShrink: 0,
+              textAlign: 'left',
+            }}
+          >
+            {rankLabel}
+          </Typography>
+        )}
+        {/* Rarity word (e.g. "Legendary") — contrast-adapted to its rarity colour when the rarity
+            colour scope is on; falls back to text.secondary otherwise. mr adds the requested gap
+            between rarity and the mainstat cell. */}
+        {rarityLabel && (
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              fontSize: `${FONT_SIZE_SECONDARY_REM}rem`,
+              color: rarityTextColor ?? 'text.secondary',
+              width: rarityCellWidthPx,
+              flexGrow: 0,
+              flexShrink: 0,
+              textAlign: 'left',
+              // Gap between rarity and the mainstat cell (mirrors the mainstat→substat mr below).
+              mr: 0.75,
+            }}
+          >
+            {rarityLabel}
+          </Typography>
+        )}
         {mainStatLabel && (
           <Typography
             variant="caption"
