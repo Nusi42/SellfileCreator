@@ -13506,8 +13506,8 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.4,
-        "DEF": 0.5
+        "HP": 0.05,
+        "DEF": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -13565,8 +13565,8 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.4,
-        "DEF": 0.5
+        "HP": 0.05,
+        "DEF": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17988,8 +17988,8 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.4,
-        "DEF": 0.55
+        "HP": 0.05,
+        "DEF": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
