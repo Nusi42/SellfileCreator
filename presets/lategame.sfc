@@ -12887,6 +12887,9 @@
         "SPD",
         "ACC"
       ],
+      "substatWeights": {
+        "SPD": 3
+      },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
     },
@@ -12951,6 +12954,9 @@
         "SPD",
         "ACC"
       ],
+      "substatWeights": {
+        "SPD": 3
+      },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
     },
