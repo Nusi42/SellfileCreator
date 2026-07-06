@@ -15781,10 +15781,12 @@
         "atLevel12": null
       },
       "substats": [
+        "CR%",
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 1.15
+        "DEF%": 1.15,
+        "CR%": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15844,10 +15846,12 @@
         "atLevel12": null
       },
       "substats": [
+        "CR%",
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 1.15
+        "ATK%": 1.15,
+        "CR%": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15907,10 +15911,12 @@
         "atLevel12": null
       },
       "substats": [
+        "CR%",
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 1.15
+        "HP%": 1.15,
+        "CR%": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
