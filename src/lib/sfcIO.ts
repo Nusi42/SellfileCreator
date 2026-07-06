@@ -1281,9 +1281,12 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   if (Object.keys(substatWeights).length > 0) entry.substatWeights = substatWeights
   // Emit "Weight by Rank" only when enabled; omission loads as off (backward-compatible).
   if (rule.weightMainStatByRank) entry.weightMainStatByRank = true
-  // Emit the main-stat rank factor only when it differs from the neutral default (1.0); omission
-  // loads as 1.0 so files that never touched this control stay byte-identical to the old format.
-  if (typeof rule.mainStatRankWeightFactor === 'number'
+  // Emit the Mainstat rank factor only when the toggle is on AND it differs from the neutral
+  // default (1.0). The factor is inert while the toggle is off, so persisting it then would be a
+  // dormant no-op value; gating on the toggle keeps it out (mirrors how a deselected substat's
+  // weight is not written). Omission loads as 1.0, so untouched files stay byte-identical.
+  if (rule.weightMainStatByRank
+    && typeof rule.mainStatRankWeightFactor === 'number'
     && rule.mainStatRankWeightFactor !== SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT) {
     entry.mainStatRankWeightFactor = rule.mainStatRankWeightFactor
   }

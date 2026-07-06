@@ -156,6 +156,47 @@ test('SFC parser preserves safeguard substatWeights from legacy KeepUniques payl
   assert.equal(exportedWeights['ACC'], 0.9)
 })
 
+test('SFC writes mainStatRankWeightFactor only when Weight by Rank is on', () => {
+  // Parse a minimal safeguard so we get a valid SafeguardRule to mutate + re-export.
+  const parseWith = (weightMainStatByRank: boolean, factor: number) => {
+    const parsed = parseSfcObject(
+      {
+        Version: 'factor-gating',
+        Recipes: [buildRecipe('Factor Gating')],
+        Safeguards: [{
+          id: 'factor-rule',
+          requiredCount: 1,
+          activation: 'protectExisting',
+          tuple: { slots: ['Chestplate'], sets: [], metaSetIds: [], ranks: ['6★'], rarities: ['Legendary'], mainStats: ['ATK%'], factions: [] },
+          substats: ['CR%'],
+        }],
+        SafeguardsEnabled: true,
+        SelectedConfigIndex: 0,
+      },
+      { metasets: [], substatTargets: defaultSubstatTargets() },
+    )
+    // Set the toggle + factor on the parsed rule, then export and read the entry back.
+    const rule = { ...parsed.safeguardRules![0]!, weightMainStatByRank, mainStatRankWeightFactor: factor }
+    const payload = buildSfcPayload({
+      version: 'factor-gating',
+      metasets: parsed.metasets,
+      substatTargets: parsed.substatTargets,
+      recipes: parsed.recipes,
+      safeguardRules: [rule],
+      safeguardsEnabled: true,
+    }) as Record<string, unknown>
+    return ((payload['Safeguards'] as unknown[])?.[0] ?? {}) as Record<string, unknown>
+  }
+
+  // Toggle OFF: the factor is inert, so it must never be persisted (even a non-default value).
+  assert.equal('mainStatRankWeightFactor' in parseWith(false, 2.5), false, 'off toggle must not write the factor')
+  // Toggle ON + non-default: written verbatim.
+  const onEntry = parseWith(true, 2.5)
+  assert.equal(onEntry['mainStatRankWeightFactor'], 2.5, 'on toggle + non-default must write the factor')
+  // Toggle ON + default (1.0): omitted so untouched files stay byte-identical.
+  assert.equal('mainStatRankWeightFactor' in parseWith(true, 1.0), false, 'on toggle + default must not write the factor')
+})
+
 test('SFC round-trips every safeguard activation mode (incl. anticipateImprovements)', () => {
   for (const activation of ['off', 'protectExisting', 'anticipateGaps', 'anticipateImprovements']) {
     const parsed = parseSfcObject(

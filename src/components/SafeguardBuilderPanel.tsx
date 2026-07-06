@@ -2614,10 +2614,22 @@ export default function SafeguardBuilderPanel({
                       disabled={weightByRankDisabled}
                       onClick={() => {
                         if (weightByRankDisabled) return
+                        const nextOn = !weightByRankValue
                         if (multiEditActive && multiEdit) {
-                          multiEdit.updateField('weightMainStatByRank', { value: !weightByRankValue, status: 'common' })
+                          multiEdit.updateField('weightMainStatByRank', { value: nextOn, status: 'common' })
+                          // Toggling off resets the dependent Mainstat factor to its neutral default
+                          // (mirrors how deselecting a substat drops its weight) so it is not silently
+                          // persisted while inert, and re-enabling starts from the default.
+                          if (!nextOn) {
+                            multiEdit.updateField('mainStatRankWeightFactor', { value: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT, status: 'common' })
+                          }
                         } else {
-                          updateRule((prev) => ({ ...prev, weightMainStatByRank: !(prev.weightMainStatByRank === true) }))
+                          updateRule((prev) => ({
+                            ...prev,
+                            weightMainStatByRank: nextOn,
+                            // Reset the dependent factor to default when the toggle goes off.
+                            ...(nextOn ? {} : { mainStatRankWeightFactor: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT }),
+                          }))
                         }
                       }}
                       sx={{
