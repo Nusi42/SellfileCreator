@@ -13,7 +13,7 @@
 //   - dev (default): FHD-only viewport projects, short iteration counts. Fast inner loop.
 //   - full (E2E_FULL=1, set by release:win): both viewports, full iteration counts.
 
-import { spawn, spawnSync } from 'node:child_process'
+import { spawn, spawnSync, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -135,9 +135,31 @@ async function main() {
 }
 
 // Always stop the shared server, whatever happened.
+//
+// sharedServer is `npm run preview`, which on Windows is a 3-deep process chain
+// (node running npm-cli.js -> cmd.exe -> node running vite.js, the actual listening
+// server) and on POSIX a 2-deep chain (npm -> vite). Plain `sharedServer.kill()` only
+// signals the top PID — Windows does not cascade-terminate child processes, so the
+// cmd.exe + real vite preview server were silently orphaned, kept the port bound, and
+// (with VITE_TEST_HOOKS baked into that stale process) could serve a subsequent run's
+// browsers a leftover/mismatched build. Kill the whole tree instead.
 function shutdown() {
-  if (sharedServer && !sharedServer.killed) {
-    try { sharedServer.kill() } catch { /* already gone */ }
+  if (sharedServer && !sharedServer.killed && sharedServer.pid) {
+    const pid = sharedServer.pid
+    try {
+      if (process.platform === 'win32') {
+        // /T kills the full descendant tree, /F forces it (Windows refuses a plain
+        // kill on a process with live children — see the /T-less failure this was
+        // built to avoid).
+        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' })
+      } else {
+        // POSIX: spawn() was not given `detached: true`, so there is no separate
+        // process group to target — fall back to killing the direct child. (If this
+        // ever needs to cover POSIX-side grandchildren, spawn with detached:true and
+        // kill -pid here instead.)
+        sharedServer.kill()
+      }
+    } catch { /* already gone */ }
     sharedServer = null
   }
 }
