@@ -84,6 +84,15 @@ export const setNoteOverrideCheckbox = async (
 export const closeNoteDialog = async (page: Page): Promise<void> => {
   const noteDialog = page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[0] })
     .or(page.getByRole('dialog', { name: NOTE_DIALOG_TITLES[1] }))
+  // A prior setNoteOverrideCheckbox toggle only waits for the checkbox's own checked
+  // state to flip — it does NOT wait for the resulting recipe/rule rebuild
+  // (NoteDialog's notePending, shown as an in-dialog LinearProgress) to settle. Closing
+  // immediately after a toggle can race that rebuild: the Close button is genuinely
+  // visible, but the main thread is still busy with the rebuild when the click is
+  // dispatched, so the click (and this call) can time out even though nothing is
+  // actually broken. Wait for the progress bar to clear first so the click lands on
+  // an idle page.
+  await noteDialog.locator('.MuiLinearProgress-root').waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   const closeButton = noteDialog.getByRole('button', { name: NOTE_DIALOG_CLOSE_LABEL })
   await expect(closeButton).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Use a direct DOM click — SFC processing is settled so the element is stable.
