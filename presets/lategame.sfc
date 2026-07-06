@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.25",
+  "Version": "1.0.36-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -12056,7 +12056,8 @@
         "CR%": 0.5,
         "CDMG%": 0.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12127,7 +12128,8 @@
         "CR%": 1.1,
         "CDMG%": 0.95
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12318,7 +12320,8 @@
         "CR%": 0.7,
         "CDMG%": 0.7
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12391,7 +12394,8 @@
         "CR%": 0.7,
         "CDMG%": 0.7
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12513,10 +12517,8 @@
       "substats": [
         "ACC"
       ],
-      "substatWeights": {
-        "ACC": 0.1
-      },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12690,7 +12692,8 @@
         "SPD",
         "ACC"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12754,7 +12757,8 @@
         "SPD": 3,
         "CDMG%": 0.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12883,7 +12887,8 @@
         "SPD",
         "ACC"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12946,7 +12951,8 @@
         "SPD",
         "ACC"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13207,7 +13213,8 @@
         "RES"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13260,7 +13267,8 @@
         "RES"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13314,7 +13322,8 @@
         "DEF"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13373,7 +13382,8 @@
         "ATK",
         "DEF"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13430,10 +13440,11 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.45,
+        "HP": 0.4,
         "DEF": 0.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13488,10 +13499,11 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.5,
-        "DEF": 0.45
+        "HP": 0.4,
+        "DEF": 0.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13547,7 +13559,8 @@
       "substatWeights": {
         "DEF%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13601,7 +13614,8 @@
       "substatWeights": {
         "DEF%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13657,7 +13671,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13711,7 +13726,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13767,7 +13783,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13821,7 +13838,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13875,7 +13893,8 @@
         "DEF%"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13927,7 +13946,8 @@
         "DEF%"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -13985,7 +14005,8 @@
         "HP%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14041,7 +14062,8 @@
         "HP%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14099,7 +14121,8 @@
         "ATK%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14155,7 +14178,8 @@
         "ATK%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14213,7 +14237,8 @@
         "DEF%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14269,7 +14294,8 @@
         "DEF%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14644,7 +14670,8 @@
         "SPD": 1.3,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14715,7 +14742,8 @@
         "SPD": 1.3,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14784,7 +14812,8 @@
         "SPD": 1.15,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14853,7 +14882,8 @@
         "ACC": 0.9,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14927,7 +14957,8 @@
         "ACC": 0.8,
         "CR%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15000,7 +15031,8 @@
         "CR%": 1.3,
         "CDMG%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15067,7 +15099,8 @@
         "CR%": 1.3,
         "CDMG%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15140,7 +15173,8 @@
         "CR%": 1.3,
         "CDMG%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15209,7 +15243,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15278,7 +15313,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15347,7 +15383,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15416,7 +15453,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15483,7 +15521,8 @@
         "CR%": 1.3,
         "CDMG%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15550,7 +15589,8 @@
         "CR%": 1.3,
         "CDMG%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15617,7 +15657,8 @@
         "CR%": 1.3,
         "CDMG%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15679,7 +15720,8 @@
       "substatWeights": {
         "DEF%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15741,7 +15783,8 @@
       "substatWeights": {
         "ATK%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15803,7 +15846,8 @@
       "substatWeights": {
         "HP%": 1.15
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15870,7 +15914,8 @@
         "CR%": 1.3,
         "CDMG%": 1.05
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -15936,7 +15981,8 @@
       "substatWeights": {
         "CR%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16063,7 +16109,8 @@
         "SPD": 1.5,
         "ACC": 0.9
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16135,7 +16182,8 @@
         "RES": 0.7,
         "CR%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16199,7 +16247,8 @@
         "HP%": 1.1,
         "SPD": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16264,7 +16313,8 @@
         "HP%": 1.1,
         "SPD": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16334,7 +16384,8 @@
         "SPD": 1.4,
         "RES": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16404,7 +16455,8 @@
         "HP%": 1.1,
         "SPD": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16469,7 +16521,8 @@
         "HP%": 1.15,
         "SPD": 1.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16537,7 +16590,8 @@
         "CR%": 1.1,
         "CDMG%": 1.2
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16605,7 +16659,8 @@
         "CR%": 1.1,
         "CDMG%": 1.2
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16676,7 +16731,8 @@
         "HP%": 1.15,
         "SPD": 1.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16752,7 +16808,8 @@
         "CR%": 1.1,
         "CDMG%": 1.2
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16828,7 +16885,8 @@
         "CR%": 1.1,
         "CDMG%": 1.2
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -16943,7 +17001,7 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.2,
+        "SPD": 1.3,
         "ACC": 1.1
       }
     },
@@ -17009,13 +17067,14 @@
         "HP%": 0.3,
         "ATK%": 0.3,
         "DEF%": 0.3,
-        "SPD": 1.5,
+        "SPD": 1.55,
         "RES": 0.2,
         "ACC": 0.3,
         "CR%": 1.3,
         "CDMG%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17077,7 +17136,8 @@
         "SPD": 1.3,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17139,7 +17199,8 @@
         "SPD": 1.3,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17199,7 +17260,8 @@
         "ACC": 0.9,
         "CR%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17263,7 +17325,8 @@
         "CR%": 1.3,
         "CDMG%": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17322,7 +17385,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17381,7 +17445,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17440,7 +17505,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17499,7 +17565,8 @@
         "CR%": 1.3,
         "CDMG%": 1.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17556,9 +17623,10 @@
       ],
       "substatWeights": {
         "HP%": 1.1,
-        "SPD": 1.2
+        "SPD": 1.4
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17623,7 +17691,8 @@
         "SPD": 1.4,
         "RES": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17731,7 +17800,8 @@
         "RES"
       ],
       "substatMatch": "perSubstat",
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17788,7 +17858,8 @@
         "ATK",
         "DEF"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17845,10 +17916,11 @@
         "DEF"
       ],
       "substatWeights": {
-        "HP": 0.5,
-        "DEF": 0.45
+        "HP": 0.4,
+        "DEF": 0.55
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17904,7 +17976,8 @@
       "substatWeights": {
         "DEF%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -17960,7 +18033,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18016,7 +18090,8 @@
       "substatWeights": {
         "HP%": 0.3
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18074,7 +18149,8 @@
         "HP%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18132,7 +18208,8 @@
         "ATK%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18190,7 +18267,8 @@
         "DEF%": 0.4,
         "SPD": 1.1
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18249,7 +18327,8 @@
         "DEF%": 0.8,
         "SPD": 1.5
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18311,7 +18390,8 @@
         "DEF%": 0.8,
         "SPD": 1.35
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18365,7 +18445,8 @@
       "substatWeights": {
         "SPD": 1.35
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18411,7 +18492,8 @@
         "fw_coverage",
         "acc"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18456,7 +18538,8 @@
         "fw_count",
         "acc"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18501,7 +18584,8 @@
         "fw_count",
         "acc"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18546,7 +18630,8 @@
         "fw_count",
         "acc"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18616,7 +18701,8 @@
       "substatWeights": {
         "SPD": 1.35
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18695,7 +18781,8 @@
       "substatWeights": {
         "SPD": 1.35
       },
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -18740,7 +18827,8 @@
         "fw_coverage",
         "fw_count"
       ],
-      "weightMainStatByRank": true
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     }
   ],
   "SafeguardsEnabled": true,
