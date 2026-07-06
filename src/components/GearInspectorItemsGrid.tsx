@@ -77,6 +77,7 @@ import {
   sanitizeSafeguardCountMode,
   safeguardEffectiveCountModeForDisplay,
   type SafeguardRule,
+  type SafeguardRankByArtifactId,
 } from '../lib/safeguards'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
@@ -152,7 +153,9 @@ type GearInspectorItemsGridProps = {
   // Optional unfiltered source rows so group chips can show filtered/total pairs.
   allRows?: readonly GearInspectorPreviewRow[]
   // Pre-computed improvement-chance map from the WASM worker pipeline; null when not computed.
-  improvementChanceByArtifactId?: Map<number, ImprovementChanceWasmEntry> | null
+  // ReadonlyMap because the grid only reads it — the gear-diff "before" pane passes a frozen
+  // baseline copy, which is not a mutable Map.
+  improvementChanceByArtifactId?: ReadonlyMap<number, ImprovementChanceWasmEntry> | null
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
@@ -204,7 +207,7 @@ type GearInspectorItemsGridProps = {
   // rank = global rank across the whole rule; groupRank = rank within the piece's count-group.
   // inSelection: false when the rank comes from a rule outside the current safeguard selection — the
   // chip is dimmed in that case so it reads as "ranked elsewhere, not in your selected rule".
-  safeguardRankByArtifactId?: ReadonlyMap<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> }> | null
+  safeguardRankByArtifactId?: SafeguardRankByArtifactId | null
   // Gear-diff split-view: this grid is one of two half-width panes. Rounds the dynamic
   // column count so each pane shows half the full-grid columns at identical card width.
   halfPaneColumns?: boolean
@@ -548,7 +551,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     [effectiveSubstatSort?.priorities],
   )
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
-  const safeguardImprovementChanceByArtifactId = useMemo<Map<number, ImprovementChanceWasmEntry>>(
+  const safeguardImprovementChanceByArtifactId = useMemo<ReadonlyMap<number, ImprovementChanceWasmEntry>>(
     () => improvementChanceByArtifactId ?? new Map(),
     [improvementChanceByArtifactId],
   )

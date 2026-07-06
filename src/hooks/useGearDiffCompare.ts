@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
+import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import type { SafeguardRankByArtifactId } from '../lib/safeguards'
 import { isMatchKeptBySafeguard, isMatchSold } from '../lib/gearInspectorVerdict'
 import {
   buildRowsByVerdictItemId,
@@ -11,13 +13,23 @@ import {
   type VerdictMap,
 } from '../lib/gearDiff/verdictDiff'
 
-// A pinned "before" snapshot the live state is diffed against. Deliberately compact: just
-// the verdict map (no second copy of the preview rows, no stored summary). Both the flip
-// diff and the delta are computed over the INTERSECTION of this map and the live verdicts,
-// so inventory changes (a gear-DB push adding/removing items) never show as a diff — only
-// rule-driven verdict flips do.
+// Live artifact-id → improvement-chance map from the pipeline (same shape the grid consumes).
+export type ImprovementChanceByArtifactId = ReadonlyMap<number, ImprovementChanceWasmEntry>
+
+// A pinned "before" snapshot the live state is diffed against. The verdict map is the
+// comparison primitive (the flip diff and the delta are computed over the INTERSECTION of
+// this map and the live verdicts, so inventory changes never show as a diff — only
+// rule-driven verdict flips do). The rank/improvement maps are frozen alongside it purely
+// so the split-view's "before" pane can render the pinned-state rank chips + improvement
+// chances instead of the live ones; they play NO part in deciding what counts as changed.
 export type GearDiffBaseline = {
   verdicts: VerdictMap
+  // Artifact-id → rank overlay at pin time — feeds the "before" pane's rank chips. Null when
+  // no safeguard ranks were live when pinned.
+  rankByArtifactId: SafeguardRankByArtifactId | null
+  // Artifact-id → improvement chance at pin time — feeds the "before" pane's chance display.
+  // Null when improvement chance was not computed when pinned.
+  improvementByArtifactId: ImprovementChanceByArtifactId | null
   // Human-readable description of what was pinned (e.g. "Before loading lategame.sfc").
   label: string
   // Capture timestamp; only used for display/debug, never for diff logic.
@@ -49,10 +61,16 @@ export type GearDiffCompare = {
   diffRows: GearDiffRows | null
   // Signed before→after outcome deltas (sold / kept / safeguarded). Null when not comparing.
   delta: GearDiffDelta | null
+  // Baseline rank/improvement overlays for the split-view's "before" pane. Null when not
+  // comparing (or when nothing was live at pin time). The "after" pane uses the live maps.
+  baselineRankByArtifactId: SafeguardRankByArtifactId | null
+  baselineImprovementByArtifactId: ImprovementChanceByArtifactId | null
   // Pin the CURRENT live rows as the baseline (the >> / "compare from here" action).
   pinBaseline: (label?: string) => void
   // Pin an EXPLICIT rows snapshot as the baseline — used by the SFC/preset load flow,
   // which must capture the pre-load state synchronously before applySfcLoadResult runs.
+  // The rank/improvement maps are always captured from the live refs (they cannot be
+  // reconstructed from rows), so the explicit-rows path still gets the current overlays.
   pinBaselineFromRows: (rows: readonly GearInspectorPreviewRow[], label: string) => void
   // Clear the baseline and leave compare mode.
   exitCompare: () => void
@@ -70,12 +88,18 @@ export function useGearDiffCompare(args: {
   currentRows: readonly GearInspectorPreviewRow[]
   // Live verdict map derived from currentRows (passed in to reuse App's memo).
   currentVerdicts: VerdictMap
+  // Refs holding the live safeguard-rank + improvement-chance overlays, read ONLY at pin
+  // time to freeze them into the baseline. Passed as refs (not values) because both maps
+  // are declared far BELOW this hook call in App.tsx — JS bindings aren't hoisted, so the
+  // values are unavailable here, but a ref object created earlier can be populated later.
+  currentRankRef: RefObject<SafeguardRankByArtifactId | null>
+  currentImprovementRef: RefObject<ImprovementChanceByArtifactId | null>
   // True when the split-view is open. Gates the heavy per-commit work (flip diff + row
   // index + joined rows) to when it is actually rendered; the cheap delta for the header
   // chip is computed regardless so the chip stays live with the view closed.
   active: boolean
 }): GearDiffCompare {
-  const { currentRows, currentVerdicts, active } = args
+  const { currentRows, currentVerdicts, currentRankRef, currentImprovementRef, active } = args
 
   const [baseline, setBaseline] = useState<GearDiffBaseline | null>(null)
 
@@ -88,16 +112,25 @@ export function useGearDiffCompare(args: {
 
   const pinBaselineFromRows = useCallback(
     (rows: readonly GearInspectorPreviewRow[], label: string) => {
-      // Capture only the verdict map — the split-view renders the CURRENT rows with the
-      // baseline match swapped in, and the delta is derived from this map vs the live one,
-      // so the old rows are never needed.
+      // Capture the verdict map (the diff primitive) plus a frozen shallow copy of the live
+      // rank/improvement overlays. The split-view renders the CURRENT rows with the baseline
+      // match + baseline overlays swapped in, and the delta is derived from the verdict map
+      // vs the live one, so the old ROWS are never needed — but the overlays cannot be
+      // rebuilt from rows, so they are snapshotted here from the refs. Shallow-copy because
+      // the live rank map is context-aware (re-created on selection changes) and we must
+      // freeze the values as-pinned.
+      const liveRank = currentRankRef.current
+      const liveImprovement = currentImprovementRef.current
       setBaseline({
         verdicts: buildVerdictMapFromRows(rows),
+        rankByArtifactId: liveRank ? new Map(liveRank) : null,
+        improvementByArtifactId: liveImprovement ? new Map(liveImprovement) : null,
         label,
         capturedAt: Date.now(),
       })
     },
-    [],
+    // Ref objects are stable across renders; listed to satisfy exhaustive-deps.
+    [currentRankRef, currentImprovementRef],
   )
 
   const pinBaseline = useCallback(
@@ -159,6 +192,8 @@ export function useGearDiffCompare(args: {
     flipCount,
     diffRows,
     delta,
+    baselineRankByArtifactId: baseline?.rankByArtifactId ?? null,
+    baselineImprovementByArtifactId: baseline?.improvementByArtifactId ?? null,
     pinBaseline,
     pinBaselineFromRows,
     exitCompare,
