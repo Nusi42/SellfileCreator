@@ -34,6 +34,7 @@ import {
   cloneSafeguardCombination,
   normalizeSafeguardSubstatDependents,
   normalizeSafeguardFactionSlotScope,
+  parseMainStatRankWeightFactor,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
@@ -76,6 +77,8 @@ export type SafeguardEditableFields = {
   substatWeights: Partial<Record<StatVariant, number>>
   // "Weight by Rank" scoring toggle (scalar bool — uses default equality/clone/apply paths).
   weightMainStatByRank: boolean
+  // Tunable main-stat rank factor (scalar number — uses default equality/clone/apply paths).
+  mainStatRankWeightFactor: number
   improvementChanceThreshold: SafeguardImprovementChanceLevelThresholds | null
 }
 
@@ -100,6 +103,7 @@ export const SAFEGUARD_FIELD_KEYS = [
   'substatMatch',
   'substatWeights',
   'weightMainStatByRank',
+  'mainStatRankWeightFactor',
   'improvementChanceThreshold',
 ] as const satisfies ReadonlyArray<keyof SafeguardEditableFields>
 
@@ -216,6 +220,7 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     substatMatch: rule.substatMatch,
     substatWeights: { ...(rule.substatWeights ?? {}) },
     weightMainStatByRank: rule.weightMainStatByRank === true,
+    mainStatRankWeightFactor: parseMainStatRankWeightFactor(rule.mainStatRankWeightFactor),
     improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
   }
 }

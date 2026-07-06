@@ -113,6 +113,8 @@ export type RuleCacheScoreCandidatesRequest = {
     weights: Record<number, number>
     // Editing rule's "Weight by Rank" toggle so the preview ranking matches detection.
     weightMainStatByRank: boolean
+    // Editing rule's tunable main-stat rank factor so the preview scaling matches detection.
+    mainStatRankWeightFactor: number
     requiredCount: number
     // Editing rule's count-mode flags. Threaded through so the live preview's
     // isWithinQuota partition matches detection's (perSet/perFaction/perMain/

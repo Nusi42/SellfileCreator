@@ -128,7 +128,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Substats selecionados já presentes: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "por-substat",
   gearInspectorGridSafeguardChanceUnknownRule: "(salvaguarda sem nome)",
-  gearInspectorNormalizedScoreDef: "- **Pontuação = soma ponderada** dos substats selecionados.\n- Cada um tem um **peso** (`0.1–3.0`, predefinido `1.0`).\n- Cada um é escalado pelo seu **teto de rolagem 6★**: `valor / teto`.\n- Um substat em falta conta como **0**.\n- Com várias predefinições selecionadas, usa-se a **melhor (máx)** pontuação, não a média.\n- **Apenas substats contam** — set, slot, rank, raridade e stat principal são ignorados.",
+  gearInspectorNormalizedScoreDef: "- **Pontuação = soma ponderada** dos substats selecionados.\n- Cada um tem um **peso** (`0.1–9.9`, predefinido `1.0`).\n- Cada um é escalado pelo seu **teto de rolagem 6★**: `valor / teto`.\n- Um substat em falta conta como **0**.\n- Com várias predefinições selecionadas, usa-se a **melhor (máx)** pontuação, não a média.\n- **Apenas substats contam** — set, slot, rank, raridade e stat principal são ignorados.",
   gearInspectorGridNormalizedTooltip: "**Mostrar nota de substats** sobrepõe a mesma pontuação usada pela ordenação **Normalized**:\n\n{scoreDef}\n\nA cor do overlay é relativa ao que está no ecrã: **vermelho = mais baixo**, **verde = mais alto**.",
   gearInspectorGridShowRuleTemplates: "Mostrar botão Adicionar receita",
   gearInspectorGridNormalizedPresetTitle: "Predefinição normalizada {n}",
@@ -554,6 +554,10 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Classificação e pesos**\n- Os substats selecionados são sempre classificados pelas suas pontuações.\n- Os controlos de peso funcionam em todos os modos; **Por Substat** pondera-os de igual forma.",
   safeguardsSubstatWeightsLabel: "Pesos",
   safeguardsSubstatWeightsLabelTooltip: "O quanto cada substat influencia a pontuação de classificação. Peso maior = esse substat conta mais.\n\nAs pontuações e posições na lista de candidatos atualizam-se em tempo real ao mover os controlos.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Stat principal (por rank)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Ajustar a ponderação por rank da stat principal",
   safeguardsCandidatesLabel: "Candidatos",
   safeguardsCandidatesLabelTooltip: "Todas as peças que correspondem aos filtros desta regra, classificadas pela pontuação ponderada de substat (**#1** = a melhor).\n\nA linha de corte marca a cota desta regra: as peças **acima** dela são aqui mantidas; as peças **abaixo** falham esta cota mas podem ainda ser mantidas por outra salvaguarda ou uma receita.\n\nA lista abre na linha de corte — faça scroll para cima para ver as melhores escolhas. As pontuações e posições atualizam-se em tempo real ao alterar os pesos.",
   safeguardsCandidateKept: "Manter",

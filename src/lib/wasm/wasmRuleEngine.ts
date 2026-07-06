@@ -965,11 +965,18 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
     const nextAppearance = (wasmName || src.appearance?.fgColor)
       ? { name: wasmName, ...(src.appearance?.fgColor ? { fgColor: src.appearance.fgColor } : {}) }
       : undefined
-    // Metaset resolution never touches "Weight by Rank", so carry it over from the input rule.
-    // This keeps the flag intact even if the loaded wasm predates the resolved-rule field
-    // (older binary that omits it), so detection always sees the toggle.
+    // Metaset resolution never touches "Weight by Rank" or its tunable factor, so carry both
+    // over from the input rule. This keeps them intact even if the loaded wasm predates the
+    // resolved-rule fields (older binary that omits them), so detection always sees them.
     const weightMainStatByRank = (original as { weightMainStatByRank?: boolean }).weightMainStatByRank === true
-    const withFlag: Record<string, unknown> = { ...restRes, weightMainStatByRank }
+    // Only re-attach the factor when the input rule actually carried one; absent stays absent so
+    // the Rust-side serde default (1.0) applies, matching the loader's neutral fallback.
+    const originalFactor = (original as { mainStatRankWeightFactor?: number }).mainStatRankWeightFactor
+    const withFlag: Record<string, unknown> = {
+      ...restRes,
+      weightMainStatByRank,
+      ...(typeof originalFactor === 'number' ? { mainStatRankWeightFactor: originalFactor } : {}),
+    }
     return (nextAppearance ? { ...withFlag, appearance: nextAppearance } : withFlag) as T
   })
 }
@@ -1409,6 +1416,8 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   weights: Record<number, number>
   // "Weight by Rank" toggle so the preview ranking matches detection's main-stat bonus.
   weightMainStatByRank: boolean
+  // Tunable main-stat rank factor so the preview scaling matches detection's main-stat bonus.
+  mainStatRankWeightFactor: number
   // How many items the rule intends to keep (quota for isWithinQuota).
   requiredCount: number
   // Bucketing flags from the editing rule. Omit to let Rust resolve canonical
@@ -1421,6 +1430,7 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
     substats: params.substats,
     weights: params.weights,
     weightMainStatByRank: params.weightMainStatByRank,
+    mainStatRankWeightFactor: params.mainStatRankWeightFactor,
     requiredCount: params.requiredCount,
     // Forward as null when caller skipped countMode so the Rust side falls
     // through to safeguard_resolve_count_mode (matches the wire form of an

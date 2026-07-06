@@ -20,6 +20,12 @@ export type GearInspectorSortWeightControlsProps = {
   enabled: boolean
   // Current weight (raw); normalized internally to match persistence rules.
   weight: number
+  // Optional pre-resolved display value. When provided, it is shown verbatim (only formatted to
+  // 2 decimals) INSTEAD of clamping through normalizeGearInspectorSortWeight — needed by callers
+  // whose value range or step differs from the gear-inspector sort weight bounds (e.g. the
+  // safeguard main-stat rank factor, clamped/stepped on its own SSOT scale). The caller owns the
+  // clamp in that case. Substat weight rows omit this and keep the sort-weight clamp/normalization.
+  displayValue?: number
   // Optional formatting prefix for the displayed weight (default is '×').
   weightPrefix?: string
   // Bump by +/- step counts (step size is owned by the caller).
@@ -38,14 +44,16 @@ export function GearInspectorSortWeightControls({
   label,
   enabled,
   weight,
+  displayValue,
   weightPrefix = '×',
   onBump,
   onReset,
 }: GearInspectorSortWeightControlsProps) {
   const { t } = useI18n()
 
-  // Normalize weight so the UI never shows floating point drift (0.05 steps).
-  const resolvedWeight = normalizeGearInspectorSortWeight(weight)
+  // Display value: a caller-supplied pre-clamped value (its own bounds) when given, otherwise
+  // the sort-weight-normalized value (sort-weight clamp). Only affects the label, not the callbacks.
+  const resolvedWeight = displayValue !== undefined ? displayValue : normalizeGearInspectorSortWeight(weight)
   const weightLabel = formatWeight(resolvedWeight, weightPrefix)
 
   const holdRef = React.useRef<{
@@ -88,6 +96,17 @@ export function GearInspectorSortWeightControls({
     return 40
   }, [])
 
+  const holdStepMultiplier = React.useCallback((elapsedMs: number): number => {
+    // Grow the step SIZE (not just the rate) as the hold continues, so long holds cover the full
+    // range in a couple seconds instead of dozens of single-step bumps. Kept coarser than the rate
+    // ramp so a brief hold still fine-tunes: 1× for the first ~1.5s, then 2×, 5×, 10×. The caller's
+    // per-step math (bump*Weight/bumpMainStatRankWeightFactor) multiplies this by its own step size.
+    if (elapsedMs < 1500) return 1
+    if (elapsedMs < 2400) return 2
+    if (elapsedMs < 3600) return 5
+    return 10
+  }, [])
+
   // Ref indirection breaks the self-reference cycle so the lint rule sees a stable binding.
   const scheduleTickRef = React.useRef<() => void>(() => {})
 
@@ -95,10 +114,11 @@ export function GearInspectorSortWeightControls({
     // Tick re-schedules itself with an adaptive delay so long holds feel responsive.
     const state = holdRef.current
     if (!state) return
-    onBump(state.deltaSteps)
     const elapsedMs = Date.now() - state.startedAtMs
+    // Scale the ±1 step by the elapsed-time multiplier, preserving direction (sign of deltaSteps).
+    onBump(Math.sign(state.deltaSteps) * holdStepMultiplier(elapsedMs))
     state.timeoutId = window.setTimeout(scheduleTickRef.current, holdDelayMs(elapsedMs))
-  }, [holdDelayMs, onBump])
+  }, [holdDelayMs, holdStepMultiplier, onBump])
 
   // Keep the ref in sync so recursive setTimeout calls always reach the latest closure.
   React.useEffect(() => { scheduleTickRef.current = scheduleTick }, [scheduleTick])

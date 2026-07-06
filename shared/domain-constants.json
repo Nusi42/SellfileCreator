@@ -193,7 +193,7 @@
     "weight": {
       "step": 0.05,
       "min": 0.01,
-      "max": 3,
+      "max": 9.9,
       "default": 1,
       "fineStep": 0.01,
       "fineMax": 0.1
@@ -1283,8 +1283,12 @@
     }
   },
   "mainStatRankWeighting": {
-    "_comment": "Main-stat rank weighting: safeguard score bonus = weight * (max16[clamp(rank,4,6)][slot][variant] / max16[6][slot][variant]). Level-independent (uses the rank's +16 main-stat, not current level), so a leveled and an unleveled piece of the same rank score the same main-stat term. Values are in-game level-16 main-stat maxima validated against all sample RSL DBs; rarity does NOT affect main-stat maxima. Banner has higher flat HP/ATK/DEF caps and amulet CDMG is half the gauntlet cap, hence the per-slot table.",
+    "_comment": "Main-stat rank weighting: safeguard score bonus = weight * factor * (max16[clamp(rank,4,6)][slot][variant] / max16[6][slot][variant]). Level-independent (uses the rank's +16 main-stat, not current level), so a leveled and an unleveled piece of the same rank score the same main-stat term. Values are in-game level-16 main-stat maxima validated against all sample RSL DBs; rarity does NOT affect main-stat maxima. Banner has higher flat HP/ATK/DEF caps and amulet CDMG is half the gauntlet cap, hence the per-slot table. 'factor' is a per-rule user-tunable multiplier (defaultFactor/min/max/step below) letting the main-stat term compete with weighted substats; absent = defaultFactor for backward compatibility.",
     "weight": 1,
+    "defaultFactor": 1,
+    "minFactor": 0,
+    "maxFactor": 9.9,
+    "stepFactor": 0.1,
     "max16ByRankSlotVariant": {
       "4": {
         "helmet": {

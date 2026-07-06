@@ -128,7 +128,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Sous-stats sélectionnées déjà présentes : {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "par-sous-stat",
   gearInspectorGridSafeguardChanceUnknownRule: "(garde-fou sans nom)",
-  gearInspectorNormalizedScoreDef: "- **Score = somme pondérée** des sous-stats sélectionnées.\n- Chacune a un **poids** (`0.1–3.0`, par défaut `1.0`).\n- Chacune est mise à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Une sous-stat absente compte pour **0**.\n- Si plusieurs préréglages sont sélectionnés, c’est le **meilleur (max)** score qui est utilisé, pas la moyenne.\n- **Seules les sous-stats comptent** — le set, l’emplacement, le rang, la rareté et la stat principale sont ignorés.",
+  gearInspectorNormalizedScoreDef: "- **Score = somme pondérée** des sous-stats sélectionnées.\n- Chacune a un **poids** (`0.1–9.9`, par défaut `1.0`).\n- Chacune est mise à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Une sous-stat absente compte pour **0**.\n- Si plusieurs préréglages sont sélectionnés, c’est le **meilleur (max)** score qui est utilisé, pas la moyenne.\n- **Seules les sous-stats comptent** — le set, l’emplacement, le rang, la rareté et la stat principale sont ignorés.",
   gearInspectorGridNormalizedTooltip: "**Afficher la note des sous-stats** superpose le même score utilisé par le tri **Normalized** :\n\n{scoreDef}\n\nLa couleur de l’overlay est relative à ce qui est à l’écran : **rouge = plus faible**, **vert = plus élevé**.",
   gearInspectorGridShowRuleTemplates: "Afficher le bouton Ajouter une recette",
   gearInspectorGridNormalizedPresetTitle: "Préréglage normalisé {n}",
@@ -554,6 +554,10 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Classement et poids**\n- Les sous-stats sélectionnées sont toujours classées selon leurs scores.\n- Les contrôles de poids fonctionnent dans tous les modes ; **Par sous-stat** les pondère à parts égales.",
   safeguardsSubstatWeightsLabel: "Poids",
   safeguardsSubstatWeightsLabelTooltip: "À quel point chaque sous-stat influence le score de classement. Poids plus élevé = cette sous-stat compte davantage.\n\nLes scores et rangs dans la liste des candidats se mettent à jour en direct lorsque vous déplacez les curseurs.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Stat principale (par rang)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Ajuster la pondération par rang de la stat principale",
   safeguardsCandidatesLabel: "Candidats",
   safeguardsCandidatesLabelTooltip: "Chaque pièce correspondant aux filtres de cette règle, classée par score de sous-stat pondéré (**#1** = la meilleure).\n\nLa ligne de coupure marque le quota de cette règle : les pièces **au-dessus** sont conservées ici ; celles **en dessous** ratent ce quota mais peuvent encore être conservées par un autre garde-fou ou une recette.\n\nLa liste s'ouvre au niveau de la coupure — faites défiler vers le haut pour voir les meilleures pièces. Les scores et rangs se mettent à jour en direct lorsque vous ajustez les poids.",
   safeguardsCandidateKept: "Garder",

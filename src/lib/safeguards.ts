@@ -86,6 +86,10 @@ import {
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS as SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS_CONST,
   SAFEGUARD_WEIGHT_DEFAULT,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MIN,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MAX,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP,
   SAFEGUARD_SUBSTAT_ALL,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
   RANK_VALUE_MAX,
@@ -132,6 +136,15 @@ export type SafeguardCombination = {
 // scalars, so unlike the other detection mirrors there is nothing to narrow) — one shape
 // definition, and Rust-side field changes surface as TS compile errors at every consumer.
 export type SafeguardRuleCountMode = SafeguardWasmCountMode
+
+// Re-export the tunable main-stat rank factor bounds so rule-seeding callers (App draft,
+// tutorials, factory defaults) import them from the same module as the other rule defaults.
+export {
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MIN,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MAX,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP,
+} from './generated/domainConstants'
 
 // Mirrors the default scope-chip state (slot+set+faction+main) so SFC imports and tutorials stay aligned.
 export const SAFEGUARD_DEFAULT_COUNT_MODE: SafeguardRuleCountMode = {
@@ -488,6 +501,8 @@ export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   substatMatch: rule.substatMatch,
   // Copy weights so ranking edits are isolated.
   substatWeights: { ...(rule.substatWeights ?? {}) },
+  // Carry the tunable main-stat rank factor (default when absent on legacy rules).
+  mainStatRankWeightFactor: rule.mainStatRankWeightFactor ?? SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
   // Preserve per-level thresholds; null means feature disabled.
   improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
   // Detach tags array so edits to the clone do not mutate the source.
@@ -525,6 +540,11 @@ export type SafeguardRule = {
   // (e.g. 6★) outscores a same-main near-equal lower-rank (5★). New rules default ON; rules
   // loaded from an SFC without this field default OFF to preserve their prior scoring.
   weightMainStatByRank: boolean
+  // Tunable multiplier on the "Weight by Rank" main-stat bonus (default 1.0). Lets the main-stat
+  // term compete with weighted substats: raising it makes a higher-rank piece's main-stat edge
+  // outweigh a lower-rank piece's heavier substat roll. Inert while weightMainStatByRank is off;
+  // absent in older SFC files → default 1.0 (unchanged scoring).
+  mainStatRankWeightFactor: number
   // Per-upgrade-stage improvement-chance thresholds. When set, a piece must meet the
   // threshold for its current level range to be expanded beyond the standard top-N.
   // null = feature disabled; use resolveImprovementChanceThresholds before passing to WASM.
@@ -558,6 +578,8 @@ export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => 
   substatMatch: rule.substatMatch,
   substatWeights: rule.substatWeights,
   weightMainStatByRank: rule.weightMainStatByRank,
+  // Scales the main-stat rank bonus, so it changes generated ranking → must bust the cache key.
+  mainStatRankWeightFactor: rule.mainStatRankWeightFactor,
   improvementChanceThreshold: rule.improvementChanceThreshold,
   // Empty string and absent name both produce RecipeName='' in WASM output — treat as equivalent.
   name: rule.appearance?.name || null,
@@ -604,6 +626,8 @@ export const createFactorySafeguardBuilderDefaults = (): SafeguardRule =>
     substatWeights: {},
     // New rules opt into rank-aware main-stat scoring by default (UI default ON).
     weightMainStatByRank: true,
+    // Neutral factor by default: the toggle behaves exactly as before until the user tunes it.
+    mainStatRankWeightFactor: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
     improvementChanceThreshold: SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   })
 
@@ -621,6 +645,8 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Safegua
   countMode: rule.countMode,
   // Included so equality/dirty checks react to the "Weight by Rank" toggle.
   weightMainStatByRank: rule.weightMainStatByRank,
+  // Included so equality/dirty checks react to the tunable main-stat rank factor.
+  mainStatRankWeightFactor: rule.mainStatRankWeightFactor,
   ignorePreviousSafeguards: rule.ignorePreviousSafeguards,
   ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
   ignoreEquippedInVault: rule.ignoreEquippedInVault,
@@ -817,6 +843,32 @@ const toFiniteFloor = (value: unknown): number | null => {
   return Math.floor(numeric)
 }
 
+// Parse + clamp the tunable main-stat rank factor. SSOT for the absent/invalid → default (1.0)
+// fallback and the [min, max] clamp, shared by the loader and any future callers so no site
+// re-implements the bounds. Absent/NaN/non-numeric all resolve to the neutral default.
+export const parseMainStatRankWeightFactor = (value: unknown): number => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT
+  // Clamp into the UI-exposed bounds so an out-of-range persisted value can never skew scoring.
+  return Math.min(
+    SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MAX,
+    Math.max(SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MIN, numeric),
+  )
+}
+
+// Bump the main-stat rank factor by a signed number of UI steps, honoring the SSOT step size
+// and clamping into [min, max]. Shared by the builder's +/- controls so the increment and bounds
+// live in one place (mirrors bumpGearInspectorSortWeight, but on the factor's own SSOT scale).
+export const bumpMainStatRankWeightFactor = (current: number, deltaSteps: number): number => {
+  const base = parseMainStatRankWeightFactor(current)
+  // Round to the step grid so repeated bumps never accumulate floating-point drift.
+  const stepped = base + deltaSteps * SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP
+  const snapped = Math.round(stepped / SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP)
+    * SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP
+  // Re-clamp through the shared parser so bounds stay defined once.
+  return parseMainStatRankWeightFactor(snapped)
+}
+
 // Legacy safeguard toggles treated non-empty strings as true in snapshots.
 const toBoolish = (value: unknown): boolean | null => {
   if (typeof value === 'boolean') return value
@@ -970,6 +1022,8 @@ export const scoreSafeguardCandidates = (params: {
   requiredCount: number
   // Editing rule's "Weight by Rank" toggle so the preview ranking matches detection.
   weightMainStatByRank: boolean
+  // Editing rule's tunable main-stat rank factor so the preview scaling matches detection.
+  mainStatRankWeightFactor: number
   // Editing rule's count-mode flags; optional so legacy callers pre-dating the
   // partitioning fix keep working (Rust resolves to the canonical default).
   countMode?: SafeguardRuleCountMode
@@ -995,6 +1049,7 @@ export const scoreSafeguardCandidates = (params: {
     substats: params.substats,
     weights: params.weights,
     weightMainStatByRank: params.weightMainStatByRank,
+    mainStatRankWeightFactor: params.mainStatRankWeightFactor,
     requiredCount: params.requiredCount,
     // Pass-through only when caller supplied a mode; undefined drops the field
     // entirely so the wasm wrapper substitutes its `countMode: null` default.
@@ -1165,6 +1220,8 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     substatWeights: parseSubstatWeights(weightsSource),
     // Absent in older SFC payloads → false, preserving their original (substat-only) scoring.
     weightMainStatByRank: toBoolish(record.weightMainStatByRank) ?? false,
+    // Absent in older SFC payloads → neutral default (1.0), so their scoring is unchanged.
+    mainStatRankWeightFactor: parseMainStatRankWeightFactor(record.mainStatRankWeightFactor),
     improvementChanceThreshold,
   }))
 }
@@ -1260,6 +1317,8 @@ export const computeSafeguardScoreFromArtifact = (
   weights: ReadonlyMap<number, number>,
   // "Weight by Rank" toggle; defaults off so non-passing callers keep substat-only scoring.
   weightMainStatByRank = false,
+  // Tunable multiplier on the main-stat rank bonus; defaults to the neutral SSOT default (1.0).
+  mainStatRankWeightFactor = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
 ): number => {
   const rank = Number(artifact.rank)
   let total = 0
@@ -1270,9 +1329,11 @@ export const computeSafeguardScoreFromArtifact = (
     total += substatNormalizedContribution(rank, variant as StatVariant, raw, weight)
   }
   // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
-  // gated by the toggle and by having at least one selected substat (constant across levels).
+  // gated by the toggle and by having at least one selected substat (constant across levels),
+  // scaled by the tunable factor (WEIGHT * factor * ratio).
   if (weightMainStatByRank && selectedSubstats.length > 0 && artifact.mainStat) {
     total += SAFEGUARD_MAIN_STAT_RANK_WEIGHT
+      * mainStatRankWeightFactor
       * mainStatRankRatio(rank, Number(artifact.slot), Number(artifact.mainStat.variant))
   }
   return Number.isFinite(total) ? total : 0

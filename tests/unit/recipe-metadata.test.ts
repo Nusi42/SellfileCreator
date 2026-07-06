@@ -134,6 +134,7 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
   const keepRule: SafeguardRule = {
     appearance: { name: '  Safeguard Demo  ' },
     weightMainStatByRank: false,
+    mainStatRankWeightFactor: 1,
     combination: {
       slots: [ArtifactType.Ring],
       // Safeguard sets now use entry objects to allow exclusions.

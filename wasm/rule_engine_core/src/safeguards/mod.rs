@@ -303,6 +303,11 @@ pub struct SafeguardWasmRuleIn {
     // preserves the scoring of safeguards saved before this field existed.
     #[serde(default)]
     pub weight_main_stat_by_rank: Option<bool>,
+    // Tunable multiplier on the "Weight by Rank" main-stat bonus. None/absent = 1.0, which
+    // preserves the scoring of safeguards saved before this field existed. Inert when the
+    // weight_main_stat_by_rank toggle is off.
+    #[serde(default)]
+    pub main_stat_rank_weight_factor: Option<f64>,
     // Per-level improvement-chance thresholds. Accepts legacy single-number, resolved [f64;4]
     // array, or the raw object form with null-inheritance slots. When None, improvement-chance
     // filtering is disabled and candidates are selected by standard top-N ranking only.
@@ -678,6 +683,8 @@ struct SafeguardWasmPreparedRule {
     weights: BTreeMap<i64, f64>,
     // "Weight by Rank" toggle resolved from the rule input (false when absent).
     weight_main_stat_by_rank: bool,
+    // Tunable main-stat rank bonus multiplier resolved from the rule input (1.0 when absent).
+    main_stat_rank_weight_factor: f64,
     set_includes: HashSet<i64>,
     set_excludes: HashSet<i64>,
     expected_groups: Vec<SafeguardWasmExpectedGroupIn>,
@@ -963,18 +970,27 @@ pub(super) fn safeguard_main_stat_rank_bonus_parts(
     slot: i64,
     main_stat: i64,
     weight_main_stat_by_rank: bool,
+    // User-tunable multiplier on the main-stat bonus (SSOT default 1.0 = pre-factor behavior).
+    // Lets the "Weight by Rank" main-stat term compete with weighted substats on equal footing:
+    // raising it makes a higher-rank piece's main-stat advantage outweigh a lower-rank piece's
+    // heavier substat roll. Gated by the same toggle, so factor is inert when the toggle is off.
+    main_stat_rank_weight_factor: f64,
     has_selected_substats: bool,
 ) -> f64 {
     if !weight_main_stat_by_rank || !has_selected_substats {
         return 0.0;
     }
-    SAFEGUARD_MAIN_STAT_RANK_WEIGHT * safeguard_main_stat_rank_ratio(rank, slot, main_stat)
+    SAFEGUARD_MAIN_STAT_RANK_WEIGHT
+        * main_stat_rank_weight_factor
+        * safeguard_main_stat_rank_ratio(rank, slot, main_stat)
 }
 
 // Artifact-ref convenience wrapper around safeguard_main_stat_rank_bonus_parts.
 pub(super) fn safeguard_main_stat_rank_bonus(
     artifact: &SafeguardWasmArtifactIn,
     weight_main_stat_by_rank: bool,
+    // Same tunable multiplier threaded through to the parts helper (SSOT default 1.0).
+    main_stat_rank_weight_factor: f64,
     has_selected_substats: bool,
 ) -> f64 {
     safeguard_main_stat_rank_bonus_parts(
@@ -982,6 +998,7 @@ pub(super) fn safeguard_main_stat_rank_bonus(
         artifact.slot,
         artifact.main_stat,
         weight_main_stat_by_rank,
+        main_stat_rank_weight_factor,
         has_selected_substats,
     )
 }
@@ -2831,6 +2848,9 @@ pub(super) fn safeguard_compute_score(
     selected_substats: &[i64],
     weights: &BTreeMap<i64, f64>,
     weight_main_stat_by_rank: bool,
+    // Tunable multiplier on the main-stat rank bonus (SSOT default 1.0). See
+    // safeguard_main_stat_rank_bonus_parts for semantics.
+    main_stat_rank_weight_factor: f64,
 ) -> f64 {
     // Weighted normalized sum mirrors safeguards.ts scoring semantics.
     // Includes glyph potential for present substats.
@@ -2856,6 +2876,7 @@ pub(super) fn safeguard_compute_score(
     total += safeguard_main_stat_rank_bonus(
         artifact,
         weight_main_stat_by_rank,
+        main_stat_rank_weight_factor,
         !selected_substats.is_empty(),
     );
     // Defensive guard: never return NaN/Infinity to sort comparator.
@@ -3264,6 +3285,7 @@ fn safeguard_build_entry_for_substats(
                 let score = safeguard_compute_score(
                     &candidate.artifact, selected_substats, &prepared_rule.weights,
                     prepared_rule.weight_main_stat_by_rank,
+                    prepared_rule.main_stat_rank_weight_factor,
                 );
                 if score <= 0.0 {
                     return None;
@@ -3988,6 +4010,10 @@ fn compute_safeguard_protection_core(
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT);
             // "Weight by Rank" defaults off when absent so pre-existing safeguards keep their scoring.
             let weight_main_stat_by_rank = rule.weight_main_stat_by_rank.unwrap_or(false);
+            // Absent factor = SSOT default (1.0) so files saved before this field score unchanged.
+            let main_stat_rank_weight_factor = rule
+                .main_stat_rank_weight_factor
+                .unwrap_or(SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT);
             // Resolve per-level thresholds to a concrete [f64; 4] array, clamping each slot.
             // Single/Array/Object variants are all normalized via into_slots_clamped().
             let improvement_chance_threshold = rule.improvement_chance_threshold
@@ -4043,6 +4069,7 @@ fn compute_safeguard_protection_core(
                 substat_match,
                 weights,
                 weight_main_stat_by_rank,
+                main_stat_rank_weight_factor,
                 set_includes,
                 set_excludes,
                 expected_groups,
@@ -4281,6 +4308,12 @@ pub fn compute_safeguard_protection_from_collected_core(
     detection
 }
 
+// serde default for the preview factor: the SSOT default (1.0), NOT f64's 0.0. An absent
+// factor must leave the main-stat bonus unscaled, matching the prepared-rule resolve above.
+fn safeguard_default_main_stat_rank_weight_factor() -> f64 {
+    SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT
+}
+
 // Input payload for live preview scoring in the weight-configuration popover.
 // Allows TS to rescore candidates with in-progress (unsaved) weights without
 // re-running the full detection pass.
@@ -4301,6 +4334,9 @@ pub struct SafeguardWasmScorePreviewIn {
     // "Weight by Rank" toggle so the preview ranking matches detection. Absent = off.
     #[serde(default)]
     pub weight_main_stat_by_rank: bool,
+    // Tunable main-stat rank bonus multiplier so the preview matches detection. Absent = 1.0.
+    #[serde(default = "safeguard_default_main_stat_rank_weight_factor")]
+    pub main_stat_rank_weight_factor: f64,
     // Required count per group: same field consumed by detection so isWithinQuota
     // bucketing produces the same partition seen on first open.
     pub required_count: i64,
@@ -4351,6 +4387,7 @@ pub fn score_safeguard_candidates_for_preview_core(
         .filter_map(|(idx, candidate)| {
             let score = safeguard_compute_score(
                 &candidate.artifact, &input.substats, &input.weights, input.weight_main_stat_by_rank,
+                input.main_stat_rank_weight_factor,
             );
             if score > 0.0 {
                 Some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
@@ -4509,14 +4546,16 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let six = make_boots_spd_artifact(1, 6, 4.0);
         let five = make_boots_spd_artifact(2, 5, 4.5);
 
+        // Default factor keeps the pre-factor behavior; use it for the regression assertions.
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
         // OFF: substat-only scoring → the 5★ outscores the 6★ (the original bug).
-        let six_off = safeguard_compute_score(&six, &selected, &weights, false);
-        let five_off = safeguard_compute_score(&five, &selected, &weights, false);
+        let six_off = safeguard_compute_score(&six, &selected, &weights, false, f);
+        let five_off = safeguard_compute_score(&five, &selected, &weights, false, f);
         assert!(five_off > six_off, "with the toggle off the 5★ should still win on substats");
 
         // ON: the main-stat rank bonus flips it so the 6★ wins.
-        let six_on = safeguard_compute_score(&six, &selected, &weights, true);
-        let five_on = safeguard_compute_score(&five, &selected, &weights, true);
+        let six_on = safeguard_compute_score(&six, &selected, &weights, true, f);
+        let five_on = safeguard_compute_score(&five, &selected, &weights, true, f);
         assert!(six_on > five_on, "with the toggle on the 6★ should overtake the near-equal 5★");
 
         // The bonus is level-independent: an unleveled 6★ scores the same main-stat term as a maxed one.
@@ -4524,15 +4563,51 @@ mod score_safeguard_candidates_for_preview_core_tests {
         six_low.level = 4;
         six_low.exact_level = Some(4);
         assert!(
-            (safeguard_compute_score(&six_low, &selected, &weights, true) - six_on).abs() < 1e-9,
+            (safeguard_compute_score(&six_low, &selected, &weights, true, f) - six_on).abs() < 1e-9,
             "main-stat rank bonus must not depend on the piece's current level",
         );
 
         // No selected substats → bonus is suppressed (existing rank tie-break handles that path).
         assert_eq!(
-            safeguard_compute_score(&six, &[], &weights, true),
-            safeguard_compute_score(&six, &[], &weights, false),
+            safeguard_compute_score(&six, &[], &weights, true, f),
+            safeguard_compute_score(&six, &[], &weights, false, f),
             "with no substats selected the toggle must not change the score",
+        );
+    }
+
+    // The tunable factor scales ONLY the main-stat rank bonus, and only while the toggle is on.
+    #[test]
+    fn main_stat_rank_weight_factor_scales_the_bonus() {
+        let weights = cr_weights(1.0);
+        let selected = [STAT_VARIANT_CR];
+        // Two same-main pieces where the 5★ has the heavier substat roll (mirrors the reported case).
+        let six = make_boots_spd_artifact(1, 6, 4.0);
+        let five = make_boots_spd_artifact(2, 5, 4.5);
+
+        // Factor 1.0 (default): the 6★ wins by a small margin (as in the regression test above).
+        let delta_default = safeguard_compute_score(&six, &selected, &weights, true, 1.0)
+            - safeguard_compute_score(&five, &selected, &weights, true, 1.0);
+        // Doubling the factor doubles the main-stat term, widening the 6★ lead.
+        let delta_double = safeguard_compute_score(&six, &selected, &weights, true, 2.0)
+            - safeguard_compute_score(&five, &selected, &weights, true, 2.0);
+        assert!(
+            delta_double > delta_default,
+            "a larger factor must widen the higher-rank piece's advantage",
+        );
+
+        // Factor 0.0 collapses the bonus entirely → identical to the toggle being off.
+        let six_zero = safeguard_compute_score(&six, &selected, &weights, true, 0.0);
+        let six_off = safeguard_compute_score(&six, &selected, &weights, false, 1.0);
+        assert!(
+            (six_zero - six_off).abs() < 1e-9,
+            "factor 0 must neutralize the main-stat bonus, matching the toggle-off score",
+        );
+
+        // The factor never touches the substat terms: with the toggle off it is inert regardless.
+        assert_eq!(
+            safeguard_compute_score(&five, &selected, &weights, false, 5.0),
+            safeguard_compute_score(&five, &selected, &weights, false, 1.0),
+            "the factor must not affect scoring while the toggle is off",
         );
     }
 
@@ -4544,6 +4619,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn missing_count_mode_resolves_to_canonical_default() {
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 make_artifact(1, 1, 10, 0, 1, 7.0),
                 make_artifact(2, 1, 10, 0, 1, 5.0),
@@ -4579,6 +4655,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 make_artifact(1, 1, 10, 0, 1, 7.0), // strongest
                 make_artifact(2, 1, 20, 0, 1, 5.0), // mid (different set)
@@ -4615,6 +4692,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 // Set 10: A (high) > B (low)
                 make_artifact(1, 1, 10, 0, 1, 7.0),
@@ -4658,6 +4736,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 // Slot 1: weak winner (loses to slot-2 candidates globally).
                 make_artifact(1, 1, 10, 0, 1, 3.0),
@@ -4688,6 +4767,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn zero_score_artifacts_are_dropped() {
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 make_artifact(1, 1, 10, 0, 1, 7.0),
                 // value=0 → safeguard_normalize_substat_value returns 0 → score=0 → dropped.
@@ -4710,6 +4790,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn output_ranks_are_score_descending_and_one_based() {
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 make_artifact(1, 1, 10, 0, 1, 2.0),
                 make_artifact(2, 1, 10, 0, 1, 6.0),
@@ -4744,6 +4825,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn required_count_zero_clamps_to_one() {
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             artifacts: vec![
                 make_artifact(1, 1, 10, 0, 1, 7.0),
                 make_artifact(2, 1, 10, 0, 1, 3.0),
@@ -4906,6 +4988,7 @@ mod no_substat_protect_all_tests {
     fn make_grouped_rule(required_per_group: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
         SafeguardWasmPreparedRule {
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             id: "test-rule".to_string(),
             hash: "test-hash".to_string(),
             combination: SafeguardWasmCombination {
@@ -5621,6 +5704,7 @@ mod no_substat_protect_all_tests {
             substat_match: None,
             substat_weights: None,
             weight_main_stat_by_rank: None,
+            main_stat_rank_weight_factor: None,
             improvement_chance_threshold: None,
             tags: None,
         };

@@ -26,7 +26,7 @@ use crate::{
     ARTIFACT_TYPE_GAUNTLETS, ARTIFACT_TYPE_HELMET, ARTIFACT_TYPE_RING, ARTIFACT_TYPE_SHIELD,
     ARTIFACT_TYPE_WEAPON,
     // Safeguard token constants from generated_domain_constants.
-    SAFEGUARD_SUBSTAT_PER_SUBSTAT,
+    SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT, SAFEGUARD_SUBSTAT_PER_SUBSTAT,
     // Stat variant constants from generated_domain_constants.
     STAT_VARIANT_ACC, STAT_VARIANT_ANY, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT,
     STAT_VARIANT_CDMG, STAT_VARIANT_CR, STAT_VARIANT_DEF_FLAT, STAT_VARIANT_DEF_PERCENT,
@@ -182,6 +182,8 @@ pub(super) struct PreparedUpgradeRule {
     // "Weight by Rank" toggle so projected candidate + challenger scores include the same
     // main-stat rank bonus the detection ranking uses (keeps the keep-list expansion consistent).
     weight_main_stat_by_rank: bool,
+    // Tunable main-stat rank bonus multiplier mirrored from the rule (default 1.0 when absent).
+    main_stat_rank_weight_factor: f64,
 }
 
 // One ranking scenario expanded from a rule; perSubstat splits into N Any scenarios.
@@ -200,6 +202,8 @@ pub(super) struct UpgradeScenario {
     weights: BTreeMap<i64, f64>,
     // "Weight by Rank" toggle propagated from the rule (applies the main-stat rank bonus).
     weight_main_stat_by_rank: bool,
+    // Tunable main-stat rank bonus multiplier propagated from the rule (default 1.0 when absent).
+    main_stat_rank_weight_factor: f64,
     // Challengers pre-bucketed by typed count key for fast per-artifact lookup.
     // SafeguardCountKey is stack-allocated (no heap per entry, unlike String keys).
     challengers_by_count_key: BTreeMap<SafeguardCountKey, Vec<StaticChallenger>>,
@@ -378,6 +382,7 @@ pub(super) fn reduce_scenarios_for_synthetic(
                 count_mode: scenario.count_mode,
                 weights: scenario.weights.clone(),
                 weight_main_stat_by_rank: scenario.weight_main_stat_by_rank,
+                main_stat_rank_weight_factor: scenario.main_stat_rank_weight_factor,
                 challengers_by_count_key: boundary_bucket,
             }
         })
@@ -938,6 +943,7 @@ fn scenario_selects_state(
             ctx.artifact_slot,
             ctx.artifact_main_stat,
             scenario.weight_main_stat_by_rank,
+            scenario.main_stat_rank_weight_factor,
             true,
         );
     if !(score > 0.0) {
@@ -1160,6 +1166,7 @@ impl ChanceLeaf for MultiBoundaryLeaf<'_> {
                 ctx.artifact_slot,
                 ctx.artifact_main_stat,
                 scenario.weight_main_stat_by_rank,
+                scenario.main_stat_rank_weight_factor,
                 true,
             );
             if !(score > 0.0) {
@@ -1794,6 +1801,10 @@ pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<Prepar
             ignore_equipped_in_collection: rule.ignore_equipped_in_collection.unwrap_or(false),
             ignore_equipped_in_vault: rule.ignore_equipped_in_vault.unwrap_or(false),
             weight_main_stat_by_rank: rule.weight_main_stat_by_rank.unwrap_or(false),
+            // Absent factor = SSOT default (1.0) so pre-field files keep their chance projections.
+            main_stat_rank_weight_factor: rule
+                .main_stat_rank_weight_factor
+                .unwrap_or(SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT),
         });
     }
     prepared
@@ -1925,6 +1936,7 @@ pub(super) fn build_scenarios(
                 ) + super::safeguard_main_stat_rank_bonus(
                     &row.artifact,
                     rule.weight_main_stat_by_rank,
+                    rule.main_stat_rank_weight_factor,
                     true,
                 );
                 if !(proj_score > 0.0) {
@@ -1958,6 +1970,7 @@ pub(super) fn build_scenarios(
                 count_mode: rule.count_mode,
                 weights: rule.weights.clone(),
                 weight_main_stat_by_rank: rule.weight_main_stat_by_rank,
+                main_stat_rank_weight_factor: rule.main_stat_rank_weight_factor,
                 challengers_by_count_key: challengers_by_key,
             });
             // Index this scenario under every applicable artifact id so the caller can look up
@@ -2055,6 +2068,7 @@ fn build_chance_debug(
         &scenario.selected_substats,
         &scenario.weights,
         scenario.weight_main_stat_by_rank,
+        scenario.main_stat_rank_weight_factor,
     );
     let key = safeguard_count_key_from_parts(
         artifact.slot,
@@ -2274,6 +2288,7 @@ mod boundary_reduction_tests {
             count_mode: mode,
             weights: BTreeMap::new(),
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             challengers_by_count_key,
         }
     }
@@ -2675,6 +2690,7 @@ mod boundary_reduction_tests {
             count_mode: per_rule_mode(),
             weights: BTreeMap::new(),
             weight_main_stat_by_rank: false,
+            main_stat_rank_weight_factor: 1.0,
             challengers_by_count_key: {
                 let mut map = BTreeMap::new();
                 map.insert(

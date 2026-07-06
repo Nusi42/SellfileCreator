@@ -255,7 +255,7 @@ export const GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP = 0.01 as const
 // Boundary where the fine step transitions to the coarse step.
 export const GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX = 0.10 as const
 export const GEAR_INSPECTOR_SORT_WEIGHT_MIN = 0.01 as const
-export const GEAR_INSPECTOR_SORT_WEIGHT_MAX = 3.0 as const
+export const GEAR_INSPECTOR_SORT_WEIGHT_MAX = 9.9 as const
 export const GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT = 1.0 as const
 
 export const normalizeGearInspectorSortWeight = (value: number): number => {
@@ -276,10 +276,12 @@ export const normalizeGearInspectorSortWeight = (value: number): number => {
 export const bumpGearInspectorSortWeight = (current: number, deltaSteps: number): number => {
   const step = current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX ? GEAR_INSPECTOR_SORT_WEIGHT_FINE_STEP : GEAR_INSPECTOR_SORT_WEIGHT_STEP
   const raw = current + deltaSteps * step
-  // Boundary: bumping UP from FINE_MAX (0.10) yields raw=0.11, which normalizeGearInspectorSortWeight
-  // rounds back to 0.10 (nearest 0.05 coarse step). Skip the rounding and jump directly to the
-  // first coarse step (FINE_MAX + STEP = 0.15) so the control is never stuck at the boundary.
-  if (deltaSteps > 0 && current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX && raw > GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX) {
+  // Boundary: bumping UP by a single step from FINE_MAX (0.10) yields raw=0.11, which
+  // normalizeGearInspectorSortWeight rounds back to 0.10 (nearest 0.05 coarse step). Skip the
+  // rounding and jump directly to the first coarse step (FINE_MAX + STEP = 0.15) so the control is
+  // never stuck at the boundary. Only for single-step bumps: an accelerated multi-step jump already
+  // clears the fine zone by more than one coarse step, so it should normalize normally.
+  if (deltaSteps === 1 && current <= GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX && raw > GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX) {
     return GEAR_INSPECTOR_SORT_WEIGHT_FINE_MAX + GEAR_INSPECTOR_SORT_WEIGHT_STEP
   }
   return normalizeGearInspectorSortWeight(raw)

@@ -109,6 +109,7 @@ const makeArtifact = (params: {
 const makeSpdSafeguardRule = (name: string): SafeguardRule => ({
   ...(name ? { appearance: { name } } : {}),
   weightMainStatByRank: false,
+  mainStatRankWeightFactor: 1,
   combination: {
     slots: [ArtifactType.Weapon],
     sets: [],

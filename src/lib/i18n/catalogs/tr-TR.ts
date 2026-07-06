@@ -128,7 +128,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Seçili alt statlar zaten mevcut: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "alt-stat-bazlı",
   gearInspectorGridSafeguardChanceUnknownRule: "(isimsiz koruma)",
-  gearInspectorNormalizedScoreDef: "- **Puan = ağırlıklı toplam** seçili alt statların toplamıdır.\n- Her birinin bir **ağırlığı** vardır (`0.1–3.0`, varsayılan `1.0`).\n- Her biri kendi **6★ rulo tavanına** göre ölçeklenir: `değer / tavan`.\n- Eksik bir alt stat **0** sayılır.\n- Birden fazla ön ayar seçildiyse ortalama değil, **en iyi (max)** puan kullanılır.\n- **Yalnızca alt statlar sayılır** — set, yuva, rütbe, nadirlik ve ana stat yok sayılır.",
+  gearInspectorNormalizedScoreDef: "- **Puan = ağırlıklı toplam** seçili alt statların toplamıdır.\n- Her birinin bir **ağırlığı** vardır (`0.1–9.9`, varsayılan `1.0`).\n- Her biri kendi **6★ rulo tavanına** göre ölçeklenir: `değer / tavan`.\n- Eksik bir alt stat **0** sayılır.\n- Birden fazla ön ayar seçildiyse ortalama değil, **en iyi (max)** puan kullanılır.\n- **Yalnızca alt statlar sayılır** — set, yuva, rütbe, nadirlik ve ana stat yok sayılır.",
   gearInspectorGridNormalizedTooltip: "**Alt Stat Puanını Göster**, **Normalized** sıralamasının kullandığı aynı puanı gösterir:\n\n{scoreDef}\n\nKatman rengi ekrandakilere görelidir: **kırmızı = en düşük**, **yeşil = en yüksek**.",
   gearInspectorGridShowRuleTemplates: "Reçete Ekle düğmesini göster",
   gearInspectorGridNormalizedPresetTitle: "Normalleştirilmiş ön ayar {n}",
@@ -554,6 +554,10 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri her modda çalışır; **Alt Stat başına** onları eşit ağırlıkta tutar.",
   safeguardsSubstatWeightsLabel: "Ağırlıklar",
   safeguardsSubstatWeightsLabelTooltip: "Her substat sıralama puanını ne kadar etkiler. Daha yüksek ağırlık = o substat daha fazla sayılır.\n\nAday listesindeki puanlar ve sıralamalar kaydırıcıları hareket ettirdikçe canlı olarak güncellenir.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Ana stat (rütbeye göre)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Ana statın rütbe ağırlığını ayarla",
   safeguardsCandidatesLabel: "Adaylar",
   safeguardsCandidatesLabelTooltip: "Bu kuralın filtrelerine uyan her parça, ağırlıklı alt stat puanına göre sıralanmış (**#1** = en iyisi).\n\nKesim çizgisi bu kuralın kotasını işaretler: çizginin **üzerindeki** parçalar burada tutulur; **altındakiler** bu kotayı kaçırır ama başka bir koruma veya bir reçete tarafından yine de tutulabilir.\n\nListe kesim çizgisinde açılır — en üst seçimler için yukarı kaydırın. Ağırlıkları değiştirdikçe puanlar ve sıralamalar canlı olarak güncellenir.",
   safeguardsCandidateKept: "Tut",

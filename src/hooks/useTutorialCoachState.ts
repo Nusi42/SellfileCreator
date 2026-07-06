@@ -43,6 +43,7 @@ import type { useI18n } from '../lib/i18n'
 import {
   SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
   SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
@@ -233,6 +234,8 @@ const buildTutorialSafeguardRules = (): SafeguardRule[] => [{
   countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
   // Demonstrate rank-aware main-stat scoring (matches the UI factory default ON).
   weightMainStatByRank: true,
+  // Neutral factor by default (matches the UI factory default).
+  mainStatRankWeightFactor: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
   // Keep tutorial behavior aligned with current safeguard defaults.
   ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
   ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,

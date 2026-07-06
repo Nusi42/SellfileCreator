@@ -54,6 +54,7 @@ import {
   sortSafeguardSubstats,
   type SafeguardRule,
   SafeguardRuleActivation,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
 } from './safeguards'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
@@ -1167,6 +1168,8 @@ export type ReadableSafeguardRuleEntry = {
   substatWeights?: Record<string, number>
   // "Weight by Rank" toggle; written only when true (omitted → off on load, backward-compatible).
   weightMainStatByRank?: boolean
+  // Tunable main-stat rank factor; written only when non-default (omitted → 1.0 on load).
+  mainStatRankWeightFactor?: number
 }
 
 // Build a readable safeguard tuple from a combination filter.
@@ -1278,6 +1281,12 @@ export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSa
   if (Object.keys(substatWeights).length > 0) entry.substatWeights = substatWeights
   // Emit "Weight by Rank" only when enabled; omission loads as off (backward-compatible).
   if (rule.weightMainStatByRank) entry.weightMainStatByRank = true
+  // Emit the main-stat rank factor only when it differs from the neutral default (1.0); omission
+  // loads as 1.0 so files that never touched this control stay byte-identical to the old format.
+  if (typeof rule.mainStatRankWeightFactor === 'number'
+    && rule.mainStatRankWeightFactor !== SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT) {
+    entry.mainStatRankWeightFactor = rule.mainStatRankWeightFactor
+  }
   return entry
 }
 
@@ -1309,6 +1318,8 @@ export function buildSfcPayload(args: {
       substats?: string[]
       substatMatch?: string
       substatWeights?: Record<string, number>
+      weightMainStatByRank?: boolean
+      mainStatRankWeightFactor?: number
     }>
     SafeguardsEnabled: boolean
     RecipesEnabled: boolean

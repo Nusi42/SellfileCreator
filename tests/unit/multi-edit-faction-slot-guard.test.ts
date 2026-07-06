@@ -68,6 +68,7 @@ const scalarField = (value: unknown): MultiEditFieldState => ({
 // Minimal safeguard rule factory for the tests.
 const makeSafeguard = (overrides: Partial<SafeguardRule['combination']> = {}): SafeguardRule => ({
   weightMainStatByRank: false,
+  mainStatRankWeightFactor: 1,
   combination: {
     slots: [],
     sets: [],

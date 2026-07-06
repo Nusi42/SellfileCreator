@@ -127,6 +127,7 @@ import {
   buildSafeguardCombinationFromRecipe,
   cloneSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
   SAFEGUARD_DEFAULT_IMPROVEMENT_CHANCE_THRESHOLD,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
   SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,
@@ -1278,6 +1279,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     countMode: { ...SAFEGUARD_DEFAULT_COUNT_MODE },
     // New builder draft opts into rank-aware main-stat scoring by default (UI default ON).
     weightMainStatByRank: true,
+    // Neutral factor by default so the toggle behaves as before until the user tunes it.
+    mainStatRankWeightFactor: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
     ignorePreviousSafeguards: SAFEGUARD_DEFAULT_IGNORE_PREVIOUS_SAFEGUARDS,
     ignoreEquippedInCollection: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION,
     ignoreEquippedInVault: SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT,

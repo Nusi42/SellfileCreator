@@ -1065,6 +1065,7 @@ mod improvement_watch_tests {
             substat_match: Some("1".to_string()),
             substat_weights: None,
             weight_main_stat_by_rank: None,
+            main_stat_rank_weight_factor: None,
             improvement_chance_threshold: Some(ImprovementChanceThresholdIn::Array([
                 threshold, threshold, threshold, threshold,
             ])),

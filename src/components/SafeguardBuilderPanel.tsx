@@ -61,6 +61,9 @@ import {
   createSafeguardRuleContentSnapshot,
   detectImprovementChancePresetId,
   resolveImprovementChanceThresholds,
+  parseMainStatRankWeightFactor,
+  bumpMainStatRankWeightFactor,
+  SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
   type SafeguardCandidateOut,
   type SafeguardDetectionEntry,
   type SafeguardImprovementChanceLevelThresholds,
@@ -357,6 +360,7 @@ export default function SafeguardBuilderPanel({
   const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
   const multiRequiredCountField = multiFields?.requiredCount ?? null
   const multiWeightByRankField = multiFields?.weightMainStatByRank ?? null
+  const multiMainStatFactorField = multiFields?.mainStatRankWeightFactor ?? null
   const multiIgnorePreviousField = multiFields?.ignorePreviousSafeguards ?? null
   const multiIgnoreCollectionField = multiFields?.ignoreEquippedInCollection ?? null
   const multiIgnoreVaultField = multiFields?.ignoreEquippedInVault ?? null
@@ -547,6 +551,9 @@ export default function SafeguardBuilderPanel({
   // ── state helpers ─────────────────────────────────────────────────────────
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
+  // Anchor for opening the weights flyout from the "Weight by Rank" chip's tune icon (the flyout
+  // hosts the main-stat factor row). Points at the chip wrapper so the popover aligns to the chip.
+  const weightByRankChipRef = useRef<HTMLDivElement | null>(null)
   // Live preview candidates computed by debounced WASM rescore when weights change in the popover.
   // null = not yet computed (use detectionEntry.candidates); undefined = rescore in progress (show stale).
   const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
@@ -1208,6 +1215,9 @@ export default function SafeguardBuilderPanel({
   const triggerLiveRescore = useCallback((
     nextWeights: Partial<Record<StatVariant, number>>,
     currentSubstats: readonly StatVariant[],
+    // Optional pending factor so a main-stat factor bump rescles the preview immediately, before
+    // the async rule state update lands (mirrors why nextWeights is passed explicitly).
+    factorOverride?: number,
   ) => {
     // Only rescore when we have detection artifacts to score against.
     if (!detectionEntry?.artifacts?.length || !currentSubstats.length) return
@@ -1229,6 +1239,9 @@ export default function SafeguardBuilderPanel({
         weights: weightRecord,
         // Reflect the editing rule's toggle so the preview updates live as it is flipped.
         weightMainStatByRank: rule?.weightMainStatByRank ?? false,
+        // Reflect the editing rule's factor so the preview rescales live as it is nudged.
+        // Prefer the caller-supplied pending value over the (pre-update) rule state.
+        mainStatRankWeightFactor: parseMainStatRankWeightFactor(factorOverride ?? rule?.mainStatRankWeightFactor),
         requiredCount: rule?.requiredCount ?? 1,
         // Mirror detection's count-mode so the WASM preview's isWithinQuota
         // partition (perSet/perFaction/perMain/perSlot bucketing with tie
@@ -1675,6 +1688,29 @@ export default function SafeguardBuilderPanel({
   const weightByRankValue = multiEditActive
     ? Boolean(multiWeightByRankField?.value ?? (rule?.weightMainStatByRank === true))
     : (effectiveRule.weightMainStatByRank === true)
+  // ── Main-stat "Weight by Rank" factor row (hosted in the weights flyout) ──────
+  // Staged factor in multi-edit (draft), else the effective rule value — mirrors how the
+  // substat weight rows resolve their displayed value.
+  const stagedMainStatFactor = multiEditActive && multiMainStatFactorField?.dirty
+    ? Number(multiMainStatFactorField.value)
+    : Number(effectiveRule.mainStatRankWeightFactor)
+  const mainStatFactorValue = parseMainStatRankWeightFactor(stagedMainStatFactor)
+  // Mixed indicator when the factor differs across a multi-selection (not yet staged).
+  const mainStatFactorMixed = multiEditActive
+    && multiMainStatFactorField?.status === 'mixed'
+    && !multiMainStatFactorField.dirty
+  // The factor row is only meaningful while the "Weight by Rank" toggle is on; grey it out otherwise.
+  const mainStatFactorEnabled = weightByRankValue || weightByRankMixed
+  // Commit a bumped/reset factor to the rule (or multi-edit draft) and rescore the preview live,
+  // passing the pending factor so the preview reflects it before the async state update lands.
+  const commitMainStatFactor = useCallback((nextFactor: number) => {
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('mainStatRankWeightFactor', { value: nextFactor, status: 'common' })
+    } else {
+      updateRule((prev) => ({ ...prev, mainStatRankWeightFactor: nextFactor }))
+    }
+    triggerLiveRescore(effectiveRule.substatWeights ?? {}, substatSelection, nextFactor)
+  }, [multiEditActive, multiEdit, updateRule, triggerLiveRescore, effectiveRule.substatWeights, substatSelection])
   // The bonus only applies when substats are selected (otherwise the rank tie-break already
   // orders same-mainstat ranks), so the chip is disabled when none are. In multi-edit,
   // substatSelection reflects only the representative rule, so check whether ANY selected
@@ -2568,7 +2604,7 @@ export default function SafeguardBuilderPanel({
                 {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
                     same-main near-equal 5★. Disabled when no substats are selected (the rank
                     tie-break already orders ranks there, so the bonus has no effect). */}
-                <Box sx={{ position: 'relative', alignSelf: 'flex-start' }}>
+                <Box ref={weightByRankChipRef} sx={{ position: 'relative', alignSelf: 'flex-start' }}>
                   <MarkdownTooltip markdown={t('safeguardsWeightByRankHint')} ellipsisTitle={t('safeguardsWeightByRank')} ellipsisSelector=".MuiChip-label">
                     <Chip
                       size="small"
@@ -2585,6 +2621,16 @@ export default function SafeguardBuilderPanel({
                           updateRule((prev) => ({ ...prev, weightMainStatByRank: !(prev.weightMainStatByRank === true) }))
                         }
                       }}
+                      // Tune icon opens the substat-weights flyout, where the main-stat factor now
+                      // lives as its own weighted row. stopPropagation so tapping the icon opens the
+                      // flyout without also toggling the chip; the label body still toggles.
+                      onDelete={weightByRankDisabled ? undefined : (e) => { e.stopPropagation(); setWeightsAnchorEl(weightByRankChipRef.current) }}
+                      deleteIcon={weightByRankDisabled ? undefined : (
+                        <TuneIcon
+                          aria-label={t('safeguardsMainStatWeightOpenAria')}
+                          sx={{ fontSize: 14 }}
+                        />
+                      )}
                       sx={{
                         // Green when on OR mixed; mixed adds the dashed/hatched overlay (shared pattern).
                         ...builderStatusChipSx(weightByRankValue || weightByRankMixed, { dimDisabled: true }),
@@ -3385,6 +3431,7 @@ export default function SafeguardBuilderPanel({
                 ignoreEquippedInCollection: rule.ignoreEquippedInCollection,
                 ignoreEquippedInVault: rule.ignoreEquippedInVault,
                 weightMainStatByRank: rule.weightMainStatByRank,
+                mainStatRankWeightFactor: rule.mainStatRankWeightFactor,
                 improvementChanceThreshold: rule.improvementChanceThreshold ?? null,
                 substats: rule.substats ?? [],
                 substatMatch: rule.substatMatch ?? SafeguardSubstatMatch.Min1,
@@ -3591,6 +3638,33 @@ export default function SafeguardBuilderPanel({
                 {t('safeguardsSubstatWeightsLabel')}
               </Typography>
             </MarkdownTooltip>
+            {/* Main-stat "Weight by Rank" factor row: a first-class weighted row alongside the
+                substats so the main-stat rank bonus can be tuned to compete with weighted substats.
+                Enabled only while the "Weight by Rank" toggle is on (the bonus is inert otherwise);
+                its neutral default (1.0) equals GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT so the shared
+                control's reset lands on the right value. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: mainStatFactorEnabled ? 1 : 0.5 }}>
+              <Typography variant="caption" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('safeguardsMainStatWeightRowLabel')}
+                {mainStatFactorMixed && (
+                  <Box component="span" sx={{ ml: 0.5, color: 'text.disabled', fontSize: '0.7em' }}>
+                    ({t('builderMultiEditMixedShort')})
+                  </Box>
+                )}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                <GearInspectorSortWeightControls
+                  label={t('safeguardsMainStatWeightRowLabel')}
+                  enabled={mainStatFactorEnabled}
+                  weight={mainStatFactorValue}
+                  // The factor has its own SSOT clamp/step (parseMainStatRankWeightFactor), so display
+                  // it verbatim instead of through the substat rows' sort-weight normalization.
+                  displayValue={mainStatFactorValue}
+                  onBump={(deltaSteps) => commitMainStatFactor(bumpMainStatRankWeightFactor(mainStatFactorValue, deltaSteps))}
+                  onReset={() => commitMainStatFactor(SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT)}
+                />
+              </Box>
+            </Box>
             {substatSelection.map((variant) => {
               // In multi-edit mode, read staged weight from draft; in single-edit use the effective
               // (overridden) weights so the slider reflects what will actually be evaluated.

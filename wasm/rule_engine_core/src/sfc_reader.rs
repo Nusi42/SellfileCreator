@@ -788,6 +788,10 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     let ignore_vault = rec.get("ignoreEquippedInVault").and_then(|v| v.as_bool());
     // "Weight by Rank" toggle; absent in older SFC files → None → treated as off downstream.
     let weight_main_stat_by_rank = rec.get("weightMainStatByRank").and_then(|v| v.as_bool());
+    // Tunable main-stat rank bonus multiplier; absent in older SFC files → None → SSOT default (1.0).
+    let main_stat_rank_weight_factor = rec
+        .get("mainStatRankWeightFactor")
+        .and_then(|v| v.as_f64());
     // Accept the per-level object form (current) or the resolved [f64;4] array form.
     // Legacy bare-number SFC files are normalized to the object form by sfcIO.ts at import,
     // so Rust never needs to handle that case here.
@@ -855,6 +859,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         substat_match,
         substat_weights,
         weight_main_stat_by_rank,
+        main_stat_rank_weight_factor,
         improvement_chance_threshold,
         tags,
     })

@@ -7,7 +7,7 @@
 // safeguardsDescriptors keeps safeguard history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode, SafeguardImprovementChanceLevelThresholds } from '../lib/safeguards'
-import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, safeguardActivationLabelKey } from '../lib/safeguards'
+import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, safeguardActivationLabelKey, parseMainStatRankWeightFactor } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -33,6 +33,7 @@ type SafeguardRuleSignature = {
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
   weightMainStatByRank: boolean
+  mainStatRankWeightFactor: number
   countMode: SafeguardRuleCountMode
   slots: number[]
   sets: Array<{ id: number; excluded: boolean }>
@@ -276,6 +277,8 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
     weightMainStatByRank: rule.weightMainStatByRank === true,
+    // Normalize so absent/out-of-range factors compare equal to the neutral default.
+    mainStatRankWeightFactor: parseMainStatRankWeightFactor(rule.mainStatRankWeightFactor),
     countMode: normalizeCountMode(rule.countMode),
     slots,
     sets,
@@ -304,6 +307,7 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     || left.ignoreEquippedInCollection !== right.ignoreEquippedInCollection
     || left.ignoreEquippedInVault !== right.ignoreEquippedInVault
     || left.weightMainStatByRank !== right.weightMainStatByRank
+    || left.mainStatRankWeightFactor !== right.mainStatRankWeightFactor
     || left.substatMatch !== right.substatMatch
   ) {
     return false

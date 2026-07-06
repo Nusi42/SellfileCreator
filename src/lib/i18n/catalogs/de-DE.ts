@@ -128,7 +128,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Ausgewählte Unterwerte bereits vorhanden: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "pro-Unterwert",
   gearInspectorGridSafeguardChanceUnknownRule: "(unbenannte Schutzregel)",
-  gearInspectorNormalizedScoreDef: "- **Punktzahl = gewichtete Summe** der ausgewählten Unterwerte.\n- Jeder hat ein **Gewicht** (`0.1–3.0`, Standard `1.0`).\n- Jeder wird anhand seines **6★-Roll-Caps** skaliert: `Wert / Cap`.\n- Ein fehlender Unterwert zählt als **0**.\n- Sind mehrere Presets ausgewählt, wird die **beste (max)** Punktzahl verwendet, nicht der Durchschnitt.\n- **Nur Unterwerte zählen** — Set, Art, Rang, Seltenheit und Hauptwert werden ignoriert.",
+  gearInspectorNormalizedScoreDef: "- **Punktzahl = gewichtete Summe** der ausgewählten Unterwerte.\n- Jeder hat ein **Gewicht** (`0.1–9.9`, Standard `1.0`).\n- Jeder wird anhand seines **6★-Roll-Caps** skaliert: `Wert / Cap`.\n- Ein fehlender Unterwert zählt als **0**.\n- Sind mehrere Presets ausgewählt, wird die **beste (max)** Punktzahl verwendet, nicht der Durchschnitt.\n- **Nur Unterwerte zählen** — Set, Art, Rang, Seltenheit und Hauptwert werden ignoriert.",
   gearInspectorGridNormalizedTooltip: "**Unterwert-Bewertung anzeigen** blendet die gleiche Punktzahl ein, die auch die Sortierung **Normalisiert** verwendet:\n\n{scoreDef}\n\nDie Overlay-Farbe ist relativ zur aktuellen Ansicht: **rot = niedrigste**, **grün = höchste**.",
   gearInspectorGridShowRuleTemplates: "Add-Rezept-Button anzeigen",
   gearInspectorGridNormalizedPresetTitle: "Normalisiertes Preset {n}",
@@ -554,6 +554,10 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Ranking & Gewichte**\n- Ausgewählte Unterwerte werden immer nach ihren Punktzahlen gerankt.\n- Die Gewichtungsregler wirken in jedem Modus; **Pro Unterwert** gewichtet sie gleich.",
   safeguardsSubstatWeightsLabel: "Gewichte",
   safeguardsSubstatWeightsLabelTooltip: "Wie stark jede Unterwert den Rangwert beeinflusst. Höheres Gewicht = diese Unterwert zählt mehr.\n\nPunkte und Ränge in der Kandidatenliste aktualisieren sich live, wenn du die Regler bewegst.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Hauptwert (nach Rang)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Rang-Gewichtung des Hauptwerts anpassen",
   safeguardsCandidatesLabel: "Kandidaten",
   safeguardsCandidatesLabelTooltip: "Jedes Teil, das den Filtern dieser Regel entspricht, gerankt nach gewichteter Unterwert-Punktzahl (**#1** = beste).\n\nDie Grenzlinie markiert die Quote dieser Regel: Teile **über** ihr werden hier behalten; Teile **darunter** verfehlen diese Quote, können aber dennoch durch eine andere Schutzregel oder ein Rezept behalten werden.\n\nDie Liste öffnet sich an der Grenzlinie — nach oben scrollen für die Top-Picks. Punktzahlen und Ränge aktualisieren sich live, wenn du die Gewichte änderst.",
   safeguardsCandidateKept: "Behalten",

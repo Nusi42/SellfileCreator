@@ -128,7 +128,7 @@ const overrides: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Sotto-stat selezionate già presenti: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "per-sotto-stat",
   gearInspectorGridSafeguardChanceUnknownRule: "(salvaguardia senza nome)",
-  gearInspectorNormalizedScoreDef: "- **Punteggio = somma ponderata** delle sotto-stat selezionate.\n- Ognuna ha un **peso** (`0.1–3.0`, predefinito `1.0`).\n- Ognuna viene scalata in base al suo **cap di roll 6★**: `valore / cap`.\n- Una sotto-stat mancante conta come **0**.\n- Con più preset selezionati, viene usato il **miglior (max)** punteggio, non la media.\n- **Contano solo le sotto-stat** — set, slot, rango, rarità e stat principale vengono ignorati.",
+  gearInspectorNormalizedScoreDef: "- **Punteggio = somma ponderata** delle sotto-stat selezionate.\n- Ognuna ha un **peso** (`0.1–9.9`, predefinito `1.0`).\n- Ognuna viene scalata in base al suo **cap di roll 6★**: `valore / cap`.\n- Una sotto-stat mancante conta come **0**.\n- Con più preset selezionati, viene usato il **miglior (max)** punteggio, non la media.\n- **Contano solo le sotto-stat** — set, slot, rango, rarità e stat principale vengono ignorati.",
   gearInspectorGridNormalizedTooltip: "**Mostra valutazione sotto-stat** sovrappone lo stesso punteggio usato dall'ordinamento **Normalized**:\n\n{scoreDef}\n\nIl colore dell'overlay è relativo a ciò che è sullo schermo: **rosso = più basso**, **verde = più alto**.",
   gearInspectorGridShowRuleTemplates: "Mostra pulsante Aggiungi ricetta",
   gearInspectorGridNormalizedPresetTitle: "Preset normalizzato {n}",
@@ -554,6 +554,10 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Classifica & pesi**\n- Le sotto-stat selezionate sono sempre classificate in base ai loro punteggi.\n- I controlli del peso funzionano in ogni modalità; **Per Sotto-stat** le pesa in modo uguale.",
   safeguardsSubstatWeightsLabel: "Pesi",
   safeguardsSubstatWeightsLabelTooltip: "Quanto influisce ogni sotto-stat sul punteggio di classificazione. Peso maggiore = quella sotto-stat conta di più.\n\nI punteggi e i ranghi nella lista dei candidati si aggiornano in tempo reale mentre sposti i cursori.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Stat principale (per rango)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Regola la ponderazione per rango della stat principale",
   safeguardsCandidatesLabel: "Candidati",
   safeguardsCandidatesLabelTooltip: "Ogni pezzo che corrisponde ai filtri di questa regola, classificato per punteggio ponderato delle sotto-stat (**#1** = il migliore).\n\nLa linea di taglio segna la quota di questa regola: i pezzi **sopra** di essa vengono conservati qui; i pezzi **sotto** mancano questa quota ma possono comunque essere conservati da un'altra salvaguardia o da una ricetta.\n\nLa lista si apre al limite — scorri su per i pezzi migliori. Punteggi e ranghi si aggiornano in tempo reale mentre modifichi i pesi.",
   safeguardsCandidateKept: "Tieni",

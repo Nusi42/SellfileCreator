@@ -470,6 +470,11 @@ const mainStatRankWeighting = spec.mainStatRankWeighting
 // Resolve the main-stat rank-weighting table (rank → slot token → variant token → max16)
 // into numeric (rank, slotId, variant, value) tuples shared by the TS + Rust emitters.
 const mainStatRankWeight = Number(mainStatRankWeighting.weight)
+// Per-rule user-tunable factor on the main-stat rank bonus: default + UI bump-control bounds.
+const mainStatRankWeightFactorDefault = Number(mainStatRankWeighting.defaultFactor)
+const mainStatRankWeightFactorMin = Number(mainStatRankWeighting.minFactor)
+const mainStatRankWeightFactorMax = Number(mainStatRankWeighting.maxFactor)
+const mainStatRankWeightFactorStep = Number(mainStatRankWeighting.stepFactor)
 const mainStatMax16Entries = Object.entries(mainStatRankWeighting.max16ByRankSlotVariant)
   .map(([rankStr, slotMap]) => ({
     rank: Number(rankStr),
@@ -688,6 +693,12 @@ tsLines.push('')
 tsLines.push('// Safeguard "Weight by Rank" score bonus weight (multiplies the rank/6★ main-stat ratio).')
 tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT = ${mainStatRankWeight}`)
 tsLines.push('')
+tsLines.push('// Per-rule tunable factor on the "Weight by Rank" main-stat bonus: default + bump-control bounds.')
+tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT = ${mainStatRankWeightFactorDefault}`)
+tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MIN = ${mainStatRankWeightFactorMin}`)
+tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MAX = ${mainStatRankWeightFactorMax}`)
+tsLines.push(`export const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP = ${mainStatRankWeightFactorStep}`)
+tsLines.push('')
 tsLines.push('// Level-16 main-stat maxima keyed by rank (4..6) → slot ID → stat variant. Rank-only (rarity-independent).')
 tsLines.push(
   `export const MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT: Record<number, Record<number, Record<number, number>>> = { ${mainStatMax16BodyTs} }`
@@ -846,6 +857,12 @@ const mainStatMax16TuplesRust = mainStatMax16Tuples
 rustLines.push('')
 rustLines.push('// Safeguard "Weight by Rank" score bonus weight (multiplies the rank/6-star main-stat ratio).')
 rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT: f64 = ${asRustF64Literal(mainStatRankWeight)};`)
+rustLines.push('')
+rustLines.push('// Per-rule tunable factor on the "Weight by Rank" main-stat bonus: default + bump-control bounds.')
+rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT: f64 = ${asRustF64Literal(mainStatRankWeightFactorDefault)};`)
+rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MIN: f64 = ${asRustF64Literal(mainStatRankWeightFactorMin)};`)
+rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_MAX: f64 = ${asRustF64Literal(mainStatRankWeightFactorMax)};`)
+rustLines.push(`pub const SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP: f64 = ${asRustF64Literal(mainStatRankWeightFactorStep)};`)
 rustLines.push('')
 rustLines.push('// Level-16 main-stat maxima as (rank, slot, variant, value) tuples. Rank-only (rarity-independent).')
 rustLines.push(

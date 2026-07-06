@@ -128,7 +128,7 @@ const enUS: Catalog = {
   gearInspectorGridSafeguardChanceTooltipMatchedNow: "Selected substats already present: {count}",
   gearInspectorGridSafeguardChanceMatchModePerSubstat: "per-substat",
   gearInspectorGridSafeguardChanceUnknownRule: "(unnamed safeguard)",
-  gearInspectorNormalizedScoreDef: "- **Score = weighted sum** of the selected substats.\n- Each one has a **weight** (`0.1–3.0`, default `1.0`).\n- Each one is scaled by its **6★ roll cap**: `value / cap`.\n- A missing substat counts as **0**.\n- With several presets selected, the **best (max)** score is used, not the average.\n- **Only substats count** — set, slot, rank, rarity, and main stat are ignored.",
+  gearInspectorNormalizedScoreDef: "- **Score = weighted sum** of the selected substats.\n- Each one has a **weight** (`0.1–9.9`, default `1.0`).\n- Each one is scaled by its **6★ roll cap**: `value / cap`.\n- A missing substat counts as **0**.\n- With several presets selected, the **best (max)** score is used, not the average.\n- **Only substats count** — set, slot, rank, rarity, and main stat are ignored.",
   gearInspectorGridNormalizedTooltip: "**Show Substat Rating** overlays the same score used by **Normalized** sort:\n\n{scoreDef}\n\nThe overlay color is relative to what's on screen: **red = lowest**, **green = highest**.",
   gearInspectorGridShowRuleTemplates: "Show Add-Recipe Button",
   gearInspectorGridNormalizedPresetTitle: "Normalized Preset {n}",
@@ -554,6 +554,10 @@ const enUS: Catalog = {
   safeguardsSubstatModeRankingHint: "**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls work in every mode; **Per Substat** weights them equally.",
   safeguardsSubstatWeightsLabel: "Weights",
   safeguardsSubstatWeightsLabelTooltip: "How much each substat influences the ranking score. Higher weight = that substat counts more.\n\nScores and ranks update live in the candidate list as you adjust the sliders.",
+  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Main stat (by rank)",
+  // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
+  safeguardsMainStatWeightOpenAria: "Adjust main-stat rank weight",
   safeguardsCandidatesLabel: "Candidates",
   safeguardsCandidatesLabelTooltip: "Every piece that matches this rule's filters, ranked by weighted substat score (**#1** = best).\n\nThe cutoff line marks this rule's quota: pieces **above** it are kept here; pieces **below** miss this quota but can still be kept by another safeguard or a recipe.\n\nThe list opens at the cutoff — scroll up for the top picks. Scores and ranks update live as you change the weights.",
   safeguardsCandidateKept: "Keep",

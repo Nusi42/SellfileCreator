@@ -57,6 +57,7 @@ test('scoreSafeguardCandidates ranks by weighted score and respects requiredCoun
     substats: [StatVariant.SPD],
     weights: { [StatVariant.SPD]: 1 },
     weightMainStatByRank: false,
+    mainStatRankWeightFactor: 1,
     requiredCount: 1,
   })
 
@@ -84,6 +85,7 @@ test('scoreSafeguardCandidates returns empty array when no substats are configur
     substats: [],
     weights: {},
     weightMainStatByRank: false,
+    mainStatRankWeightFactor: 1,
     requiredCount: 1,
   })
 
