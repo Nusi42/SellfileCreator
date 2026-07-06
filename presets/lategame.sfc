@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.36-dev",
+  "Version": "1.0.36",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -12517,6 +12517,66 @@
       "substats": [
         "ACC"
       ],
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Bomber (Slow)"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Gauntlets",
+          "Chestplate",
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Debuffer - Limited Sets"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "HP%",
+          "ATK%"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "bomber"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "ACC"
+      ],
+      "substatWeights": {
+        "ACC": 0.5
+      },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
     },
