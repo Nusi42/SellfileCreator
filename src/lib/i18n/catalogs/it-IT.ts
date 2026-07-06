@@ -554,7 +554,7 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Classifica & pesi**\n- Le sotto-stat selezionate sono sempre classificate in base ai loro punteggi.\n- I controlli del peso funzionano in ogni modalità; **Per Sotto-stat** le pesa in modo uguale.",
   safeguardsSubstatWeightsLabel: "Pesi",
   safeguardsSubstatWeightsLabelTooltip: "Quanto influisce ogni sotto-stat sul punteggio di classificazione. Peso maggiore = quella sotto-stat conta di più.\n\nI punteggi e i ranghi nella lista dei candidati si aggiornano in tempo reale mentre sposti i cursori.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
   safeguardsMainStatWeightRowLabel: "Stat principale (per rango)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
   safeguardsMainStatWeightOpenAria: "Regola la ponderazione per rango della stat principale",
@@ -1999,3 +1999,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

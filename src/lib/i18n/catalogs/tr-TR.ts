@@ -554,7 +554,7 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri her modda çalışır; **Alt Stat başına** onları eşit ağırlıkta tutar.",
   safeguardsSubstatWeightsLabel: "Ağırlıklar",
   safeguardsSubstatWeightsLabelTooltip: "Her substat sıralama puanını ne kadar etkiler. Daha yüksek ağırlık = o substat daha fazla sayılır.\n\nAday listesindeki puanlar ve sıralamalar kaydırıcıları hareket ettirdikçe canlı olarak güncellenir.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
   safeguardsMainStatWeightRowLabel: "Ana stat (rütbeye göre)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
   safeguardsMainStatWeightOpenAria: "Ana statın rütbe ağırlığını ayarla",
@@ -1999,3 +1999,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

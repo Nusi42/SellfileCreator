@@ -554,7 +554,7 @@ const catalog: Catalog = {
   safeguardsSubstatModeRankingHint: "**Classificação e pesos**\n- Os substats selecionados são sempre classificados por suas pontuações.\n- Os controles de peso funcionam em todos os modos; **Por Substat** os pondera igualmente.",
   safeguardsSubstatWeightsLabel: "Pesos",
   safeguardsSubstatWeightsLabelTooltip: "O quanto cada substat influencia a pontuação de classificação. Peso maior = esse substat conta mais.\n\nAs pontuações e posições na lista de candidatos se atualizam em tempo real ao mover os controles.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
   safeguardsMainStatWeightRowLabel: "Stat principal (por rank)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
   safeguardsMainStatWeightOpenAria: "Ajustar a ponderação por rank da stat principal",
@@ -1999,3 +1999,4 @@ const catalog: Catalog = {
 }
 
 export default catalog
+

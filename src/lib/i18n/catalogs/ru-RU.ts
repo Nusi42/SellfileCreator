@@ -554,7 +554,7 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Ранжирование и веса**\n- Выбранные подстаты всегда ранжируются по своим счётам.\n- Регуляторы веса работают в любом режиме; **По подстату** взвешивает их одинаково.",
   safeguardsSubstatWeightsLabel: "Веса",
   safeguardsSubstatWeightsLabelTooltip: "Насколько каждый подстат влияет на рейтинговый балл. Больший вес = этот стат считается больше.\n\nБаллы и ранги в списке кандидатов обновляются в реальном времени при перемещении ползунков.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
   safeguardsMainStatWeightRowLabel: "Основной стат (по рангу)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
   safeguardsMainStatWeightOpenAria: "Настроить вес основного стата по рангу",
@@ -1999,3 +1999,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

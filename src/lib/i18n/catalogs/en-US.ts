@@ -554,10 +554,10 @@ const enUS: Catalog = {
   safeguardsSubstatModeRankingHint: "**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls work in every mode; **Per Substat** weights them equally.",
   safeguardsSubstatWeightsLabel: "Weights",
   safeguardsSubstatWeightsLabelTooltip: "How much each substat influences the ranking score. Higher weight = that substat counts more.\n\nScores and ranks update live in the candidate list as you adjust the sliders.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
-  safeguardsMainStatWeightRowLabel: "Main stat (by rank)",
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
+  safeguardsMainStatWeightRowLabel: "Mainstat (by rank)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
-  safeguardsMainStatWeightOpenAria: "Adjust main-stat rank weight",
+  safeguardsMainStatWeightOpenAria: "Adjust Mainstat rank weight",
   safeguardsCandidatesLabel: "Candidates",
   safeguardsCandidatesLabelTooltip: "Every piece that matches this rule's filters, ranked by weighted substat score (**#1** = best).\n\nThe cutoff line marks this rule's quota: pieces **above** it are kept here; pieces **below** miss this quota but can still be kept by another safeguard or a recipe.\n\nThe list opens at the cutoff — scroll up for the top picks. Scores and ranks update live as you change the weights.",
   safeguardsCandidateKept: "Keep",

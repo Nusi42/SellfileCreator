@@ -554,7 +554,7 @@ const overrides: Catalog = {
   safeguardsSubstatModeRankingHint: "**Ranking & Gewichte**\n- Ausgewählte Unterwerte werden immer nach ihren Punktzahlen gerankt.\n- Die Gewichtungsregler wirken in jedem Modus; **Pro Unterwert** gewichtet sie gleich.",
   safeguardsSubstatWeightsLabel: "Gewichte",
   safeguardsSubstatWeightsLabelTooltip: "Wie stark jede Unterwert den Rangwert beeinflusst. Höheres Gewicht = diese Unterwert zählt mehr.\n\nPunkte und Ränge in der Kandidatenliste aktualisieren sich live, wenn du die Regler bewegst.",
-  // Label for the main-stat "Weight by Rank" factor row inside the weights flyout.
+  // Label for the Mainstat "Weight by Rank" factor row inside the weights flyout.
   safeguardsMainStatWeightRowLabel: "Hauptwert (nach Rang)",
   // Aria label for the tune icon on the "Weight by Rank" chip that opens the weights flyout.
   safeguardsMainStatWeightOpenAria: "Rang-Gewichtung des Hauptwerts anpassen",
@@ -1999,3 +1999,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

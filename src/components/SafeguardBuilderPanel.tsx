@@ -551,9 +551,6 @@ export default function SafeguardBuilderPanel({
   // ── state helpers ─────────────────────────────────────────────────────────
 
   const [weightsAnchorEl, setWeightsAnchorEl] = useState<HTMLElement | null>(null)
-  // Anchor for opening the weights flyout from the "Weight by Rank" chip's tune icon (the flyout
-  // hosts the main-stat factor row). Points at the chip wrapper so the popover aligns to the chip.
-  const weightByRankChipRef = useRef<HTMLDivElement | null>(null)
   // Live preview candidates computed by debounced WASM rescore when weights change in the popover.
   // null = not yet computed (use detectionEntry.candidates); undefined = rescore in progress (show stale).
   const [livePreviewCandidates, setLivePreviewCandidates] = useState<SafeguardCandidateOut[] | null>(null)
@@ -2603,8 +2600,10 @@ export default function SafeguardBuilderPanel({
                 )}
                 {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
                     same-main near-equal 5★. Disabled when no substats are selected (the rank
-                    tie-break already orders ranks there, so the bonus has no effect). */}
-                <Box ref={weightByRankChipRef} sx={{ position: 'relative', alignSelf: 'flex-start' }}>
+                    tie-break already orders ranks there, so the bonus has no effect).
+                    Split-button (same pattern as Improvement chance): the chip toggles the bonus;
+                    the flush tune button opens the weights flyout where the main-stat factor lives. */}
+                <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'flex-start', flexShrink: 0 }}>
                   <MarkdownTooltip markdown={t('safeguardsWeightByRankHint')} ellipsisTitle={t('safeguardsWeightByRank')} ellipsisSelector=".MuiChip-label">
                     <Chip
                       size="small"
@@ -2621,19 +2620,11 @@ export default function SafeguardBuilderPanel({
                           updateRule((prev) => ({ ...prev, weightMainStatByRank: !(prev.weightMainStatByRank === true) }))
                         }
                       }}
-                      // Tune icon opens the substat-weights flyout, where the main-stat factor now
-                      // lives as its own weighted row. stopPropagation so tapping the icon opens the
-                      // flyout without also toggling the chip; the label body still toggles.
-                      onDelete={weightByRankDisabled ? undefined : (e) => { e.stopPropagation(); setWeightsAnchorEl(weightByRankChipRef.current) }}
-                      deleteIcon={weightByRankDisabled ? undefined : (
-                        <TuneIcon
-                          aria-label={t('safeguardsMainStatWeightOpenAria')}
-                          sx={{ fontSize: 14 }}
-                        />
-                      )}
                       sx={{
                         // Green when on OR mixed; mixed adds the dashed/hatched overlay (shared pattern).
                         ...builderStatusChipSx(weightByRankValue || weightByRankMixed, { dimDisabled: true }),
+                        // Flatten right corners so the tune button fits flush (split-button pattern).
+                        borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px 0 0 ${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                         ...(weightByRankMixed ? {
                           borderStyle: 'dashed',
                           borderColor: mixedBorderColor,
@@ -2643,6 +2634,56 @@ export default function SafeguardBuilderPanel({
                       }}
                     />
                   </MarkdownTooltip>
+                  {/* Tune button — opens the weights flyout (main-stat factor row). Interactive when
+                      the bonus is on (or mixed) and substats are selected; styled exactly like the
+                      Improvement chance configure button so the two split-buttons read identically. */}
+                  <IconButton
+                    size="small"
+                    aria-label={t('safeguardsMainStatWeightOpenAria')}
+                    disabled={weightByRankDisabled || (!weightByRankValue && !weightByRankMixed)}
+                    onClick={(e) => setWeightsAnchorEl(e.currentTarget)}
+                    sx={(theme) => {
+                      // Treat mixed as effectively enabled so the button stays interactive.
+                      const isEffectivelyEnabled = weightByRankValue || weightByRankMixed
+                      const canInteract = !weightByRankDisabled && isEffectivelyEnabled
+                      const chipEnabled = isEffectivelyEnabled
+                      const bg = chipEnabled ? theme.custom.statusChipSuccessEnabledBg : theme.custom.statusChipDisabledBg
+                      // Light-mode base: darker success tone; dark-mode override via applyStyles.
+                      const color = chipEnabled
+                        ? (theme.vars?.palette.success.dark ?? theme.palette.success.dark)
+                        : (theme.vars?.palette.text.disabled ?? theme.palette.text.disabled)
+                      const colorDim = chipEnabled
+                        ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                        : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`
+                      const colorDisabled = chipEnabled
+                        ? `rgba(var(--mui-palette-success-darkChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
+                        : `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))`
+                      return {
+                        height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                        minHeight: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                        width: BUILDER_STATUS_CHIP_HEIGHT_PX,
+                        borderRadius: `0 ${STATUS_CHIP_BORDER_RADIUS_PX}px ${STATUS_CHIP_BORDER_RADIUS_PX}px 0`,
+                        backgroundColor: bg,
+                        color: canInteract ? color : colorDim,
+                        borderLeft: `1px solid ${chipEnabled ? theme.custom.statusChipSuccessHoverBg : (theme.vars?.palette.divider ?? theme.palette.divider)}`,
+                        '&:hover': canInteract ? { backgroundColor: theme.custom.statusChipSuccessHoverBg } : {},
+                        '&.Mui-disabled': { backgroundColor: bg, opacity: 0.5, color: colorDisabled },
+                        ...(chipEnabled ? theme.applyStyles('dark', {
+                          color: canInteract
+                            ? (theme.vars?.palette.success.light ?? theme.palette.success.light)
+                            : `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDimAlpha}))`,
+                          '&.Mui-disabled': { color: `rgba(var(--mui-palette-success-lightChannel) / var(${APP_CSS_VAR.statusChipDisabledColorAlpha}))` },
+                        }) : {}),
+                        // Mixed overlay when the toggle differs across selected rules.
+                        ...(weightByRankMixed ? {
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                          color: mixedTextColor,
+                        } : {}),
+                      }
+                    }}
+                  >
+                    <TuneIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
                 </Box>
               </Box>
             </Box>
