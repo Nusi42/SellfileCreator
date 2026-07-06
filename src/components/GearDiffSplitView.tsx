@@ -21,6 +21,9 @@ type GearDiffSplitViewProps = {
     // After pane only: show per-group before→after deltas in the headers (the before pane
     // keeps the normal absolute outcome chip).
     showGroupDeltas?: boolean
+    // Before pane only: render the pinned-state rank chips + improvement chances (baseline
+    // overlays) instead of the live ones, so each side shows its own rank/chance.
+    useBaselineMaps?: boolean
   }) => ReactNode
 }
 
@@ -98,7 +101,7 @@ export function GearDiffSplitView({ diffRows, renderGrid }: GearDiffSplitViewPro
             <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
               {t('gearDiffSplitBaselineHeading')}
             </Typography>
-            <Box ref={leftPaneRef} sx={{ flex: 1, minHeight: 0 }}>{renderGrid(beforeRows, { halfPaneColumns: true, collapsedGroups, onCollapsedGroupsChange: setCollapsedGroups })}</Box>
+            <Box ref={leftPaneRef} sx={{ flex: 1, minHeight: 0 }}>{renderGrid(beforeRows, { halfPaneColumns: true, collapsedGroups, onCollapsedGroupsChange: setCollapsedGroups, useBaselineMaps: true })}</Box>
           </Box>
           {/* After pane */}
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>

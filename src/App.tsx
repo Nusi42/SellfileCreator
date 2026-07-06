@@ -122,6 +122,8 @@ import { getRuleRecipeIndex, resolveMatchRecipeName } from './lib/ruleRecipeInde
 import {
   type SafeguardDetectionSnapshot,
   type SafeguardRule,
+  type SafeguardRankByArtifactId,
+  type SafeguardRankOverlayEntry,
   getSafeguardItemKey,
   resolveSafeguardRuleLabel,
   buildSafeguardCombinationFromRecipe,
@@ -362,7 +364,7 @@ import type {
 import { GearInspectorItemsGridMemo as GearInspectorItemsGrid } from './components/GearInspectorItemsGrid'
 import type { GearInspectorOutcomeSummary, GearInspectorPreviewMatch, GearInspectorPreviewRow } from './types/gearInspectorPreview'
 import { buildVerdictMapFromRows, type DiffRow } from './lib/gearDiff/verdictDiff'
-import { useGearDiffCompare, type GearDiffDelta, type GearDiffRows } from './hooks/useGearDiffCompare'
+import { useGearDiffCompare, type GearDiffDelta, type GearDiffRows, type ImprovementChanceByArtifactId } from './hooks/useGearDiffCompare'
 import { useChangePulse } from './hooks/useChangePulse'
 import GearDiffSplitView from './components/GearDiffSplitView'
 import type { GearInspectorMatchWorkerItemResult } from './workers/gearInspectorMatchWorkerTypes'
@@ -852,9 +854,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // map. The "after" side is always the live pipeline output (see hook note). `active` gates
   // the heavy row-join work to when the split-view is actually open; the cheap delta (for
   // the header chip) is computed regardless.
+  // Refs holding the live rank/improvement overlays for the gear-diff baseline capture.
+  // Created here (before the hook call) but populated in an effect further down, because
+  // safeguardRankByArtifactId / improvementChanceByArtifactId are declared much later in
+  // this component and JS bindings aren't hoisted — the hook only reads these at pin time.
+  const gearDiffRankRef = useRef<SafeguardRankByArtifactId | null>(null)
+  const gearDiffImprovementRef = useRef<ImprovementChanceByArtifactId | null>(null)
   const gearDiffCompare = useGearDiffCompare({
     currentRows: gearInspectorPreviewRows,
     currentVerdicts: gearInspectorMatchesByItemId,
+    currentRankRef: gearDiffRankRef,
+    currentImprovementRef: gearDiffImprovementRef,
     active: gearDiffSplitOpen,
   })
   // "Reference moved" cue: the baseline object identity changes only when a new reference is
@@ -5622,7 +5632,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [selectedSafeguardRuleIdx, improvementChanceByArtifactId, safeguardItemKeyByArtifactId])
   // Safeguard rank overlay for the Gear Inspector: maps artifact id → best candidate rank + quota status.
   // Context-aware: one rule selected → that rule's rank; multiple selected → best among those; none → best across all.
-  const safeguardRankByArtifactId = useMemo<ReadonlyMap<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> }> | null>(() => {
+  const safeguardRankByArtifactId = useMemo<SafeguardRankByArtifactId | null>(() => {
     if (!safeguardsActive || !safeguardDetection?.entries?.length) return null
     // selectedSafeguardRuleIndices are 0-based; detection entries use 1-based ordinals.
     const selectedOrdinals: ReadonlySet<number> = safeguardMultiselectActive
@@ -5673,7 +5683,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     // Merge otherRules (sorted by rank, deduplicated by ordinal, excluding primary) into the result.
-    const merged = new Map<number, { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean; otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> }>()
+    const merged = new Map<number, SafeguardRankOverlayEntry>()
     result.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection }, artifactId) => {
       const others = otherRulesPerArtifact.get(artifactId) ?? []
       const seen = new Set<number>()
@@ -5688,6 +5698,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     return merged.size > 0 ? merged : null
   }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
+
+  // Mirror the live rank/improvement overlays into the refs the gear-diff hook reads at pin
+  // time. Declared far above (before the hook call); populated here now that both maps exist.
+  useEffect(() => { gearDiffRankRef.current = safeguardRankByArtifactId }, [safeguardRankByArtifactId])
+  useEffect(() => { gearDiffImprovementRef.current = improvementChanceByArtifactId }, [improvementChanceByArtifactId])
 
   // Lookup map for the candidate list hover card tooltip (shows scaled GearInspectorGridCard).
   // Keyed by safeguard item key (not artifact DB id) so detection entry lookups stay consistent.
@@ -9190,6 +9205,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       collapsedGroups?: Set<string>
       onCollapsedGroupsChange?: React.Dispatch<React.SetStateAction<Set<string>>>
       showGroupDeltas?: boolean
+      // "Before" pane: render the pinned-state rank chips + improvement chances instead of
+      // the live ones, so each side of the split-view shows its own overlays. Falls back to
+      // the live maps when nothing was captured (e.g. pinned before any safeguard ranks).
+      useBaselineMaps?: boolean
     },
   ) => (
     <GearInspectorItemsGrid
@@ -9198,6 +9217,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       allRows={diffRows}
       halfPaneColumns={opts?.halfPaneColumns ?? false}
       showGroupDeltas={opts?.showGroupDeltas ?? false}
+      // Per-pane overlay override: the before pane swaps in the baseline rank/improvement
+      // maps (spread AFTER gearGridSharedProps so these win). The after pane keeps the live
+      // maps already carried by gearGridSharedProps.
+      {...(opts?.useBaselineMaps
+        ? {
+            safeguardRankByArtifactId: gearDiffCompare.baselineRankByArtifactId ?? gearGridSharedProps.safeguardRankByArtifactId,
+            improvementChanceByArtifactId: gearDiffCompare.baselineImprovementByArtifactId ?? gearGridSharedProps.improvementChanceByArtifactId,
+          }
+        : {})}
       {...(opts?.collapsedGroups ? { collapsedGroups: opts.collapsedGroups } : {})}
       {...(opts?.onCollapsedGroupsChange ? { onCollapsedGroupsChange: opts.onCollapsedGroupsChange } : {})}
       // Gear selection works in diff mode when a push endpoint is connected. Both panes
@@ -9210,7 +9238,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // from the same source as the normal gear inspector (halved when halfPaneColumns=true).
       {...(isSideBySide ? { panelWidthPx: liveRightWidthPx ?? splitterRightPx } : {})}
     />
-  ), [gearGridSharedProps, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect, isSideBySide, liveRightWidthPx, splitterRightPx])
+  ), [gearGridSharedProps, gearDiffCompare.baselineRankByArtifactId, gearDiffCompare.baselineImprovementByArtifactId, pushExportEndpoint, selectedGearItemIds, handleGearItemsSelect, isSideBySide, liveRightWidthPx, splitterRightPx])
 
   return (
     <SlotTintProvider scope={slotColorScope} tints={slotTints}>

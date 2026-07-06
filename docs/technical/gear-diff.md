@@ -34,13 +34,26 @@ conic-gradient ring whose angle (`--gd-ref-angle`, registered in `styles.css`) r
 
 ## The reference (baseline) model
 
-`useGearDiffCompare` (`src/hooks/useGearDiffCompare.ts`) holds the pinned baseline. It is
-deliberately **compact** — just the verdict map. It does **not** retain the preview rows
-(the split-view renders the *current* rows with the baseline match swapped in) nor a stored
-summary: both the flip diff and the header delta are computed over the **intersection** of
-the baseline map and the live verdicts (one pass over the live map, O(1) baseline lookups).
-The "after" side is always the **live pipeline output** — there is no separate
-non-committing evaluation.
+`useGearDiffCompare` (`src/hooks/useGearDiffCompare.ts`) holds the pinned baseline. It stays
+**compact** — the verdict map is the only thing the diff *logic* reads. It does **not**
+retain the preview rows (the split-view renders the *current* rows with the baseline match
+swapped in) nor a stored summary: both the flip diff and the header delta are computed over
+the **intersection** of the baseline map and the live verdicts (one pass over the live map,
+O(1) baseline lookups). The "after" side is always the **live pipeline output** — there is
+no separate non-committing evaluation.
+
+Alongside the verdict map the baseline also freezes two **display-only** overlays captured at
+pin time — the safeguard **rank** map (`SafeguardRankByArtifactId`) and the **improvement
+chance** map — so the *before* pane can render the pinned-state rank chips and improvement
+chances instead of the live ones. These play **no part in deciding what counts as changed**:
+the changed-set is still purely the tri-state verdict flip. A rank or chance that shifts
+without a verdict flip does **not** make an item appear in the diff; it only shows as extra
+before→after detail on items that *already* flipped. Both maps are keyed by artifact id and
+declared far below the hook call in `App.tsx`, so they reach the hook as **refs**
+(`gearDiffRankRef` / `gearDiffImprovementRef`, populated in an effect) that pinning reads —
+not as reactive props. `pinBaselineFromRows` shallow-copies each live map (`new Map(...)`)
+because the rank map is context-aware (re-created on safeguard-selection changes) and the
+values must be frozen as-pinned.
 
 **Auto-track** re-pins the baseline on each change of the rule-state signature
 (`currentEntrySignature.crc` from `useSfcHistory`). The signature serializes recipes,
@@ -82,6 +95,16 @@ Only the inline split-view exists (no modal). `GearDiffSplitView.tsx` renders tw
 - **Same grid, not a fork.** Both panes (and the chip) reuse `GearInspectorItemsGrid` via
   App's `renderGearDiffGrid` closure + the `gearGridSharedProps` memo. The before pane
   renders each changed row with `match = beforeMatch`; the after pane with `afterMatch`.
+- **Per-pane rank / improvement overlays.** The card already draws its safeguard **rank chip**
+  and **improvement chance** from the `safeguardRankByArtifactId` / `improvementChanceByArtifactId`
+  grid props (looked up by artifact id). `gearGridSharedProps` carries the **live** maps, so
+  the *after* pane shows current ranks/chances for free. The *before* pane passes
+  `useBaselineMaps: true` (from `GearDiffSplitView`), and `renderGearDiffGrid` then spreads the
+  **baseline** maps (`gearDiffCompare.baselineRankByArtifactId` /
+  `baselineImprovementByArtifactId`) *after* `gearGridSharedProps` so they win — falling back to
+  the live maps when nothing was captured (e.g. pinned before any safeguard ranks existed). No
+  card code changes and no forked rank-chip rendering: the same component renders both sides,
+  each fed its own map.
 - **Synced scroll** — `scrollTop` is mirrored between the two panes' scroll containers
   (`[data-gear-inspector-grid-container]`); the panes render the same rows in the same
   order with identical grouping/sort, so positions align.
@@ -128,6 +151,11 @@ context/companion grouping) is neutralized for the diff — `gearDiffFilteredRow
 - **Delta** — `useGearDiffCompare.delta` counts sold / safeguard-kept on each side over the
   **intersection** of the baseline and live verdict maps (one pass over the live map), so a
   gear-DB push adding/removing items never shifts it — only rule-driven flips do.
+- **Rank overlay shape** — `SafeguardRankByArtifactId` / `SafeguardRankOverlayEntry` (and its
+  `SafeguardRankRuleEntry` / `SafeguardRankOtherRuleEntry` parts) in `src/lib/safeguards.ts`.
+  One exported definition of the artifact-id→rank overlay, imported by the App memo that
+  builds it, the `GearInspectorItemsGrid` prop that renders it, and the gear-diff baseline
+  that freezes it — so the three cannot drift.
 
 ## Performance notes
 
@@ -135,9 +163,12 @@ The diff feature has cost only while a baseline is pinned (auto-track keeps one 
 you have rules and gear). It is bounded — a single snapshot, replaced (not accumulated) on
 each re-pin, so there is no leak.
 
-- **Compact baseline** — the baseline holds just the verdict `Map` (no preview-rows copy, no
-  stored summary). The `Map` keeps the small per-row match objects alive, not the full rows,
-  so RAM stays near the verdict map even for large DBs.
+- **Compact baseline** — the baseline holds the verdict `Map` (no preview-rows copy, no
+  stored summary) plus shallow copies of the rank + improvement-chance maps. The verdict `Map`
+  keeps the small per-row match objects alive, not the full rows; the two overlay copies are
+  shallow (they alias the same per-artifact entry objects the live maps hold), so RAM stays
+  bounded and near the source maps even for large DBs. All three are replaced (not
+  accumulated) on each re-pin.
 - **Gated work** — when the split-view is **closed**, only the delta runs (~1 linear pass
   over the gear list per commit, for the chip). The flip diff + row index + joined rows are
   built **only when the view is open** (`active` arg to `useGearDiffCompare`).

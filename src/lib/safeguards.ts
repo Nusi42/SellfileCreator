@@ -703,6 +703,41 @@ export function safeguardFocusGroupKeyFor(
 import type { SafeguardWasmCandidateOut } from './wasm/generated/rust-types/SafeguardWasmCandidateOut'
 export type SafeguardCandidateOut = SafeguardWasmCandidateOut
 
+// One rule's candidacy for a piece in the gear-inspector rank overlay: its global rank
+// across the whole rule, its group (count-bucket) rank, quota membership, and whether the
+// rule is in the current selection. Shared numeric fields; `ruleOrdinal` nullability differs
+// between the primary entry and the tooltip "other rules" (see below).
+type SafeguardRankRuleFields = {
+  rank: number
+  groupRank: number
+  isWithinQuota: boolean
+  inSelection: boolean
+}
+
+// The winning (primary) candidacy for an artifact. `ruleOrdinal` is 1-based, null only for
+// un-ordinalled entries.
+export type SafeguardRankRuleEntry = SafeguardRankRuleFields & {
+  ruleOrdinal: number | null
+}
+
+// An OTHER applicable rule in the tooltip list. The App memo drops any entry without a
+// numeric ordinal, so here `ruleOrdinal` is always present (the chip uses it to jump).
+export type SafeguardRankOtherRuleEntry = SafeguardRankRuleFields & {
+  ruleOrdinal: number
+}
+
+// The rank overlay for a single artifact: its winning (primary) rule's rank/group/quota,
+// plus every OTHER applicable rule's rank (sorted best-first) for the tooltip. Single
+// definition of the overlay value shape — the App memo that builds it, the grid prop that
+// consumes it, and the gear-diff baseline snapshot all reference this one type.
+export type SafeguardRankOverlayEntry = SafeguardRankRuleEntry & {
+  otherRules: SafeguardRankOtherRuleEntry[]
+}
+
+// Artifact-id → rank overlay. The gear inspector reads it to draw rank chips; the gear-diff
+// baseline captures a frozen copy so the "before" pane can show the pinned-state ranks.
+export type SafeguardRankByArtifactId = ReadonlyMap<number, SafeguardRankOverlayEntry>
+
 export type SafeguardDetectionEntry = {
   hash: string
   combination: SafeguardCombination
