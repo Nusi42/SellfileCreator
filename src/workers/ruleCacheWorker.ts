@@ -959,6 +959,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       invalidateConfiguredKey()
       lastConfiguredBaselineCount = null
       lastArtifactStoreFingerprint = null
+      // Cached rule arrays were built against the now-discarded WASM instance's
+      // recipe-index bookkeeping; drop them so the fresh instance rebuilds clean
+      // rather than serving entries stamped for a state that no longer exists.
+      persistentRuleCache.clear()
     }
     if (runIsStale()) return
     postError(id, error)

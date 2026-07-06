@@ -352,6 +352,27 @@ export const TOTAL_RULE_COUNT_LIMIT = 250_000
 // with builder-generated recipes (which map to positive IDs).
 export const SAFEGUARD_RECIPE_ID_BASE = -1 as const
 
+// Cap on the worker-lifetime persistentRuleCache (fingerprint -> built rules), as a MULTIPLE
+// of the current recipe count rather than a flat constant — see PERSISTENT_RULE_CACHE_MAX_MULTIPLIER.
+export const PERSISTENT_RULE_CACHE_MIN_ENTRIES = 50
+
+// Multiplier applied to the current pipeline's recipe count to get the cache cap (see
+// updateRecipeRulesCache's rulesCache eviction). Sized from measurement against
+// presets/lategame.sfc (191 recipes, 164 distinct fingerprints):
+//   - substatTargets is a GLOBAL key: every substat-target edit invalidates ALL recipes at
+//     once and re-adds a full ~164-entry / ~29 MB generation. Recipe-only edits add just the
+//     1 changed entry. So cache growth is driven almost entirely by "how many distinct
+//     substat-target states has this session visited", not by recipe-content churn.
+//   - A cold full-recipe-set rebuild (no cache reuse) took ~1.1s; a fully-cached rebuild took
+//     ~19ms (~58x). Recipe-only edits are near-free either way (~8-10ms) since only 1 of 164
+//     entries misses.
+// 1.25x holds a bit more than one full generation (current substat-target state plus most of
+// the previous one, i.e. a one-step "undo" of a substat-target change), while still bounding
+// worst-case growth: repeated substat-target tweaks evict the oldest generation instead of
+// accumulating forever. Paying the ~1.1s cold-rebuild cost on eviction is an acceptable
+// trade-off given it only recurs on the (currently) less-common substat-target-edit path.
+export const PERSISTENT_RULE_CACHE_MAX_MULTIPLIER = 1.25
+
 // Recipe chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide

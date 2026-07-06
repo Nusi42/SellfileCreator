@@ -5,7 +5,12 @@
  * snapshot. Fingerprints remain for stable keys/dirty checks, but rule rows are
  * rebuilt from the current payload each call.
  */
-import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
+import {
+  RULE_COUNT_LIMIT,
+  TOTAL_RULE_COUNT_LIMIT,
+  PERSISTENT_RULE_CACHE_MIN_ENTRIES,
+  PERSISTENT_RULE_CACHE_MAX_MULTIPLIER,
+} from './constants'
 import {
   buildRulesForRecipe,
   type BuildRulesFinalizeGeneratedFn,
@@ -115,8 +120,15 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
       continue
     }
 
-    // Look up the persistent cache before doing any WASM work.
+    // Look up the persistent cache before doing any WASM work. Re-insert on hit so the
+    // Map's iteration order tracks recency (Map preserves insertion order; delete+set
+    // moves the key to the end), giving the eviction below a cheap LRU without a
+    // separate tracking structure.
     const cachedEntry = args.rulesCache?.get(recipeKey)
+    if (cachedEntry && args.rulesCache) {
+      args.rulesCache.delete(recipeKey)
+      args.rulesCache.set(recipeKey, cachedEntry)
+    }
 
     let mustExcludeByCapacity = false
     if (remainingCapacity !== null) {
@@ -163,8 +175,23 @@ export function updateRecipeRulesCache(args: UpdateArgs): UpdateResult {
           ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
         },
       )
-      // Store newly built entries so subsequent runs can reuse them.
-      args.rulesCache?.set(recipeKey, entry)
+      // Store newly built entries so subsequent runs can reuse them, evicting the
+      // least-recently-used entry first when the cache is at capacity so long sessions
+      // with many substat-target edits (which invalidate every recipe's key at once —
+      // see buildRecipeFingerprint) cannot grow it unboundedly. Cap scales with the
+      // current recipe count so it holds roughly one full generation of entries plus a
+      // margin, rather than an arbitrary flat constant unrelated to this SFC's size.
+      if (args.rulesCache) {
+        const maxEntries = Math.max(
+          PERSISTENT_RULE_CACHE_MIN_ENTRIES,
+          Math.ceil(totalRecipes * PERSISTENT_RULE_CACHE_MAX_MULTIPLIER),
+        )
+        if (args.rulesCache.size >= maxEntries) {
+          const oldestKey = args.rulesCache.keys().next().value
+          if (oldestKey !== undefined) args.rulesCache.delete(oldestKey)
+        }
+        args.rulesCache.set(recipeKey, entry)
+      }
     }
 
     const rulesForPreview = entry.rules
