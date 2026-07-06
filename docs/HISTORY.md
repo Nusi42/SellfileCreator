@@ -1,6 +1,19 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.36 — 2026-07-06
+English:
+- **New: Clicking a row in the sell file preview now jumps to that rule in the builder** — recipe rows select the recipe and switch to Recipe Builder; safeguard rows select the safeguard and switch to Safeguard Builder; both scroll the rule into view.
+- **Improved: Account switcher rows now have a dedicated auto-push toggle button** — clicking the icon on any account row turns automatic sell-file uploading on or off without opening a dialog. The account's accent color is now shown as a full person icon rather than a small colored square.
+- **Improved: Hovering a sell file preview row now highlights the corresponding safeguard chip in the builder** — recipe chips were already highlighted on hover; safeguard chips now follow the same behavior.
+- **Fixed: Override markers in the builder no longer float over section headers when a section is collapsed** — the "!" badge is now anchored to its control inside the section and disappears when that section is folded.
+
+Deutsch:
+- **Neu: Ein Klick auf eine Zeile in der Verkaufsdatei-Vorschau springt direkt zur zugehörigen Regel im Builder** — Rezept-Zeilen wählen das Rezept aus und wechseln in den Rezept-Builder; Safeguard-Zeilen wählen den Safeguard aus und wechseln in den Safeguard-Builder; beide scrollen die Regel in den sichtbaren Bereich.
+- **Verbessert: Konto-Wechsler-Zeilen haben jetzt einen eigenen Auto-Push-Schalter** — ein Klick auf das Symbol in einer Kontozeile schaltet den automatischen Upload der Verkaufsdatei ein oder aus, ohne einen Dialog zu öffnen. Die Akzentfarbe des Kontos wird jetzt als vollständiges Personen-Symbol dargestellt statt als kleines farbiges Quadrat.
+- **Verbessert: Das Hovern über eine Zeile in der Verkaufsdatei-Vorschau hebt jetzt auch den zugehörigen Safeguard-Chip im Builder hervor** — Rezept-Chips wurden beim Hovern bereits hervorgehoben; Safeguard-Chips folgen jetzt demselben Verhalten.
+- **Behoben: Override-Markierungen im Builder schweben nicht mehr über Abschnitts-Kopfzeilen, wenn ein Abschnitt eingeklappt ist** — das „!"-Abzeichen ist jetzt an sein Steuerelement innerhalb des Abschnitts gebunden und verschwindet, wenn der Abschnitt geschlossen wird.
+
 ## v1.0.35 — 2026-07-05
 English:
 - **New: Multi-account support** — (NOT FINISHED YET) the app can now manage multiple game accounts, each with its own documents, builder settings, gear data, accent color, and auto-push preference. An account switcher in the header (and in simple mode) lets you create, rename, delete, and switch accounts. Existing users' data is automatically moved into a "Default" account on first launch.
