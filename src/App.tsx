@@ -60,6 +60,7 @@ import {
 import {
   AUTOSAVE_KEY,
   AUTOSAVE_GEAR_INSPECTOR_KEY,
+  AUTOSAVE_CUSTOM_GEAR_KEY,
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
   GRID_COLUMN_GAP_PX,
@@ -146,7 +147,7 @@ import {
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
-import { buildGearInspectorAutosavePayload, createGearInspectorMath, isManualGearInspectorItem, loadGearInspectorAutosaveDraft, type GearInspectorItem } from './lib/gearInspectorSession'
+import { buildGearInspectorAutosavePayload, createGearInspectorMath, loadCustomGearAutosaveDraft, loadGearInspectorAutosaveDraft, newGearInspectorCompressionCache, partitionGearInspectorItemsForPersistence, type GearInspectorItem } from './lib/gearInspectorSession'
 import {
   buildGearDbDiffSummary,
   encodeGearDbDiffToastEntries,
@@ -419,7 +420,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { getSellfileLastPushAtForAccount, hasExplicitSellfileAutoPushForAccount, markSellfileLastPushErrorForAccount, markSellfileLastPushForAccount, useSellfileDedupPreference, useSellfileOmitDisabledPreference, useSellfileAutoPushPreference } from './state/exportPreferences'
-import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot } from './state/gearDbPreferences'
+import { useHideGearDbUpdateToastPreference, getPersistEndpointGearPreferenceSnapshot, getRestoreCustomGearPreferenceSnapshot } from './state/gearDbPreferences'
 import { useSfcDialogs } from './hooks/useSfcDialogs'
 import { useSfcHistoryController } from './hooks/useSfcHistoryController'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
@@ -766,7 +767,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // so artifacts can have their cID field patched at snapshot-synthesis time.
     equippedByArtifact: Map<number, number> | null
   }>({ artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null, equippedByArtifact: null })
-  const [gearInspectorItems, setGearInspectorItems] = useState<GearInspectorItem[]>([])
+  const [gearInspectorItems, setGearInspectorItems] = useState<GearInspectorItem[]>(
+    // eslint-disable-next-line react-hooks/refs -- mount-only initializer; the id ref is seeded above and read once here, not on re-renders
+    () => {
+      // Custom ("manual") gear lives in its OWN key and is reloaded at startup in every
+      // mode (no dialog), gated only by the per-account "restore custom gear" flag
+      // (default ON). Seeding it into the initial item state means it's present from the
+      // first render, independent of the endpoint restore dialog.
+      if (!getRestoreCustomGearPreferenceSnapshot()) return []
+      const customItems = loadCustomGearAutosaveDraft({ math: gearInspectorMath, allocItemId: allocGearInspectorItemId })
+      if (!customItems || customItems.length === 0) return []
+      // Keep the descending allocator cursor below every restored custom id (SSOT helper).
+      gearInspectorItemIdRef.current = reseedGearInspectorCustomIdCursor(gearInspectorItemIdRef.current, customItems)
+      return customItems
+    }
+  )
   const gearInspectorItemsRef = useRef(gearInspectorItems)
   useEffect(() => { gearInspectorItemsRef.current = gearInspectorItems }, [gearInspectorItems])
   const [gearInspectorRestoreDraft, setGearInspectorRestoreDraft] = useState<{
@@ -4402,15 +4417,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // The SFC autosave (restoreDialogPending) is simply dismissed — the preset SFC takes priority.
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
   const handleSilentGearRestore = useCallback(() => {
-    // Same invariant as the dialog path: authoritative endpoint gear must never be
-    // clobbered by the stale autosave draft (see endpointGearDataApplied).
+    // Express boot: restore the endpoint/imported draft unless authoritative RSL Helper
+    // gear already superseded it this session. Custom ("manual") pieces are NOT handled
+    // here — they load from their own key into the initial item state (see the
+    // gearInspectorItems initializer), so they're already present in every mode. We append
+    // the endpoint draft onto the live items (which hold the seeded custom gear) so the
+    // restore never wipes them; de-dup by itemId guards against a double apply.
     if (gearInspectorRestoreDraft && !endpointGearDataApplied) {
       beginGearInspectorMatchReset('restore')
-      setGearInspectorItemsTransition(gearInspectorRestoreDraft.items)
+      const liveIds = new Set(gearInspectorItemsRef.current.map((item) => item.itemId))
+      const endpointAdditions = gearInspectorRestoreDraft.items.filter((item) => !liveIds.has(item.itemId))
+      const nextItems = [...endpointAdditions, ...gearInspectorItemsRef.current]
+      setGearInspectorItemsTransition(nextItems)
       // Keep the descending allocator cursor below every restored custom id (SSOT helper).
       gearInspectorItemIdRef.current = reseedGearInspectorCustomIdCursor(
         gearInspectorItemIdRef.current,
-        gearInspectorRestoreDraft.items,
+        nextItems,
       )
     }
     markNextSnapshotAsSaved()
@@ -5294,20 +5316,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearInspectorGearTabActive = logicHubOpen && logicHubDialogTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const gearInspectorAutosaveChangedSinceLoad = gearInspectorAutosaveBaseline !== gearInspectorItems
   const gearInspectorAutosaveEnabled = gearInspectorGearTabActive || gearInspectorAutosaveChangedSinceLoad
-  // Build compressed Gear Inspector autosave payload only when a save actually runs.
-  const buildGearInspectorAutosavePayloadCallback = useCallback(() => {
-    const items = gearInspectorAutosaveItemsRef.current
+  // Two independent autosave streams share the live item array but persist to separate
+  // keys: endpoint/imported gear (AUTOSAVE_GEAR_INSPECTOR_KEY, gated by the persist toggle)
+  // and custom/manual gear (AUTOSAVE_CUSTOM_GEAR_KEY, always). Each owns a compression
+  // cache — a shared one would thrash between the two filtered arrays. SSOT partition helper.
+  const endpointGearCompressionCacheRef = useRef(newGearInspectorCompressionCache())
+  const customGearCompressionCacheRef = useRef(newGearInspectorCompressionCache())
+  const buildEndpointGearAutosavePayloadCallback = useCallback(() => {
+    const { endpointItems } = partitionGearInspectorItemsForPersistence(gearInspectorAutosaveItemsRef.current)
     // Perf/sanity toggle (account manager): with persistence off, REAL gear data
-    // (endpoint or file import) stays out of localStorage; manual items still persist.
-    const persisted = getPersistEndpointGearPreferenceSnapshot()
-      ? items
-      : items.filter((item) => isManualGearInspectorItem(item))
-    return buildGearInspectorAutosavePayload(persisted)
+    // (endpoint or file import) stays out of localStorage entirely.
+    const persisted = getPersistEndpointGearPreferenceSnapshot() ? endpointItems : []
+    return buildGearInspectorAutosavePayload(persisted, endpointGearCompressionCacheRef.current)
+  }, [])
+  const buildCustomGearAutosavePayloadCallback = useCallback(() => {
+    // Custom ("manual") pieces always persist to their dedicated key, independent of the
+    // endpoint persistence toggle — they are user-authored and RSL Helper never sends them.
+    const { customItems } = partitionGearInspectorItemsForPersistence(gearInspectorAutosaveItemsRef.current)
+    return buildGearInspectorAutosavePayload(customItems, customGearCompressionCacheRef.current)
   }, [])
   useAutosave({
     key: AUTOSAVE_GEAR_INSPECTOR_KEY,
     payloadSignal: gearInspectorItems,
-    buildPayload: buildGearInspectorAutosavePayloadCallback,
+    buildPayload: buildEndpointGearAutosavePayloadCallback,
     // Rules-only rebuilds do not mutate Gear Inspector items; keeping autosave enabled
     // avoids false disable/enable cycles that can repeatedly trigger compression work.
     // Still pause during Gear Inspector grid rebuilds, where large row changes are expected.
@@ -5319,6 +5350,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     idle: true,
     idleTimeoutMs: 5_000,
     beforeSave: persistRuntimeGearSetsNow,
+  })
+  // Custom-gear autosave: separate key, same debounce/idle profile. Small payload (a
+  // handful of hand-made pieces), so it can stay enabled whenever items changed since load.
+  useAutosave({
+    key: AUTOSAVE_CUSTOM_GEAR_KEY,
+    payloadSignal: gearInspectorItems,
+    buildPayload: buildCustomGearAutosavePayloadCallback,
+    enabled: gearInspectorAutosaveEnabled && !gearEntriesBuilding,
+    debounceMs: 1000,
+    writeOnEnable: false,
+    idle: true,
+    idleTimeoutMs: 5_000,
   })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -10128,17 +10171,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
               }
             }
-            // Defense in depth: never overwrite authoritative endpoint gear with the
-            // stale draft, even if a selection somehow still carried gearInspector.
-            // The dialog already hides the offer once endpointGearDataApplied is set.
+            // The Gear Inspector checkbox restores the endpoint/imported draft only —
+            // custom ("manual") pieces load from their own key into the initial item state
+            // (see the gearInspectorItems initializer), independent of this dialog. Append
+            // the endpoint draft onto the live items (which already hold the seeded custom
+            // gear) so the restore never wipes them; de-dup by itemId guards a double apply.
             if (selection.gearInspector && gearInspectorRestoreDraft && !endpointGearDataApplied) {
-              const restoredItems = gearInspectorRestoreDraft.items
+              const liveIds = new Set(gearInspectorItemsRef.current.map((item) => item.itemId))
+              const endpointAdditions = gearInspectorRestoreDraft.items.filter((item) => !liveIds.has(item.itemId))
+              const restoredItems = [...endpointAdditions, ...gearInspectorItemsRef.current]
               // Restores can include large Gear Inspector payloads; commit non-urgently like imports.
               setGearInspectorItemsTransition(restoredItems)
               // Keep the descending allocator cursor below every restored custom id (SSOT helper).
               gearInspectorItemIdRef.current = reseedGearInspectorCustomIdCursor(
                 gearInspectorItemIdRef.current,
-                gearInspectorRestoreDraft.items,
+                restoredItems,
               )
             }
             const savedAutosaveTab = draft?.LogicHubDialogTab as LogicHubDialogTab | undefined
