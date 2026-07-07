@@ -4,8 +4,8 @@
  * Persisted preferences related to gear-database endpoint updates.
  */
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
-import { GEAR_DB_HIDE_UPDATE_TOAST_KEY, GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY } from '../lib/constants'
-import { ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR, resolveAccountScopedKeyFor } from '../lib/accounts'
+import { GEAR_DB_HIDE_UPDATE_TOAST_KEY, GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY, RESTORE_CUSTOM_GEAR_KEY } from '../lib/constants'
+import { ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR, ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR, resolveAccountScopedKeyFor } from '../lib/accounts'
 import { safeGetItem, safeSetItem } from '../lib/safeStorage'
 
 // Hide-update-toast: when enabled, the "gear update" toast is suppressed while
@@ -57,5 +57,36 @@ export const setPersistEndpointGearForAccount = (accountId: string, value: boole
     return
   }
   // Other accounts: raw write mirroring the store's serialize ('1'/'0').
+  safeSetItem(key, value ? '1' : '0')
+}
+
+// Restore-custom-gear: when enabled (default ON), custom ("manual") Gear Inspector pieces
+// are silently reloaded from their dedicated key at startup, in every mode. Off skips that
+// restore — the pieces stay saved, just not auto-reloaded. Absent key = default true; only
+// explicit '0'/'false' disables. Per account (edited from the account manager dialog).
+const parseRestoreCustomGearRaw = (raw: string | null): boolean => raw !== 'false' && raw !== '0'
+
+const restoreCustomGearStore = createLocalStorageStore<boolean>({
+  key: RESTORE_CUSTOM_GEAR_KEY,
+  fallback: true,
+  parse: parseRestoreCustomGearRaw,
+  serialize: (value) => (value ? '1' : '0'),
+})
+
+export const useRestoreCustomGearPreference = createLocalStorageStateHook(restoreCustomGearStore)
+// Non-React snapshot for the ACTIVE account (startup restore gate).
+export const getRestoreCustomGearPreferenceSnapshot = (): boolean => restoreCustomGearStore.getSnapshot()
+
+// Restore-custom-gear flag for an EXPLICIT account (the account dialog edits any account).
+export const getRestoreCustomGearForAccount = (accountId: string): boolean =>
+  parseRestoreCustomGearRaw(safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR)))
+
+export const setRestoreCustomGearForAccount = (accountId: string, value: boolean): void => {
+  const key = resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR)
+  // Active account's key is owned by the live store — route through it so subscribers sync.
+  if (key === RESTORE_CUSTOM_GEAR_KEY) {
+    restoreCustomGearStore.set(value)
+    return
+  }
   safeSetItem(key, value ? '1' : '0')
 }

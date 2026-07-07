@@ -9,9 +9,11 @@ import {
   SUBSTAT_MAX_ROLLS_PER_SLOT as GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT,
 } from './generated/domainConstants'
 import {
+  ACCOUNT_BASE_KEY_AUTOSAVE_CUSTOM_GEAR,
   ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR,
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
   ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
+  ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR,
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
@@ -111,7 +113,11 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 // accounts reloads the page), so consumers keep using this constant unchanged.
 export const AUTOSAVE_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_AUTOSAVE_SFC)
 // Autosave storage key for the Gear Inspector dialog item queue (account-scoped, see above).
+// Holds endpoint/imported gear only — custom ("manual") pieces persist to their own key below.
 export const AUTOSAVE_GEAR_INSPECTOR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR)
+// Autosave storage key for custom ("manual") Gear Inspector pieces (account-scoped). Separate
+// from the endpoint queue so user-authored gear saves + reloads independently, always.
+export const AUTOSAVE_CUSTOM_GEAR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_AUTOSAVE_CUSTOM_GEAR)
 // Persisted Sellfile Preview / Gear Inspector toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
@@ -738,6 +744,9 @@ export const GEAR_DB_HIDE_UPDATE_TOAST_KEY = 'sellfileCreator.gearDb.hideUpdateT
 // its inventory occupies; both the live autosave and the background account-push honor
 // the owning account's flag. This resolved key covers the ACTIVE account.
 export const GEAR_DB_PERSIST_ENDPOINT_GEAR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR)
+// Whether custom ("manual") Gear Inspector pieces auto-reload at startup (default ON) —
+// per account, edited from the account manager dialog. Resolved for the ACTIVE account.
+export const RESTORE_CUSTOM_GEAR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR)
 // Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
 // payload classes (future uploads can use their own prefixes without guessing).
 export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'

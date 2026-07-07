@@ -1,6 +1,6 @@
 import { loadAutosave } from './autosave'
 import { compressToBase64, decompressFromBase64 } from './compression'
-import { AUTOSAVE_GEAR_INSPECTOR_KEY, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
+import { AUTOSAVE_GEAR_INSPECTOR_KEY, AUTOSAVE_CUSTOM_GEAR_KEY, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
 import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
 import { allowedGearInspectorSetIds, normalizeGearInspectorSetForSlot } from './gearInspectorDomain'
 import { isGearInspectorCustomItemId } from './itemIdentity'
@@ -154,39 +154,47 @@ const parseCompressedGearInspectorItems = (base64: string): StoredGearInspectorI
   }
 }
 
-type CachedGearInspectorAutosaveCompression = {
+export type GearInspectorAutosaveCompressionCache = {
   itemsRef: GearInspectorItem[] | null
   base64: string
   byteLength: number
   itemCount: number
 }
 
-// Cache the last Gear Inspector compression result so repeated autosave flushes for the
-// same immutable item array can skip JSON stringify + compression work.
-const cachedGearInspectorAutosaveCompression: CachedGearInspectorAutosaveCompression = {
+// One compression cache per autosave stream so repeated flushes for the same immutable
+// item array skip JSON stringify + compression work. Each stream (endpoint gear, custom
+// gear) owns its OWN cache — a single shared cache would thrash between the two filtered
+// arrays, defeating the memoization. Callers create one via newGearInspectorCompressionCache.
+export const newGearInspectorCompressionCache = (): GearInspectorAutosaveCompressionCache => ({
   itemsRef: null,
   base64: '',
   byteLength: 0,
   itemCount: 0,
-}
+})
 
-export function buildGearInspectorAutosavePayload(items: GearInspectorItem[]): GearInspectorAutosavePayload {
+// Shared cache preserving the original single-stream behavior for callers that pass none.
+const defaultGearInspectorAutosaveCompression = newGearInspectorCompressionCache()
+
+export function buildGearInspectorAutosavePayload(
+  items: GearInspectorItem[],
+  cache: GearInspectorAutosaveCompressionCache = defaultGearInspectorAutosaveCompression,
+): GearInspectorAutosavePayload {
   try {
-    if (cachedGearInspectorAutosaveCompression.itemsRef !== items) {
+    if (cache.itemsRef !== items) {
       // Immutable Gear Inspector state changes should produce a new array reference.
       // Recompress only on those reference changes.
       const json = JSON.stringify(items)
       const { base64, byteLength } = compressToBase64(json)
-      cachedGearInspectorAutosaveCompression.itemsRef = items
-      cachedGearInspectorAutosaveCompression.base64 = base64
-      cachedGearInspectorAutosaveCompression.byteLength = byteLength
-      cachedGearInspectorAutosaveCompression.itemCount = items.length
+      cache.itemsRef = items
+      cache.base64 = base64
+      cache.byteLength = byteLength
+      cache.itemCount = items.length
     }
     return {
       Version: '3',
-      ItemsCompressed: cachedGearInspectorAutosaveCompression.base64,
-      ItemsCompressedBytes: cachedGearInspectorAutosaveCompression.byteLength,
-      ItemCount: cachedGearInspectorAutosaveCompression.itemCount,
+      ItemsCompressed: cache.base64,
+      ItemsCompressedBytes: cache.byteLength,
+      ItemCount: cache.itemCount,
       SavedAt: new Date().toISOString(),
     }
   } catch {
@@ -875,11 +883,18 @@ export const deserializeGearInspectorItems = (
   return restored.length > 0 ? restored : null
 }
 
-export function loadGearInspectorAutosaveDraft(opts: { math: GearInspectorMath; allocItemId: () => number }): {
+export type GearInspectorAutosaveDraft = {
   items: GearInspectorItem[]
   savedAt: string | null
   itemCount: number
-} | null {
+}
+
+// Restore the ENDPOINT/imported Gear Inspector draft (the AUTOSAVE_GEAR_INSPECTOR_KEY
+// stream). Custom pieces live in their own key now (loadCustomGearAutosaveDraft), so this
+// no longer distinguishes manuals — it simply rehydrates whatever the endpoint stream held.
+export function loadGearInspectorAutosaveDraft(
+  opts: { math: GearInspectorMath; allocItemId: () => number },
+): GearInspectorAutosaveDraft | null {
   try {
     const entry = loadAutosave<GearInspectorAutosavePayload>(AUTOSAVE_GEAR_INSPECTOR_KEY)
     const restored = deserializeGearInspectorItems(entry?.payload ?? null, opts)
@@ -895,3 +910,39 @@ export function loadGearInspectorAutosaveDraft(opts: { math: GearInspectorMath; 
     return null
   }
 }
+
+// Restore custom ("manual") Gear Inspector pieces from their DEDICATED key. Returns the
+// items (filtered to manuals defensively — the key should only ever hold manuals) so the
+// startup merge can graft them onto whatever gear loads, in every mode. Null when empty.
+export function loadCustomGearAutosaveDraft(
+  opts: { math: GearInspectorMath; allocItemId: () => number },
+): GearInspectorItem[] | null {
+  try {
+    const entry = loadAutosave<GearInspectorAutosavePayload>(AUTOSAVE_CUSTOM_GEAR_KEY)
+    const restored = deserializeGearInspectorItems(entry?.payload ?? null, opts)
+    if (!restored || restored.length === 0) return null
+    // Defensive: the custom-gear key should only hold manuals, but never surface an
+    // endpoint row from it even if a stale/hand-edited payload sneaks one in.
+    const manuals = restored.filter((item) => isManualGearInspectorItem(item))
+    return manuals.length > 0 ? manuals : null
+  } catch {
+    return null
+  }
+}
+
+// Split live Gear Inspector items into their two persistence streams. Endpoint/imported
+// gear goes to AUTOSAVE_GEAR_INSPECTOR_KEY (and only when persistence is enabled); custom
+// ("manual") pieces always go to AUTOSAVE_CUSTOM_GEAR_KEY. One SSOT so the live autosave
+// and the background account-push partition items identically.
+export const partitionGearInspectorItemsForPersistence = (
+  items: GearInspectorItem[],
+): { endpointItems: GearInspectorItem[]; customItems: GearInspectorItem[] } => {
+  const endpointItems: GearInspectorItem[] = []
+  const customItems: GearInspectorItem[] = []
+  for (const item of items) {
+    if (isManualGearInspectorItem(item)) customItems.push(item)
+    else endpointItems.push(item)
+  }
+  return { endpointItems, customItems }
+}
+

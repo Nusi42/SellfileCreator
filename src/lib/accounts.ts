@@ -52,6 +52,11 @@ const ACCOUNT_KEY_PREFIX = 'sellfileCreator.acc.'
 // that flow never restates the literals (resolveAccountScopedKeyFor takes these).
 export const ACCOUNT_BASE_KEY_AUTOSAVE_SFC = 'sellfileCreator.autosave.sfc.v1'
 export const ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR = 'sellfileCreator.autosave.gearInspector.v1'
+// Custom ("manual") Gear Inspector pieces persist to their OWN key, separate from the
+// endpoint/imported gear above. Why: they are user-authored, RSL Helper never sends them,
+// and endpoint data can never supersede them — a dedicated key lets them save + reload
+// independently in every mode, with no merge/superseded gating. Per account, like the rest.
+export const ACCOUNT_BASE_KEY_AUTOSAVE_CUSTOM_GEAR = 'sellfileCreator.autosave.customGear.v1'
 export const ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH = 'sellfileCreator.sellfile.autoPush.v1'
 // Per-account export transforms: whether the built sellfile deduplicates rules and omits
 // disabled rows. Per account because both the foreground export (active) and the background
@@ -72,10 +77,15 @@ export const ACCOUNT_BASE_KEY_ACCOUNT_STATS = 'sellfileCreator.accountStats.v1'
 // (perf/sanity toggle, default ON) — per account: each game account decides how much
 // storage its inventory may occupy on this device.
 export const ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR = 'sellfileCreator.gearDb.persistEndpointGear.v1'
+// Whether custom ("manual") Gear Inspector pieces are reloaded from their dedicated key at
+// startup (default ON) — per account, edited from the account manager dialog. Off skips the
+// silent custom-gear restore entirely (pieces stay saved, just not auto-reloaded).
+export const ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR = 'sellfileCreator.restoreCustomGear.v1'
 
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
   ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR,
+  ACCOUNT_BASE_KEY_AUTOSAVE_CUSTOM_GEAR,
   'sellfileCreator.autosave.restoreSelection.v1',
   'sellfileCreator.builder.userDefaults.v1',
   'sellfileCreator.safeguardBuilder.userDefaults.v1',
@@ -87,6 +97,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
   ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
+  ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR,
 ])
 
 // Keys that are NOT scoped going forward but must still move into the first account's

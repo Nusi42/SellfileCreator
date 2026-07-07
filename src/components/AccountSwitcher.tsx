@@ -57,7 +57,7 @@ import {
   getSellfileAutoPushForAccount,
   setSellfileAutoPushForAccount,
 } from '../state/exportPreferences'
-import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount } from '../state/gearDbPreferences'
+import { getPersistEndpointGearForAccount, setPersistEndpointGearForAccount, getRestoreCustomGearForAccount, setRestoreCustomGearForAccount } from '../state/gearDbPreferences'
 
 export type AccountSwitcherProps = {
   // Serializes the current document with the regular .sfc writer; staged as the merge carry
@@ -186,6 +186,8 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
   const [autoPushDraft, setAutoPushDraft] = useState(false)
   // Endpoint-gear persistence is a raw scoped key too — mirrored the same way.
   const [persistGearDraft, setPersistGearDraft] = useState(true)
+  // Restore-custom-gear is a raw scoped key too (default ON) — mirrored the same way.
+  const [restoreCustomGearDraft, setRestoreCustomGearDraft] = useState(true)
   // Create-mode-only staged values (manage mode applies these live instead).
   // undefined = "no accent colour" — the button then keeps the default theme colour.
   const [accentDraft, setAccentDraft] = useState<string | undefined>(ACCOUNT_ACCENT_PALETTE[0]!)
@@ -206,6 +208,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     setPlayerIdDraft(account.helperAccountId ?? '')
     setAutoPushDraft(getSellfileAutoPushForAccount(account.id))
     setPersistGearDraft(getPersistEndpointGearForAccount(account.id))
+    setRestoreCustomGearDraft(getRestoreCustomGearForAccount(account.id))
     setDeleteConfirmOpen(false)
     // Identity snapshot for the both-empty guard (see revertIdentityToOpenSnapshot).
     manageOpenSnapshotRef.current = { name: account.displayName, playerId: account.helperAccountId ?? '' }
@@ -250,6 +253,7 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
     setAccountAccent(account.id, accentDraft)
     if (autoPushDraft) setSellfileAutoPushForAccount(account.id, true)
     if (!persistGearDraft) setPersistEndpointGearForAccount(account.id, false)
+    if (!restoreCustomGearDraft) setRestoreCustomGearForAccount(account.id, false)
     if (unstampedDraft) setUnstampedDefaultAccount(account.id)
     setAccountNameEllipsis(account.id, nameEllipsisDraft)
     setAccountDialog(null)
@@ -616,6 +620,24 @@ export default function AccountSwitcher({ getMergeSfcText, compact = false, flas
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
             {t('accountManagePersistGearHint')}
+          </Typography>
+          {/* Per-account: reload THIS account's custom (manual) gear at startup (default ON). */}
+          <FormControlLabel
+            sx={{ display: 'flex', mt: 1 }}
+            control={(
+              <Switch
+                size="small"
+                checked={restoreCustomGearDraft}
+                onChange={(e) => {
+                  setRestoreCustomGearDraft(e.target.checked)
+                  if (managedAccount) setRestoreCustomGearForAccount(managedAccount.id, e.target.checked)
+                }}
+              />
+            )}
+            label={t('accountManageRestoreCustomGear')}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+            {t('accountManageRestoreCustomGearHint')}
           </Typography>
           {managedAccount && (
             <>
