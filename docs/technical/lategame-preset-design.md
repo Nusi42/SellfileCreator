@@ -120,7 +120,10 @@ matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 
 - Both chip lists ship separator entries (the minimal `{ appearance, Separator: true }`
   shape both domains persist): 28 recipe dividers and 11 safeguard family dividers
   (Speed, Debuffer, Damage, Crit Shield, Survivability, Utility, Accessories,
-  Mercurial, Accessory Minimums, Catch-All Artifacts, Faction Wars Coverage).
+  Mercurial, Accessory Minimums, Catch-All Artifacts, Faction Wars Coverage), plus 7
+  `#`-style sub-separators (dashed lines) inside the slot-grouped sections —
+  Accessories: `# Rings` / `# Amulets` / `# Banners`; Mercurial: `# Artifacts` /
+  `# Rings` / `# Amulets` / `# Banners`.
   Separators are inert (never match; load-time selection skips them), and nothing in
   the preset references safeguards by index — selectors are tag-based and the note
   carries no `<!-- safeguards: N -->` markers — so the inserted dividers shift indices

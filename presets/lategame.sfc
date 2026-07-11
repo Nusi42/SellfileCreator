@@ -15198,6 +15198,12 @@
     },
     {
       "appearance": {
+        "name": "# Rings"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Best % Ring"
       },
       "requiredCount": 1,
@@ -15649,6 +15655,12 @@
       "substatMatch": "perSubstat",
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "# Amulets"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -16256,6 +16268,12 @@
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "# Banners"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -17474,6 +17492,12 @@
     },
     {
       "appearance": {
+        "name": "# Artifacts"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Speed (Mercurial)"
       },
       "requiredCount": 12,
@@ -18274,6 +18298,12 @@
     },
     {
       "appearance": {
+        "name": "# Rings"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Best % Ring (Mercurial)"
       },
       "requiredCount": 2,
@@ -18442,6 +18472,12 @@
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "# Amulets"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -18670,6 +18706,12 @@
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "# Banners"
+      },
+      "Separator": true
     },
     {
       "appearance": {
