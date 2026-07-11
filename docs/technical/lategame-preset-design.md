@@ -1,7 +1,7 @@
 # Lategame Preset — Safeguard Design
 
-Design record for the safeguard weighting, tagging, and override wiring shipped in
-[`presets/lategame.sfc`](../../presets/lategame.sfc) (2026-07 rework). Read together with
+Design rules for the safeguard weighting, naming, tagging, and override wiring in
+[`presets/lategame.sfc`](../../presets/lategame.sfc). Read together with
 [Application Behavior → Safeguards State](app-behavior.md#safeguards-state) (scoring
 formula) and the SFC Global Note override DSL docs in the same file.
 
@@ -10,18 +10,13 @@ formula) and the SFC Global Note override DSL docs in the same file.
 Safeguard substat weights are *derived*, not hand-tuned. Three rank-order invariants,
 checked per rule (rank-for-rank; the main-stat rank bonus sits on top):
 
-1. **SPD with 2 rolls outranks any SPD-less piece** — no combination of other
-   substats/rolls may overtake it.
+1. **SPD with 2 rolls outranks any SPD-less piece.**
 2. **SPD with 1 roll is beatable, but only by a genuinely good core piece** (good
    CR%/CDMG% rolls in damage rules; good HP%/DEF%/RES rolls in survivability rules).
-3. **Everything else is a tie-breaker** — decides between pieces whose core stats are
-   equal; must not overturn a core-stat difference.
-
-### The math behind them
+3. **Everything else is a tie-breaker** — must not overturn a core-stat difference.
 
 Per-substat score = `weight × (entry + rolls + glyph-potential)`, normalized to the 6★
-per-roll max (`substatNormalizedContribution`). Average effective units — presence
-(entry + glyph potential) and per-roll:
+per-roll max (`substatNormalizedContribution`). Average effective units:
 
 | Substat | Presence | Per roll |
 |---|---|---|
@@ -30,20 +25,12 @@ per-roll max (`substatNormalizedContribution`). Average effective units — pres
 | HP% / ATK% / DEF% | ≈ 1.6 | 0.86 |
 | **CR% / CDMG%** (no glyph term) | **≈ 0.86** | 0.86 |
 
-Consequences: invariant 1 forces `w_SPD ≈ 2× the heaviest non-SPD weight`; the glyph
-asymmetry means crit weights *look* higher than they act on presence — compress the
-glyphable tie-breakers rather than inflating crit (a single weight controls presence and
-per-roll value together).
-
-### The SPD = 2.0 anchor
-
-Ratios inside a rule are what the invariants fix; the absolute scale only matters against
-the additive main-stat rank bonus (`1 × mainStatRankWeightFactor × rankRatio`; the preset
-uses factor 4.5 ⇒ 6★-over-5★ gap ≈ 0.5–0.85 points). Anchoring **SPD = 2.0** in every
-rule where SPD is a weighted substat puts each family's core weights back into the
-0.7–1.3 band the 4.5 factor was originally tuned against, so the factor is unchanged
-everywhere. Family ladders (weight 1.0 is stored implicitly — the loader strips
-defaults):
+Consequences: invariant 1 forces `w_SPD ≈ 2× the heaviest non-SPD weight`; crit weights
+*look* higher than they act on presence — compress the glyphable tie-breakers rather
+than inflating crit. **SPD is anchored at 2.0** in every rule where it is weighted: that
+keeps each family's core weights in the 0.7–1.3 band the `mainStatRankWeightFactor` of
+4.5 is tuned against (6★-over-5★ gap ≈ 0.5–0.85 points). Family ladders (weight 1.0 is
+stored implicitly — the loader strips defaults):
 
 | Family | Ladder |
 |---|---|
@@ -56,136 +43,92 @@ defaults):
 | Catch-all | SPD 2, CR/CDMG 0.6, fillers 0.25, ACC/RES 0.1 |
 
 Deliberate exceptions: the No-Speed damage rules invert (filler > 1, CR% 0.1 as a pure
-tie-breaker on the CDMG gloves); the slow-debuffer rules are ACC-first by design; the
-`Bomber - No Speed` rule pair intentionally exists twice (substat-priority vs main-stat-priority
-protection); each %-main banner has a second "stat-stick" variant with the inverse
-ranking (own-% 2, SPD 0.6) so the best pure-% banners are protected alongside the best
-SPD-carrying ones; and the RES/ACC-main `Speed Banner` pair intentionally requires only **1**
-matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 2.
+tie-breaker on the CDMG gloves); the slow-debuffer rules are ACC-first; the
+`Bomber - No Speed` pair exists twice on purpose (substat-priority vs main-stat-priority
+protection); each %-main banner has a "stat-stick" twin with the inverse ranking
+(own-% 2, SPD 0.6); the RES/ACC-main `Speed Banner` pair requires only **1** matching
+substat.
 
 ## Naming convention (mirrors the recipe names)
 
-Safeguard names follow the recipe grammar — `<prefix> <Role>[ - <Scope>][ (<Variant>)]` —
-because RSL Helper shows them on gear exactly like recipe names, and the gear card
-already displays slot, set, main stat, and substats:
+Grammar: `<prefix> <Role>[ - <Scope>][ (<Variant>)]`. RSL Helper shows the FIRST
+matching rule's name on gear, and the gear card already displays slot, set, main stat,
+and substats — names only add role + tier.
 
 - Prefix: `Protect: ` for keep rules, `Unique: ` for coverage floors.
-- Dash suffix = tier/scope: `- No Speed` (shared with the recipes' vocabulary) and
-  `- Across Sets` for the beyond-the-per-set-floors tiers. The latter is deliberately NOT
-  the recipes' `- Any Set`, and it covers two shapes: ARTIFACT fallbacks keep their
-  primary sibling's set/metaset filter and only drop `perSet` counting (one pooled top-N
-  across the matching sets), while ACCESSORY across-sets tiers (and the truly-any-set
-  artifact copies) have an empty set+metaset filter next to their meta-scoped floor
-  siblings. Every non-Mercurial accessory rule with an empty filter carries the suffix,
-  including the fixed-count ones (Bomber Amulet, the flat-tiebreak CDMG Amulet).
-- Parens = a short set/stat variant only, recipe-style: `(Mercurial)`, `(Merciless)`,
-  `(RES)`, `(HP%/ATK%/DEF%)` — never scope words and never doubled. A stat variant is
-  only written where it deviates from the slot's norm (the `(HP%/ATK%/DEF%)`-main
-  GAUNTLETS rules deviate from the CDMG%-main damage norm; the chest/boots siblings
-  stay plain because those slots cannot roll CDMG% mains at all).
-- **No artifact slot/row words** (`Top Row`, `Gloves`, `Chest & Boots`, …): the piece
-  shows its own slot, and the builder's separators group the chip list. Same-role rule
-  variants deliberately share one name (e.g. `Protect: Damage` ×6) — the FIRST matching
-  rule names the gear, so the shared role name is always the right caption.
-- **No ranking words** (`Best`, …): every safeguard keeps the best N of whatever it
-  matches, so "Best" is the mechanism, not the role. The old `Best SPD` rules are
-  `Protect: Speed` (the recipes' role word), `Best % Ring` is `Protect: % Ring`, etc.
-- Accessory rules DO keep `Ring`/`Amulet`/`Banner` — the recipes use the accessory slot
-  as the role word (`Ring - Any Set`), and the `Unique:` floors are per-slot by content.
+- Dash suffix = tier/scope: `- No Speed` and `- Across Sets`. The latter covers two
+  shapes: artifact fallbacks keep their sibling's set/metaset filter and only pool the
+  per-set quota, while accessory tiers (and the truly-any-set artifact copies) have an
+  empty set+metaset filter. Every non-Mercurial accessory rule with an empty filter
+  carries the suffix, including fixed-count ones. (`- Across Sets` is deliberately NOT
+  the recipes' `- Any Set`, which means an empty set filter.)
+- `- No Speed` only on artifact rules: banners rank SPD like any banner, and amulets
+  cannot roll SPD, so the suffix would mark nothing on accessories.
+- Parens = a short set/stat variant only: `(Mercurial)`, `(Merciless)`, `(RES)`,
+  `(HP%/ATK%/DEF%)` — never scope words, never doubled, and only where the stat deviates
+  from the slot's norm (%-main GAUNTLETS deviate from the CDMG% norm; chest/boots cannot
+  roll CDMG% mains, so their siblings stay plain).
+- **No artifact slot/row words** and **no ranking words** (`Best`): the piece shows its
+  slot, and every safeguard keeps the best N by definition. Same-role variants share one
+  name (e.g. `Protect: Damage` ×6) — first-match display makes that the right caption.
+- Accessory rules DO keep `Ring`/`Amulet`/`Banner` (recipes use the accessory slot as
+  the role word).
 
 ## Tag conventions (drive the Note's dynamic overrides)
 
-- No domain uses an `acc*` tag anymore (too close to "accuracy"): the safeguard rename to
-  `accessory` was followed by the RECIPE-domain tags — `accessory`, `accessory5`,
-  `accessory6`, `accessory_flat` (option ids like `acc_rolls_22` are ids, not tags, and
-  keep their spelling for answer compatibility).
-- Every safeguard rule carries one **family tag** (`spd`, `speed_set`, `debuffer`,
-  `slowdebuffer`, `bomber`, `damage`, `crit_shield`, `survivability`, `utility`,
-  `mercurial`, `catchrest`, `accessory`, `fw_coverage`); accessory rules additionally
-  carry the **`accessory` axis tag** next to their family (`spd`+`accessory` = the SPD
-  banners, `mercurial`+`accessory` = the Mercurial accessories). There are deliberately
-  NO sub-family tags — selectors build the distinction from combinations: the *speed
-  pieces* question (`q_bk3r8j`) targets `speed_set or tag=spd and not tag=accessory`,
-  the SPD-banner question (`q_ta25kl`) `spd and tag=accessory`, the Mercurial artifact
-  question (`q_muougk`) `mercurial and not tag=accessory`, and the Mercurial-accessory
-  question (`q_mercacc`) `mercurial and tag=accessory`. Selector chains are flat and
-  LEFT-ASSOCIATIVE (`a or b and not c` ≡ `(a OR b) AND NOT c`). The trap this
-  convention carries: every new block targeting `spd` or `mercurial` MUST qualify the
-  accessory axis, or it silently reaches into the other domain (that unqualified reach
-  is exactly the old bug where the banner question switched off all artifact speed
-  protection). The Mercurial-accessory counts form a 3/4/5 ladder, so
-  `min_mercacc_pieces` (default 3) scales them via OFFSET factor tags — `div1`
-  (`$value`), `plus1` (`$value+1`), `plus2` (`$value+2`) — the additive siblings of the
-  `divN` scheme for count ladders that aren't proportional.
+- Every rule carries one **family tag** (`spd`, `speed_set`, `debuffer`, `slowdebuffer`,
+  `bomber`, `damage`, `crit_shield`, `survivability`, `utility`, `mercurial`,
+  `catchrest`, `accessory`, `fw_coverage`); accessory members of an artifact-named
+  family add the **`accessory` axis tag** (`spd`+`accessory` = SPD banners,
+  `mercurial`+`accessory` = Mercurial accessories). There are deliberately NO sub-family
+  tags — selectors combine tags: `q_bk3r8j` targets `speed_set or tag=spd and not
+  tag=accessory`, `q_ta25kl` `spd and tag=accessory`, `q_muougk` `mercurial and not
+  tag=accessory`, `q_mercacc` `mercurial and tag=accessory`. Selector chains are flat
+  and LEFT-ASSOCIATIVE (`a or b and not c` ≡ `(a OR b) AND NOT c`). **The trap: every
+  new block targeting `spd` or `mercurial` MUST qualify the accessory axis**, or it
+  silently reaches into the other domain.
 - **Count scaling is a generic factor-tag scheme**: a rule scales against its family's
-  slider iff it also carries a `divN` tag, and its count is `$value/N` (`div1` = the full
-  slider value). Slider blocks select `@tag=<family> and tag=divN`, one block per factor
-  present in that family (e.g. speed: `speed_set`×`div1/div2/div4` + `spd`×`div4/div8`;
-  debuffer: `div1/div8/div16/div32`). A rule opts OUT of its family slider simply by not
-  carrying a `div` tag — e.g. the any-set Bomber Amulet is `accessory`-only (fixed count
-  1, toggled by the accessory question, untouched by `min_acc_pieces`). Don't "fix" such
-  a missing tag. The factors preserve the pre-migration quotas: substat-split variants
-  keep their halved shares (ex-`debuffer_crit` = `div32`, ex-`speed_set_boots` = `div4`),
-  fallback tiers are `div1` (ex-`*_fallback`), and the truly-any-set artifact copies
-  (`Speed`/`Debuffer - Across Sets` with empty set filters) run at HALF the family divisor
-  (`spd`+`div4`, `debuffer`+`div8`) — i.e. double the count of the per-set rules they were
-  copied from. `mercurial4`/`mercurial8` collapsed into `mercurial`+`div2`/`div1`.
-- One collision to keep in mind: the SPD-banner fallback (`spd`+`accessory`+`div1`) and
-  the Mercurial accessories (`mercurial`+`accessory`+`div1`) share `accessory`+`div1`
-  with the plain accessory floors, so the accessory question's slider selects
-  `@tag=accessory and not tag=spd and not tag=mercurial and tag=div1` — without the
-  exclusions, `min_acc_pieces` (default 3) would clobber the banner fallback's
-  `min_spdbanner_pieces` count (default 16) and the Mercurial-accessory counts via
-  last-block-wins.
-- **Artifact vs accessory is a hard tag boundary**: every safeguard rule is slot-pure
-  (artifact slots or Ring/Amulet/Banner, never both — the mixed slow-debuffer rules were
-  split), and the `keep_safeguards` checkbox's `else` block clamps **every artifact
-  family** to 6★ (`debuffer`, `slowdebuffer`, `bomber`, `damage`, `crit_shield`,
-  `survivability`, `utility`, `speed_set`, `catchrest`, plus `spd and not tag=accessory`
-  and `mercurial and not tag=accessory`). Accessory rules (including the SPD banners and
-  Mercurial accessories) are deliberately exempt: 5★ accessories stay reserved even at
-  Endgame.
+  slider iff it carries a factor tag — `divN` (`count=$value/N`, `div1` = full value) or
+  the additive `plusN` (`count=$value+N`, for ladders that aren't proportional, e.g. the
+  Mercurial accessories' 3/4/5 on `min_mercacc_pieces` default 3). Slider blocks select
+  `@tag=<family> and tag=<factor>`, one block per factor present. A rule opts OUT of its
+  family slider simply by not carrying a factor tag — e.g. the any-set Bomber Amulet is
+  fixed count 1, untouched by `min_acc_pieces`. Don't "fix" such a missing tag.
+- Factor-tag collision: SPD-banner fallback and Mercurial accessories share
+  `accessory`+`div1` with the plain accessory floors, so the accessory question's slider
+  selects `@tag=accessory and not tag=spd and not tag=mercurial and tag=div1` — without
+  the exclusions, `min_acc_pieces` would clobber their counts via last-block-wins.
+- **Artifact vs accessory is a hard boundary**: every rule is slot-pure (artifact slots
+  or Ring/Amulet/Banner, never both), and the `keep_safeguards` `else` block clamps
+  every artifact family to 6★ (incl. `spd and not tag=accessory` and `mercurial and not
+  tag=accessory`). Accessory rules are deliberately exempt: 5★ accessories stay reserved
+  even at Endgame.
+- Never introduce an `acc*` tag (too close to "accuracy") — use `accessory*`. Option ids
+  like `acc_rolls_22` are ids, not tags, and keep their spelling for answer
+  compatibility.
 
 ## Override wiring notes
 
-- The FW-Hard question carries **no option-write coupling** — it never forces the
-  utility card (the old `set util_off`/`set util_gaps` writes and the hidden
-  `rank=6 rarity=legendary,mythical` cross block were removed deliberately: safeguard
-  activation/count/rank stay under the user's sole control via their own cards).
-  What it DOES carry is a data-only gear-set effect: `Yes` (fwh_yes16) and `Yes!`
-  (fwh_yes) each include `safeguard @tag=utility { gearsets=+-Daze }`, adding a
-  Daze-EXCLUDED entry to the six utility rules — once FW Hard is done, Daze utility
-  pieces no longer need protecting (mirrors the recipe-side `gearsets=+-Daze` on
-  fwh_yes16). The rules' baseline carries NO Daze entry, so the default `No` keeps
-  Daze protected. A preset intent test pins exactly this shape (only `sets`-kind ops
-  in the FW cross blocks; no baseline Daze). The cross-domain option-write bridges
-  (forward and reverse) remain app capabilities, just unused here; the utility card's
-  option ids (`util_off`/`util_own`/`util_gaps`/`util_upg`) stay pinned for
-  saved-answer compatibility.
-- Rule order matches the pre-rework preset, new rules adjacent to their siblings, with
-  the catch-alls last — gear displays the FIRST matching rule's name, so first match
-  should imply the best match. Order is otherwise behavior-neutral
-  (`ignorePreviousSafeguards` off everywhere). One deliberate deviation: the
-  slow-debuffer ACCESSORY rules (`Debuffer Amulet` / `Debuffer Banner` — no accessory
-  rule carries `- No Speed`: banners rank SPD like any banner, and amulets cannot roll
-  SPD at all, so the suffix would mark nothing)
-  live in the Accessories section (not next to their artifact slow-debuffer siblings),
-  and the accessory rules keep a strict slot order — rings, then amulets, then
-  banners — in BOTH the Accessories section and the Mercurial section's accessory tail.
-- Both chip lists ship separator entries (the minimal `{ appearance, Separator: true }`
-  shape both domains persist): 28 recipe dividers and 11 safeguard family dividers
-  (Speed, Debuffer, Damage, Crit Shield, Survivability, Utility, Accessories,
-  Mercurial, Accessory Minimums, Catch-All Artifacts, Faction Wars Coverage), plus 7
-  `#`-style sub-separators (dashed lines) inside the slot-grouped sections —
-  Accessories: `# Rings` / `# Amulets` / `# Banners`; Mercurial: `# Artifacts` /
-  `# Rings` / `# Amulets` / `# Banners`.
-  Separators are inert (never match; load-time selection skips them), and nothing in
-  the preset references safeguards by index — selectors are tag-based and the note
-  carries no `<!-- safeguards: N -->` markers — so the inserted dividers shift indices
-  without changing behavior.
-- The note renders the metaset table via `<!-- metasets -->` (the "Metasets used by
-  this file" section between the recipe prose and the safeguards prose, opening with a
-  one-line explanation of what a metaset is); the prose defers membership to that live
-  table instead of enumerating sets inline.
-- DSL authoring trap: an option with no `{ … }` block makes the header parser swallow the
-  NEXT option (it consumes tokens until a `{`). A no-op option must be written `{ }`.
+- The FW-Hard question carries **no option-write coupling** — safeguard
+  activation/count/rank stay under the user's sole control via their own cards. It
+  carries a data-only gear-set effect: `Yes` (fwh_yes16) and `Yes!` (fwh_yes) each add
+  `safeguard @tag=utility { gearsets=+-Daze }` (a Daze-EXCLUDED entry) to the utility
+  rules — once FW Hard is done, Daze utility pieces no longer need protecting. The
+  baseline carries NO Daze entry, so the default `No` keeps Daze protected. A preset
+  intent test pins this shape. Question/option ids are pinned via explicit `id=` for
+  saved-answer compatibility — never re-derive them.
+- Rule order: gear displays the FIRST matching rule's name, so first match should imply
+  best match; catch-alls last. Order is otherwise behavior-neutral
+  (`ignorePreviousSafeguards` off everywhere). Accessories keep a strict rings →
+  amulets → banners order in both the Accessories section and the Mercurial tail; the
+  slow-debuffer accessory rules live in the Accessories section, not next to their
+  artifact siblings.
+- Separator entries (`{ appearance, Separator: true }`) divide both chip lists, with
+  `#`-style sub-separators inside slot-grouped sections. Separators are inert, and
+  nothing references safeguards by index — selectors are tag-based — so inserting
+  dividers or rules shifts indices without changing behavior.
+- The note renders the metaset table via the `<!-- metasets -->` marker; the prose
+  defers set membership to that live table instead of enumerating inline.
+- DSL authoring traps: an option with no `{ … }` block makes the header parser swallow
+  the NEXT option — a no-op option must be written `{ }`. Multi-line prompts embed a
+  literal `\n` escape inside the quoted string, not a real newline.
