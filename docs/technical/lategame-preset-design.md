@@ -64,19 +64,27 @@ SPD-carrying ones.
 
 ## Tag conventions (drive the Note's dynamic overrides)
 
-- Family umbrella tags (`damage`, `survivability`, `utility`, `catchrest`, `acc`, …):
+- Family umbrella tags (`damage`, `survivability`, `utility`, `catchrest`, `accessory`, …):
   activation radios and the `keep_safeguards` rank-bump select these, so **every** rule of
   a family toggles even when its count stays fixed.
+- **Artifact vs accessory is a hard tag boundary**: every safeguard rule is slot-pure
+  (artifact slots or Ring/Amulet/Banner, never both — the mixed slow-debuffer rules were
+  split), and the `keep_safeguards` checkbox's `else` block clamps **every artifact
+  family** to 6★ (`debuffer`, `slowdebuffer`, `bomber`, `damage`, `crit_shield`,
+  `survivability`, `utility`, `speed_set`, `mercurial4/8`, `catchrest`, and
+  `spd and not tag=accessory` — the SPD banners share the `spd` tag for count scaling but
+  are accessories). Accessory rules are deliberately exempt: 5★ accessories stay reserved
+  even at Endgame.
 - `*_primary` / `*_fallback`: count sliders scale only these; plain-tagged specialized
   rules keep fixed counts. A rule opts OUT of its family slider simply by not carrying the
-  scaling tag — e.g. the any-set Bomber Amulet is `acc`-only (fixed count 1, toggled by the
+  scaling tag — e.g. the any-set Bomber Amulet is `accessory`-only (fixed count 1, toggled by the
   accessory question, untouched by `min_acc_pieces`). Don't "fix" such a missing tag.
 - Split-scaling sub-tags (rules duplicated into substat variants have their quotas halved
   so total protection matches the pre-split preset): `speed_set_boots` (`$value/4`),
   `debuffer_crit` (`$value/32`), plus `survivability_primary` at `$value/32` and
   `catchrest_primary` at `$value/2`. A rule with umbrella + sub-tag gets the sub-tag's
   count via last-block-wins.
-- `acc_fallback`: the any-set req=3 accessory tier, scaled by `min_acc_pieces`;
+- `accessory_fallback`: the any-set req=3 accessory tier, scaled by `min_acc_pieces`;
   Accessory-Specific per-set floors (req=1), Mercurial/Merciless accessory rules, and
   `fw_coverage` rules stay fixed.
 
