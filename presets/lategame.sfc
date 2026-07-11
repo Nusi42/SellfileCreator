@@ -11699,229 +11699,6 @@
   "Safeguards": [
     {
       "appearance": {
-        "name": "Protect: Best SPD Banner"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Accessory Specific"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "spd",
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD"
-      ],
-      "substatMatch": "perSubstat"
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best SPD Banner"
-      },
-      "requiredCount": 16,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "spd",
-        "spd_fallback",
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD"
-      ],
-      "substatMatch": "perSubstat"
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best SPD Banner (RES/ACC)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": true,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Accessory Specific"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ACC",
-          "RES"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "spd",
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.75,
-        "DEF%": 0.45,
-        "SPD": 2
-      }
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best SPD Banner (RES/ACC)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": true,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ACC",
-          "RES"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "spd",
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.75,
-        "DEF%": 0.45,
-        "SPD": 2
-      }
-    },
-    {
-      "appearance": {
         "name": "Protect: Best SPD"
       },
       "requiredCount": 2,
@@ -13168,6 +12945,460 @@
     },
     {
       "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "HP"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "HP"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ATK"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ATK"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "substatMatch": "perSubstat",
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
         "name": "Protect: Debuffer Amulet"
       },
       "requiredCount": 1,
@@ -13362,7 +13593,8 @@
       },
       "tags": [
         "acc",
-        "acc_fallback"
+        "acc_fallback",
+        "attack"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13723,7 +13955,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: Best % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -13739,7 +13971,7 @@
       "ignoreEquippedInVault": false,
       "tuple": {
         "slots": [
-          "Ring"
+          "Banner"
         ],
         "sets": [],
         "metaSetNames": [
@@ -13750,6 +13982,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13769,403 +14002,13 @@
         "atLevel12": null
       },
       "substats": [
-        "HP%",
-        "DEF%"
+        "SPD",
+        "HP%"
       ],
       "substatWeights": {
-        "DEF%": 0.3
+        "HP%": 0.6,
+        "SPD": 2
       },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 3,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "HP"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "acc",
-        "acc_fallback"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "DEF%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Accessory Specific"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ATK"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "ATK%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 3,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ATK"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "acc",
-        "acc_fallback"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "ATK%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Accessory Specific"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "DEF"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 3,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "DEF"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "acc",
-        "acc_fallback"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Accessory Specific"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "acc"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "ATK%",
-        "DEF%"
-      ],
-      "substatMatch": "perSubstat",
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring"
-      },
-      "requiredCount": 3,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "acc",
-        "acc_fallback"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "ATK%",
-        "DEF%"
-      ],
-      "substatMatch": "perSubstat",
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
     },
@@ -14210,6 +14053,64 @@
       },
       "tags": [
         "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "HP%"
+      ],
+      "substatWeights": {
+        "HP%": 2,
+        "SPD": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Banner"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "HP"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14280,7 +14181,66 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.6,
+        "HP%": 2,
+        "SPD": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Banner"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ATK"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "ATK%": 0.6,
         "SPD": 2
       },
       "weightMainStatByRank": true,
@@ -14327,6 +14287,64 @@
       },
       "tags": [
         "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "ATK%": 2,
+        "SPD": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Banner"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ATK"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14397,7 +14415,66 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.6,
+        "ATK%": 2,
+        "SPD": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Banner"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 0.6,
         "SPD": 2
       },
       "weightMainStatByRank": true,
@@ -14444,6 +14521,64 @@
       },
       "tags": [
         "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 2,
+        "SPD": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Banner"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14514,8 +14649,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.6,
-        "SPD": 2
+        "DEF%": 2,
+        "SPD": 0.6
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14677,6 +14812,229 @@
         "SPD"
       ],
       "substatWeights": {
+        "SPD": 2
+      }
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best SPD Banner"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "spd",
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD"
+      ],
+      "substatMatch": "perSubstat"
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best SPD Banner"
+      },
+      "requiredCount": 16,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "spd",
+        "spd_fallback",
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD"
+      ],
+      "substatMatch": "perSubstat"
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best SPD Banner (RES/ACC)"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Accessory Specific"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ACC",
+          "RES"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "spd",
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.75,
+        "DEF%": 0.45,
+        "SPD": 2
+      }
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best SPD Banner (RES/ACC)"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ACC",
+          "RES"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "spd",
+        "acc"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.75,
+        "DEF%": 0.45,
         "SPD": 2
       }
     },

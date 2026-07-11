@@ -58,7 +58,9 @@ defaults):
 Deliberate exceptions: the No-Speed damage rules invert (filler > 1, CR% 0.1 as a pure
 tie-breaker on the CDMG gloves); the slow-debuffer rules are ACC-first by design; the
 Bomber (Slow) rule pair intentionally exists twice (substat-priority vs main-stat-priority
-protection).
+protection); each %-main banner has a second "stat-stick" variant with the inverse
+ranking (own-% 2, SPD 0.6) so the best pure-% banners are protected alongside the best
+SPD-carrying ones.
 
 ## Tag conventions (drive the Note's dynamic overrides)
 
