@@ -81,6 +81,7 @@ import {
   statVariantI18nKey,
   type StatVariant,
   type FactionId,
+  type RankValue,
   factionI18nKey,
 } from '../lib/types'
 import {
@@ -371,9 +372,10 @@ export default function SafeguardBuilderPanel({
   // Metaset-names field shortcut + staged patch — drives metaset tri-state display.
   const multiMetaSetNamesField = multiFields?.metaSetNames ?? null
   const metaSetNamesPatch = (multiMetaSetNamesField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
-  // Faction edits flow through the multi-edit draft so Apply activates on toggle
-  // and the staged selection lands on every selected rule. Rank/rarity remain
-  // summary-driven (mixed badge only) until they get the same treatment.
+  // Rank/rarity/faction edits all flow through the multi-edit draft so Apply
+  // activates on change and the staged selection lands on every selected rule.
+  const multiRanksField = multiFields?.ranks ?? null
+  const multiRaritiesField = multiFields?.rarities ?? null
   const multiFactionsField = multiFields?.factions ?? null
   const multiMainStatsField = multiFields?.mainStats ?? null
   const multiSubstatsField = multiFields?.substats ?? null
@@ -405,10 +407,14 @@ export default function SafeguardBuilderPanel({
   // Per-element count aggregates for tri-state toggle derivation.
   const multiSummary = useSafeguardMultiEditSummary(multiEditActive, multiSelectedRules ?? null)
   // Rank is mixed when any rank value appears in some but not all selected rules.
+  // A staged (dirty) edit overrides the mixed badge so the user sees the value
+  // they're about to apply, not the prior state (mirrors the faction pattern).
   const rankMixed = multiEditActive && multiSummary !== null
+    && !multiRanksField?.dirty
     && Array.from(multiSummary.rankCounts.values()).some(c => c > 0 && c < multiSummary.total)
   // Rarity is mixed by the same logic applied to rarity counts.
   const rarityMixed = multiEditActive && multiSummary !== null
+    && !multiRaritiesField?.dirty
     && Array.from(multiSummary.rarityCounts.values()).some(c => c > 0 && c < multiSummary.total)
   // Factions are mixed by the same rule; a staged (dirty) edit overrides the mixed
   // badge so the user sees the value they're about to apply, not the prior state.
@@ -2282,8 +2288,14 @@ export default function SafeguardBuilderPanel({
             >
               <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
-            {/* Clear mirrors the GearRankSelect onChange with an empty selection (same setRuleCombination path). */}
-            {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => setRuleCombination((prev) => ({ ...prev, ranks: [] })))}
+            {/* Clear mirrors the GearRankSelect onChange empty-selection paths (single + multi-edit). */}
+            {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('ranks', { value: [], status: 'common', patch: { clear: true } })
+                return
+              }
+              setRuleCombination((prev) => ({ ...prev, ranks: [] }))
+            })}
           </Box>
           <Collapse in={!builderCollapsed.rank} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
@@ -2296,10 +2308,23 @@ export default function SafeguardBuilderPanel({
               )}
             <GearRankSelect
               multiple
-              // When mixed, collapse to empty so renderValue shows the mixed label instead of
-              // a potentially-misleading partial rank list from only one of the selected rules.
-              value={rankMixed ? [] : displayRanks}
+              // A staged multi-edit value wins; otherwise when mixed, collapse to empty so
+              // renderValue shows the mixed label instead of a potentially-misleading partial
+              // rank list from only one of the selected rules.
+              value={
+                multiEditActive && multiRanksField?.dirty
+                  ? (multiRanksField.value as RankValue[] ?? [])
+                  : (rankMixed ? [] : displayRanks)
+              }
               onChange={(nextRanks) => {
+                if (multiEditActive && multiEdit) {
+                  // Multi-edit: stage a replace patch so every selected rule converges on the picked ranks.
+                  const patch: MultiEditArrayPatch<RankValue> = nextRanks.length > 0
+                    ? { replace: nextRanks }
+                    : { clear: true }
+                  multiEdit.updateField('ranks', { value: nextRanks, status: 'common', patch })
+                  return
+                }
                 setRuleCombination((prev) => ({ ...prev, ranks: nextRanks }))
               }}
               allowAny
@@ -2329,8 +2354,14 @@ export default function SafeguardBuilderPanel({
             >
               <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
-            {/* Clear mirrors the GearRaritySelect onChange with an empty selection. */}
-            {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => setRuleCombination((prev) => ({ ...prev, rarities: [] })))}
+            {/* Clear mirrors the GearRaritySelect onChange empty-selection paths (single + multi-edit). */}
+            {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => {
+              if (multiEditActive && multiEdit) {
+                multiEdit.updateField('rarities', { value: [], status: 'common', patch: { clear: true } })
+                return
+              }
+              setRuleCombination((prev) => ({ ...prev, rarities: [] }))
+            })}
           </Box>
           <Collapse in={!builderCollapsed.rarity} timeout="auto" unmountOnExit>
             <Box sx={{ position: 'relative' }}>
@@ -2343,9 +2374,22 @@ export default function SafeguardBuilderPanel({
               )}
             <GearRaritySelect
               multiple
-              // When mixed, collapse to empty so renderValue shows the mixed label.
-              value={rarityMixed ? [] : displayRarities}
+              // A staged multi-edit value wins; otherwise when mixed, collapse to empty so
+              // renderValue shows the mixed label.
+              value={
+                multiEditActive && multiRaritiesField?.dirty
+                  ? (multiRaritiesField.value as RankValue[] ?? [])
+                  : (rarityMixed ? [] : displayRarities)
+              }
               onChange={(nextRarities) => {
+                if (multiEditActive && multiEdit) {
+                  // Multi-edit: stage a replace patch so every selected rule converges on the picked rarities.
+                  const patch: MultiEditArrayPatch<RankValue> = nextRarities.length > 0
+                    ? { replace: nextRarities }
+                    : { clear: true }
+                  multiEdit.updateField('rarities', { value: nextRarities, status: 'common', patch })
+                  return
+                }
                 setRuleCombination((prev) => ({ ...prev, rarities: nextRarities }))
               }}
               allowAny
