@@ -144,11 +144,13 @@ test('collectSafeguardRuleTags normalizes and de-dupes rule tags', () => {
 })
 
 test('collectOverridesTagSuggestions offers a rule tag never used in a selector', () => {
-  // The reported bug: a freshly-tagged safeguard ('attack') is absent from the note's
-  // selectors, so selector-only collection misses it — the union must include it.
-  assert.ok(!collectKnownSelectorTags(note).includes('attack'))
-  const suggestions = collectOverridesTagSuggestions(note, [['attack']])
-  assert.ok(suggestions.includes('attack'), 'rule tag should be suggested')
+  // The reported bug: a freshly-tagged safeguard is absent from the note's selectors, so
+  // selector-only collection misses it — the union must include it. Use a synthetic tag
+  // that can never appear in the shipped note (the original example, 'attack', later
+  // became a real selector tag in the preset and broke the premise).
+  assert.ok(!collectKnownSelectorTags(note).includes('freshly_tagged'))
+  const suggestions = collectOverridesTagSuggestions(note, [['freshly_tagged']])
+  assert.ok(suggestions.includes('freshly_tagged'), 'rule tag should be suggested')
   // Existing in-note selector tags still come through unchanged.
   assert.ok(suggestions.includes('utility'))
 })

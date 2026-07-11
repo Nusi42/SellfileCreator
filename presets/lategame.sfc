@@ -13558,7 +13558,7 @@
       "appearance": {
         "name": "Protect: Bomber Amulet"
       },
-      "requiredCount": 3,
+      "requiredCount": 1,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -19403,7 +19403,8 @@
         "factions": []
       },
       "tags": [
-        "catchrest"
+        "catchrest",
+        "catchrest_primary"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -20103,15 +20104,15 @@
     "  q \"Protect the best accessories (rings, amulets, banners)?\"",
     "     \"[[de]]Die besten Schmuckstücke (Ringe, Amulette, Banner) schützen?\" id=q_acc_guard",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=acc and not tag=spd or tag=fw_coverage { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=acc and not tag=spd or tag=fw_coverage { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=acc and !tag=spd or tag=fw_coverage { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=acc and not tag=spd or tag=fw_coverage { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=acc and not tag=spd or tag=fw_coverage { activation=anticipate_improvements } }",
     "  slider \"\" id=min_acc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=acc_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=acc_fallback and not tag=attack { count=$value } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",
