@@ -85,6 +85,7 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   resolveRecipeOverridesTags,
   collectCrossDomainSliderWrites,
+  collectCrossDomainOptionWrites,
   collectTierOwnedSliderQuestionIds,
   seedSafeguardAnswersFromRecipeDefaults,
   RECIPE_OVERRIDES_OP_FIELD,
@@ -102,6 +103,8 @@ import {
   resolveNoteSafeguardOverridesTags,
   buildNoteSafeguardOverridesSignature,
   buildSafeguardSliderTokenMap,
+  buildSafeguardOptionTokenMap,
+  applySafeguardOptionWrites,
   applyQuestionSgSelectionRules,
   buildSafeguardAnswerParts,
   safeguardAnswerMatchesDefault,
@@ -2656,6 +2659,12 @@ type NoteInfoTooltipOption = {
   requiresDisabledState?: 'on' | 'off' | null
   // `setval token=N` cross-domain slider value forces (recipe option only carries these).
   setValueDirectives?: { token: string; value: number }[]
+  // Raw set/unset/excl tokens (recipe option only). In-domain hits are already resolved in
+  // set/unset/excludedOptionIds; the raw forms let the tooltip ALSO show cross-domain forces
+  // (tokens naming a safeguard option or slider) via the both-domain option lookup.
+  setTokens?: string[]
+  unsetTokens?: string[]
+  excludedTokens?: string[]
   sliderMin?: number
   sliderMax?: number
   sliderDefault?: number
@@ -2700,7 +2709,28 @@ function NoteOptionInfoTooltipWrap(
   { option, domain, children }:
   { option: NoteInfoTooltipOption; domain: NoteOverrideDomain; children: React.ReactElement },
 ): JSX.Element {
-  const { onRevealOptionSource } = useNoteRenderContext()
+  const { onRevealOptionSource, optionLookup } = useNoteRenderContext()
+  // Cross-domain FORCES display: a raw set/unset/excl token that resolved to nothing
+  // in-domain may name an option (or slider toggle) in the OTHER domain — the cross-domain
+  // write bridge. Invert the both-domain lookup (explicit tokens only; numeric tokens are
+  // question-local by contract) so those forces render in the tooltip too.
+  const tokenToId = React.useMemo(() => {
+    const map = new Map<string, string>()
+    optionLookup?.forEach((value, id) => {
+      if (value.token && !/^\d+$/.test(value.token) && !map.has(value.token)) map.set(value.token, id)
+    })
+    return map
+  }, [optionLookup])
+  // Merge cross-domain resolutions into the in-domain ids (dedup by id; order preserved).
+  const mergeCross = (ids: string[], tokens: readonly string[] | undefined): string[] => {
+    if (!tokens || tokens.length === 0) return ids
+    const merged = [...ids]
+    for (const token of tokens) {
+      const id = tokenToId.get(token)
+      if (id && !merged.includes(id)) merged.push(id)
+    }
+    return merged
+  }
   // Clicking the control scrolls the option's DSL into view in the editor and pulses it.
   // Rather than a per-control React onClick (unreliable: the disabled control swallows clicks and
   // the tooltip clones the child), we stamp the source span as DOM data-attrs and let a single
@@ -2721,9 +2751,9 @@ function NoteOptionInfoTooltipWrap(
           token={option.token}
           label={option.label}
           isDefault={option.isDefault}
-          setOptionIds={option.setOptionIds}
-          unsetOptionIds={option.unsetOptionIds}
-          excludedOptionIds={option.excludedOptionIds}
+          setOptionIds={mergeCross(option.setOptionIds, option.setTokens)}
+          unsetOptionIds={mergeCross(option.unsetOptionIds, option.unsetTokens)}
+          excludedOptionIds={mergeCross(option.excludedOptionIds, option.excludedTokens)}
           requiresOptionIds={option.requiresOptionIds ?? []}
           requiresDisabledState={option.requiresDisabledState ?? null}
           setValueDirectives={option.setValueDirectives ?? []}
@@ -4635,11 +4665,21 @@ export default function NoteDialog({
     // fires on a user action, so `recipeOverridesAnswers` is the live state) to avoid nested setState.
     const before = new Set(resolveRecipeOverridesTags(note, recipeOverridesAnswers).questions.flatMap((q) => q.answer))
     const nextRecipe = applyRecipeOverridesAnswerChange(note, recipeOverridesAnswers, question, nextSelection, preferredId, removedId)
+    const nextRecipeQuestions = resolveRecipeOverridesTags(note, nextRecipe).questions
     // token → safeguard slider (id=token), for translating directives into answer writes.
     const sliderByToken = buildSafeguardSliderTokenMap(safeguardOverridesResolution.questions)
     // Only options that were NOT selected before this change contribute writes (newly selected).
     const writes = collectCrossDomainSliderWrites(
-      resolveRecipeOverridesTags(note, nextRecipe).questions,
+      nextRecipeQuestions,
+      sliderByToken,
+      (optionId) => !before.has(optionId),
+    )
+    // Cross-domain OPTION writes: a newly-selected recipe option may also (de)select a
+    // SAFEGUARD radio/checkbox option by its id=token (set → select, unset/excl → deselect).
+    // Same persist-on-select semantics as the slider writes; slider ids keep precedence.
+    const optionWrites = collectCrossDomainOptionWrites(
+      nextRecipeQuestions,
+      buildSafeguardOptionTokenMap(safeguardOverridesResolution.questions),
       sliderByToken,
       (optionId) => !before.has(optionId),
     )
@@ -4653,13 +4693,14 @@ export default function NoteDialog({
     const writtenIds = new Set(writes.map((w) => w.questionId))
     // Owned sliders NOT (re)written by the new selection → delete so they fall back to `default=`.
     const toClear = [...ownedByThisQuestion].filter((id) => !writtenIds.has(id))
-    if (writes.length > 0 || toClear.length > 0) {
+    if (writes.length > 0 || toClear.length > 0 || optionWrites.length > 0) {
       onSafeguardOverridesAnswersChange((prevSg) => {
         const nextSg = { ...prevSg }
         // Release stuck tier sliders first, then apply the newly-selected tier's forces.
         for (const id of toClear) delete nextSg[id]
         for (const w of writes) nextSg[w.questionId] = [w.value]
-        return nextSg
+        // Option writes go last so they see slider values written in this same batch.
+        return applySafeguardOptionWrites(safeguardOverridesResolution.questions, nextSg, optionWrites)
       })
     }
   }, [onRecipeOverridesAnswersChange, onSafeguardOverridesAnswersChange, recipeOverridesAnswers, safeguardOverridesResolution, renderNote])

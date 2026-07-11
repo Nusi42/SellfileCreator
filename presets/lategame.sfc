@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.36",
+  "Version": "1.0.37-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -11855,7 +11855,6 @@
         "HP%",
         "DEF%"
       ],
-      "substatMatch": "2",
       "substatWeights": {
         "HP%": 0.75,
         "DEF%": 0.45,
@@ -11915,7 +11914,6 @@
         "HP%",
         "DEF%"
       ],
-      "substatMatch": "2",
       "substatWeights": {
         "HP%": 0.75,
         "DEF%": 0.45,
@@ -12254,7 +12252,7 @@
       "appearance": {
         "name": "Protect: Speed Set Boots"
       },
-      "requiredCount": 6,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -12294,7 +12292,82 @@
         "factions": []
       },
       "tags": [
-        "speed_set"
+        "speed_set",
+        "speed_set_boots"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "CR%",
+        "CDMG%",
+        "ACC",
+        "RES",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.95,
+        "ATK%": 0.5,
+        "DEF%": 0.95,
+        "RES": 0.95,
+        "ACC": 0.75,
+        "CR%": 0.5,
+        "CDMG%": 0.5
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Speed Set Boots"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Boots"
+        ],
+        "sets": [
+          {
+            "name": "Relentless"
+          }
+        ],
+        "metaSetNames": [
+          "Need 4 Speed"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "SPD"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "speed_set",
+        "speed_set_boots"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12315,10 +12388,10 @@
         "HP%": 0.7,
         "ATK%": 0.7,
         "DEF%": 0.7,
-        "RES": 0.7,
+        "RES": 0.5,
         "ACC": 0.7,
-        "CR%": 0.7,
-        "CDMG%": 0.7
+        "CR%": 1.1,
+        "CDMG%": 0.95
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -12459,9 +12532,75 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.2,
+        "SPD": 2,
         "ACC": 1.1
       }
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Gauntlets"
+        ],
+        "sets": [
+          {
+            "name": "Relentless"
+          }
+        ],
+        "metaSetNames": [
+          "Debuffer",
+          "Need 4 Speed"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "CR%"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "debuffer",
+        "debuffer_crit"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC"
+      ],
+      "substatMatch": "2",
+      "substatWeights": {
+        "SPD": 2,
+        "ACC": 1.1
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -12814,7 +12953,12 @@
         "DEF%"
       ],
       "substatWeights": {
-        "SPD": 3,
+        "HP%": 0.55,
+        "ATK%": 0.1,
+        "DEF%": 0.45,
+        "SPD": 2,
+        "RES": 0.65,
+        "CR%": 0.65,
         "CDMG%": 0.1
       },
       "weightMainStatByRank": true,
@@ -12883,7 +13027,7 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.2,
+        "SPD": 2,
         "ACC": 1.1
       }
     },
@@ -12948,7 +13092,8 @@
         "ACC"
       ],
       "substatWeights": {
-        "SPD": 3
+        "SPD": 2,
+        "ACC": 0.65
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -13015,7 +13160,8 @@
         "ACC"
       ],
       "substatWeights": {
-        "SPD": 3
+        "SPD": 2,
+        "ACC": 0.65
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -13112,7 +13258,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13214,7 +13361,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13320,7 +13468,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13551,7 +13700,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13665,7 +13815,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13777,7 +13928,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13889,7 +14041,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13998,7 +14151,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14068,8 +14222,8 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.4,
-        "SPD": 1.1
+        "HP%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14112,7 +14266,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14125,8 +14280,8 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.4,
-        "SPD": 1.1
+        "HP%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14184,8 +14339,8 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.4,
-        "SPD": 1.1
+        "ATK%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14228,7 +14383,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14241,8 +14397,8 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.4,
-        "SPD": 1.1
+        "ATK%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14300,8 +14456,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.4,
-        "SPD": 1.1
+        "DEF%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14344,7 +14500,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14357,8 +14514,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.4,
-        "SPD": 1.1
+        "DEF%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14452,7 +14609,8 @@
         "factions": []
       },
       "tags": [
-        "acc"
+        "acc",
+        "acc_fallback"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14519,7 +14677,7 @@
         "SPD"
       ],
       "substatWeights": {
-        "SPD": 1.35
+        "SPD": 2
       }
     },
     {
@@ -14590,15 +14748,16 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.3,
-        "ATK%": 0.3,
-        "DEF%": 0.3,
-        "SPD": 1.5,
-        "RES": 0.2,
-        "ACC": 0.3,
-        "CR%": 1.3,
-        "CDMG%": 1.1
-      }
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.2,
+        "CDMG%": 0.9
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14662,10 +14821,11 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.3,
-        "CDMG%": 1.1
-      }
+        "SPD": 2,
+        "CDMG%": 0.9
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
@@ -14731,10 +14891,9 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.7,
-        "ATK%": 0.7,
-        "SPD": 1.3,
-        "CR%": 1.1
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14803,10 +14962,9 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.7,
-        "DEF%": 0.7,
-        "SPD": 1.3,
-        "CR%": 1.1
+        "HP%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14875,8 +15033,8 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.15,
-        "CDMG%": 1.3
+        "SPD": 2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -14944,9 +15102,8 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.3,
-        "ACC": 0.9,
-        "CR%": 1.1
+        "SPD": 2,
+        "ACC": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15016,12 +15173,11 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.9,
-        "ATK%": 0.9,
-        "DEF%": 0.9,
-        "SPD": 1.5,
-        "ACC": 0.8,
-        "CR%": 1.3
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "ACC": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15093,9 +15249,8 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.3,
-        "CDMG%": 1.1
+        "SPD": 2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15161,9 +15316,8 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.3,
-        "CDMG%": 1.1
+        "SPD": 2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15235,9 +15389,8 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.3,
-        "CDMG%": 1.1
+        "SPD": 2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15305,9 +15458,8 @@
         "ACC"
       ],
       "substatWeights": {
-        "ACC": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "ACC": 0.2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15375,9 +15527,8 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "HP%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15445,9 +15596,8 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "ATK%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15515,9 +15665,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "DEF%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15984,7 +16133,7 @@
       "substatMatch": "2",
       "substatWeights": {
         "CR%": 1.3,
-        "CDMG%": 1.05
+        "CDMG%": 1.15
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16051,7 +16200,8 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "CR%": 1.3
+        "CR%": 1.3,
+        "CDMG%": 1.15
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16112,9 +16262,9 @@
         "SPD",
         "CR%"
       ],
+      "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.4,
-        "CR%": 1.1
+        "SPD": 2
       }
     },
     {
@@ -16176,10 +16326,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.8,
-        "DEF%": 0.8,
-        "SPD": 1.5,
-        "ACC": 0.9
+        "HP%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "ACC": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16248,11 +16398,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.45,
+        "HP%": 0.4,
         "DEF%": 0.4,
-        "SPD": 1.5,
-        "RES": 0.7,
-        "CR%": 1.3
+        "SPD": 2,
+        "RES": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16261,7 +16410,7 @@
       "appearance": {
         "name": "Protect: Survivability Top Row"
       },
-      "requiredCount": 2,
+      "requiredCount": 1,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -16301,7 +16450,8 @@
         "factions": []
       },
       "tags": [
-        "survivability"
+        "survivability",
+        "survivability_primary"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16316,8 +16466,70 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.1,
-        "SPD": 1.3
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Survivability Top Row (No Speed)"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Weapon",
+          "Helmet",
+          "Shield"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Survivability"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "survivability"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "RES",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16382,8 +16594,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.1,
-        "SPD": 1.3
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16392,7 +16606,7 @@
       "appearance": {
         "name": "Protect: Survivability Bottom Row"
       },
-      "requiredCount": 2,
+      "requiredCount": 1,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -16437,7 +16651,8 @@
         "factions": []
       },
       "tags": [
-        "survivability"
+        "survivability",
+        "survivability_primary"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16452,9 +16667,74 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.2,
-        "SPD": 1.4,
-        "RES": 1.1
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Survivability Bottom Row (No Speed)"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Gauntlets",
+          "Chestplate",
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Survivability"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "RES",
+          "HP%",
+          "DEF%"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "survivability"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "RES",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16524,8 +16804,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.1,
-        "SPD": 1.3
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16590,8 +16872,10 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "HP%": 1.15,
-        "SPD": 1.5
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16658,9 +16942,12 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.1,
-        "CDMG%": 1.2
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "SPD": 2,
+        "ACC": 0.4,
+        "CR%": 0.9,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16727,9 +17014,12 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.1,
-        "CDMG%": 1.2
+        "HP%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "ACC": 0.4,
+        "CR%": 0.9,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16800,8 +17090,10 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "HP%": 1.15,
-        "SPD": 1.5
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16876,9 +17168,12 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.1,
-        "CDMG%": 1.2
+        "HP%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "ACC": 0.4,
+        "CR%": 0.9,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -16953,9 +17248,12 @@
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.1,
-        "CDMG%": 1.2
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "SPD": 2,
+        "ACC": 0.4,
+        "CR%": 0.9,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17014,7 +17312,7 @@
         "SPD"
       ],
       "substatWeights": {
-        "SPD": 1.3
+        "SPD": 2
       }
     },
     {
@@ -17073,7 +17371,7 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.3,
+        "SPD": 2,
         "ACC": 1.1
       }
     },
@@ -17136,14 +17434,13 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.3,
-        "ATK%": 0.3,
-        "DEF%": 0.3,
-        "SPD": 1.55,
-        "RES": 0.2,
-        "ACC": 0.3,
-        "CR%": 1.3,
-        "CDMG%": 1.1
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17203,10 +17500,9 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.7,
-        "ATK%": 0.7,
-        "SPD": 1.3,
-        "CR%": 1.1
+        "HP%": 0.4,
+        "ATK%": 0.4,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17266,10 +17562,9 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "HP%": 0.7,
-        "DEF%": 0.7,
-        "SPD": 1.3,
-        "CR%": 1.1
+        "HP%": 0.4,
+        "DEF%": 0.4,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17328,9 +17623,8 @@
       ],
       "substatMatch": "2",
       "substatWeights": {
-        "SPD": 1.3,
-        "ACC": 0.9,
-        "CR%": 1.1
+        "SPD": 2,
+        "ACC": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17393,9 +17687,8 @@
         "CDMG%"
       ],
       "substatWeights": {
-        "SPD": 1.5,
-        "CR%": 1.3,
-        "CDMG%": 1.1
+        "SPD": 2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17453,9 +17746,8 @@
         "ACC"
       ],
       "substatWeights": {
-        "ACC": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "ACC": 0.2,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17513,9 +17805,8 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "HP%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17573,9 +17864,8 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "ATK%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17633,9 +17923,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.9,
-        "CR%": 1.3,
-        "CDMG%": 1.3
+        "DEF%": 0.4,
+        "CDMG%": 0.9
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17694,8 +17983,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.1,
-        "SPD": 1.4
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17759,9 +18050,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 1.2,
-        "SPD": 1.4,
-        "RES": 1.1
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2,
+        "RES": 0.7
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18218,8 +18510,8 @@
         "HP%"
       ],
       "substatWeights": {
-        "HP%": 0.4,
-        "SPD": 1.1
+        "HP%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18277,8 +18569,8 @@
         "ATK%"
       ],
       "substatWeights": {
-        "ATK%": 0.4,
-        "SPD": 1.1
+        "ATK%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18336,8 +18628,8 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.4,
-        "SPD": 1.1
+        "DEF%": 0.6,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18396,8 +18688,9 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.8,
-        "SPD": 1.5
+        "HP%": 0.8,
+        "DEF%": 0.7,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18457,10 +18750,10 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.8,
-        "ATK%": 0.8,
-        "DEF%": 0.8,
-        "SPD": 1.35
+        "HP%": 0.65,
+        "ATK%": 0.65,
+        "DEF%": 0.65,
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18515,7 +18808,7 @@
         "SPD"
       ],
       "substatWeights": {
-        "SPD": 1.35
+        "SPD": 2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18710,7 +19003,7 @@
         "name": "Protect: Artifacts (Top Row)",
         "fgColor": "#ecc690"
       },
-      "requiredCount": 2,
+      "requiredCount": 1,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18771,7 +19064,87 @@
         "DEF%"
       ],
       "substatWeights": {
-        "SPD": 1.35
+        "HP%": 0.25,
+        "ATK%": 0.25,
+        "DEF%": 0.25,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.1,
+        "CR%": 0.6,
+        "CDMG%": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Artifacts (Top Row)",
+        "fgColor": "#ecc690"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Weapon",
+          "Helmet",
+          "Shield"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Damage",
+          "Damage - Limited Sets",
+          "Debuffer",
+          "Debuffer - Limited Sets",
+          "Extra Turn",
+          "Need 4 Speed",
+          "Support - Limited Sets",
+          "Survivability"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "catchrest",
+        "catchrest_primary"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC",
+        "RES",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.6,
+        "DEF%": 0.5,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18781,7 +19154,7 @@
         "name": "Protect: Artifacts (Bottom Row)",
         "fgColor": "#ecc690"
       },
-      "requiredCount": 2,
+      "requiredCount": 1,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18832,7 +19205,8 @@
         "factions": []
       },
       "tags": [
-        "catchrest"
+        "catchrest",
+        "catchrest_primary"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18851,7 +19225,94 @@
         "DEF%"
       ],
       "substatWeights": {
-        "SPD": 1.35
+        "HP%": 0.25,
+        "ATK%": 0.25,
+        "DEF%": 0.25,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.1,
+        "CR%": 0.6,
+        "CDMG%": 0.6
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Artifacts (Bottom Row)",
+        "fgColor": "#ecc690"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": false,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Gauntlets",
+          "Chestplate",
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Damage",
+          "Damage - Limited Sets",
+          "Debuffer",
+          "Debuffer - Limited Sets",
+          "Extra Turn",
+          "Need 4 Speed",
+          "Support - Limited Sets",
+          "Survivability"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "SPD",
+          "CR%",
+          "ACC",
+          "RES",
+          "HP%",
+          "DEF%"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "catchrest",
+        "catchrest_primary"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC",
+        "RES",
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.6,
+        "DEF%": 0.5,
+        "SPD": 2,
+        "RES": 0.1,
+        "ACC": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -19025,15 +19486,15 @@
     "  rb \"`No`\"",
     "     \"[[de]]`Nein`\"",
     "     \"Keep these sets at any level (0–16)\"",
-    "     \"[[de]]Behält diese Sets auf jedem Level (0–16)\" id=fwh_no { @tag=utility { export=active lvl=0-16 } }",
+    "     \"[[de]]Behält diese Sets auf jedem Level (0–16)\" id=fwh_no set util_gaps { @tag=utility { export=active lvl=0-16 } }",
     "  rb \"`Yes`\"",
     "     \"[[de]]`Ja`\"",
     "     \"Keep only level 16 pieces from these sets\"",
-    "     \"[[de]]Behält nur Level-16-Teile aus diesen Sets\" id=fwh_yes16 { @tag=utility { export=active lvl=16 gearsets=+-Daze } safeguard @tag=utility { rank=6 rarity=legendary,mythical } }",
+    "     \"[[de]]Behält nur Level-16-Teile aus diesen Sets\" id=fwh_yes16 set util_gaps { @tag=utility { export=active lvl=16 gearsets=+-Daze } safeguard @tag=utility { rank=6 rarity=legendary,mythical } }",
     "  rb \"`Yes!`\"",
     "     \"[[de]]`Ja!`\"",
     "     \"No extra protection — treat like any other gear\"",
-    "     \"[[de]]Kein Extra-Schutz — wie jede andere Ausrüstung behandeln\" id=fwh_yes { @tag=utility { export=disabled } safeguard @tag=utility { activation=off } }",
+    "     \"[[de]]Kein Extra-Schutz — wie jede andere Ausrüstung behandeln\" id=fwh_yes set util_off { @tag=utility { export=disabled } }",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Do you play and win Live Arena and Siege a lot?\\nThis affects **Zeal**, **Impulse**, **Feral**, **Stonecleaver**, and **Rebirth** drops.\\nNo matter what you pick, really good pieces are always protected.\"",
@@ -19160,14 +19621,112 @@
     "-->",
     "<!-- /collapse -->",
     "<!-- collapse -->",
-    "<!-- lang -->Optional 3 — Safety-net minimums (Safeguards)",
-    "<!-- lang:de -->Optional 3 — Sicherheitsnetz-Mindestmengen (Schutzregeln)<!-- /lang -->",
+    "<!-- lang -->Optional 3 — Safety-net minimums: artifacts (Safeguards)",
+    "<!-- lang:de -->Optional 3 — Sicherheitsnetz-Mindestmengen: Artefakte (Schutzregeln)<!-- /lang -->",
     "<!-- if-no-endpoint -->",
     "<!-- lang -->For Safeguards to work, you *must* connect the Sellfile Creator with RSL Helper, or manually load its DB! Otherwise the Safeguards have simply no effect at all.",
     "<!-- lang:de -->Damit Schutzregeln funktionieren, *musst* du den Sellfile Creator mit dem RSL Helper verbinden oder dessen Datenbank manuell laden! Sonst haben die Schutzregeln schlicht gar keine Wirkung.<!-- /lang -->",
     "<!-- /if-no-endpoint -->",
     "<!-- lang -->Each safeguard keeps a minimum number of pieces. The options set which pieces count toward it — from **none**, to **just what you own**, to also holding open the slots you are still **missing** so future drops are caught. The last option (**plus likely upgrades**) is the most thorough but **very slow**.",
     "<!-- lang:de -->Jede Schutzregel behält eine Mindestanzahl an Teilen. Die Optionen legen fest, welche Teile dafür zählen — von **keine**, über **nur Bestehendes**, bis hin zum Offenhalten der Arten, die dir noch **fehlen**, damit künftige Drops erfasst werden. Die letzte Option (**plus mögliche Upgrades**) ist am gründlichsten, aber **sehr langsam**.<!-- /lang -->",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"How many speed-set pieces **per slot** should be protected?\"",
+    "     \"[[de]]Wie viele SPD-Set-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=speed_set or tag=speed_set_fallback { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=speed_set_fallback { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=speed_set { count=$value/2 } @tag=speed_set_boots { count=$value/4 } @tag=speed_set_fallback { count=$value } }",
+    "-->",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"How many debuffer pieces **per slot** should be protected?\"",
+    "     \"[[de]]Wie viele Debuffer-Teile **pro Art** sollen geschützt werden?\" id=q_416mju",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=32 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=debuffer { count=$value/16 } @tag=debuffer_crit { count=$value/32 } @tag=debuffer_fallback { count=$value } }",
+    "--><br>",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"How many damage or survivability pieces **per slot** and **per main stat** should be protected?\"",
+    "     \"[[de]]Wie viele Damage- oder Survival-Teile **pro Art** und **pro Hauptwert** sollen geschützt werden?\" id=q_tk0vqr",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=damage or tag=survivability or tag=crit_shield { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=damage or tag=survivability or tag=crit_shield { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=damage or tag=survivability or tag=crit_shield { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=damage or tag=survivability or tag=crit_shield { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_dmgsurv_pieces min=1 max=64 default=32 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=survivability_primary { count=$value/32 } @tag=survivability_fallback { count=$value } @tag=damage_primary { count=$value/12 } @tag=damage_fallback { count=$value } }",
+    "-->",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"How many damage/survivability/debuffer pieces **per slot** and **per main stat** of **Mercurial** should be protected?\"",
+    "     \"[[de]]Wie viele Damage-/Survival-/Debuffer-Teile **pro Art** und **pro Hauptwert** von **Unstet** sollen geschützt werden?\" id=q_muougk",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=mercurial4 or tag=mercurial8 { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial4 or tag=mercurial8 { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_improvements } }",
+    "  slider \"\" min=1 max=64 default=8 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=mercurial4 { count=$value/2 } @tag=mercurial8 { count=$value } }",
+    "--><br>",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"How many utility pieces (Stun, Provoke, Toxic …) **per set and slot** should be protected?\"",
+    "     \"[[de]]Wie viele Utility-Teile (Lähmung, Provozieren, Giftig …) **pro Set und Art** sollen geschützt werden?\" id=q_utility",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" id=util_off { @tag=utility { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" id=util_own { @tag=utility { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" id=util_gaps * { @tag=utility { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" id=util_upg { @tag=utility { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_utility_pieces min=1 max=8 step=1 default=1 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=utility { count=$value } }",
+    "-->",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"Keep a minimum of **every** artifact kind as a catch-all?\\nThis guards the best pieces of every set + slot + main-stat combination — **even genuinely bad ones** — so no combination ends up empty. The slider sets how many per combination.\"",
+    "     \"[[de]]Von **jeder** Artefakt-Art ein Minimum als Auffangnetz behalten?\\nSchützt die besten Teile jeder Kombination aus Set, Art und Hauptwert – **auch wirklich schlechte** – damit keine Kombination leer ausgeht. Der Slider bestimmt, wie viele pro Kombination.\" id=q_catchrest",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=catchrest { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=catchrest { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=catchrest { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=catchrest { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_catchrest_pieces min=1 max=16 step=1 default=2 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=catchrest_primary { count=$value/2 } }",
+    "--><br>",
+    "<!-- safeguard-overrides [columns=2]",
+    "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
+    "     \"[[de]]Möchtest du **Artefakte** (keine Schmuckstücke) nach ihrer **Verbesserungschance** schützen?\\nDas behält Ausrüstung mit einer guten Chance, besser zu werden als das, was du hast; der Slider legt die Mindest-Chance fest.\" id=q_uiw6og",
+    "  slider \"\" id=impr_art min=0 max=90 step=1 default=25 toggle=\"Yes\"",
+    "     \"[[de]]Ja\" toggleside=left marks=10:\"Soft\"",
+    "     \"[[de]]Sanft\",25:\"Balanced\"",
+    "     \"[[de]]Ausgewogen\",33:\"Moderate\"",
+    "     \"[[de]]Moderat\",50:\"Strict\"",
+    "     \"[[de]]Streng\" unit=\"%\" { @tagged { improvchance=$value } else { @tagged { improvchance=disabled } } }",
+    "--><br>",
+    "<!-- /collapse -->",
+    "<!-- collapse -->",
+    "<!-- lang -->Optional 4 — Safety-net minimums: accessories (Safeguards)",
+    "<!-- lang:de -->Optional 4 — Sicherheitsnetz-Mindestmengen: Schmuckstücke (Schutzregeln)<!-- /lang -->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many of the best SPD banners **per faction** should always be protected (across all sets)?\"",
     "     \"[[de]]Wie viele der besten SPD-Banner **pro Fraktion** sollen immer geschützt werden (über alle Sets)?\" id=q_ta25kl",
@@ -19183,72 +19742,19 @@
     "     \"[[de]] Teile\" { @tag=spd { count=$value / 8 } @tag=spd_fallback { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"How many speed-set pieces **per slot** should be protected?\"",
-    "     \"[[de]]Wie viele SPD-Set-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
+    "  q \"Protect the best accessories (rings, amulets, banners)?\"",
+    "     \"[[de]]Die besten Schmuckstücke (Ringe, Amulette, Banner) schützen?\" id=q_acc_guard",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=speed_set or tag=speed_set_fallback { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=speed_set_fallback { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=acc and !tag=spd or tag=fw_coverage { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=speed_set { count=$value/2 } @tag=speed_set_fallback { count=$value } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=acc and !tag=spd or tag=fw_coverage { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_acc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=acc_fallback { count=$value } }",
     "--><br>",
-    "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"How many debuffer pieces **per slot** should be protected?\"",
-    "     \"[[de]]Wie viele Debuffer-Teile **pro Art** sollen geschützt werden?\" id=q_416mju",
-    "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=debuffer or tag=debuffer_fallback { activation=off } }",
-    "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=debuffer or tag=debuffer_fallback { activation=protect_existing } }",
-    "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=debuffer or tag=debuffer_fallback { activation=anticipate_gaps } }",
-    "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=debuffer_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=32 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=debuffer { count=$value/16 } @tag=debuffer_fallback { count=$value } }",
-    "-->",
-    "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"How many damage or survivability pieces **per slot** and **per main stat** should be protected?\"",
-    "     \"[[de]]Wie viele Damage- oder Survival-Teile **pro Art** und **pro Hauptwert** sollen geschützt werden?\" id=q_tk0vqr",
-    "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=off } }",
-    "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=protect_existing } }",
-    "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=anticipate_gaps } }",
-    "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=survivability or tag=survivability_fallback or tag=damage_primary or tag=damage_fallback { activation=anticipate_improvements } }",
-    "  slider \"\" id=min_dmgsurv_pieces min=1 max=64 default=32 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=survivability { count=$value/16 } @tag=survivability_fallback { count=$value } @tag=damage_primary { count=$value/12 } @tag=damage_fallback { count=$value } }",
-    "--><br>",
-    "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"How many damage/survivability/debuffer pieces **per slot** and **per main stat** of **Mercurial** should be protected?\"",
-    "     \"[[de]]Wie viele Damage-/Survival-/Debuffer-Teile **pro Art** und **pro Hauptwert** von **Unstet** sollen geschützt werden?\" id=q_muougk",
-    "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=mercurial4 or tag=mercurial8 { activation=off } }",
-    "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial4 or tag=mercurial8 { activation=protect_existing } }",
-    "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_gaps } }",
-    "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_improvements } }",
-    "  slider \"\" min=1 max=64 default=8 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=mercurial4 { count=$value/2 } @tag=mercurial8 { count=$value } }",
-    "-->",
-    "<!-- safeguard-overrides [columns=2]--><br>",
-    "<!-- safeguard-overrides [columns=2]",
-    "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
-    "     \"[[de]]Möchtest du **Artefakte** (keine Schmuckstücke) nach ihrer **Verbesserungschance** schützen?\\nDas behält Ausrüstung mit einer guten Chance, besser zu werden als das, was du hast; der Slider legt die Mindest-Chance fest.\" id=q_uiw6og",
-    "  slider \"\" id=impr_art min=0 max=90 step=1 default=25 toggle=\"Yes\"",
-    "     \"[[de]]Ja\" toggleside=left marks=10:\"Soft\"",
-    "     \"[[de]]Sanft\",25:\"Balanced\"",
-    "     \"[[de]]Ausgewogen\",33:\"Moderate\"",
-    "     \"[[de]]Moderat\",50:\"Strict\"",
-    "     \"[[de]]Streng\" unit=\"%\" { @tagged { improvchance=$value } else { @tagged { improvchance=disabled } } }",
-    "-->",
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",
     "     \"[[de]]Möchtest du **Schmuckstücke** (Ringe, Amulette, Banner) nach ihrer **Verbesserungschance** schützen?\\nGleiche Idee wie bei den Artefakten; Schmuckstücke bekommen etwas höhere Werte, also behält dieselbe Einstellung mehr davon.\" id=q_nfb217",

@@ -12,6 +12,8 @@ import {
   SLIDER_TOGGLE_OFF,
   resolveNoteSafeguardOverridesTags,
   buildSafeguardSliderTokenMap,
+  buildSafeguardOptionTokenMap,
+  applySafeguardOptionWrites,
   type NoteSafeguardOverridesAnswers,
 } from './noteSafeguardOverrides'
 import { clampAggregateRollValue } from './aggregateRollState'
@@ -393,14 +395,17 @@ export type NoteQuestionOption = {
   setOptionIds: string[]
   unsetOptionIds: string[]
   excludedOptionIds: string[]
-  // Cross-domain slider forcing (computed, never persisted). While this option is selected:
+  // Cross-domain forcing (computed, never persisted). While this option is selected:
   //  • setValueDirectives — force each named slider (by its id=token) to a value, toggled on.
-  //  • setTokens / unsetTokens — raw header tokens; a token matching a safeguard slider's id
-  //    forces that slider's toggle on (set) or off (unset). In-domain resolution of these tokens
-  //    lives in setOptionIds/unsetOptionIds; the raw forms are retained for the cross-domain bridge.
+  //  • setTokens / unsetTokens / excludedTokens — raw header tokens; a token matching a
+  //    safeguard slider's id forces that slider's toggle on (set) or off (unset), and one
+  //    matching a safeguard OPTION's id selects (set) or deselects (unset/excl) that option.
+  //    In-domain resolution of these tokens lives in set/unset/excludedOptionIds; the raw
+  //    forms are retained for the cross-domain bridge.
   setValueDirectives: OverridesSetValueDirective[]
   setTokens: string[]
   unsetTokens: string[]
+  excludedTokens: string[]
   // `needs` ids: the UI renders this option disabled until at least one of these
   // is selected. Empty = always enabled. Purely a UI gate (selection unaffected).
   requiresOptionIds: string[]
@@ -609,6 +614,57 @@ export const collectTierOwnedSliderQuestionIds = (
   return owned
 }
 
+// ── Cross-domain option WRITES (set / unset / excl → safeguard radio/checkbox) ────
+//
+// Mirrors the slider bridge above: a recipe option's constraint tokens may also name a
+// SAFEGUARD option's explicit `id=TOKEN`. When such a recipe option becomes selected,
+// `set`/`+` selects the safeguard option and `unset`/`-`/`excl`/`!` deselects it —
+// persist-on-select, exactly like the slider writes (a real stored answer, no overlay).
+// One safeguard option, addressed by its explicit token (= the option's `id=TOKEN`).
+export type CrossDomainOptionTarget = { questionId: string; optionId: string }
+// One resolved write: (de)select the option inside the safeguard question's stored answer.
+export type CrossDomainOptionWrite = CrossDomainOptionTarget & { action: 'select' | 'deselect' }
+
+/**
+ * SSOT for resolving a recipe option's cross-domain OPTION directives into concrete
+ * safeguard-answer writes. Used by BOTH the interactive change handler (newly-selected
+ * options only) and the load-time seeding path (every initially-selected option) —
+ * the same two call sites as {@link collectCrossDomainSliderWrites}.
+ *
+ * Slider ids keep precedence: a token that names a safeguard slider stays a slider
+ * toggle (back-compat with the documented `+TOKEN`/`-TOKEN` slider semantics), so the
+ * option bridge only claims tokens the slider map does not know.
+ */
+export const collectCrossDomainOptionWrites = (
+  recipeQuestions: readonly NoteQuestionDefinition[],
+  optionByToken: ReadonlyMap<string, CrossDomainOptionTarget>,
+  sliderByToken: ReadonlyMap<string, CrossDomainSliderTarget>,
+  // Gate deciding which selected options contribute writes (same contract as the slider collector).
+  shouldApply: (optionId: string) => boolean = () => true,
+): CrossDomainOptionWrite[] => {
+  const writes: CrossDomainOptionWrite[] = []
+  for (const question of recipeQuestions) {
+    for (const option of question.options) {
+      // Skip unselected options and any the caller wants excluded (e.g. already-selected).
+      if (!question.answer.includes(option.id) || !shouldApply(option.id)) continue
+      // `set`/`+TOKEN` → select the named safeguard option.
+      for (const token of option.setTokens) {
+        if (sliderByToken.has(token)) continue
+        const target = optionByToken.get(token)
+        if (target) writes.push({ ...target, action: 'select' })
+      }
+      // `unset`/`-TOKEN` and `excl`/`!TOKEN` → deselect it (single-select groups then
+      // fall back per the shared rule pass, exactly like an in-domain removal).
+      for (const token of [...option.unsetTokens, ...option.excludedTokens]) {
+        if (sliderByToken.has(token)) continue
+        const target = optionByToken.get(token)
+        if (target) writes.push({ ...target, action: 'deselect' })
+      }
+    }
+  }
+  return writes
+}
+
 /**
  * Compute the safeguard-overrides answers a note's INITIAL recipe selection forces, for
  * seeding at SFC/preset LOAD time. The cross-domain WRITE otherwise only fires on a recipe
@@ -627,20 +683,42 @@ export const seedSafeguardAnswersFromRecipeDefaults = (
   existing: NoteSafeguardOverridesAnswers = {},
 ): NoteSafeguardOverridesAnswers => {
   // Resolve both domains from the note so we can map directive tokens → safeguard questions.
+  // The safeguard side resolves with the caller's answers so option-write candidates are
+  // computed against the same state the never-overwrite rule below protects.
   const recipeQuestions = resolveRecipeOverridesTags(note, recipeAnswers).questions
-  const sliderByToken = buildSafeguardSliderTokenMap(resolveNoteSafeguardOverridesTags(note).questions)
+  const safeguardQuestions = resolveNoteSafeguardOverridesTags(note, existing).questions
+  const sliderByToken = buildSafeguardSliderTokenMap(safeguardQuestions)
   // Translate every selected option's directives into concrete slider writes.
   const writes = collectCrossDomainSliderWrites(recipeQuestions, sliderByToken)
-  if (writes.length === 0) return existing
   // Apply writes without clobbering any answer the caller already has (restore / user edit).
-  const next: NoteSafeguardOverridesAnswers = { ...existing }
-  let changed = false
-  for (const write of writes) {
-    if (next[write.questionId] !== undefined) continue
-    next[write.questionId] = [write.value]
-    changed = true
+  let next: NoteSafeguardOverridesAnswers = existing
+  if (writes.length > 0) {
+    const merged: NoteSafeguardOverridesAnswers = { ...existing }
+    let changed = false
+    for (const write of writes) {
+      if (merged[write.questionId] !== undefined) continue
+      merged[write.questionId] = [write.value]
+      changed = true
+    }
+    if (changed) next = merged
   }
-  return changed ? next : existing
+  // Option writes ride the same seeding contract: a question whose answer the caller
+  // already has is left alone (skip predicate checks the ORIGINAL answers, so a slider
+  // write from this same seed pass never blocks its question's option write).
+  const optionWrites = collectCrossDomainOptionWrites(
+    recipeQuestions,
+    buildSafeguardOptionTokenMap(safeguardQuestions),
+    sliderByToken,
+  )
+  if (optionWrites.length > 0) {
+    next = applySafeguardOptionWrites(
+      safeguardQuestions,
+      next,
+      optionWrites,
+      (questionId) => existing[questionId] !== undefined,
+    )
+  }
+  return next
 }
 
 // Recipe impact summary for Apply Tags flow.
@@ -1943,10 +2021,11 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
-      // Retain raw header tokens + setval pairs for the cross-domain slider-forcing bridge.
+      // Retain raw header tokens + setval pairs for the cross-domain forcing bridge.
       setValueDirectives: option.setValueTokens,
       setTokens: option.setTokens,
       unsetTokens: option.unsetTokens,
+      excludedTokens: option.excludedTokens,
       requiresOptionIds,
       requiresDisabledState: option.needsDisabledState,
       groupType: option.groupType,

@@ -17,7 +17,10 @@
  *   normalizeNoteSafeguardOverridesAnswers — decode persisted payload
  */
 import type { StatVariant, RankValue, FactionId } from './types'
-import type { RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation } from './noteRecipeOverrides'
+import type {
+  RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation,
+  CrossDomainOptionTarget, CrossDomainOptionWrite,
+} from './noteRecipeOverrides'
 // Runtime imports for cross-domain parsing — safe for circular use since only called inside function bodies.
 // parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
 // clampRankCode is the SSOT for [1,6] integer rank clamping used at AST resolve time.
@@ -1282,6 +1285,91 @@ export const buildSafeguardSliderTokenMap = (
   return map
 }
 
+/**
+ * Build the `id=TOKEN → { questionId, optionId }` map the cross-domain OPTION write
+ * bridge uses to translate a recipe option's `set`/`unset`/`excl` token into the
+ * safeguard option it must (de)select. SSOT for both the NoteDialog change handler
+ * and load-time seeding — the same pair of callers as the slider map above.
+ * Only radio/checkbox options carrying an explicit `id=TOKEN` contribute: implicit
+ * numeric tokens are question-local by contract, and sliders belong to the slider map.
+ * First occurrence wins, mirroring in-domain explicit-token resolution.
+ */
+export const buildSafeguardOptionTokenMap = (
+  questions: readonly SafeguardNoteQuestionDefinition[],
+): Map<string, CrossDomainOptionTarget> => {
+  const map = new Map<string, CrossDomainOptionTarget>()
+  for (const question of questions) {
+    for (const option of question.options) {
+      if (option.groupType === 'slider') continue
+      const token = option.token
+      // A bare 1-based index is the implicit (question-local) token — never cross-domain.
+      if (!token || /^\d+$/.test(token)) continue
+      if (!map.has(token)) map.set(token, { questionId: question.id, optionId: option.id })
+    }
+  }
+  return map
+}
+
+/**
+ * Apply cross-domain OPTION writes to stored safeguard answers — persist-on-select,
+ * exactly like the slider writes: the result is a real stored answer the user can
+ * change afterwards, not a render overlay. Each affected question goes through the
+ * same rule pass a real click takes ({@link applyQuestionSgSelectionRules}), so
+ * single-select replacement/fallback and in-domain exclusions behave identically.
+ * `shouldSkipQuestion` lets the seeding path honor its never-overwrite contract.
+ */
+export const applySafeguardOptionWrites = (
+  questions: readonly SafeguardNoteQuestionDefinition[],
+  answers: NoteSafeguardOverridesAnswers,
+  writes: readonly CrossDomainOptionWrite[],
+  shouldSkipQuestion: (questionId: string) => boolean = () => false,
+): NoteSafeguardOverridesAnswers => {
+  if (writes.length === 0) return answers
+  // Group writes per target question, preserving directive order within each.
+  const byQuestion = new Map<string, CrossDomainOptionWrite[]>()
+  for (const write of writes) {
+    const list = byQuestion.get(write.questionId)
+    if (list) list.push(write)
+    else byQuestion.set(write.questionId, [write])
+  }
+  const next: NoteSafeguardOverridesAnswers = { ...answers }
+  let changed = false
+  for (const [questionId, questionWrites] of byQuestion) {
+    if (shouldSkipQuestion(questionId)) continue
+    const question = questions.find((q) => q.id === questionId)
+    if (!question) continue
+    // Freshest stored answer wins over the resolved one so a slider write applied in the
+    // same batch (change handler) or seed pass is preserved; fall back to the question's
+    // resolved answer (defaults included) for untouched questions.
+    const current = next[questionId] ?? question.answer
+    const { optionIds, sliderValue } = buildSafeguardAnswerParts(current)
+    const ids = new Set(optionIds)
+    // Apply directives in order; the last select/deselect feeds the rule pass's tie-breaks.
+    let preferredId: string | undefined
+    let removedId: string | undefined
+    for (const write of questionWrites) {
+      if (write.action === 'select') { ids.add(write.optionId); preferredId = write.optionId }
+      else { ids.delete(write.optionId); removedId = write.optionId }
+    }
+    const ruled = applyQuestionSgSelectionRules(Array.from(ids), question, preferredId, removedId)
+    const ruledSet = new Set(ruled)
+    // Store option ids in the question's option order (same shape the dialog persists).
+    const ordered = question.options.filter((o) => ruledSet.has(o.id)).map((o) => o.id)
+    const candidate = sliderValue != null ? [...ordered, sliderValue] : ordered
+    // Same storage rule as the dialog handler: default-matching answers stay implicit.
+    if (safeguardAnswerMatchesDefault(question, candidate)) {
+      if (next[questionId] !== undefined) { delete next[questionId]; changed = true }
+      continue
+    }
+    // Skip no-op writes so callers keep reference equality when nothing moved.
+    const prevStored = next[questionId]
+    if (prevStored && prevStored.length === candidate.length && prevStored.every((v, i) => v === candidate[i])) continue
+    next[questionId] = candidate
+    changed = true
+  }
+  return changed ? next : answers
+}
+
 // ── Resolution function ───────────────────────────────────────────────────────
 
 /**
@@ -1335,7 +1423,10 @@ export const resolveNoteSafeguardOverridesTags = (
   for (const question of questions) {
     for (const option of question.options) {
       if (option.groupType !== 'slider' || !option.token) continue
-      const raw = answers?.[question.id]?.[0] ?? ''
+      // A stored answer may mix radio option ids with the slider value (the dialog
+      // persists [optionIds…, sliderValue]) — split via the SSOT instead of reading [0],
+      // which silently fell back to the slider default whenever a radio id came first.
+      const raw = buildSafeguardAnswerParts(answers?.[question.id] ?? []).sliderValue ?? ''
       const val = Number.parseFloat(raw)
       const def = option.sliderDefault ?? option.sliderMin ?? 1
       sliderValueByToken.set(option.token, Number.isFinite(val) ? val : def)
@@ -1355,7 +1446,10 @@ export const resolveNoteSafeguardOverridesTags = (
       }
       // For slider groups: resolve $count / $value (and arithmetic ASTs) to numeric values.
       if (option.groupType === 'slider') {
-        const rawAnswer = answers?.[question.id]?.[0]
+        // Same SSOT split as above: the slider value may sit AFTER radio option ids in the
+        // stored answer. `undefined` (no slider component) keeps the unanswered semantics
+        // for the toggle-default check below.
+        const rawAnswer = buildSafeguardAnswerParts(answers?.[question.id] ?? []).sliderValue ?? undefined
         // A toggle that is off (explicit sentinel, or unanswered with default=off) routes to
         // the option's else block — the same "disabled" path an unchecked checkbox would take.
         const toggleOff = option.sliderToggle != null
