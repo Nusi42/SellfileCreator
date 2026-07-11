@@ -132,7 +132,7 @@ test('every condition-kind option seeds a parse-valid or completable default vie
 
 test('collectKnownSelectorTags surfaces the tags used across the note', () => {
   const tags = collectKnownSelectorTags(note)
-  for (const expected of ['marius', 'utility', 'scarce', 'setbonus', 'acc', 'spd']) {
+  for (const expected of ['marius', 'utility', 'scarce', 'setbonus', 'accessory', 'spd']) {
     assert.ok(tags.includes(expected), `known tags should include '${expected}'`)
   }
 })

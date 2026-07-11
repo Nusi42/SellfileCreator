@@ -8332,7 +8332,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8368,7 +8368,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8426,7 +8426,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8478,7 +8478,7 @@
         "name": "Banner - Any Set (UDK)"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8534,7 +8534,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8578,7 +8578,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8622,7 +8622,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8666,7 +8666,7 @@
         "name": "Banner - Any Set"
       },
       "Tags": [
-        "acc",
+        "accessory",
         "midgame"
       ],
       "keep": true,
@@ -8740,7 +8740,7 @@
         "name": "Amulet - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8774,7 +8774,7 @@
         "name": "Amulet - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8820,8 +8820,8 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "acc",
-        "acc_flat"
+        "accessory",
+        "accessory_flat"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8871,7 +8871,7 @@
         "name": "Amulet - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8906,8 +8906,8 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "acc",
-        "acc_flat"
+        "accessory",
+        "accessory_flat"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -8955,7 +8955,7 @@
         "name": "Amulet - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9010,7 +9010,7 @@
         "name": "Amulet - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9087,7 +9087,7 @@
         "name": "Ring - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9131,7 +9131,7 @@
         "name": "Ring - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9175,7 +9175,7 @@
         "name": "Ring - Any Set"
       },
       "Tags": [
-        "acc"
+        "accessory"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9241,8 +9241,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9280,8 +9280,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9336,8 +9336,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9385,8 +9385,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9434,8 +9434,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9490,8 +9490,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9546,8 +9546,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9595,8 +9595,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9644,8 +9644,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9685,8 +9685,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9741,8 +9741,8 @@
         "name": "Banner - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9811,8 +9811,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9848,8 +9848,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9908,8 +9908,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -9966,8 +9966,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10005,8 +10005,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10067,8 +10067,8 @@
         "name": "Amulet - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10149,8 +10149,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10195,8 +10195,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10241,8 +10241,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc5"
+        "accessory",
+        "accessory5"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10287,8 +10287,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10335,8 +10335,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -10383,8 +10383,8 @@
         "name": "Ring - Limited Sets"
       },
       "Tags": [
-        "acc",
-        "acc6"
+        "accessory",
+        "accessory6"
       ],
       "keep": true,
       "SellfileVisibility": "Active",
@@ -20055,7 +20055,7 @@
     "  cb \"`Keep 5★ accessories`\"",
     "     \"[[de]]`5★ Schmuckstücke behalten`\"",
     "     \"Rings, amulets, banners.\"",
-    "     \"[[de]]Ringe, Amulette, Banner.\" id=keep_acc { else { @tag=acc5 { rank=6 } } }",
+    "     \"[[de]]Ringe, Amulette, Banner.\" id=keep_acc { else { @tag=accessory5 { rank=6 } } }",
     "  cb \"`Keep 5★ speed gear`\"",
     "     \"[[de]]`5★ SPD-Ausrüstung behalten`\"",
     "     \"SPD artifacts and banners, any set.\"",
@@ -20103,7 +20103,7 @@
     "  rb \"`Very few`\"",
     "     \"[[de]]`Sehr wenige`\"",
     "     \"All accessories need only **2** good substats.\"",
-    "     \"[[de]]Alle Schmuckstücke brauchen nur **2** gute Unterwerte.\" id=acc_rolls_22 { @tag=acc and lockedminrolls=3 { lockedminrolls=2 } @tag=acc and minrolls=3 { minrolls=2 } @tag=acc and minsubstats=3 { minsubstats=2 } @tag=acc and substatmin=2 { substatmin=1 } @tag=acc and substatmin=3 { substatmin=2 } @tag=acc { autolate=rare } }",
+    "     \"[[de]]Alle Schmuckstücke brauchen nur **2** gute Unterwerte.\" id=acc_rolls_22 { @tag=accessory and lockedminrolls=3 { lockedminrolls=2 } @tag=accessory and minrolls=3 { minrolls=2 } @tag=accessory and minsubstats=3 { minsubstats=2 } @tag=accessory and substatmin=2 { substatmin=1 } @tag=accessory and substatmin=3 { substatmin=2 } @tag=accessory { autolate=rare } }",
     "  rb \"`Few`\"",
     "     \"[[de]]`Wenige`\"",
     "     \"Standard spider accessories need **3** good substats; everything else only **2**.\"",
@@ -20111,11 +20111,11 @@
     "  rb \"`Many`\"",
     "     \"[[de]]`Viele`\"",
     "     \"All accessories need at least **3** good substats.\"",
-    "     \"[[de]]Alle Schmuckstücke brauchen mindestens **3** gute Unterwerte.\" id=acc_rolls_33 { @tag=acc and lockedminrolls=2 { lockedminrolls=3 } @tag=acc and minrolls=2 { minrolls=3 } @tag=acc and substatmin.SPD=1 { substatmin.SPD=2 } @tag=acc and substatmin=2 { substatmin=3 } } ",
+    "     \"[[de]]Alle Schmuckstücke brauchen mindestens **3** gute Unterwerte.\" id=acc_rolls_33 { @tag=accessory and lockedminrolls=2 { lockedminrolls=3 } @tag=accessory and minrolls=2 { minrolls=3 } @tag=accessory and substatmin.SPD=1 { substatmin.SPD=2 } @tag=accessory and substatmin=2 { substatmin=3 } } ",
     "  rb \"`Very many`\"",
     "     \"[[de]]`Sehr viele`\"",
     "     \"Standard spider accessories need **4** good substats; everything else only **3**.\"",
-    "     \"[[de]]Standard-Spinnen-Schmuckstücke brauchen **4** gute Unterwerte; alles andere nur **3**.\" id=acc_rolls_43 { @tag=acc and lockedminrolls=3 { lockedminrolls=4 } @tag=acc and lockedminrolls=2 { lockedminrolls=3 } @tag=acc and minrolls=3 { minrolls=4 } @tag=acc and minrolls=2 { minrolls=3 } @tag=acc and substatmin=3 { substatmin=4 } @tag=acc and substatmin=2 { substatmin=3 } @tag=acc and substatmin=1 { substatmin=2 } } ",
+    "     \"[[de]]Standard-Spinnen-Schmuckstücke brauchen **4** gute Unterwerte; alles andere nur **3**.\" id=acc_rolls_43 { @tag=accessory and lockedminrolls=3 { lockedminrolls=4 } @tag=accessory and lockedminrolls=2 { lockedminrolls=3 } @tag=accessory and minrolls=3 { minrolls=4 } @tag=accessory and minrolls=2 { minrolls=3 } @tag=accessory and substatmin=3 { substatmin=4 } @tag=accessory and substatmin=2 { substatmin=3 } @tag=accessory and substatmin=1 { substatmin=2 } } ",
     "--><br>",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Did you finish Faction Wars in Hard mode?\\nThis affects **Stun**, **Provoke**, **Toxic**, and similar utility sets.\\nNo matter what you pick, really good pieces are always protected.\"",
@@ -20179,15 +20179,15 @@
     "  rb \"`Mostly`\"",
     "     \"[[de]]`Meistens`\"",
     "     \"Spider accessories and **5★** must roll desired stats early.\"",
-    "     \"[[de]]Spinnen-Schmuckstücke und **5★** müssen früh die gewünschten Werte rollen.\" id=acc_early_yesspider { @tag=acc and !tag=acc6 { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } }",
+    "     \"[[de]]Spinnen-Schmuckstücke und **5★** müssen früh die gewünschten Werte rollen.\" id=acc_early_yesspider { @tag=accessory and !tag=accessory6 { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } }",
     "  rb \"`Yes`\"",
     "     \"[[de]]`Ja`\"",
     "     \"All accessories must roll desired stats early.\"",
-    "     \"[[de]]Alle Schmuckstücke müssen früh die gewünschten Werte rollen.\" id=acc_early_yes { @tag=acc { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } }",
+    "     \"[[de]]Alle Schmuckstücke müssen früh die gewünschten Werte rollen.\" id=acc_early_yes { @tag=accessory { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } }",
     "  rb \"`Yes!`\"",
     "     \"[[de]]`Ja!`\"",
     "     \"Rely mostly on Safeguards for selling accessories.\"",
-    "     \"[[de]]Verlässt sich beim Verkauf von Schmuckstücke hauptsächlich auf Schutzregeln.\" id=acc_early_veryyes { @tag=acc { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } @tag=acc5 { export=disabled } @tag=acc6 { export=disabled } @tag=acc_flat { export=disabled } }",
+    "     \"[[de]]Verlässt sich beim Verkauf von Schmuckstücke hauptsächlich auf Schutzregeln.\" id=acc_early_veryyes { @tag=accessory { keep=early rolltarget.HP=300,600,900,1200,1500,1500 rolltarget.ATK=20,40,60,80,100,100 rolltarget.DEF=20,40,60,80,100,100 } @tag=accessory5 { export=disabled } @tag=accessory6 { export=disabled } @tag=accessory_flat { export=disabled } }",
     "-->",
     "<!-- /collapse -->",
     "<!-- collapse -->",

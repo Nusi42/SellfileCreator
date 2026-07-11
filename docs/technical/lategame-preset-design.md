@@ -60,10 +60,15 @@ tie-breaker on the CDMG gloves); the slow-debuffer rules are ACC-first by design
 Bomber (Slow) rule pair intentionally exists twice (substat-priority vs main-stat-priority
 protection); each %-main banner has a second "stat-stick" variant with the inverse
 ranking (own-% 2, SPD 0.6) so the best pure-% banners are protected alongside the best
-SPD-carrying ones.
+SPD-carrying ones; and `Best SPD Banner (RES/ACC)` intentionally requires only **1**
+matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 2.
 
 ## Tag conventions (drive the Note's dynamic overrides)
 
+- No domain uses an `acc*` tag anymore (too close to "accuracy"): the safeguard rename to
+  `accessory`/`accessory_fallback` was followed by the RECIPE-domain tags — `accessory`,
+  `accessory5`, `accessory6`, `accessory_flat` (option ids like `acc_rolls_22` are ids,
+  not tags, and keep their spelling for answer compatibility).
 - Family umbrella tags (`damage`, `survivability`, `utility`, `catchrest`, `accessory`, …):
   activation radios and the `keep_safeguards` rank-bump select these, so **every** rule of
   a family toggles even when its count stays fixed.
@@ -100,5 +105,3 @@ SPD-carrying ones.
   (`ignorePreviousSafeguards` off everywhere).
 - DSL authoring trap: an option with no `{ … }` block makes the header parser swallow the
   NEXT option (it consumes tokens until a `{`). A no-op option must be written `{ }`.
-- Open item: `Best SPD Banner (RES/ACC)` uses `substatMatch` min-1 (the pre-rework preset
-  used 2); unconfirmed whether intentional.
