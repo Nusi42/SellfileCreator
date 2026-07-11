@@ -5,6 +5,8 @@ import { resolve } from 'node:path'
 import {
   buildSelectorFromFlat,
   collectKnownSelectorTags,
+  collectOverridesTagSuggestions,
+  collectSafeguardRuleTags,
   defaultViewForOption,
   flattenSelector,
   parseSelectorLeafText,
@@ -133,4 +135,20 @@ test('collectKnownSelectorTags surfaces the tags used across the note', () => {
   for (const expected of ['marius', 'utility', 'scarce', 'setbonus', 'acc', 'spd']) {
     assert.ok(tags.includes(expected), `known tags should include '${expected}'`)
   }
+})
+
+test('collectSafeguardRuleTags normalizes and de-dupes rule tags', () => {
+  // Loose casing, a nullish list, and a duplicate all collapse to one canonical set.
+  const tags = collectSafeguardRuleTags([['Attack'], null, ['attack', 'utility'], undefined])
+  assert.deepEqual(tags, ['attack', 'utility'])
+})
+
+test('collectOverridesTagSuggestions offers a rule tag never used in a selector', () => {
+  // The reported bug: a freshly-tagged safeguard ('attack') is absent from the note's
+  // selectors, so selector-only collection misses it — the union must include it.
+  assert.ok(!collectKnownSelectorTags(note).includes('attack'))
+  const suggestions = collectOverridesTagSuggestions(note, [['attack']])
+  assert.ok(suggestions.includes('attack'), 'rule tag should be suggested')
+  // Existing in-note selector tags still come through unchanged.
+  assert.ok(suggestions.includes('utility'))
 })

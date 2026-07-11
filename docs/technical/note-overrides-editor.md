@@ -56,7 +56,15 @@ following options — the lenient parser cannot flag that itself).
   (`@…`), operations as editable chips plus a field-dropdown/value-widget add row
   (enum fields render a Select), sections for cross-domain and `else` blocks, and a
   raw-DSL fallback toggle (structured→raw always works; raw→structured only when the
-  text passes the fidelity gate).
+  text passes the fidelity gate). The `tag=` / `tag in […]` value widgets are freeSolo
+  `Autocomplete`s whose suggestions come from `collectOverridesTagSuggestions(note,
+  safeguardRuleTags)` — the **union** of tags already used in the note's selectors and
+  tags defined on the live safeguard rules. Sourcing rule tags (threaded in via the
+  dialog's `safeguardRuleTags` prop, mapped from `SafeguardRule.tags` in `NoteDialog`)
+  means a freshly-tagged safeguard is offered *before* any selector references it;
+  freeSolo still lets authors type an unlisted tag. `collectKnownSelectorTags` (note
+  only) and `collectSafeguardRuleTags` (rule tags only, normalized through the shared
+  tag grammar) are the two SSOT halves the union composes.
 - `LocalizedStringField.tsx` — base + one row per `[[cc]]` variant; add-translation menu
   offers the app locales' short codes; unknown codes from the source are preserved.
 - `NoteOverridesEditButton.tsx` — the card pencil (a real `<button>`, see below).
