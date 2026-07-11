@@ -3929,7 +3929,7 @@ function SafeguardSummaryCard({
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
           {substatLabels.map((entry, idx) => (
-            <React.Fragment key={entry.key ?? idx}>
+            <React.Fragment key={entry.key}>
               {idx > 0 ? ', ' : null}
               <Box component="span" sx={{ color: entry.color }}>{entry.label}</Box>
             </React.Fragment>

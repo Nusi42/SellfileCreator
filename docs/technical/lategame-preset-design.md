@@ -57,11 +57,35 @@ defaults):
 
 Deliberate exceptions: the No-Speed damage rules invert (filler > 1, CR% 0.1 as a pure
 tie-breaker on the CDMG gloves); the slow-debuffer rules are ACC-first by design; the
-Bomber (Slow) rule pair intentionally exists twice (substat-priority vs main-stat-priority
+`Bomber - No Speed` rule pair intentionally exists twice (substat-priority vs main-stat-priority
 protection); each %-main banner has a second "stat-stick" variant with the inverse
 ranking (own-% 2, SPD 0.6) so the best pure-% banners are protected alongside the best
-SPD-carrying ones; and `Best SPD Banner (RES/ACC)` intentionally requires only **1**
+SPD-carrying ones; and the RES/ACC-main `Speed Banner` pair intentionally requires only **1**
 matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 2.
+
+## Naming convention (mirrors the recipe names)
+
+Safeguard names follow the recipe grammar — `<prefix> <Role>[ - <Scope>][ (<Variant>)]` —
+because RSL Helper shows them on gear exactly like recipe names, and the gear card
+already displays slot, set, main stat, and substats:
+
+- Prefix: `Protect: ` for keep rules, `Unique: ` for coverage floors.
+- Dash suffix = tier/scope: `- No Speed` (shared with the recipes' vocabulary) and
+  `- Across Sets` for the `*_fallback` tiers. The latter is deliberately NOT the recipes'
+  `- Any Set`: recipe "Any Set" means an empty set filter, while the safeguard fallbacks
+  keep their primary sibling's set/metaset filter and only drop `perSet` counting — one
+  pooled top-N across the matching sets instead of a floor per set.
+- Parens = a short set/stat variant only, recipe-style: `(Mercurial)`, `(Merciless)`,
+  `(RES)`, `(HP%/ATK%/DEF%)` — never scope words and never doubled.
+- **No artifact slot/row words** (`Top Row`, `Gloves`, `Chest & Boots`, …): the piece
+  shows its own slot, and the builder's separators group the chip list. Same-role rule
+  variants deliberately share one name (e.g. `Protect: Damage` ×6) — the FIRST matching
+  rule names the gear, so the shared role name is always the right caption.
+- **No ranking words** (`Best`, …): every safeguard keeps the best N of whatever it
+  matches, so "Best" is the mechanism, not the role. The old `Best SPD` rules are
+  `Protect: Speed` (the recipes' role word), `Best % Ring` is `Protect: % Ring`, etc.
+- Accessory rules DO keep `Ring`/`Amulet`/`Banner` — the recipes use the accessory slot
+  as the role word (`Ring - Any Set`), and the `Unique:` floors are per-slot by content.
 
 ## Tag conventions (drive the Note's dynamic overrides)
 
@@ -113,7 +137,7 @@ matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 
   the catch-alls last — gear displays the FIRST matching rule's name, so first match
   should imply the best match. Order is otherwise behavior-neutral
   (`ignorePreviousSafeguards` off everywhere). One deliberate deviation: the
-  slow-debuffer ACCESSORY rules (`Debuffer (Slow) Amulet` / `Debuffer (Slow) Banner`)
+  slow-debuffer ACCESSORY rules (`Debuffer Amulet - No Speed` / `Debuffer Banner - No Speed`)
   live in the Accessories section (not next to their artifact slow-debuffer siblings),
   and the accessory rules keep a strict slot order — rings, then amulets, then
   banners — in BOTH the Accessories section and the Mercurial section's accessory tail.

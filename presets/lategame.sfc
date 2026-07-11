@@ -11474,7 +11474,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD"
+        "name": "Protect: Speed"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -11532,7 +11532,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD"
+        "name": "Protect: Speed"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -11588,7 +11588,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD"
+        "name": "Protect: Speed"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -11651,7 +11651,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Boots"
+        "name": "Protect: Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -11726,7 +11726,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Boots"
+        "name": "Protect: Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -11857,7 +11857,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set (Any Set)"
+        "name": "Protect: Speed Set - Across Sets"
       },
       "requiredCount": 16,
       "activation": "anticipateGaps",
@@ -11917,7 +11917,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set Boots"
+        "name": "Protect: Speed Set"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -11991,7 +11991,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set Boots"
+        "name": "Protect: Speed Set"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -12065,7 +12065,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set Boots (Any Set)"
+        "name": "Protect: Speed Set - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -12277,7 +12277,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Bomber (Slow)"
+        "name": "Protect: Bomber - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12334,7 +12334,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Bomber (Slow)"
+        "name": "Protect: Bomber - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12394,7 +12394,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow)"
+        "name": "Protect: Debuffer - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12449,7 +12449,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow)"
+        "name": "Protect: Debuffer - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12511,7 +12511,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow)"
+        "name": "Protect: Debuffer - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12566,7 +12566,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow)"
+        "name": "Protect: Debuffer - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -12635,7 +12635,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Any Set)"
+        "name": "Protect: Debuffer - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -12702,7 +12702,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Chestplate and Boots (SPD/ACC)"
+        "name": "Protect: Debuffer"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -12769,7 +12769,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Chestplate and Boots (SPD/ACC, Set Agnostic)"
+        "name": "Protect: Debuffer - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -12843,7 +12843,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row"
+        "name": "Protect: Damage"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -12923,7 +12923,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row (Any Set)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -12992,7 +12992,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+HP%/ATK%)"
+        "name": "Protect: Damage"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -13064,7 +13064,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+HP%/DEF%)"
+        "name": "Protect: Damage"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -13136,7 +13136,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (HP%/ATK%/DEF%+CR%CDMG%)"
+        "name": "Protect: Damage (HP%/ATK%/DEF%)"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -13207,7 +13207,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+ACC)"
+        "name": "Protect: Damage"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -13277,7 +13277,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (Any Set)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13352,7 +13352,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Chestplate and Boots"
+        "name": "Protect: Damage"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -13426,7 +13426,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Chestplate (RES)"
+        "name": "Protect: Damage (RES)"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -13494,7 +13494,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Chestplate and Boots (Any Set)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13568,7 +13568,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (ACC, Set Agnostic)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13638,7 +13638,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (HP%, Set Agnostic)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13708,7 +13708,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (ATK%, Set Agnostic)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13778,7 +13778,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (DEF%, Set Agnostic)"
+        "name": "Protect: Damage - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -13848,7 +13848,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row (No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -13917,7 +13917,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row (No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -13986,7 +13986,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row (No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14055,7 +14055,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gloves (CDMG% - No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14121,7 +14121,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gloves (CDMG% - No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14187,7 +14187,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gloves (CDMG% - No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14253,7 +14253,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gloves (HP%/ATK%/DEF%+CR%/CDMG% - No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14322,7 +14322,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Chestplate and Boots (No Speed)"
+        "name": "Protect: Damage - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14397,7 +14397,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Crit Shield Top Row"
+        "name": "Protect: Crit Shield"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14459,7 +14459,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Crit Shield Gauntlets"
+        "name": "Protect: Crit Shield"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14527,7 +14527,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Crit Shield Chestplate and Boots"
+        "name": "Protect: Crit Shield"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14606,7 +14606,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Top Row"
+        "name": "Protect: Survivability"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14675,7 +14675,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Top Row (No Speed)"
+        "name": "Protect: Survivability - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14736,7 +14736,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Top Row (Any Set)"
+        "name": "Protect: Survivability - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -14805,7 +14805,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Bottom Row"
+        "name": "Protect: Survivability"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14879,7 +14879,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Bottom Row (No Speed)"
+        "name": "Protect: Survivability - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -14944,7 +14944,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Bottom Row (Any Set)"
+        "name": "Protect: Survivability - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -15024,7 +15024,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Top Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15088,7 +15088,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Top Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15156,7 +15156,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Top Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15224,7 +15224,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Bottom Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15294,7 +15294,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Bottom Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15370,7 +15370,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utilities (Bottom Row)"
+        "name": "Protect: Utility"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15458,7 +15458,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15516,7 +15516,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -15573,7 +15573,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15631,7 +15631,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -15688,7 +15688,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15746,7 +15746,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -15803,7 +15803,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15858,7 +15858,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring"
+        "name": "Protect: % Ring"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16023,7 +16023,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow) Amulet"
+        "name": "Protect: Debuffer Amulet - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16178,7 +16178,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (ACC/RES)"
+        "name": "Protect: CDMG Amulet"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16234,7 +16234,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (ACC/RES)"
+        "name": "Protect: CDMG Amulet"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16289,7 +16289,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (HP/ATK/DEF)"
+        "name": "Protect: CDMG Amulet"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16344,7 +16344,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (Merciless)"
+        "name": "Protect: CDMG Amulet (Merciless)"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16531,7 +16531,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow) Banner"
+        "name": "Protect: Debuffer Banner - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16586,7 +16586,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow) Banner"
+        "name": "Protect: Debuffer Banner - No Speed"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16655,7 +16655,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16714,7 +16714,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16773,7 +16773,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16831,7 +16831,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16889,7 +16889,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16948,7 +16948,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -17007,7 +17007,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17065,7 +17065,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17123,7 +17123,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -17182,7 +17182,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -17241,7 +17241,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17299,7 +17299,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17357,7 +17357,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -17410,7 +17410,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner"
+        "name": "Protect: % Banner"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17462,7 +17462,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Merciless)"
+        "name": "Protect: % Banner (Merciless)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -17517,7 +17517,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Banner"
+        "name": "Protect: Speed Banner"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -17569,7 +17569,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Banner"
+        "name": "Protect: Speed Banner"
       },
       "requiredCount": 16,
       "activation": "anticipateGaps",
@@ -17620,7 +17620,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Banner (RES/ACC)"
+        "name": "Protect: Speed Banner"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -17681,7 +17681,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best SPD Banner (RES/ACC)"
+        "name": "Protect: Speed Banner"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -17869,7 +17869,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Top Row (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 8,
       "activation": "anticipateGaps",
@@ -17940,7 +17940,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+HP%/ATK%) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18003,7 +18003,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+HP%/DEF%) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18066,7 +18066,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Gauntlets (CDMG%+ACC) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18127,7 +18127,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Chestplate and Boots (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18192,7 +18192,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (ACC) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18252,7 +18252,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (HP%) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18312,7 +18312,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (ATK%) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18372,7 +18372,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage Boots (DEF%) (Mercurial)"
+        "name": "Protect: Damage (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -18432,7 +18432,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Top Row (Mercurial)"
+        "name": "Protect: Survivability (Mercurial)"
       },
       "requiredCount": 8,
       "activation": "anticipateGaps",
@@ -18495,7 +18495,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Bottom Row (Mercurial)"
+        "name": "Protect: Survivability (Mercurial)"
       },
       "requiredCount": 8,
       "activation": "anticipateGaps",
@@ -18569,7 +18569,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
+        "name": "Protect: % Ring (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -18627,7 +18627,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
+        "name": "Protect: % Ring (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -18685,7 +18685,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
+        "name": "Protect: % Ring (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -18802,7 +18802,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (ACC/RES) (Mercurial)"
+        "name": "Protect: CDMG Amulet (Mercurial)"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -18858,7 +18858,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best CDMG Amulet (Mercurial)"
+        "name": "Protect: CDMG Amulet (Mercurial)"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -18983,7 +18983,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -19042,7 +19042,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -19101,7 +19101,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -19160,7 +19160,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -19221,7 +19221,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -19284,7 +19284,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Best % Banner (Mercurial)"
+        "name": "Protect: % Banner (Mercurial)"
       },
       "requiredCount": 4,
       "activation": "anticipateGaps",
@@ -19345,7 +19345,7 @@
     },
     {
       "appearance": {
-        "name": "Unique: Accessories (1 per mainstat/slot)",
+        "name": "Unique: Accessories (1 per Main & Slot)",
         "fgColor": "#FF7777"
       },
       "requiredCount": 1,
@@ -19391,7 +19391,7 @@
     },
     {
       "appearance": {
-        "name": "Unique: Accessories (min 4 Rings)",
+        "name": "Unique: Rings (min 4)",
         "fgColor": "#FF7777"
       },
       "requiredCount": 4,
@@ -19435,7 +19435,7 @@
     },
     {
       "appearance": {
-        "name": "Unique: Accessories (min 5 Amulets)",
+        "name": "Unique: Amulets (min 5)",
         "fgColor": "#FF7777"
       },
       "requiredCount": 5,
@@ -19479,7 +19479,7 @@
     },
     {
       "appearance": {
-        "name": "Unique: Accessories (min 6 Banners)",
+        "name": "Unique: Banners (min 6)",
         "fgColor": "#FF7777"
       },
       "requiredCount": 6,
@@ -19529,7 +19529,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Artifacts (Top Row)",
+        "name": "Protect: Catch-All",
         "fgColor": "#ecc690"
       },
       "requiredCount": 1,
@@ -19609,7 +19609,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Artifacts (Top Row)",
+        "name": "Protect: Catch-All",
         "fgColor": "#ecc690"
       },
       "requiredCount": 1,
@@ -19683,7 +19683,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Artifacts (Bottom Row)",
+        "name": "Protect: Catch-All",
         "fgColor": "#ecc690"
       },
       "requiredCount": 1,
@@ -19772,7 +19772,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Artifacts (Bottom Row)",
+        "name": "Protect: Catch-All",
         "fgColor": "#ecc690"
       },
       "requiredCount": 1,
@@ -19859,7 +19859,7 @@
     },
     {
       "appearance": {
-        "name": "Unique: Accessories (5 per slot per faction)",
+        "name": "Unique: Accessories (5 per Slot & Faction)",
         "fgColor": "#FF7777"
       },
       "requiredCount": 5,
