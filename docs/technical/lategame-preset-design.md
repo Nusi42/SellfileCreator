@@ -76,7 +76,10 @@ already displays slot, set, main stat, and substats:
   keep their primary sibling's set/metaset filter and only drop `perSet` counting — one
   pooled top-N across the matching sets instead of a floor per set.
 - Parens = a short set/stat variant only, recipe-style: `(Mercurial)`, `(Merciless)`,
-  `(RES)`, `(HP%/ATK%/DEF%)` — never scope words and never doubled.
+  `(RES)`, `(HP%/ATK%/DEF%)` — never scope words and never doubled. A stat variant is
+  only written where it deviates from the slot's norm (the `(HP%/ATK%/DEF%)`-main
+  GAUNTLETS rules deviate from the CDMG%-main damage norm; the chest/boots siblings
+  stay plain because those slots cannot roll CDMG% mains at all).
 - **No artifact slot/row words** (`Top Row`, `Gloves`, `Chest & Boots`, …): the piece
   shows its own slot, and the builder's separators group the chip list. Same-role rule
   variants deliberately share one name (e.g. `Protect: Damage` ×6) — the FIRST matching

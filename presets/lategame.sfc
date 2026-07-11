@@ -11798,7 +11798,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set"
+        "name": "Protect: Speedy Sets"
       },
       "requiredCount": 6,
       "activation": "anticipateGaps",
@@ -11857,7 +11857,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set - Across Sets"
+        "name": "Protect: Speedy Sets - Across Sets"
       },
       "requiredCount": 16,
       "activation": "anticipateGaps",
@@ -11917,7 +11917,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set"
+        "name": "Protect: Speedy Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -11991,7 +11991,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set"
+        "name": "Protect: Speedy Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -12065,7 +12065,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Set - Across Sets"
+        "name": "Protect: Speedy Sets - Across Sets"
       },
       "requiredCount": 32,
       "activation": "anticipateGaps",
@@ -14253,7 +14253,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Damage - No Speed"
+        "name": "Protect: Damage - No Speed (HP%/ATK%/DEF%)"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
