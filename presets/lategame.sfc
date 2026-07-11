@@ -16210,7 +16210,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Amulet - No Speed"
+        "name": "Protect: Debuffer Amulet"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16718,7 +16718,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Banner - No Speed"
+        "name": "Protect: Debuffer Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16773,7 +16773,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Banner - No Speed"
+        "name": "Protect: Debuffer Banner"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",

@@ -166,7 +166,9 @@ already displays slot, set, main stat, and substats:
   the catch-alls last — gear displays the FIRST matching rule's name, so first match
   should imply the best match. Order is otherwise behavior-neutral
   (`ignorePreviousSafeguards` off everywhere). One deliberate deviation: the
-  slow-debuffer ACCESSORY rules (`Debuffer Amulet - No Speed` / `Debuffer Banner - No Speed`)
+  slow-debuffer ACCESSORY rules (`Debuffer Amulet` / `Debuffer Banner` — no accessory
+  rule carries `- No Speed`: banners rank SPD like any banner, and amulets cannot roll
+  SPD at all, so the suffix would mark nothing)
   live in the Accessories section (not next to their artifact slow-debuffer siblings),
   and the accessory rules keep a strict slot order — rings, then amulets, then
   banners — in BOTH the Accessories section and the Mercurial section's accessory tail.

@@ -205,6 +205,7 @@ Q "Keep a minimum of **every** artifact kin" cols=2
   min_catchrest_pieces s blk:count sld:1-16/2 unit: pieces
 Q "Do you want to protect **artifacts** (no" cols=2
   impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%
+Q "" cols=2 SPACER
 Q "How many of the best SPD banners **per f" cols=2
   #1 s blk:activation
   #2 s blk:activation
