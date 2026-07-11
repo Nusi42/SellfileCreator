@@ -217,6 +217,12 @@ Q "Protect the best accessories (rings, amu" cols=2
   #3 s * blk:activation
   #4 s blk:activation
   min_acc_pieces s blk:count sld:1-9/3 unit: pieces
+Q "Protect the best **Mercurial** accessori" cols=2
+  #1 s blk:activation
+  #2 s blk:activation
+  #3 s * blk:activation
+  #4 s blk:activation
+  min_mercacc_pieces s blk:count sld:1-9/3 unit: pieces
 Q "Do you want to protect **accessories** (" cols=2
   impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%`
 

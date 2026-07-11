@@ -71,10 +71,13 @@ already displays slot, set, main stat, and substats:
 
 - Prefix: `Protect: ` for keep rules, `Unique: ` for coverage floors.
 - Dash suffix = tier/scope: `- No Speed` (shared with the recipes' vocabulary) and
-  `- Across Sets` for the `*_fallback` tiers. The latter is deliberately NOT the recipes'
-  `- Any Set`: recipe "Any Set" means an empty set filter, while the safeguard fallbacks
-  keep their primary sibling's set/metaset filter and only drop `perSet` counting — one
-  pooled top-N across the matching sets instead of a floor per set.
+  `- Across Sets` for the beyond-the-per-set-floors tiers. The latter is deliberately NOT
+  the recipes' `- Any Set`, and it covers two shapes: ARTIFACT fallbacks keep their
+  primary sibling's set/metaset filter and only drop `perSet` counting (one pooled top-N
+  across the matching sets), while ACCESSORY across-sets tiers (and the truly-any-set
+  artifact copies) have an empty set+metaset filter next to their meta-scoped floor
+  siblings. Every non-Mercurial accessory rule with an empty filter carries the suffix,
+  including the fixed-count ones (Bomber Amulet, the flat-tiebreak CDMG Amulet).
 - Parens = a short set/stat variant only, recipe-style: `(Mercurial)`, `(Merciless)`,
   `(RES)`, `(HP%/ATK%/DEF%)` — never scope words and never doubled. A stat variant is
   only written where it deviates from the slot's norm (the `(HP%/ATK%/DEF%)`-main
@@ -96,16 +99,24 @@ already displays slot, set, main stat, and substats:
   `accessory` was followed by the RECIPE-domain tags — `accessory`, `accessory5`,
   `accessory6`, `accessory_flat` (option ids like `acc_rolls_22` are ids, not tags, and
   keep their spelling for answer compatibility).
-- Every safeguard rule carries exactly one **family tag** (`spd`, `speed_set`, `debuffer`,
+- Every safeguard rule carries one **family tag** (`spd`, `speed_set`, `debuffer`,
   `slowdebuffer`, `bomber`, `damage`, `crit_shield`, `survivability`, `utility`,
-  `mercurial`, `catchrest`, `accessory`, `spd_banner`, `fw_coverage`; accessories add
-  `accessory` alongside `spd_banner`): activation radios and the `keep_safeguards`
-  rank-bump select these, so **every** rule of a family toggles even when its count stays
-  fixed. The artifact-SPD family (`spd`) is governed by the *speed pieces* question
-  (`q_bk3r8j`, shared with `speed_set`); the SPD **banners** are their own `spd_banner`
-  family under the banner question (`q_ta25kl`) — they deliberately do NOT carry `spd`,
-  so neither question can reach across (the old shared-`spd` wiring let the banner
-  question switch off all artifact speed protection).
+  `mercurial`, `catchrest`, `accessory`, `fw_coverage`); accessory rules additionally
+  carry the **`accessory` axis tag** next to their family (`spd`+`accessory` = the SPD
+  banners, `mercurial`+`accessory` = the Mercurial accessories). There are deliberately
+  NO sub-family tags — selectors build the distinction from combinations: the *speed
+  pieces* question (`q_bk3r8j`) targets `speed_set or tag=spd and not tag=accessory`,
+  the SPD-banner question (`q_ta25kl`) `spd and tag=accessory`, the Mercurial artifact
+  question (`q_muougk`) `mercurial and not tag=accessory`, and the Mercurial-accessory
+  question (`q_mercacc`) `mercurial and tag=accessory`. Selector chains are flat and
+  LEFT-ASSOCIATIVE (`a or b and not c` ≡ `(a OR b) AND NOT c`). The trap this
+  convention carries: every new block targeting `spd` or `mercurial` MUST qualify the
+  accessory axis, or it silently reaches into the other domain (that unqualified reach
+  is exactly the old bug where the banner question switched off all artifact speed
+  protection). The Mercurial-accessory counts form a 3/4/5 ladder, so
+  `min_mercacc_pieces` (default 3) scales them via OFFSET factor tags — `div1`
+  (`$value`), `plus1` (`$value+1`), `plus2` (`$value+2`) — the additive siblings of the
+  `divN` scheme for count ladders that aren't proportional.
 - **Count scaling is a generic factor-tag scheme**: a rule scales against its family's
   slider iff it also carries a `divN` tag, and its count is `$value/N` (`div1` = the full
   slider value). Slider blocks select `@tag=<family> and tag=divN`, one block per factor
@@ -119,18 +130,21 @@ already displays slot, set, main stat, and substats:
   (`Speed`/`Debuffer - Across Sets` with empty set filters) run at HALF the family divisor
   (`spd`+`div4`, `debuffer`+`div8`) — i.e. double the count of the per-set rules they were
   copied from. `mercurial4`/`mercurial8` collapsed into `mercurial`+`div2`/`div1`.
-- One collision to keep in mind: the SPD-banner fallback is `spd_banner`+`accessory`+`div1`,
-  and the accessory question's slider therefore selects
-  `@tag=accessory and not tag=spd_banner and tag=div1` — without the exclusion,
-  `min_acc_pieces` (default 3) would clobber the banner fallback's `min_spdbanner_pieces`
-  count (default 16) via last-block-wins.
+- One collision to keep in mind: the SPD-banner fallback (`spd`+`accessory`+`div1`) and
+  the Mercurial accessories (`mercurial`+`accessory`+`div1`) share `accessory`+`div1`
+  with the plain accessory floors, so the accessory question's slider selects
+  `@tag=accessory and not tag=spd and not tag=mercurial and tag=div1` — without the
+  exclusions, `min_acc_pieces` (default 3) would clobber the banner fallback's
+  `min_spdbanner_pieces` count (default 16) and the Mercurial-accessory counts via
+  last-block-wins.
 - **Artifact vs accessory is a hard tag boundary**: every safeguard rule is slot-pure
   (artifact slots or Ring/Amulet/Banner, never both — the mixed slow-debuffer rules were
   split), and the `keep_safeguards` checkbox's `else` block clamps **every artifact
   family** to 6★ (`debuffer`, `slowdebuffer`, `bomber`, `damage`, `crit_shield`,
-  `survivability`, `utility`, `spd`, `speed_set`, `mercurial`, `catchrest`). Accessory
-  rules (including the `spd_banner` family) are deliberately exempt: 5★ accessories stay
-  reserved even at Endgame.
+  `survivability`, `utility`, `speed_set`, `catchrest`, plus `spd and not tag=accessory`
+  and `mercurial and not tag=accessory`). Accessory rules (including the SPD banners and
+  Mercurial accessories) are deliberately exempt: 5★ accessories stay reserved even at
+  Endgame.
 
 ## Override wiring notes
 

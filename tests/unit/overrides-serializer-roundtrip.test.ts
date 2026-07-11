@@ -41,11 +41,11 @@ const stripKeys = (value: unknown): unknown => JSON.parse(
 )
 
 test('listOverrideBlocks finds every marker with exact spans', () => {
-  // 14 recipe + 10 safeguard markers ship in the lategame preset (2026-07 rework: the
+  // 14 recipe + 11 safeguard markers ship in the lategame preset (2026-07 rework: the
   // utility and accessory activation cards were added and the catch-all card replaced
-  // the former empty layout-spacer marker).
+  // the former empty layout-spacer marker; the Mercurial-accessory card followed).
   assert.equal(refs.filter((r) => r.domain === 'recipe').length, 14)
-  assert.equal(refs.filter((r) => r.domain === 'safeguard').length, 10)
+  assert.equal(refs.filter((r) => r.domain === 'safeguard').length, 11)
   for (const ref of refs) {
     assert.equal(note.slice(ref.from, ref.to), ref.raw, 'span must reproduce the raw slice')
   }

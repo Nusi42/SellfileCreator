@@ -10213,7 +10213,8 @@
     },
     {
       "appearance": {
-        "name": "For Chaos Ore"
+        "name": "For Chaos Ore",
+        "fgColor": "#FF22FF"
       },
       "Separator": true
     },
@@ -15702,7 +15703,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Ring"
+        "name": "Protect: % Ring - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -15817,7 +15818,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Ring"
+        "name": "Protect: % Ring - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -15932,7 +15933,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Ring"
+        "name": "Protect: % Ring - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16044,7 +16045,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Ring"
+        "name": "Protect: % Ring - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16157,7 +16158,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer Amulet"
+        "name": "Protect: Debuffer Amulet - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16314,7 +16315,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Bomber Amulet"
+        "name": "Protect: Bomber Amulet - Across Sets"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16420,7 +16421,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: CDMG Amulet"
+        "name": "Protect: CDMG Amulet - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16475,7 +16476,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: CDMG Amulet"
+        "name": "Protect: CDMG Amulet - Across Sets"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -16651,7 +16652,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Survivability Amulet"
+        "name": "Protect: Survivability Amulet - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -16959,7 +16960,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17017,7 +17018,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17193,7 +17194,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17251,7 +17252,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17427,7 +17428,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17485,7 +17486,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17596,7 +17597,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: % Banner"
+        "name": "Protect: % Banner - Across Sets"
       },
       "requiredCount": 3,
       "activation": "anticipateGaps",
@@ -17739,7 +17740,7 @@
         "factions": []
       },
       "tags": [
-        "spd_banner",
+        "spd",
         "accessory",
         "div8"
       ],
@@ -17756,7 +17757,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Banner"
+        "name": "Protect: Speed Banner - Across Sets"
       },
       "requiredCount": 16,
       "activation": "anticipateGaps",
@@ -17790,7 +17791,7 @@
         "factions": []
       },
       "tags": [
-        "spd_banner",
+        "spd",
         "accessory",
         "div1"
       ],
@@ -17846,7 +17847,7 @@
         "factions": []
       },
       "tags": [
-        "spd_banner",
+        "spd",
         "accessory",
         "div8"
       ],
@@ -17869,7 +17870,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Speed Banner"
+        "name": "Protect: Speed Banner - Across Sets"
       },
       "requiredCount": 2,
       "activation": "anticipateGaps",
@@ -17906,7 +17907,7 @@
         "factions": []
       },
       "tags": [
-        "spd_banner",
+        "spd",
         "accessory",
         "div8"
       ],
@@ -18773,7 +18774,7 @@
       "appearance": {
         "name": "Protect: % Ring (Mercurial)"
       },
-      "requiredCount": 2,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18809,7 +18810,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18831,7 +18834,7 @@
       "appearance": {
         "name": "Protect: % Ring (Mercurial)"
       },
-      "requiredCount": 2,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18867,7 +18870,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18889,7 +18894,7 @@
       "appearance": {
         "name": "Protect: % Ring (Mercurial)"
       },
-      "requiredCount": 2,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18925,7 +18930,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18953,7 +18960,7 @@
       "appearance": {
         "name": "Protect: Debuffer Amulet (Mercurial)"
       },
-      "requiredCount": 2,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -18990,7 +18997,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19006,7 +19015,7 @@
       "appearance": {
         "name": "Protect: CDMG Amulet (Mercurial)"
       },
-      "requiredCount": 3,
+      "requiredCount": 4,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -19042,7 +19051,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "plus1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19062,7 +19073,7 @@
       "appearance": {
         "name": "Protect: CDMG Amulet (Mercurial)"
       },
-      "requiredCount": 3,
+      "requiredCount": 4,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -19098,7 +19109,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "plus1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19120,7 +19133,7 @@
       "appearance": {
         "name": "Protect: Survivability Amulet (Mercurial)"
       },
-      "requiredCount": 3,
+      "requiredCount": 4,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -19157,7 +19170,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "plus1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19187,7 +19202,7 @@
       "appearance": {
         "name": "Protect: % Banner (Mercurial)"
       },
-      "requiredCount": 2,
+      "requiredCount": 3,
       "activation": "anticipateGaps",
       "countMode": {
         "perRule": false,
@@ -19223,7 +19238,9 @@
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19237,185 +19254,6 @@
       ],
       "substatWeights": {
         "HP%": 0.6,
-        "SPD": 2
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: % Banner (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ATK"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "ATK%"
-      ],
-      "substatWeights": {
-        "ATK%": 0.6,
-        "SPD": 2
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: % Banner (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "DEF"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "DEF%": 0.6,
-        "SPD": 2
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: % Banner (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "RES"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.8,
-        "DEF%": 0.7,
         "SPD": 2
       },
       "weightMainStatByRank": true,
@@ -19456,12 +19294,136 @@
           "Mythical"
         ],
         "mainStats": [
-          "ACC"
+          "ATK"
         ],
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "div1"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "ATK%": 0.6,
+        "SPD": 2
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: % Banner (Mercurial)"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "mercurial",
+        "accessory",
+        "div1"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 0.6,
+        "SPD": 2
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: % Banner (Mercurial)"
+      },
+      "requiredCount": 3,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "RES"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "mercurial",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19472,13 +19434,11 @@
       "substats": [
         "SPD",
         "HP%",
-        "ATK%",
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.65,
-        "ATK%": 0.65,
-        "DEF%": 0.65,
+        "HP%": 0.8,
+        "DEF%": 0.7,
         "SPD": 2
       },
       "weightMainStatByRank": true,
@@ -19518,11 +19478,78 @@
           "Legendary",
           "Mythical"
         ],
+        "mainStats": [
+          "ACC"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "mercurial",
+        "accessory",
+        "plus1"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.65,
+        "ATK%": 0.65,
+        "DEF%": 0.65,
+        "SPD": 2
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: % Banner (Mercurial)"
+      },
+      "requiredCount": 5,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
         "mainStats": [],
         "factions": []
       },
       "tags": [
-        "accessory"
+        "mercurial",
+        "accessory",
+        "plus2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19541,7 +19568,8 @@
     },
     {
       "appearance": {
-        "name": "Accessory Minimums"
+        "name": "Accessory Minimums",
+        "fgColor": "#FF7777"
       },
       "Separator": true
     },
@@ -19725,7 +19753,8 @@
     },
     {
       "appearance": {
-        "name": "Catch-All Artifacts"
+        "name": "Catch-All Artifacts",
+        "fgColor": "#ecc690"
       },
       "Separator": true
     },
@@ -20055,7 +20084,8 @@
     },
     {
       "appearance": {
-        "name": "Faction Wars Coverage"
+        "name": "Faction Wars Coverage",
+        "fgColor": "#FF7777"
       },
       "Separator": true
     },
@@ -20167,7 +20197,7 @@
     "  cb \"`Keep 5★ safeguards`\"",
     "     \"[[de]]`5★ Schutzregeln behalten`\"",
     "     \"Let the safety-net reserve 5★ artifacts too.\"",
-    "     \"[[de]]Lässt das Sicherheitsnetz auch 5★-Artefakte reservieren.\" id=keep_safeguards { else { safeguard @tag=debuffer { rank=6 } safeguard @tag=slowdebuffer { rank=6 } safeguard @tag=bomber { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=crit_shield { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=spd { rank=6 } safeguard @tag=speed_set { rank=6 } safeguard @tag=mercurial { rank=6 } safeguard @tag=catchrest { rank=6 } } }",
+    "     \"[[de]]Lässt das Sicherheitsnetz auch 5★-Artefakte reservieren.\" id=keep_safeguards { else { safeguard @tag=debuffer { rank=6 } safeguard @tag=slowdebuffer { rank=6 } safeguard @tag=bomber { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=crit_shield { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=spd and not tag=accessory { rank=6 } safeguard @tag=speed_set { rank=6 } safeguard @tag=mercurial and not tag=accessory { rank=6 } safeguard @tag=catchrest { rank=6 } } }",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Are you done with all progressive missions for Marius?\\nNo matter what you pick, really good pieces are always protected.\"",
@@ -20359,7 +20389,7 @@
     "     \"[[de]]Ja, alle verkaufen\"",
     "     \"Sell the weak `Chaos Ore` pieces you were keeping. Anything you were already selling stays sold.\"",
     "     \"[[de]]Verkauft die schwachen `Chaos-Erz`-Teile, die du behalten hast. Was du ohnehin verkauft hättest, bleibt verkauft.\" id=ore_chaos_master_sell { @tag=ignore_by_safeguards { action=sell } }",
-    "-->",
+    "--><br>",
     "<!-- /collapse -->",
     "<!-- collapse -->",
     "<!-- lang -->Optional 3 — Safety-net minimums: artifacts (Safeguards)",
@@ -20374,15 +20404,15 @@
     "  q \"How many speed pieces **per slot** should be protected?\"",
     "     \"[[de]]Wie viele SPD-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=speed_set or tag=spd { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=speed_set or tag=spd and not tag=accessory { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=spd { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=spd and not tag=accessory { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=spd { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=spd and not tag=accessory { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=spd { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=spd and not tag=accessory { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=speed_set and tag=div1 { count=$value } @tag=speed_set and tag=div2 { count=$value/2 } @tag=speed_set and tag=div4 { count=$value/4 } @tag=spd and tag=div4 { count=$value/4 } @tag=spd and tag=div8 { count=$value/8 } }",
+    "     \"[[de]] Teile\" { @tag=speed_set and tag=div1 { count=$value } @tag=speed_set and tag=div2 { count=$value/2 } @tag=speed_set and tag=div4 { count=$value/4 } @tag=spd and not tag=accessory and tag=div4 { count=$value/4 } @tag=spd and not tag=accessory and tag=div8 { count=$value/8 } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many debuffer pieces **per slot** should be protected?\"",
@@ -20416,15 +20446,15 @@
     "  q \"How many damage/survivability/debuffer pieces **per slot** and **per main stat** of **Mercurial** should be protected?\"",
     "     \"[[de]]Wie viele Damage-/Survival-/Debuffer-Teile **pro Art** und **pro Hauptwert** von **Unstet** sollen geschützt werden?\" id=q_muougk",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=mercurial { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=mercurial and not tag=accessory { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial and not tag=accessory { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial and not tag=accessory { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial and not tag=accessory { activation=anticipate_improvements } }",
     "  slider \"\" min=1 max=64 default=8 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=mercurial and tag=div1 { count=$value } @tag=mercurial and tag=div2 { count=$value/2 } }",
+    "     \"[[de]] Teile\" { @tag=mercurial and not tag=accessory and tag=div1 { count=$value } @tag=mercurial and not tag=accessory and tag=div2 { count=$value/2 } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many utility pieces (Stun, Provoke, Toxic …) **per set and slot** should be protected?\"",
@@ -20454,7 +20484,7 @@
     "  slider \"\" id=min_catchrest_pieces min=1 max=16 step=1 default=2 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=catchrest and tag=div2 { count=$value/2 } }",
     "--><br>",
-    "<!-- safeguard-overrides [columns=2]",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
     "     \"[[de]]Möchtest du **Artefakte** (keine Schmuckstücke) nach ihrer **Verbesserungschance** schützen?\\nDas behält Ausrüstung mit einer guten Chance, besser zu werden als das, was du hast; der Slider legt die Mindest-Chance fest.\" id=q_uiw6og",
     "  slider \"\" id=impr_art min=0 max=90 step=1 default=25 toggle=\"Yes\"",
@@ -20463,7 +20493,8 @@
     "     \"[[de]]Ausgewogen\",33:\"Moderate\"",
     "     \"[[de]]Moderat\",50:\"Strict\"",
     "     \"[[de]]Streng\" unit=\"%\" { @tagged { improvchance=$value } else { @tagged { improvchance=disabled } } }",
-    "--><br>",
+    "-->",
+    "<!-- safeguard-overrides [columns=2 optcols=4] --><br>",
     "<!-- /collapse -->",
     "<!-- collapse -->",
     "<!-- lang -->Optional 4 — Safety-net minimums: accessories (Safeguards)",
@@ -20472,31 +20503,45 @@
     "  q \"How many of the best SPD banners **per faction** should always be protected (across all sets)?\"",
     "     \"[[de]]Wie viele der besten SPD-Banner **pro Fraktion** sollen immer geschützt werden (über alle Sets)?\" id=q_ta25kl",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=spd_banner { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=spd and tag=accessory { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=spd_banner { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=spd and tag=accessory { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd_banner { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd and tag=accessory { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd_banner { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd and tag=accessory { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spdbanner_pieces min=1 max=64 step=1 default=16 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=spd_banner and tag=div8 { count=$value/8 } @tag=spd_banner and tag=div1 { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=spd and tag=accessory and tag=div8 { count=$value/8 } @tag=spd and tag=accessory and tag=div1 { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"Protect the best accessories (rings, amulets, banners)?\"",
-    "     \"[[de]]Die besten Schmuckstücke (Ringe, Amulette, Banner) schützen?\" id=q_acc_guard",
+    "  q \"Protect the best accessories (rings, amulets, banners)?\\nThe chosen number is kept per slot and main stat; a few specialized rules keep their own fixed counts.\"",
+    "     \"[[de]]Die besten Schmuckstücke (Ringe, Amulette, Banner) schützen?\\nDie gewählte Anzahl gilt pro Art und Hauptwert; einige Spezialregeln behalten ihre eigenen festen Anzahlen.\" id=q_acc_guard",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=accessory and not tag=spd and not tag=mercurial or tag=fw_coverage { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=accessory and not tag=spd and not tag=mercurial or tag=fw_coverage { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=accessory and not tag=spd and not tag=mercurial or tag=fw_coverage { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=accessory and not tag=spd and not tag=mercurial or tag=fw_coverage { activation=anticipate_improvements } }",
     "  slider \"\" id=min_acc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=accessory and not tag=spd_banner and tag=div1 { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=accessory and not tag=spd and not tag=mercurial and tag=div1 { count=$value } }",
     "--><br>",
-    "<!-- safeguard-overrides [columns=2]",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
+    "  q \"Protect the best **Mercurial** accessories (rings, amulets, banners)?\\nThe chosen number is kept per slot and main stat; some amulet and banner kinds keep 1–2 more.\"",
+    "     \"[[de]]Die besten **Unstet**-Schmuckstücke (Ringe, Amulette, Banner) schützen?\\nDie gewählte Anzahl gilt pro Art und Hauptwert; manche Amulett- und Banner-Arten behalten 1–2 mehr.\" id=q_mercacc",
+    "  rb \"None\"",
+    "     \"[[de]]Keine\" { @tag=mercurial and tag=accessory { activation=off } }",
+    "  rb \"Just what I own\"",
+    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial and tag=accessory { activation=protect_existing } }",
+    "  rb \"Plus missing slots\"",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial and tag=accessory { activation=anticipate_gaps } }",
+    "  rb \"Plus likely upgrades\"",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial and tag=accessory { activation=anticipate_improvements } }",
+    "  slider \"\" id=min_mercacc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
+    "     \"[[de]] Teile\" { @tag=mercurial and tag=accessory and tag=div1 { count=$value } @tag=mercurial and tag=accessory and tag=plus1 { count=$value+1 } @tag=mercurial and tag=accessory and tag=plus2 { count=$value+2 } }",
+    "-->",
+    "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",
     "     \"[[de]]Möchtest du **Schmuckstücke** (Ringe, Amulette, Banner) nach ihrer **Verbesserungschance** schützen?\\nGleiche Idee wie bei den Artefakten; Schmuckstücke bekommen etwas höhere Werte, also behält dieselbe Einstellung mehr davon.\" id=q_nfb217",
     "  slider \"\" id=impr_acc min=0 max=90 step=1 default=25 toggle=\"Yes\"",

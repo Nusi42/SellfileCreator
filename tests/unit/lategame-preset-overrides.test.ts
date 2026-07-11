@@ -175,11 +175,12 @@ test('"Reset Options to Defaults" re-applies the default-mode forces over a dirt
 // 2026-07 preset rework: three questions added (q_utility, q_catchrest, q_acc_guard) and the
 // safeguard group split into artifacts (Optional 3) / accessories (Optional 4), which moved
 // q_ta25kl + q_nfb217 to the end. Every pre-existing id is unchanged — only order + additions.
+// Later addition: q_mercacc (Mercurial-accessory activation card, after q_acc_guard).
 const EXPECTED_QUESTION_IDS = [
   'q_2tq5i', 'q_kkcisb', 'q_evol16', 'q_y3oudu', 'q_ie2b4p', 'q_tfgi84', 'q_903a0o',
   'q_2ye83x', 'q_62mbb3', 'q_wmwi89', 'q_gs7912', 'q_6df61p', 'q_6aowi9',
   'q_bk3r8j', 'q_416mju', 'q_tk0vqr', 'q_muougk', 'q_utility', 'q_catchrest', 'q_uiw6og',
-  'q_ta25kl', 'q_acc_guard', 'q_nfb217',
+  'q_ta25kl', 'q_acc_guard', 'q_mercacc', 'q_nfb217',
 ] as const
 
 test('every lategame question carries a v1.0.34-compatible pinned id= (regression: saved-set rescue)', () => {
