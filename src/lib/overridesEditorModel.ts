@@ -10,10 +10,12 @@
  */
 import {
   type NoteTagSelector,
+  type ListTokenPrefix,
   NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
   NOTE_OVERRIDES_CROSS_KEYWORDS,
   NOTE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
+  parsePrefixedToken,
 } from './noteOverridesParser'
 import {
   ArtifactType,
@@ -375,6 +377,13 @@ const WEIGHT_RANGE: NumberValueRange = { min: GEAR_INSPECTOR_SORT_WEIGHT_MIN, ma
 type RecipeAssignmentField = (typeof NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 
+// gearsets/metasets exist in BOTH grammars with identical syntax and widgets —
+// one definition each, referenced from the two domain Records below (SSOT).
+const GEARSETS_TERM_META: OperationTermOption[] = [listOp('gearsets', GEARSET_NAME_CHOICES, 'colSets', undefined, 'gearsets')]
+// metasets keeps the open 'text' widget as its fallback; the 'metasets' control
+// swaps in the sets select whenever every listed name matches a known metaset.
+const METASETS_TERM_META: OperationTermOption[] = [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2', labelKey: 'menuMetasetsSection', control: 'metasets' }]
+
 // Recipe assignment metadata, exhaustive over the grammar field SSOT: ADDING A FIELD
 // TO THE GRAMMAR LIST FAILS TO COMPILE until its dropdown entry (or entries, for
 // dotted families) is registered here — the widgets can never lag the parser.
@@ -416,10 +425,8 @@ const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOpt
   slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES, 'builderSlots', SLOT_VALUE_LABEL_KEYS, 'slots')],
   substats: [listOp('substats', dslStatKeys(), 'builderSubstats', undefined, 'substats')],
   mainstats: [listOp('mainstats', dslStatKeys(), 'builderMain', undefined, 'mainstats')],
-  gearsets: [listOp('gearsets', GEARSET_NAME_CHOICES, 'colSets', undefined, 'gearsets')],
-  // metasets keeps the open 'text' widget as its fallback; the 'metasets' control
-  // swaps in the sets select whenever every listed name matches a known metaset.
-  metasets: [{ id: 'metasets', field: 'metasets', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: 'name1,name2', labelKey: 'menuMetasetsSection', control: 'metasets' }],
+  gearsets: GEARSETS_TERM_META,
+  metasets: METASETS_TERM_META,
 }
 
 // Safeguard assignment metadata (same compile gate as the recipe Record above).
@@ -448,6 +455,8 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
   rank: [listOp('rank', RANK_NUM_CHOICES, 'noteSafeguardRanksLabel', STAR_VALUE_LABEL_KEYS, 'rankList')],
   rarity: [listOp('rarity', SG_RARITY_NAME_CHOICES, 'noteSafeguardRaritiesLabel', pickValueLabelKeys(RARITY_VALUE_LABEL_KEYS, SG_RARITY_NAME_CHOICES), 'rarityList')],
   faction: [listOp('faction', FACTION_NAME_CHOICES, 'noteSafeguardFactionsLabel', undefined, 'factions')],
+  gearsets: GEARSETS_TERM_META,
+  metasets: METASETS_TERM_META,
 }
 
 /** Assignment dropdown entries for a block of the given domain. The order follows
@@ -523,6 +532,58 @@ export function parseTokenListValues(text: string, choices: readonly string[]): 
     values.push(canonical)
   }
   return values
+}
+
+// ── Prefix-aware list values (gearsets: `+Name`, `+-Name`, `-Name`) ──────────
+
+/** One prefix-aware list entry — the editor model of a `[+|+-|-]Name` token. */
+export type PrefixedListEntry = { prefix: ListTokenPrefix; name: string }
+
+/** DSL prefix text per prefix category (the parser's own spellings). */
+export const LIST_TOKEN_PREFIX_TEXT: Record<ListTokenPrefix, string> = {
+  none: '',
+  add: '+',
+  addExcluded: '+-',
+  remove: '-',
+}
+
+/** Parse a gearsets list value into prefix-aware entries. Canonicalizes names against
+ *  the vocabulary and enforces the grammar's mode consistency (all bare = replace,
+ *  all prefixed = mutate); a mixed list or an unknown name parses to null — the same
+ *  raw-text fallback contract as parseTokenListValues. */
+export function parsePrefixedTokenListValues(
+  text: string,
+  choices: readonly string[],
+): PrefixedListEntry[] | null {
+  const trimmed = text.trim()
+  if (!trimmed) return []
+  const byLower = new Map(choices.map((choice) => [choice.toLowerCase(), choice]))
+  const entries: PrefixedListEntry[] = []
+  for (const rawToken of trimmed.split(',')) {
+    // Serializer-quoted names carry the prefix INSIDE the quotes ("+-Crit Damage").
+    const token = rawToken.trim().replace(/^"|"$/g, '')
+    const { prefix, value } = parsePrefixedToken(token)
+    const canonical = byLower.get(value.toLowerCase())
+    if (!canonical) return null
+    entries.push({ prefix, name: canonical })
+  }
+  const hasBare = entries.some((entry) => entry.prefix === 'none')
+  const hasPrefixed = entries.some((entry) => entry.prefix !== 'none')
+  if (hasBare && hasPrefixed) return null
+  return entries
+}
+
+/** Compose prefix-aware entries back into the DSL comma list. Multi-word names quote
+ *  with the prefix inside the quotes — mirroring the serializer's emitListValue, so
+ *  the composed text always re-parses to the same entries. */
+export function prefixedTokenListText(entries: readonly PrefixedListEntry[]): string {
+  return entries
+    .map((entry) => {
+      const composed = `${LIST_TOKEN_PREFIX_TEXT[entry.prefix]}${entry.name}`
+      // Bare only when the name is one clean word without prefix-ambiguous characters.
+      return /^[\w%$.]+$/.test(entry.name) ? composed : `"${composed}"`
+    })
+    .join(',')
 }
 
 /** Parse a `lvl=` value into its from/to milestones; null unless both are valid. */

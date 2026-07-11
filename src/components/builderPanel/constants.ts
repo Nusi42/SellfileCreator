@@ -22,8 +22,19 @@ import {
 } from '../../lib/hsfBuilder'
 import { deriveRollBaselineMode } from '../../lib/recipeNormalization'
 import { LEVEL_MILESTONES, type LevelMilestone } from '../../lib/types'
+import type { Theme } from '@mui/material/styles'
+import { resolveDisabledOpacity } from '../disabledOpacity'
 
 export const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
+
+// Overlay for builder control sections while the draft is a SEPARATOR: controls stay
+// mounted at factory defaults so the panel layout never jumps when switching chips,
+// but they are non-interactive and dimmed like disabled MUI controls. Shared by the
+// recipe AND safeguard builders (one separator UX).
+export const separatorDisabledSectionSx = (theme: Theme) => ({
+  pointerEvents: 'none' as const,
+  opacity: resolveDisabledOpacity(theme),
+})
 
 // Sentinels mirror the original BuilderPanel state to avoid diverging resets.
 export const MULTI_VALUE_SENTINEL = '__multi__mixed__'

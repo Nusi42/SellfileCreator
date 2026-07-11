@@ -16,7 +16,9 @@
  *   pruneNoteSafeguardOverridesAnswers  — remove stale answer keys
  *   normalizeNoteSafeguardOverridesAnswers — decode persisted payload
  */
-import type { StatVariant, RankValue, FactionId } from './types'
+import type { StatVariant, RankValue, FactionId, ArtifactSetId } from './types'
+import { artifactSetNames } from './types'
+import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import type {
   RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation,
   CrossDomainOptionTarget, CrossDomainOptionWrite,
@@ -35,6 +37,7 @@ import {
   pruneSafeguardsSubstatWeights,
   factionIdByName,
   rarityCodeByName,
+  artifactSetIdByName,
 } from './safeguards'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
@@ -64,6 +67,9 @@ import {
   parseOverridesBooleanValue,
   reportInvalidEnumValue,
   localizeDslDisplay,
+  parsePrefixedToken,
+  classifyListMode,
+  consumeCommaSeparatedRemainder,
 } from './noteOverridesParser'
 
 // Backward-compatible alias for external callers.
@@ -114,6 +120,8 @@ export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'improvchance',
   // combination filters: rank/rarity accept integer lists 1–6; faction accepts names.
   'rank', 'rarity', 'faction',
+  // combination gear-set / metaset lists (comma-separated; +/-/+- prefixes as in recipes).
+  'gearsets', 'metasets',
 ] as const
 
 // ── Operation types ───────────────────────────────────────────────────────────
@@ -147,6 +155,13 @@ export type SafeguardOverridesOperation =
   | { kind: 'rarities'; mode: 'mutate';  add: RankValue[];  remove: RankValue[] }
   | { kind: 'factions'; mode: 'replace'; values: FactionId[] }
   | { kind: 'factions'; mode: 'mutate';  add: FactionId[];  remove: FactionId[] }
+  // Gear-set entries carry the `excluded` flag: `+-Name` adds an excluded entry
+  // (mirrors the recipe DSL); `-Name` removes the entry regardless of its flag.
+  | { kind: 'sets'; mode: 'replace'; values: ArtifactSetSelectionEntry[] }
+  | { kind: 'sets'; mode: 'mutate';  add: ArtifactSetSelectionEntry[]; remove: ArtifactSetId[] }
+  // Metaset names stay raw display-name strings (resolved against metasets at match time).
+  | { kind: 'metaSetNames'; mode: 'replace'; values: string[] }
+  | { kind: 'metaSetNames'; mode: 'mutate';  add: string[]; remove: string[] }
 
 /**
  * Operation kind → DSL assignment-field token. SSOT for DSL-reconstruction consumers
@@ -175,6 +190,8 @@ export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['k
   ranks: 'rank',
   rarities: 'rarity',
   factions: 'faction',
+  sets: 'gearsets',
+  metaSetNames: 'metasets',
 }
 
 /** A resolved selector + operations pair, ready for application. */
@@ -221,6 +238,19 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'factions': return op.mode === 'replace'
       ? op.values.map((f) => factionCodeToName(f)).join(',')
       : formatSgMutateList(op.add.map((f) => factionCodeToName(f)), op.remove.map((f) => factionCodeToName(f)))
+    case 'sets': {
+      // Excluded adds surface as `+-Name` (the extra `-` sits inside the add prefix).
+      const setName = (id: ArtifactSetId): string => artifactSetNames[id] ?? String(id)
+      return op.mode === 'replace'
+        ? op.values.map((e) => setName(e.id)).join(',')
+        : [
+          ...op.add.map((e) => `+${e.excluded ? '-' : ''}${setName(e.id)}`),
+          ...op.remove.map((id) => `-${setName(id)}`),
+        ].join(' ')
+    }
+    case 'metaSetNames': return op.mode === 'replace'
+      ? op.values.join(',')
+      : formatSgMutateList(op.add, op.remove)
   }
 }
 
@@ -291,44 +321,11 @@ const matchesTagSelectorForRule = (
 const sortDedupNumeric = <T extends number>(arr: T[]): T[] =>
   Array.from(new Set(arr)).sort((a, b) => a - b) as T[]
 
-// ── Prefix token parsing for stat lists ──────────────────────────────────────
-
-type StatListPrefix = 'add' | 'remove' | 'none'
-type PrefixedStatToken = { prefix: StatListPrefix; value: string }
-
-const parseStatPrefixedToken = (raw: string): PrefixedStatToken => {
-  const t = raw.trim()
-  if (t.startsWith('+')) return { prefix: 'add',    value: t.slice(1).trim() }
-  if (t.startsWith('-')) return { prefix: 'remove', value: t.slice(1).trim() }
-  return { prefix: 'none', value: t }
-}
-
-const classifyStatListMode = (tokens: PrefixedStatToken[]): 'replace' | 'mutate' | 'ignore' => {
-  const hasNone     = tokens.some((t) => t.prefix === 'none')
-  const hasPrefixed = tokens.some((t) => t.prefix !== 'none')
-  if (hasNone && hasPrefixed) return 'ignore'
-  return hasNone ? 'replace' : 'mutate'
-}
-
-// Collect comma-separated stat tokens after the first token was consumed.
-const consumeStatListRemainder = (cursor: TokenCursor): string[] => {
-  const extras: string[] = []
-  while (cursor.consumeSymbol(',')) {
-    let prefix = ''
-    let next = cursor.peek()
-    // `+` is tokenized as a symbol; peek past it when followed by a word.
-    if (next?.kind === 'symbol' && next.value === '+') {
-      const wordTok = cursor.peek(1)
-      if (wordTok?.kind === 'word' || wordTok?.kind === 'string') {
-        cursor.next(); prefix = '+'; next = wordTok
-      }
-    }
-    if (!next || (next.kind !== 'word' && next.kind !== 'string')) break
-    cursor.next()
-    extras.push(prefix + next.value)
-  }
-  return extras
-}
+// Prefix token parsing for list fields (substats, rank/rarity/faction, gearsets,
+// metasets) lives in noteOverridesParser (parsePrefixedToken & friends) — shared
+// with the recipe-overrides parser so both DSL domains accept identical syntax.
+// Note: `+-X` (addExcluded) only carries meaning for gearsets; the other list
+// branches treat it like a plain `+` add, mirroring the recipe side.
 
 // ── Operations parser ─────────────────────────────────────────────────────────
 
@@ -429,9 +426,9 @@ const parseOperations = (
 
     // ── substats = [+|-]stat, … ───────────────────────────────────────────────
     if (field === 'substats') {
-      const rawTokens = [valueRaw, ...consumeStatListRemainder(cursor)]
-      const parsed = rawTokens.map(parseStatPrefixedToken)
-      const listMode = classifyStatListMode(parsed)
+      const rawTokens = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const parsed = rawTokens.map(parsePrefixedToken)
+      const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
       const resolve = (name: string): StatVariant | undefined => variantFromLabel(name) ?? undefined
       if (listMode === 'replace') {
@@ -453,9 +450,9 @@ const parseOperations = (
     // ── rank = [+|-]N, … | rarity = [+|-](N|name), … | faction = [+|-]name, … ──
     // All three fields use the same prefix-list mode (replace / mutate) as substats.
     if (field === 'rank' || field === 'rarity' || field === 'faction') {
-      const rawTokens = [valueRaw, ...consumeStatListRemainder(cursor)]
-      const parsed = rawTokens.map(parseStatPrefixedToken)
-      const listMode = classifyStatListMode(parsed)
+      const rawTokens = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const parsed = rawTokens.map(parsePrefixedToken)
+      const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
       if (field === 'rank' || field === 'rarity') {
         // Resolve each token: numeric 1–6 for rank; numeric or named (epic, legendary, …) for rarity.
@@ -502,6 +499,62 @@ const parseOperations = (
           }
           if (add.length > 0 || remove.length > 0) operations.push({ kind: 'factions', mode: 'mutate', add, remove })
         }
+      }
+      continue
+    }
+
+    // ── gearsets = [+|+-|-]SetName, … ─────────────────────────────────────────
+    // Mirrors the recipe DSL: bare names replace the rule's set list (plain includes),
+    // `+Name` adds an include, `+-Name` adds an EXCLUDED entry, `-Name` removes the
+    // entry whatever its flag. Set names resolve case-insensitively to numeric ids.
+    if (field === 'gearsets') {
+      const rawTokens = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const parsed = rawTokens.map(parsePrefixedToken)
+      const listMode = classifyListMode(parsed)
+      if (listMode === 'ignore') continue
+      const resolveId = (name: string): ArtifactSetId | undefined =>
+        artifactSetIdByName.get(name.trim().toLowerCase())
+      if (listMode === 'replace') {
+        const values = parsed
+          .map((t) => resolveId(t.value))
+          .filter((v): v is ArtifactSetId => v != null)
+          .map((id): ArtifactSetSelectionEntry => ({ id }))
+        if (values.length > 0) operations.push({ kind: 'sets', mode: 'replace', values })
+      } else {
+        const add: ArtifactSetSelectionEntry[] = []
+        const remove: ArtifactSetId[] = []
+        for (const t of parsed) {
+          const id = resolveId(t.value)
+          if (id == null) continue
+          if (t.prefix === 'remove')           remove.push(id)
+          else if (t.prefix === 'addExcluded') add.push({ id, excluded: true })
+          else                                 add.push({ id })  // 'add'
+        }
+        if (add.length > 0 || remove.length > 0) operations.push({ kind: 'sets', mode: 'mutate', add, remove })
+      }
+      continue
+    }
+
+    // ── metasets = [+|-]Name, … ───────────────────────────────────────────────
+    // Metaset display names stay raw strings; `+-` has no excluded-entry meaning
+    // here and is treated as a plain add (recipe-side parity).
+    if (field === 'metasets') {
+      const rawTokens = [valueRaw, ...consumeCommaSeparatedRemainder(cursor)]
+      const parsed = rawTokens.map(parsePrefixedToken)
+      const listMode = classifyListMode(parsed)
+      if (listMode === 'ignore') continue
+      if (listMode === 'replace') {
+        const values = parsed.map((t) => t.value).filter((n) => n.length > 0)
+        if (values.length > 0) operations.push({ kind: 'metaSetNames', mode: 'replace', values })
+      } else {
+        const add: string[] = []
+        const remove: string[] = []
+        for (const t of parsed) {
+          if (!t.value) continue
+          if (t.prefix === 'remove') remove.push(t.value)
+          else add.push(t.value)
+        }
+        if (add.length > 0 || remove.length > 0) operations.push({ kind: 'metaSetNames', mode: 'mutate', add, remove })
       }
       continue
     }
@@ -1641,6 +1694,34 @@ export const applySafeguardOverrides = (
             }
             break
           }
+          case 'sets':
+            if (op.mode === 'replace') {
+              // Detach entries so later ops on the clone never mutate the parsed op.
+              clone.combination.sets = op.values.map((e) => ({ ...e }))
+            } else {
+              // Entry map keyed by id: removals drop the entry regardless of its
+              // excluded flag; adds overwrite, so `+-Name` flips an include to excluded.
+              const removeSet = new Set<ArtifactSetId>(op.remove)
+              const entryMap = new Map<ArtifactSetId, ArtifactSetSelectionEntry>(
+                clone.combination.sets
+                  .filter((e) => !removeSet.has(e.id))
+                  .map((e) => [e.id, e]),
+              )
+              for (const entry of op.add) entryMap.set(entry.id, { ...entry })
+              clone.combination.sets = [...entryMap.values()]
+            }
+            break
+          case 'metaSetNames':
+            if (op.mode === 'replace') {
+              clone.combination.metaSetNames = [...op.values]
+            } else {
+              // Exact-name matching (recipe-side parity); adds are deduped against the kept base.
+              const removeSet = new Set(op.remove)
+              const base = clone.combination.metaSetNames.filter((n) => !removeSet.has(n))
+              const existing = new Set(base)
+              clone.combination.metaSetNames = [...base, ...op.add.filter((n) => !existing.has(n))]
+            }
+            break
         }
       }
     })

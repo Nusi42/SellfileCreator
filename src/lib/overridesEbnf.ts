@@ -232,6 +232,8 @@ sgAssignment  := "activation" "=" activationVal
              | "rank" "=" prefixNum ("," prefixNum)*     // replace or mutate rank filter
              | "rarity" "=" prefixRarity ("," prefixRarity)*   // replace or mutate rarity filter
              | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
+             | "gearsets" "=" gearToken ("," gearToken)*       // +-Name adds an excluded set (as in recipes)
+             | "metasets" "=" prefixToken ("," prefixToken)*   // replace or mutate metaset-name filter
 countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
                  // in slider groups $count/$value expand to the current slider position
 prefixNum     := ["+" | "-"] rankNum

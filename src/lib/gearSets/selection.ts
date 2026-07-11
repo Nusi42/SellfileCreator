@@ -81,6 +81,23 @@ export const buildArtifactSetSelectionKey = (
     .join('|')
 )
 
+// Human-readable label for a sets+metasets selection (override-badge tooltips in the
+// recipe AND safeguard builders — one formatter so the two badges can never diverge).
+// Metaset names come first verbatim; set entries follow, excluded ones prefixed with
+// "–" to mirror the exclusion UX convention. Falls back to anyLabel when empty.
+export const formatArtifactSetSelectionLabel = (
+  sets: readonly ArtifactSetSelectionEntry[] | null | undefined,
+  metaSetNames: readonly string[] | null | undefined,
+  getSetName: (id: ArtifactSetId) => string,
+  anyLabel: string,
+): string => {
+  const parts: string[] = [
+    ...(metaSetNames ?? []),
+    ...(sets ?? []).map((e) => (e.excluded ? '–' : '') + getSetName(e.id)),
+  ]
+  return parts.length > 0 ? parts.join(', ') : anyLabel
+}
+
 // pruneAccessoryNoSetSelections drops the no-set sentinel when accessories are out of scope.
 export const pruneAccessoryNoSetSelections = (
   selections: readonly ArtifactSetSelectionEntry[] | null | undefined,

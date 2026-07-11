@@ -85,12 +85,16 @@ import {
   slotTokenToId,
   statKeyToVariant,
   statVariantToKey,
+  parsePrefixedTokenListValues,
+  prefixedTokenListText,
+  LIST_TOKEN_PREFIX_TEXT,
   LEVEL_MILESTONE_CHOICES,
   type OperationTermOption,
+  type PrefixedListEntry,
   type SliderValueCalc,
   type ValueControlKind,
 } from '../../lib/overridesEditorModel'
-import { NOTE_OVERRIDES_LOGIC_KEYWORDS } from '../../lib/noteOverridesParser'
+import { NOTE_OVERRIDES_LOGIC_KEYWORDS, type ListTokenPrefix } from '../../lib/noteOverridesParser'
 import type { RecipeOverridesOperation, RecipeOverridesSelector } from '../../lib/noteRecipeOverrides'
 import type { NoteTagSelector } from '../../lib/noteOverridesParser'
 import type { SafeguardOverridesOperation } from '../../lib/noteSafeguardOverrides'
@@ -249,6 +253,121 @@ function SingleValueControl({ control, choices, valueLabelKeys, value, onChange,
   )
 }
 
+// Prefix cycle for gearsets chips in Modify mode: + (add) → +- (excluded add) → - (remove).
+const GEARSET_PREFIX_CYCLE: Record<ListTokenPrefix, ListTokenPrefix> = {
+  add: 'addExcluded',
+  addExcluded: 'remove',
+  remove: 'add',
+  // Bare entries only exist in Replace mode, where chips do not cycle.
+  none: 'none',
+}
+
+/** Gear-set list value control with the DSL's mutate-prefix support: a Replace/Modify
+ *  mode toggle, the app's own sets select for membership (right-click a set = toggle
+ *  the `+-` excluded-add), and one chip per entry whose prefix cycles on click in
+ *  Modify mode (+ → +- → -). Replace mode holds bare includes only — that grammar has
+ *  no exclusions, so switching back strips prefixes and drops `-` removals. */
+function GearsetsListValueControl({ entries, onEntries }: {
+  entries: PrefixedListEntry[]
+  onEntries: (next: PrefixedListEntry[]) => void
+}): JSX.Element {
+  const { t } = useI18n()
+  const mode: 'replace' | 'modify' = entries.some((entry) => entry.prefix !== 'none') ? 'modify' : 'replace'
+  // Select membership: every entry that resolves to a set id; excluded ring for `+-`.
+  const selectValue = mapDefined(entries, (entry) => {
+    const id = gearsetNameToId(entry.name)
+    if (id === null) return null
+    return (entry.prefix === 'addExcluded' ? { id, excluded: true } : { id }) as ArtifactSetSelectionEntry
+  })
+  // Membership reconcile: retained names keep their prefix; new picks get the mode's
+  // default prefix; deselected names drop their entry.
+  const reconcile = (next: ArtifactSetSelectionEntry[]) => {
+    const nextNames = mapDefined(next, (entry) => gearsetIdToName(Number(entry.id)))
+    const nameSet = new Set(nextNames)
+    const kept = entries.filter((entry) => nameSet.has(entry.name))
+    const known = new Set(kept.map((entry) => entry.name))
+    const added = nextNames.filter((name) => !known.has(name))
+    onEntries([
+      ...kept,
+      ...added.map((name): PrefixedListEntry => ({ name, prefix: mode === 'modify' ? 'add' : 'none' })),
+    ])
+  }
+  // Right-click on a set row toggles the excluded-add prefix; from Replace mode this
+  // promotes the whole list to Modify first (the replace grammar has no exclusions).
+  const toggleExcluded = (id: number) => {
+    const name = gearsetIdToName(id)
+    if (name === null) return
+    const promoted = entries.map((entry): PrefixedListEntry => (
+      entry.prefix === 'none' ? { ...entry, prefix: 'add' } : entry
+    ))
+    const existing = promoted.find((entry) => entry.name === name)
+    if (!existing) {
+      onEntries([...promoted, { name, prefix: 'addExcluded' }])
+      return
+    }
+    onEntries(promoted.map((entry) => (
+      entry.name === name
+        ? { ...entry, prefix: entry.prefix === 'addExcluded' ? 'add' : 'addExcluded' }
+        : entry
+    )))
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 260, flex: 1 }}>
+      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={mode}
+          onChange={(_, next) => {
+            if (!next || next === mode) return
+            if (next === 'modify') {
+              onEntries(entries.map((entry) => ({ ...entry, prefix: 'add' as const })))
+            } else {
+              onEntries(entries
+                .filter((entry) => entry.prefix !== 'remove')
+                .map((entry) => ({ ...entry, prefix: 'none' as const })))
+            }
+          }}
+        >
+          <ToggleButton value="replace" sx={{ px: 1, ...TERM_SELECT_SX }} aria-label={t('noteOverridesEditorGearsetsReplaceMode')}>
+            <Tooltip title={t('noteOverridesEditorGearsetsReplaceMode')}><span>=</span></Tooltip>
+          </ToggleButton>
+          <ToggleButton value="modify" sx={{ px: 1, ...TERM_SELECT_SX }} aria-label={t('noteOverridesEditorGearsetsModifyMode')}>
+            <Tooltip title={t('noteOverridesEditorGearsetsModifyMode')}><span>±</span></Tooltip>
+          </ToggleButton>
+        </ToggleButtonGroup>
+        <GearSetsSelect
+          value={selectValue}
+          onChange={reconcile}
+          onContextMenuSet={toggleExcluded}
+          showMetasets={false}
+          minWidthPx={220}
+        />
+      </Box>
+      {entries.length > 0 ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {entries.map((entry) => (
+            <Chip
+              key={`${entry.prefix}:${entry.name}`}
+              size="small"
+              label={`${LIST_TOKEN_PREFIX_TEXT[entry.prefix]}${entry.name}`}
+              sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+              onClick={mode === 'modify'
+                ? () => onEntries(entries.map((candidate) => (
+                  candidate === entry
+                    ? { ...candidate, prefix: GEARSET_PREFIX_CYCLE[candidate.prefix] }
+                    : candidate
+                )))
+                : undefined}
+              onDelete={() => onEntries(entries.filter((candidate) => candidate !== entry))}
+            />
+          ))}
+        </Box>
+      ) : null}
+    </Box>
+  )
+}
+
 /** Token-list control: routes to the matching domain select (slots grid, factions,
  *  substats/mainstats, sets, metasets, ranks, rarities). Tokens are the validated
  *  canonical choice spellings (parseTokenListValues output). */
@@ -305,18 +424,8 @@ function ListValueControl({ control, tokens, onTokens, metasets, colorStatContro
           sx={listSx}
         />
       )
-    case 'gearsets':
-      return (
-        <GearSetsSelect
-          value={mapDefined(tokens, gearsetNameToId).map((id): ArtifactSetSelectionEntry => ({ id }))}
-          // The replace-list grammar holds plain includes only; exclusions are a
-          // mutate-mode concept, so the context-menu exclusion path is disabled.
-          onChange={(entries) => onTokens(mapDefined(entries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)), gearsetIdToName))}
-          onContextMenuSet={() => {}}
-          showMetasets={false}
-          minWidthPx={220}
-        />
-      )
+    // 'gearsets' never reaches this switch: the op row routes it to the dedicated
+    // prefix-aware GearsetsListValueControl (mutate `+`/`+-`/`-` support) instead.
     case 'metasets':
       // Metasets-only picker: same select, sets section hidden. Names are the ids.
       return (
@@ -695,6 +804,11 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
   const opListTokens = opRow.option.control && LIST_VALUE_CONTROLS.has(opRow.option.control) && opListChoices
     ? parseTokenListValues(opRow.value, opListChoices)
     : null
+  // gearsets gets the prefix-aware control (mutate `+`/`+-`/`-` support); a mixed or
+  // unknown-name list still falls back to the validated text field, like other lists.
+  const opGearsetEntries = opRow.option.control === 'gearsets' && opListChoices
+    ? parsePrefixedTokenListValues(opRow.value, opListChoices)
+    : null
 
   // A block with no assignments is invalid (the serializer rejects it — "selector
   // block has no operations" — which blocks Apply). Flag it so the add-operation
@@ -970,9 +1084,16 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
             onChange={(value) => updateOpRow({ value })}
             t={t}
           />
+        ) : opRow.option.control === 'gearsets' && opGearsetEntries !== null ? (
+          // Gear sets get the prefix-aware control: Replace/Modify mode toggle plus
+          // per-entry `+` / `+-` / `-` chips (click to cycle; right-click a set = excluded).
+          <GearsetsListValueControl
+            entries={opGearsetEntries}
+            onEntries={(next) => updateOpRow({ value: prefixedTokenListText(next) })}
+          />
         ) : opRow.option.control && opListTokens !== null ? (
           // Token lists via the matching domain select (3×3 slot grid, factions,
-          // colored substats, sets, metasets, ranks, rarities).
+          // colored substats, metasets, ranks, rarities).
           <ListValueControl
             control={opRow.option.control}
             tokens={opListTokens}

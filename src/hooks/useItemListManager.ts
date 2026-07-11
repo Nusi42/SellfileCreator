@@ -326,6 +326,9 @@ export function useItemListManager<TItem, TDraft>({
         if (set.has(idx)) { set.delete(idx) } else { set.add(idx) }
         return Array.from(set).sort((a, b) => a - b)
       }
+      // Plain click: select only this chip — or unselect it when it is already the
+      // sole selection (mirrors the gear inspector's left-click deselect toggle).
+      if (prev.length === 1 && prev[0] === idx) return []
       return [idx]
     }
 
@@ -336,21 +339,27 @@ export function useItemListManager<TItem, TDraft>({
     const selectionChanged = !arraysEqual(prev, next)
     if (selectionChanged) applySelection(next)
     const final = selectionChanged ? next : prev
-    const last = final.length > 0 ? final[final.length - 1]! : null
+    // The clicked chip stays the active/anchor/scroll target while it remains selected;
+    // shift-ranges are stored ascending, so using the array tail here used to jump the
+    // list to the range MAX (scrolling down on an upward shift-click). Fall back to the
+    // last remaining index only when the click removed the chip (ctrl/plain toggle off).
+    const active = final.includes(idx)
+      ? idx
+      : (final.length > 0 ? final[final.length - 1]! : null)
 
-    if (selectionAnchorRef.current !== (last ?? null)) updateSelectionAnchor(last ?? null)
-    if (selectedIdx !== last) setSelectedIdx(last)
+    if (selectionAnchorRef.current !== active) updateSelectionAnchor(active)
+    if (selectedIdx !== active) setSelectedIdx(active)
     // Load the single item into the builder when the selection collapses to one.
     if (final.length === 1) {
       const only = items[final[0]!]
       if (only !== undefined) setBuilder(cloneItem(only))
     }
     // Scroll: always (safeguard default) or only on single-selection-change (recipe).
-    if (last !== null) {
+    if (active !== null) {
       const shouldScroll = scrollOnlyOnSingleSelectionChange
         ? (selectionChanged && final.length === 1)
         : true
-      if (shouldScroll) onSelectionScrollRequest?.(last)
+      if (shouldScroll) onSelectionScrollRequest?.(active)
     }
   }, [
     applySelection,

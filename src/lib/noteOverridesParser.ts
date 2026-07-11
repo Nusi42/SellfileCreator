@@ -1095,6 +1095,59 @@ export function readValueAssignmentList(
   }
 }
 
+// ── List-mutation token helpers ───────────────────────────────────────────────
+// Shared by the recipe and safeguard operation parsers (single definition — the
+// two domains must accept identical `field=+A,-B,+-C` list syntax).
+
+/** Prefix categories for list-mutation assignment fields. */
+export type ListTokenPrefix = 'none' | 'add' | 'remove' | 'addExcluded'
+export type PrefixedToken = { prefix: ListTokenPrefix; value: string }
+
+// Parse a raw token string into a prefix category and the bare name.
+// `+-` is only meaningful for gearsets (add as excluded entry); for other
+// fields it is treated the same as `+` (caller decides).
+export function parsePrefixedToken(raw: string): PrefixedToken {
+  const t = raw.trim()
+  if (t.startsWith('+-')) return { prefix: 'addExcluded', value: t.slice(2).trim() }
+  if (t.startsWith('+'))  return { prefix: 'add',         value: t.slice(1).trim() }
+  if (t.startsWith('-'))  return { prefix: 'remove',      value: t.slice(1).trim() }
+  return { prefix: 'none', value: t }
+}
+
+// Returns 'replace' if all tokens have no prefix, 'mutate' if all are prefixed,
+// or 'ignore' if the prefixes are mixed (no-prefix alongside prefixed).
+export function classifyListMode(tokens: PrefixedToken[]): 'replace' | 'mutate' | 'ignore' {
+  const hasNone     = tokens.some((t) => t.prefix === 'none')
+  const hasPrefixed = tokens.some((t) => t.prefix !== 'none')
+  if (hasNone && hasPrefixed) return 'ignore'
+  return hasNone ? 'replace' : 'mutate'
+}
+
+// After the first value token of a list field has been consumed, collect any
+// remaining comma-separated word/string tokens that continue the list.
+// Handles the `+` symbol prefix so that `+Speed` and `+-Daze` are accepted
+// as comma-separated entries (e.g. `gearsets=-Lifesteal,+-Daze,+Speed`).
+export const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
+  const extras: string[] = []
+  while (cursor.consumeSymbol(',')) {
+    // `+` is tokenized as a symbol; peek past it when followed by a word.
+    let prefix = ''
+    let next = cursor.peek()
+    if (next?.kind === 'symbol' && next.value === '+') {
+      const wordTok = cursor.peek(1)
+      if (wordTok?.kind === 'word' || wordTok?.kind === 'string') {
+        cursor.next()   // consume `+`
+        prefix = '+'
+        next = wordTok
+      }
+    }
+    if (!next || (next.kind !== 'word' && next.kind !== 'string')) break
+    cursor.next()
+    extras.push(prefix + next.value)
+  }
+  return extras
+}
+
 /** All slider-param keywords; used both to drive parsing and to gate entry into it. */
 export const SLIDER_PARAM_KEYWORDS = ['min', 'max', 'step', 'default', 'marks', 'unit', 'toggle', 'toggleside', 'toggledefault'] as const
 

@@ -95,20 +95,39 @@ matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 
 
 ## Override wiring notes
 
-- The FW-Hard question is **pure recipe handling** — no safeguard coupling in either
-  direction. It once forced the utility card (`set util_off`/`set util_gaps`) and `Yes`
-  carried a hidden `safeguard @tag=utility { rank=6 rarity=legendary,mythical }` block;
-  all of it was removed deliberately: safeguards are dealt with explicitly by their own
-  cards, and `Yes!`'s "No extra protection — treat like any other gear" is honest on the
-  recipe side alone. Consequences: no account tier touches the utility card anymore
-  (Endgame+ included), and finishing FW Hard no longer narrows utility safeguards to
-  6★ legendary/mythical. A preset intent test pins the decoupling. The cross-domain
-  option-write bridges (forward and reverse) remain app capabilities, just unused here;
-  the utility card's option ids (`util_off`/`util_own`/`util_gaps`/`util_upg`) stay
-  pinned for saved-answer compatibility.
+- The FW-Hard question carries **no option-write coupling** — it never forces the
+  utility card (the old `set util_off`/`set util_gaps` writes and the hidden
+  `rank=6 rarity=legendary,mythical` cross block were removed deliberately: safeguard
+  activation/count/rank stay under the user's sole control via their own cards).
+  What it DOES carry is a data-only gear-set effect: `Yes` (fwh_yes16) and `Yes!`
+  (fwh_yes) each include `safeguard @tag=utility { gearsets=+-Daze }`, adding a
+  Daze-EXCLUDED entry to the six utility rules — once FW Hard is done, Daze utility
+  pieces no longer need protecting (mirrors the recipe-side `gearsets=+-Daze` on
+  fwh_yes16). The rules' baseline carries NO Daze entry, so the default `No` keeps
+  Daze protected. A preset intent test pins exactly this shape (only `sets`-kind ops
+  in the FW cross blocks; no baseline Daze). The cross-domain option-write bridges
+  (forward and reverse) remain app capabilities, just unused here; the utility card's
+  option ids (`util_off`/`util_own`/`util_gaps`/`util_upg`) stay pinned for
+  saved-answer compatibility.
 - Rule order matches the pre-rework preset, new rules adjacent to their siblings, with
   the catch-alls last — gear displays the FIRST matching rule's name, so first match
   should imply the best match. Order is otherwise behavior-neutral
-  (`ignorePreviousSafeguards` off everywhere).
+  (`ignorePreviousSafeguards` off everywhere). One deliberate deviation: the
+  slow-debuffer ACCESSORY rules (`Debuffer (Slow) Amulet` / `Debuffer (Slow) Banner`)
+  live in the Accessories section (not next to their artifact slow-debuffer siblings),
+  and the accessory rules keep a strict slot order — rings, then amulets, then
+  banners — in BOTH the Accessories section and the Mercurial section's accessory tail.
+- Both chip lists ship separator entries (the minimal `{ appearance, Separator: true }`
+  shape both domains persist): 28 recipe dividers and 11 safeguard family dividers
+  (Speed, Debuffer, Damage, Crit Shield, Survivability, Utility, Accessories,
+  Mercurial, Accessory Minimums, Catch-All Artifacts, Faction Wars Coverage).
+  Separators are inert (never match; load-time selection skips them), and nothing in
+  the preset references safeguards by index — selectors are tag-based and the note
+  carries no `<!-- safeguards: N -->` markers — so the inserted dividers shift indices
+  without changing behavior.
+- The note renders the metaset table via `<!-- metasets -->` (the "Metasets used by
+  this file" section between the recipe prose and the safeguards prose, opening with a
+  one-line explanation of what a metaset is); the prose defers membership to that live
+  table instead of enumerating sets inline.
 - DSL authoring trap: an option with no `{ … }` block makes the header parser swallow the
   NEXT option (it consumes tokens until a `{`). A no-op option must be written `{ }`.

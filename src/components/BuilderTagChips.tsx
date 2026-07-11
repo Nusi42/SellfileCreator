@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { Chip, Box, Typography } from '@mui/material'
 import type { SxProps } from '@mui/material'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
+import { EllipsisTooltip } from './EllipsisTooltip'
 
 // Falls back to the manual copy dialog when the Clipboard API is unavailable.
 function copyTagToClipboard(tag: string): void {
@@ -145,16 +146,19 @@ export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEd
       }}
     >
       {shownTags.map((tag) => (
-        <Chip
-          key={tag}
-          size="small"
-          label={tag}
-          sx={{
-            maxWidth: 120,
-            ...(multiEditActive && mixedTagSet?.has(tag) ? mixedTagChipSx : null),
-          }}
-          onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
-        />
+        // OS tooltip reveals the full tag when the 120px chip cap ellipses it —
+        // the app-wide EllipsisTooltip pattern (title only while actually truncated).
+        <EllipsisTooltip key={tag} title={tag}>
+          <Chip
+            size="small"
+            label={tag}
+            sx={{
+              maxWidth: 120,
+              ...(multiEditActive && mixedTagSet?.has(tag) ? mixedTagChipSx : null),
+            }}
+            onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
+          />
+        </EllipsisTooltip>
       ))}
       {/* Probe badge (measuring) or the real overflow badge; hover lists hidden tags. */}
       {measuring ? (
@@ -186,14 +190,16 @@ export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEdi
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
       {tags.length > 0 ? (
         tags.map((tag) => (
-          <Chip
-            key={tag}
-            size="small"
-            label={tag}
-            onDelete={() => onRemove(tag)}
-            onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
-            {...(multiEditActive && mixedTagSet?.has(tag) ? { sx: mixedTagChipSx } : {})}
-          />
+          // Same ellipsis→OS-tooltip affordance as the strip; inert while the label fits.
+          <EllipsisTooltip key={tag} title={tag}>
+            <Chip
+              size="small"
+              label={tag}
+              onDelete={() => onRemove(tag)}
+              onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
+              {...(multiEditActive && mixedTagSet?.has(tag) ? { sx: mixedTagChipSx } : {})}
+            />
+          </EllipsisTooltip>
         ))
       ) : (
         <Typography variant="caption" color="text.secondary">

@@ -368,8 +368,18 @@ export const normalizeSafeguardSubstatMatch = (
 }
 
 export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
-  rule.activation !== SafeguardRuleActivation.Off
+  // Separators are pure list dividers — never active, whatever their activation says.
+  rule.separator !== true && rule.activation !== SafeguardRuleActivation.Off
 )
+
+// First selectable rule index for load-time selection: separators are list dividers,
+// not editable content, so fresh loads land on the first real rule. Falls back to
+// index 0 when the list holds only separators (still selectable).
+export const firstSelectableSafeguardIndex = (rules: readonly SafeguardRule[]): number | null => {
+  if (rules.length === 0) return null
+  const idx = rules.findIndex((r) => r.separator !== true)
+  return idx >= 0 ? idx : 0
+}
 
 const sanitizeCountMode = (raw: Partial<SafeguardRuleCountMode> | null | undefined): SafeguardRuleCountMode => {
   const parsed = raw ?? SAFEGUARD_DEFAULT_COUNT_MODE
@@ -518,6 +528,11 @@ export const cloneSafeguardRules = (rules: readonly SafeguardRule[]): SafeguardR
 export type SafeguardRule = {
   // Optional display appearance (name + foreground color). Absent means unnamed and unstyled.
   appearance?: NameAppearance
+  // True marks a visual list divider (the safeguard analogue of a recipe's
+  // exportMode='separator'). Separators never match/protect gear — they exist only to
+  // structure the chip list. Persisted minimally: `{ appearance?, Separator: true }`
+  // with NO other fields; all other rule fields below are display-time defaults.
+  separator?: boolean
   // Optional tags for identifying this rule in safeguard-overrides DSL and note display.
   tags?: string[]
   combination: SafeguardCombination
@@ -567,6 +582,9 @@ export type SafeguardRule = {
 // output). Order-independent via stableSerialize (sorts object keys; combination/weights
 // maps serialize canonically).
 export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => stableSerialize({
+  // Flipping a rule to a separator (or back) changes what WASM receives (separators
+  // project as activation=off), so the flag must bust the rules cache.
+  separator: rule.separator === true,
   combination: rule.combination,
   requiredCount: rule.requiredCount,
   activation: rule.activation,
@@ -638,6 +656,8 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Safegua
   combination: rule.combination,
   // appearance included so equality checks detect name/color changes correctly.
   ...(rule.appearance ? { appearance: rule.appearance } : {}),
+  // Separator flag included (absent on normal rules — matches the factory default shape).
+  ...(rule.separator === true ? { separator: true } : {}),
   // Tags included so equality checks detect tag changes correctly.
   tags: rule.tags ?? [],
   requiredCount: rule.requiredCount,
@@ -873,7 +893,9 @@ const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
   Object.entries(artifactTypeNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactTypeId]),
 )
 
-const artifactSetIdByName = new Map<string, ArtifactSetId>(
+// Exported: the note-overrides DSL (recipe + safeguard gearsets fields) resolves
+// set display names through this same map — one definition for name → id.
+export const artifactSetIdByName = new Map<string, ArtifactSetId>(
   Object.entries(artifactSetNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactSetId]),
 )
 
@@ -1210,6 +1232,16 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
 export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const record = unwrapSafeguardRuleRecord(value)
   if (!record) return null
+  // Separator entries persist minimally (`{ appearance?, Separator: true }`) — no
+  // combination or count fields exist to normalize; everything else is a factory default.
+  if (toBoolish(record['Separator'] ?? record['separator']) === true) {
+    const separatorAppearance = readAppearanceFromRecord(record)
+    return {
+      ...createFactorySafeguardBuilderDefaults(),
+      ...(separatorAppearance ? { appearance: separatorAppearance } : {}),
+      separator: true,
+    }
+  }
   const combinationSource = record.combination ?? record.tuple ?? value
   const combination = normalizeSafeguardCombination(combinationSource)
   if (!combination) return null

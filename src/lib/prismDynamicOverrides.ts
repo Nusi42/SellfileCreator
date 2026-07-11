@@ -410,11 +410,11 @@ function noteMarkers(Prism: Refractor): void {
 
         // Marker type keyword. `recipes-re` / `safeguards-re` must precede their
         // shorter counterparts to win the first-match race.
-        // `dungeon-simulator`, `collapse`, `if-no-endpoint`, and the legacy `end-if`
-        // are standalone markers with no arguments. `lang` optionally carries a locale
-        // code (`lang:de`, `lang:pt-BR`) which stays inside the keyword so the whole tag
-        // reads as one coloured unit; the close form's leading `/` is matched as punctuation.
-        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards|dungeon-simulator|if-no-endpoint|end-if|collapse)\b|\blang(?::[A-Za-z0-9-]+)?\b/,
+        // `dungeon-simulator`, `metasets`, `collapse`, `if-no-endpoint`, and the legacy
+        // `end-if` are standalone markers with no arguments. `lang` optionally carries a
+        // locale code (`lang:de`, `lang:pt-BR`) which stays inside the keyword so the whole
+        // tag reads as one coloured unit; the close form's leading `/` is matched as punctuation.
+        'marker-kw': /\b(?:recipes-re|safeguards-re|recipes|safeguards|dungeon-simulator|metasets|if-no-endpoint|end-if|collapse)\b|\blang(?::[A-Za-z0-9-]+)?\b/,
 
         // Quoted regex pattern used in the `-re` filter variants.
         'string': /"(?:\\[\s\S]|[^"\\])*"/,
@@ -496,10 +496,10 @@ if (mdGrammar) {
             },
             // Matches inline <!-- recipes: … --> / <!-- recipes-re: "…" --> /
             // <!-- safeguards: … --> / <!-- safeguards-re: "…" --> markers, the standalone
-            // <!-- dungeon-simulator --> marker, and the wrapper/structure markers
-            // (collapse, if-no-endpoint/end-if, lang) in both their open and `/`-close forms.
+            // <!-- dungeon-simulator --> / <!-- metasets --> markers, and the wrapper/structure
+            // markers (collapse, if-no-endpoint/end-if, lang) in both their open and `/`-close forms.
             'note-markers-block': {
-                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->|<!--\s*\/?(?:dungeon-simulator|collapse|if-no-endpoint|end-if|lang(?::[A-Za-z0-9-]+)?)\s*-->/,
+                pattern: /<!--\s*(?:recipes|safeguards)(?:-re)?\s*:[\s\S]*?-->|<!--\s*\/?(?:dungeon-simulator|metasets|collapse|if-no-endpoint|end-if|lang(?::[A-Za-z0-9-]+)?)\s*-->/,
                 inside: refractor.languages['note-markers'],
             },
         },

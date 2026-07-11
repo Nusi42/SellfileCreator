@@ -677,6 +677,23 @@ Rendered in the builder column below the form panel, occupying the same scrollab
 - `focusRuleRequest` prop: incremented token causes the panel to scroll the specified rule chip into view; used when Gear Inspector jumps to a safeguard rule.
 - **Side-by-side mode**: `isSideBySide` prop switches the chips container to `minHeight: 0; maxHeight: '100%'` (flex-fill) so the chip list fills the Paper correctly — see *Top-down paper height constraint* in Layout Notes.
 
+### Builder chip-list selection (shared by both builders)
+
+Both chip lists route every click through ONE handler: `useItemListManager.handleItemSelect` (`src/hooks/useItemListManager.ts`), wrapped by `useRecipeSelection` / `useSafeguardSelection`.
+
+- **Plain left click** selects the chip — or UNSELECTS it when it is already the sole selection (mirrors the gear inspector's left-click deselect toggle). Ctrl/Cmd toggles within a multi-selection; Shift extends a range from the anchor.
+- **Active/scroll target**: after any click the clicked chip (not the range maximum) becomes the active index, the shift anchor, and the scroll-into-view target while it remains selected. (Shift ranges are stored ascending, so using the array tail historically scrolled the list DOWN when shift-clicking upward.) Only when the click removed the chip (plain/ctrl toggle off) does the target fall back to the last remaining index.
+- **Tag chips** (`BuilderTagChips.tsx`): both the inline strip (chips capped at 120 px) and the tags-popover list wrap each chip in `EllipsisTooltip`, so an ellipsed tag reveals its full text via the native OS tooltip — the app-wide pattern for truncated text.
+
+### Separators (list dividers) in the builders
+
+Recipe separators (`exportMode='separator'`) and safeguard separators (`SafeguardRule.separator`) share one UX:
+
+- **Chip render**: `SeparatorDividerRow` (shared component) draws the divider line + centered label; decoration (leading `#` marks = dashed/dotted style + alpha, `appearance.fgColor` = line color) comes from `deriveSeparatorDividerDecoration` in `src/lib/separators.ts` (also home of `parseSeparatorLabel`). Safeguard separator chips hide the index/mode badge, tag chips, and inline action buttons (like recipe separator chips); double-click starts the inline rename.
+- **Builder toggle**: the shared `SeparatorToggleButton` (`━`, single on/off ToggleButton) sits right of the name field in BOTH builders (single-edit only). Turning it ON resets the draft's other fields to factory defaults — exactly what a separator persists as — keeping appearance; turning it OFF returns to a normal rule/recipe (recipes resume `exportMode='active'`). Undo restores the pre-toggle state.
+- **Disabled sections**: while the draft is a separator, every non-name control section stays MOUNTED (stable layout when switching chips) but is dimmed + non-interactive via `separatorDisabledSectionSx` (`builderPanel/constants.ts`, opacity from `resolveDisabledOpacity`).
+- **Load selection**: fresh loads land on the first non-separator chip (see `rules-and-data.md`).
+
 ## Hooks and Shared Components
 
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.

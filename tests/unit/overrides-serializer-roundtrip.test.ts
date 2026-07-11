@@ -184,7 +184,8 @@ test('safeguard operation table: every kind emits parse-exact DSL', () => {
   const body = '{ @all { activation=anticipate_improvements count=8 ignprev=on igncoll=off '
     + 'ignvault=on perfaction=on permainstat=off perslot=on perset=off perrule=on '
     + 'substats=+SPD,-ACC substatmatch=persubstat weight.SPD=1.5 improvchance=10,20,30,40 '
-    + 'rank=5,6 rarity=legendary,mythical faction=1,2 } }'
+    + 'rank=5,6 rarity=legendary,mythical faction=1,2 gearsets=+Speed,+-Daze,-Lifesteal '
+    + 'metasets=+alpha,-beta } }'
   const option = roundTripBody('safeguard', body)
   assert.ok(option.body.kind === 'structured')
   const ops = (option.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations

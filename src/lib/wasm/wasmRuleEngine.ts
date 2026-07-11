@@ -56,6 +56,7 @@ import {
   toWasmImprovementChanceInput,
   toWasmSafeguardCandidate,
   toWasmSafeguardCollectRow,
+  SafeguardRuleActivation,
   type SafeguardCandidate,
   type SafeguardCandidateOut,
   type SafeguardDetectionSnapshot,
@@ -627,8 +628,15 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
 // Rust uses `name: String` (flat); TS now uses `appearance: { name, fgColor }`.
 // `appearance` is presentation-only so fgColor is dropped at this boundary.
 const projectRuleForWasm = (r: SafeguardRule): Record<string, unknown> => {
-  const { appearance, ...rest } = r as SafeguardRule & Record<string, unknown>
-  return { ...rest, name: (appearance as { name?: string } | undefined)?.name ?? '' }
+  const { appearance, separator, ...rest } = r as SafeguardRule & Record<string, unknown>
+  return {
+    ...rest,
+    // Separators cross the boundary as inert activation=off rules: Rust's strict
+    // deserializer knows no separator flag, and keeping the array slot preserves
+    // rule indices in detection results.
+    ...(separator === true ? { activation: SafeguardRuleActivation.Off } : {}),
+    name: (appearance as { name?: string } | undefined)?.name ?? '',
+  }
 }
 
 const resolveRulesForWasm = (rules: readonly SafeguardRule[]): readonly Record<string, unknown>[] =>
@@ -946,9 +954,15 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
   // Rust SafeguardRule uses flat `name: String`; project appearance→name before the boundary
   // so the Rust serde deny_unknown_fields does not reject the payload.
   const rulesWire = rules.map((r) => {
-    const src = r as { appearance?: { name?: string; fgColor?: string }; name?: string }
-    const { appearance: _appearance, ...rest } = src as Record<string, unknown>
-    return { name: src.appearance?.name ?? src.name ?? '', ...rest }
+    const src = r as { appearance?: { name?: string; fgColor?: string }; name?: string; separator?: boolean }
+    const { appearance: _appearance, separator: _separator, ...rest } = src as Record<string, unknown>
+    // Separator flag stripped for deny_unknown_fields (re-attached on echo-back below);
+    // forcing activation off keeps a separator inert if it ever reaches matching.
+    return {
+      name: src.appearance?.name ?? src.name ?? '',
+      ...rest,
+      ...(src.separator === true ? { activation: SafeguardRuleActivation.Off } : {}),
+    }
   })
   const payload = JSON.stringify({
     rules: rulesWire,
@@ -972,10 +986,14 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
     // Only re-attach the factor when the input rule actually carried one; absent stays absent so
     // the Rust-side serde default (1.0) applies, matching the loader's neutral fallback.
     const originalFactor = (original as { mainStatRankWeightFactor?: number }).mainStatRankWeightFactor
+    // Separators were sent as inert off-rules (wire projection above) — restore the flag
+    // and the stored activation so the round-trip does not mutate the rule.
+    const isSeparator = (original as { separator?: boolean }).separator === true
     const withFlag: Record<string, unknown> = {
       ...restRes,
       weightMainStatByRank,
       ...(typeof originalFactor === 'number' ? { mainStatRankWeightFactor: originalFactor } : {}),
+      ...(isSeparator ? { separator: true, activation: (original as { activation?: unknown }).activation } : {}),
     }
     return (nextAppearance ? { ...withFlag, appearance: nextAppearance } : withFlag) as T
   })

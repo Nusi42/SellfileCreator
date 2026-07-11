@@ -314,23 +314,7 @@
       "appearance": {
         "name": "Basics"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -368,23 +352,7 @@
       "appearance": {
         "name": "Sell - Low Value"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -526,45 +494,13 @@
       "appearance": {
         "name": "Good Gear"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
         "name": "# Speed - Any Set"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -924,23 +860,7 @@
       "appearance": {
         "name": "# Damage - Any Set"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -1826,23 +1746,7 @@
       "appearance": {
         "name": "# Survivability - Any Set"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -2000,23 +1904,7 @@
       "appearance": {
         "name": "# Debuffer - Any Set"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -2244,45 +2132,13 @@
       "appearance": {
         "name": "Limited Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
         "name": "# Speed - Limited Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -2486,23 +2342,7 @@
       "appearance": {
         "name": "# Damage - Limited Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -3955,23 +3795,7 @@
       "appearance": {
         "name": "# Survivability - Limited Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -4313,23 +4137,7 @@
       "appearance": {
         "name": "# Debuffer - Limited Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -4613,45 +4421,13 @@
       "appearance": {
         "name": "Set Bonus Gear"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
         "name": "# Damage - Set Bonus"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -5770,23 +5546,7 @@
       "appearance": {
         "name": "# Survivability - Set Bonus"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -6129,23 +5889,7 @@
       "appearance": {
         "name": "# Survivability - Set Bonus (CR%)"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -6439,23 +6183,7 @@
       "appearance": {
         "name": "# Survivability - Set Bonus (ACC)"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -6749,23 +6477,7 @@
       "appearance": {
         "name": "# Debuffer - Set Bonus"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -7055,23 +6767,7 @@
       "appearance": {
         "name": "## Debuffer - Set Bonus (CR%)"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -7249,23 +6945,7 @@
       "appearance": {
         "name": "Utility Gear"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -7814,23 +7494,7 @@
       "appearance": {
         "name": "Scarce Set Gear"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -8309,23 +7973,7 @@
       "appearance": {
         "name": "Banner - Gear Set Independent"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -8717,23 +8365,7 @@
       "appearance": {
         "name": "Amulet - Gear Set Independent"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -9064,23 +8696,7 @@
       "appearance": {
         "name": "Ring - Gear Set Independent"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -9218,23 +8834,7 @@
       "appearance": {
         "name": "Banner - For Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -9788,23 +9388,7 @@
       "appearance": {
         "name": "Amulet - For Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -10126,23 +9710,7 @@
       "appearance": {
         "name": "Ring - For Sets"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -10430,23 +9998,7 @@
       "appearance": {
         "name": "For Chaos Ore"
       },
-      "keep": true,
-      "SellfileVisibility": "Separator",
-      "Rank": "Any",
-      "Rarity": "Auto",
-      "Faction": "Any",
-      "mainStats": [],
-      "minLevel": 0,
-      "maxLevel": 16,
-      "substats": [],
-      "minCount": 0,
-      "autoMinCount": true,
-      "minRequiredRolls": 0,
-      "autoMinRequiredRolls": true,
-      "lockedMinRequiredRolls": 0,
-      "artifactTypeNames": [],
-      "artifactSetNames": [],
-      "artifactMetaSetNames": []
+      "Separator": true
     },
     {
       "appearance": {
@@ -11699,6 +11251,12 @@
   "Safeguards": [
     {
       "appearance": {
+        "name": "Speed"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Best SPD"
       },
       "requiredCount": 2,
@@ -12364,6 +11922,12 @@
     },
     {
       "appearance": {
+        "name": "Debuffer"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Debuffer"
       },
       "requiredCount": 2,
@@ -12668,59 +12232,6 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow) Amulet"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Amulet"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Debuffer - Limited Sets"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "ACC"
-      ],
-      "substatWeights": {
-        "ACC": 1.1
-      }
-    },
-    {
-      "appearance": {
         "name": "Protect: Debuffer (Slow)"
       },
       "requiredCount": 1,
@@ -12838,61 +12349,6 @@
     },
     {
       "appearance": {
-        "name": "Protect: Debuffer (Slow) Banner"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Debuffer - Limited Sets"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ACC"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "ACC"
-      ],
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
         "name": "Protect: Debuffer (Slow)"
       },
       "requiredCount": 1,
@@ -12932,75 +12388,6 @@
       },
       "tags": [
         "slowdebuffer"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "CR%",
-        "CDMG%",
-        "RES",
-        "HP%",
-        "ATK%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.55,
-        "ATK%": 0.1,
-        "DEF%": 0.45,
-        "SPD": 2,
-        "RES": 0.65,
-        "CR%": 0.65,
-        "CDMG%": 0.1
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Debuffer (Slow) Banner"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Banner"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Debuffer - Limited Sets"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ACC"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13230,6 +12617,12 @@
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Damage"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -14759,6 +14152,12 @@
     },
     {
       "appearance": {
+        "name": "Crit Shield"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Crit Shield Top Row"
       },
       "requiredCount": 1,
@@ -14956,6 +14355,12 @@
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Survivability"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -15365,6 +14770,12 @@
     },
     {
       "appearance": {
+        "name": "Utility"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Utilities (Top Row)"
       },
       "requiredCount": 1,
@@ -15385,12 +14796,7 @@
           "Helmet",
           "Shield"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15453,12 +14859,7 @@
           "Helmet",
           "Shield"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15525,12 +14926,7 @@
           "Helmet",
           "Shield"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15597,12 +14993,7 @@
           "Chestplate",
           "Boots"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15671,12 +15062,7 @@
           "Chestplate",
           "Boots"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15751,12 +15137,7 @@
           "Chestplate",
           "Boots"
         ],
-        "sets": [
-          {
-            "name": "Daze",
-            "excluded": true
-          }
-        ],
+        "sets": [],
         "metaSetNames": [
           "Utility"
         ],
@@ -15811,6 +15192,12 @@
     },
     {
       "appearance": {
+        "name": "Accessories"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Best % Ring"
       },
       "requiredCount": 1,
@@ -16367,6 +15754,59 @@
       "substats": [
         "ACC"
       ]
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer (Slow) Amulet"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Amulet"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Debuffer - Limited Sets"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "ACC"
+      ],
+      "substatWeights": {
+        "ACC": 1.1
+      }
     },
     {
       "appearance": {
@@ -16813,6 +16253,130 @@
       "substatWeights": {
         "HP": 0.05,
         "DEF": 0.1
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer (Slow) Banner"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Debuffer - Limited Sets"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ACC"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC"
+      ],
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer (Slow) Banner"
+      },
+      "requiredCount": 1,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": true,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Banner"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Debuffer - Limited Sets"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ACC"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "CR%",
+        "CDMG%",
+        "RES",
+        "HP%",
+        "ATK%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.55,
+        "ATK%": 0.1,
+        "DEF%": 0.45,
+        "SPD": 2,
+        "RES": 0.65,
+        "CR%": 0.65,
+        "CDMG%": 0.1
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -17904,6 +17468,12 @@
     },
     {
       "appearance": {
+        "name": "Mercurial"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Protect: Speed (Mercurial)"
       },
       "requiredCount": 12,
@@ -18704,6 +18274,177 @@
     },
     {
       "appearance": {
+        "name": "Protect: Best % Ring (Mercurial)"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "HP"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "DEF%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring (Mercurial)"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "ATK"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "ATK%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Best % Ring (Mercurial)"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Ring"
+        ],
+        "sets": [],
+        "metaSetNames": [
+          "Scarce (Mercurial)"
+        ],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "DEF"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "accessory"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "HP%",
+        "DEF%"
+      ],
+      "substatWeights": {
+        "HP%": 0.3
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
         "name": "Protect: Debuffer Amulet (Mercurial)"
       },
       "requiredCount": 2,
@@ -18926,177 +18667,6 @@
       "substatWeights": {
         "HP": 0.05,
         "DEF": 0.1
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "HP"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "DEF%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "ATK"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "ATK%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Best % Ring (Mercurial)"
-      },
-      "requiredCount": 2,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": false,
-        "perFaction": true,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Ring"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Scarce (Mercurial)"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "DEF"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "accessory"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "HP%",
-        "DEF%"
-      ],
-      "substatWeights": {
-        "HP%": 0.3
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -19459,6 +19029,12 @@
     },
     {
       "appearance": {
+        "name": "Accessory Minimums"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Unique: Accessories (1 per mainstat/slot)",
         "fgColor": "#FF7777"
       },
@@ -19634,6 +19210,12 @@
       ],
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Catch-All Artifacts"
+      },
+      "Separator": true
     },
     {
       "appearance": {
@@ -19957,6 +19539,12 @@
     },
     {
       "appearance": {
+        "name": "Faction Wars Coverage"
+      },
+      "Separator": true
+    },
+    {
+      "appearance": {
         "name": "Unique: Accessories (5 per slot per faction)",
         "fgColor": "#FF7777"
       },
@@ -20028,8 +19616,8 @@
     "     \"I can clear all **Normal** game modes and most stages in any **Hard** mode.\\nI aim for **6★ Epic** and higher artifacts, but still keep hard-to-replace **5★** pieces: SPD rolls, scarce limited sets, the safety net’s best picks, and very good **5★** accessories.\"",
     "     \"[[de]]Ich schaffe alle **Normal**-Modi und die meisten Stages in jedem **Hart**-Modus.\\nIch ziele auf **6★ Epic**-Artefakte und besser, behalte aber schwer ersetzbare **5★**-Teile: SPD-Rolls, seltene Limited-Sets, die besten Funde des Sicherheitsnetzes und sehr gute **5★**-Schmuckstücke.\" * id=lategame ^lategame -keep_general +keep_limited +keep_acc +keep_spd +keep_safeguards +rolls_33 +acc_rolls_32 +marius_finished +fwh_no +la_no +eg_no +acc_early_no +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap +ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical -ore6_lvlcap +ore6_nbr -ore6as_epic +ore6as_legendary +ore6as_mythical -ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=12 min_spd_pieces=12 min_debuffer_pieces=24 min_dmgsurv_pieces=24 impr_art=33 impr_acc=50 {}",
     "  cb \"`Endgame`\"",
-    "     \"I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars.**\\nI aim for **6★ Epic** and higher artifacts; the safety net reserves **6★ only** — 5★ keeps shrink to scarce sets and very good **5★** accessories.\"",
-    "     \"[[de]]Ich schaffe alle **Hart**-Modi inklusive **Verfluchte Stadt** / **Soulcross** und **Fraktionskriege.**\\nIch ziele auf **6★ Epic**-Artefakte und besser; das Sicherheitsnetz reserviert nur noch **6★** – an 5★ bleiben seltene Sets und sehr gute **5★**-Schmuckstücke.\" id=endgame ^endgame -keep_general +keep_limited +keep_acc +keep_spd -keep_safeguards +rolls_43 +acc_rolls_33 +marius_finished +fwh_yes16 +la_yes16 +eg_early +acc_early_yesspider +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap -ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical +ore6_lvlcap +ore6_nbr -ore6as_epic -ore6as_legendary +ore6as_mythical +ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=16 min_spd_pieces=16 min_debuffer_pieces=32 min_dmgsurv_pieces=32 impr_art=50 impr_acc=50 {}",
+    "     \"I can finish all **Hard** game modes including **Cursed City** / **Soulcross** and **Faction Wars.**\\nI aim for **6★ Epic** and higher artifacts; the safety net reserves **6★ only** — **5★** keeps shrink to scarce sets and very good **5★** accessories.\"",
+    "     \"[[de]]Ich schaffe alle **Hart**-Modi inklusive **Verfluchte Stadt** / **Soulcross** und **Fraktionskriege.**\\nIch ziele auf **6★ Epic**-Artefakte und besser; das Sicherheitsnetz reserviert nur noch **6★** – an **5★** bleiben seltene Sets und sehr gute **5★**-Schmuckstücke.\" id=endgame ^endgame -keep_general +keep_limited +keep_acc +keep_spd -keep_safeguards +rolls_43 +acc_rolls_33 +marius_finished +fwh_yes16 +la_yes16 +eg_early +acc_early_yesspider +ore5_epic +ore5_legendary +ore5_mythical +ore5_lvlcap -ore5_nbr +ore6_epic +ore6_legendary +ore6_mythical +ore6_lvlcap +ore6_nbr -ore6as_epic -ore6as_legendary +ore6as_mythical +ore6as_lvlcap +ore6as_nbr setval min_spdbanner_pieces=16 min_spd_pieces=16 min_debuffer_pieces=32 min_dmgsurv_pieces=32 impr_art=50 impr_acc=50 {}",
     "  cb \"`Endgame+`\"",
     "     \"If you really want to get rid of more.\"",
     "     \"[[de]]Wenn du wirklich noch mehr loswerden willst.\" id=endgameplus ^endgameplus -keep_safeguards -keep_general -keep_limited -keep_acc -keep_spd +marius_finished +rolls_43 +acc_rolls_43 +fwh_yes +la_yes +eg_yes +acc_early_yes -ore5_epic -ore5_legendary -ore5_mythical -ore5_lvlcap -ore5_nbr -ore6_epic -ore6_legendary -ore6_mythical -ore6_lvlcap -ore6_nbr -ore6as_epic -ore6as_legendary -ore6as_mythical -ore6as_lvlcap -ore6as_nbr setval min_spdbanner_pieces=4 min_spd_pieces=4 min_debuffer_pieces=4 min_dmgsurv_pieces=4 impr_art=60 impr_acc=60 {}",
@@ -20127,11 +19715,11 @@
     "  rb \"`Yes`\"",
     "     \"[[de]]`Ja`\"",
     "     \"Keep only level 16 pieces from these sets\"",
-    "     \"[[de]]Behält nur Level-16-Teile aus diesen Sets\" id=fwh_yes16 { @tag=utility { export=active lvl=16 gearsets=+-Daze } }",
+    "     \"[[de]]Behält nur Level-16-Teile aus diesen Sets\" id=fwh_yes16 { @tag=utility { export=active lvl=16 gearsets=+-Daze } safeguard @tag=utility { gearsets=+-Daze } }",
     "  rb \"`Yes!`\"",
     "     \"[[de]]`Ja!`\"",
     "     \"No extra protection — treat like any other gear\"",
-    "     \"[[de]]Kein Extra-Schutz — wie jede andere Ausrüstung behandeln\" id=fwh_yes { @tag=utility { export=disabled } }",
+    "     \"[[de]]Kein Extra-Schutz — wie jede andere Ausrüstung behandeln\" id=fwh_yes { @tag=utility { export=disabled } safeguard @tag=utility { gearsets=+-Daze } }",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Do you play and win Live Arena and Siege a lot?\\nThis affects **Zeal**, **Impulse**, **Feral**, **Stonecleaver**, and **Rebirth** drops.\\nNo matter what you pick, really good pieces are always protected.\"",
@@ -20458,8 +20046,8 @@
     "",
     "<!-- lang -->- *Any Set recipes* — Any set is allowed. A piece from **Resistance** or **Life** can pass the same test as one from **Savage**, as long as the rolls are good enough.",
     "<!-- lang:de -->- *Any-Set-Rezepte* – Jedes Set ist erlaubt. Ein Teil aus **Widerstand** oder **Leben** kann denselben Test bestehen wie eines aus **Wild**, solange die Rolls gut genug sind.<!-- /lang -->",
-    "<!-- lang -->- *Limited Set recipes* — Rare sets like **Stoneskin, Merciless, Mercurial, Crit Damage, Savage** get more lenient thresholds because these sets are hard to farm. Even a weaker piece from **Merciless** is worth saving because you cannot easily get another.",
-    "<!-- lang:de -->- *Limited-Set-Rezepte* – Seltene Sets wie **Steinhaut, Gnadenlos, Unstet, Krit-Schaden, Wild** haben geringere Anforderungen, weil diese Sets schwer zu farmen sind. Selbst ein schwächeres **Gnadenlos**-Teil ist es wert, aufgehoben zu werden, weil du nicht so leicht ein neues bekommst.<!-- /lang -->",
+    "<!-- lang -->- *Limited Set recipes* — Rare sets (the *… - Limited Sets* metasets in the metaset table below) get more lenient thresholds because these sets are hard to farm. Even a weaker piece from **Merciless** is worth saving because you cannot easily get another.",
+    "<!-- lang:de -->- *Limited-Set-Rezepte* – Seltene Sets (die *… - Limited Sets*-Metasets in der Metaset-Tabelle unten) haben geringere Anforderungen, weil diese Sets schwer zu farmen sind. Selbst ein schwächeres **Gnadenlos**-Teil ist es wert, aufgehoben zu werden, weil du nicht so leicht ein neues bekommst.<!-- /lang -->",
     "<!-- lang -->- *Set Bonus recipes* — If a piece missed the stricter thresholds, it gets a second chance when it belongs to a set whose bonus suits Damage Dealers — e.g. **Savage** gear, and even **Relentless** gear, when it rolls damage-dealer stats.",
     "<!-- lang:de -->- *Set-Bonus-Rezepte* – Erfüllt ein Teil die strengeren Anforderungen nicht, bekommt es eine zweite Chance, wenn es zu einem Set gehört, dessen Bonus zu Damage Dealern passt — z. B. **Wild**-Ausrüstung und sogar **Unnachgiebig**-Ausrüstung, wenn es Damage-Dealer-Werte rollt.<!-- /lang -->",
     "",
@@ -20475,8 +20063,8 @@
     "",
     "<!-- lang -->### Utility sets",
     "<!-- lang:de -->### Utility sets<!-- /lang -->",
-    "<!-- lang -->Sets like **Stun, Provoke, Toxic, Lifesteal, Daze** are niche but can solve specific PvE challenges.  ",
-    "<!-- lang:de -->Sets wie **Lähmung, Provozieren, Giftig, Lebensraub, Betäuben** sind nischig, können aber bestimmte PvE-Herausforderungen lösen.  <!-- /lang -->",
+    "<!-- lang -->Utility sets (the **Utility** metaset in the metaset table below) are niche but can solve specific PvE challenges.  ",
+    "<!-- lang:de -->Utility-Sets (das **Utility**-Metaset in der Metaset-Tabelle unten) sind nischig, können aber bestimmte PvE-Herausforderungen lösen.  <!-- /lang -->",
     "<!-- lang -->This group keeps pieces with useful (non-flat) substats — flat HP, ATK, or DEF are too weak to matter at this stage. By default it protects them at **every level (0–16)**, since you may still be chasing these sets.  ",
     "<!-- lang:de -->Diese Gruppe behält Teile mit brauchbaren (nicht-flachen) Unterwerte — flat HP, ATK oder DEF sind in dieser Phase zu schwach, um eine Rolle zu spielen. Standardmäßig schützt sie diese auf **jedem Level (0–16)**, da du diese Sets vielleicht noch farmst.  <!-- /lang -->",
     "<!-- lang -->Once you have **finished Faction Wars Hard**, the option above narrows this protection to **level 16** pieces only — you already have your utility gear, so only fully-leveled keepers are worth holding.",
@@ -20501,8 +20089,15 @@
     "<!-- lang -->- **Rings** — Substats should reinforce the ring's main stat (e.g., an HP ring wants **HP%**/**DEF%** substats).",
     "<!-- lang:de -->- **Ringe** – Unterwerte sollten den Hauptwert des Rings verstärken (z. B. will ein HP-Ring **HP%**/**DEF%**-Unterwerte).<!-- /lang -->",
     "",
-    "<!-- lang -->Accessories from rare sets (same sets as the *Limited Set recipes*) get more lenient thresholds since those pieces are harder to replace.",
-    "<!-- lang:de -->Schmuckstücke aus seltenen Sets (dieselben Sets wie bei den *Limited-Set-Rezepte*) haben geringere Anforderungen, da diese Teile schwerer zu ersetzen sind.<!-- /lang -->",
+    "<!-- lang -->Accessories from rare sets (same sets as the *Limited Set recipes* — see the metaset table below) get more lenient thresholds since those pieces are harder to replace.",
+    "<!-- lang:de -->Schmuckstücke aus seltenen Sets (dieselben Sets wie bei den *Limited-Set-Rezepten* — siehe Metaset-Tabelle unten) haben geringere Anforderungen, da diese Teile schwerer zu ersetzen sind.<!-- /lang -->",
+    "",
+    "<!-- lang -->### Metasets used by this file",
+    "<!-- lang:de -->### Metasets dieser Datei<!-- /lang -->",
+    "<!-- lang -->Metasets are named groups of gear sets — one name that recipes and safeguards reference instead of listing every set. This file uses:",
+    "<!-- lang:de -->Metasets sind benannte Gruppen von Ausrüstungssets — ein Name, auf den Rezepte und Schutzregeln verweisen, statt jedes Set einzeln aufzuzählen. Diese Datei verwendet:<!-- /lang -->",
+    "",
+    "<!-- metasets -->",
     "",
     "---",
     "<!-- lang -->## What are safeguards and when do they matter?",

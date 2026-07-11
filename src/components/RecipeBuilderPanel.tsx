@@ -65,7 +65,7 @@ import {
 } from '../lib/aggregateRollState'
 import { type Metaset, metasetGlyph, orderMetasets } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
-import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, pruneImplicitAnyExclusions, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, pruneImplicitAnyExclusions, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
@@ -190,7 +190,9 @@ import {
   SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX,
   SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX,
   SUBSTAT_MENU_WIDTH_PX,
+  separatorDisabledSectionSx,
 } from './builderPanel/constants'
+import { SeparatorToggleButton } from './SeparatorToggleButton'
 import { TINT } from '../lib/colorTints'
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
@@ -1315,6 +1317,11 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     buildArtifactSetSelectionKey(effectiveRecipe.artifactSets ?? []) !== buildArtifactSetSelectionKey(recipe.artifactSets ?? [])
     || (effectiveRecipe.artifactMetaSets ?? []).join('\0') !== (recipe.artifactMetaSets ?? []).join('\0')
   )
+  // Separator drafts: only the name/color field and the ━ toggle stay interactive.
+  // Every other control remains MOUNTED at factory defaults (stable layout when
+  // switching chips) but disabled+dimmed via separatorDisabledSectionSx on the row
+  // wrappers. Multi-edit is unaffected (the toggle is single-edit only).
+  const isSeparatorDraft = !multiEditActive && recipe.exportMode === 'separator'
   const autoLateOverrideActive = !multiEditActive && (
     effectiveRecipe.autoRaritySupplementsThreshold !== recipe.autoRaritySupplementsThreshold
   )
@@ -5790,15 +5797,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         </Box>
         </Select>
       )
-      // Build a human-readable label for a sets+metasets recipe (for the badge tooltip).
-      // Excluded entries are prefixed with "–" to mirror the exclusion UX convention.
-      const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string => {
-        const parts: string[] = [
-          ...(metas ?? []),
-          ...(sets ?? []).map((e) => (e.excluded ? '–' : '') + getLocalizedGearSetName(e.id, t, lang)),
-        ]
-        return parts.length > 0 ? parts.join(', ') : t('any')
-      }
+      // Human-readable sets+metasets label for the badge tooltip (shared formatter —
+      // the safeguard builder's sets badge uses the identical rendering).
+      const setsLabel = (sets: typeof recipe.artifactSets, metas: typeof recipe.artifactMetaSets): string =>
+        formatArtifactSetSelectionLabel(sets, metas, (id) => getLocalizedGearSetName(id, t, lang), t('any'))
       const selectEl = (
         <Box ref={setsSelectContainerRef} sx={{ position: 'relative' }}>
           {baseSelect}
@@ -5879,7 +5881,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         boxShadow: 'none',
         backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
       })}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {/* gap: 1 matches the safeguard builder's name row — the ━ toggle spacing is part of the shared separator UX. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <TextField
             label={t('builderRecipeName')}
             value={renderedName}
@@ -5900,6 +5903,29 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             }}
             fullWidth
           />
+          {/* ━ separator on/off toggle — shared control, identical UX in the safeguard builder.
+              Single-edit only; multi-edit stages exportMode through its own field instead. */}
+          {!multiEditActive ? (
+            <SeparatorToggleButton
+              active={isSeparatorDraft}
+              tooltip={t('builderExportModeSeparatorTooltip')}
+              dataTourId="builder.separator"
+              onChange={(nextActive) => {
+                if (!nextActive) {
+                  updateExportMode('active')
+                  return
+                }
+                // Turning a recipe into a divider resets every other field to factory
+                // defaults — that is exactly what a separator persists as (name + color
+                // only), so the disabled controls show the truth; undo restores the recipe.
+                onChange({
+                  ...createFactoryBuilderDefaults(),
+                  ...(recipe.appearance ? { appearance: recipe.appearance } : {}),
+                  exportMode: 'separator',
+                })
+              }}
+            />
+          ) : null}
         </Box>
       </Box>
       {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
@@ -5918,6 +5944,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
         })}>
           {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -6242,16 +6269,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       ))
                     : null}
                 </ToggleButton>
-                <ToggleButton value="separator" sx={{ px: 1.5 }}>
-                  <MarkdownTooltip
-                    placement="top"
-                    render={<BuilderTooltipContent text={t('builderExportModeSeparatorTooltip')} />}
-                  >
-                    <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
-                      {t('builderExportModeSeparator')}
-                    </Box>
-                  </MarkdownTooltip>
-                </ToggleButton>
+                {/* Separator mode moved out of this group: the shared ━ on/off toggle
+                    next to the name field owns it (identical UX to the safeguard builder). */}
                 </ToggleButtonGroup>
               </Box>
             </Box>
@@ -6389,6 +6408,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           gap: 1,
           alignItems: 'flex-start',
           borderRadius: 1,
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
           backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
@@ -6825,6 +6845,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Row 2 right: Level Window — col 3 only */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 4',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -6891,6 +6912,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Row 3: Mainstat (left cols 1-2), Substats (right cols 3-4) */}
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           // Align hover timing with other groups for Reset hover tint
           transition: UI_BG_HOVER_DANGER_TRANSITION,
@@ -6928,6 +6950,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Substats — cols 3-4 */}
         <FormControl sx={(theme) => ({
           gridColumn: '3 / 5',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -6972,6 +6995,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={(theme) => ({
           gridColumn: '1 / 3',
           gridRow: 'span 2',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -7127,6 +7151,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           display: 'flex',
           flexDirection: 'column',
           gap: 0.5,
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',
@@ -7183,6 +7208,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Row 4b right: Sets — auto-placed by grid to cols 3-4, row below Slots/Min Rolls */}
         <Box sx={(theme) => ({
           gridColumn: '3 / 5',
+          ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
           borderRadius: 1,
           transition: UI_BG_HOVER_DANGER_TRANSITION,
           boxShadow: 'none',

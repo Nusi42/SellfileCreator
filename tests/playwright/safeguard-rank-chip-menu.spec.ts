@@ -1,11 +1,14 @@
 /* eslint import/no-unused-modules: off */
 // Repro for the safeguard rank chip right-click menu: selecting a rule the piece is NOT
-// top-ranked in (e.g. "Protect: Best SPD", ruleIdx 4, rank #2286 for artifact 128768) must
-// undim the chip — the chip currently stays dimmed even though that rule DOES list the item.
+// top-ranked in (e.g. "Protect: Best SPD", ruleIdx 1, global rank #1636 for artifact
+// 128768) must undim the chip — the chip once stayed dimmed even though that rule DOES
+// list the item.
 //
-// Ground-truth (from the headless gearInspectorProbe against the same fixtures):
+// Ground-truth (from the headless gearInspectorProbe pipeline against the same fixtures):
 //   artifact 128768, lategame.sfc defaults (Lategame difficulty), um109288203_RSLHelper.db
-//   → "Protect: Best SPD" is safeguardRules[4] (ordinal 5), candidate rank 2286.
+//   → the ranked "Protect: Best SPD" row is safeguardRules[1] (ordinal 2), group rank #46,
+//     global rank #1636. Index 1: the Safeguards array opens with the "Speed" separator
+//     entry (index 0); this artifact ranks in the second Best SPD rule after it.
 import { test, expect, type Page } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
@@ -16,8 +19,10 @@ import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY } from '../../src/lib/constants'
 
 const TARGET_ARTIFACT_ID = 128768
-// "Protect: Best SPD" resolves to safeguardRules[4] under lategame.sfc (verified via probe).
-const BEST_SPD_RULE_IDX = 4
+// The ranked "Protect: Best SPD" row resolves to safeguardRules[1] under lategame.sfc —
+// the leading "Speed" separator entry occupies index 0 (separators keep their array slot
+// so rule indices stay aligned across the WASM boundary).
+const BEST_SPD_RULE_IDX = 1
 // In groupRank mode the chip/menu show the count-group rank (#46), not the global rank (#2286).
 const EXPECTED_GROUP_RANK = '46'
 

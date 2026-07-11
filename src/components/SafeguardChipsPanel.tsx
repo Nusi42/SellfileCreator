@@ -64,6 +64,9 @@ import { useShowTagsInChipsPreference } from '../state/builderPreferences'
 import { resolveSafeguardActivationTextColor, safeguardSummaryParts } from './safeguardSummaryParts'
 import { useRarityLabelColorMap } from '../lib/rarityColorContext'
 import { ALPHA } from '../lib/colorTints'
+// Divider decoration + row are shared with the recipe chip list (one separator look).
+import { deriveSeparatorDividerDecoration } from '../lib/separators'
+import { SeparatorDividerRow } from './SeparatorDividerRow'
 
 
 export type SafeguardChipsPanelProps = {
@@ -216,6 +219,15 @@ const SafeguardChip = React.memo(function SafeguardChip({
   if (rule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
   if (rule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
   const perDimSuffix = flagParts.length > 0 ? NBSP + flagParts.join('') : ''
+  // Separator rows render as a pure divider (shared decoration with the recipe list):
+  // no index, no mode badge, no summary, no tag chips, no inline action buttons.
+  const isSeparator = rule.separator === true
+  // Base line color mirrors RecipeChip's primaryColor source (CSS-var aware).
+  const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
+  const separatorDecoration = useMemo(
+    () => deriveSeparatorDividerDecoration(rule.appearance?.name, rule.appearance?.fgColor, primaryColor),
+    [rule.appearance, primaryColor],
+  )
   // Summary line — memoized so it only recomputes when this chip's rule or display prefs change.
   const summary = useMemo(
     () => safeguardSummaryParts(rule, metasets, {
@@ -305,10 +317,20 @@ const SafeguardChip = React.memo(function SafeguardChip({
             sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
             slotProps={{ htmlInput: { style: { fontSize: '0.75rem', padding: '2px 6px' } } }}
           />
-          <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
-            {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
-          </Box>
+          {/* Separators have no mode badge — the field edits only the divider label. */}
+          {!isSeparator ? (
+            <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
+              {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
+            </Box>
+          ) : null}
         </>
+      ) : isSeparator ? (
+        // Double-click anywhere on the divider starts the inline rename (name box is absent).
+        <SeparatorDividerRow
+          decoration={separatorDecoration}
+          surfaceBg={chipBg}
+          onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onStartEdit(ruleIndex, rule.appearance?.name ?? '') }}
+        />
       ) : (
         <Box sx={{ mr: 0.5, flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
           <Typography
@@ -342,7 +364,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
       )}
       {/* Inline tag chips — shown to the right of the text area, next to the mode flags,
           when the preference is on. flexShrink: 0 keeps them from being squeezed by the name. */}
-      {!isEditing && showTagsInChips && rule.tags && rule.tags.length > 0 ? (
+      {!isEditing && !isSeparator && showTagsInChips && rule.tags && rule.tags.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
           {rule.tags.slice(0, 3).map((tag) => (
             <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
@@ -352,42 +374,47 @@ const SafeguardChip = React.memo(function SafeguardChip({
           ) : null}
         </Box>
       ) : null}
-      {/* Action buttons — directly in the row, matching RecipeChip */}
-      <IconButton
-        size="small"
-        aria-label={t('chipMenuMoveUp')}
-        disabled={isFirst}
-        onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex - 1, 'up') }}
-        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-      >
-        <ArrowUpwardIcon fontSize="inherit" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={t('chipMenuMoveDown')}
-        disabled={isLast}
-        onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex + 1, 'down') }}
-        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-      >
-        <ArrowDownwardIcon fontSize="inherit" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={t('safeguardsDuplicateRule')}
-        onClick={(e) => { e.stopPropagation(); onDuplicate(ruleIndex) }}
-        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-      >
-        <ContentCopyIcon fontSize="inherit" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={t('safeguardsDeleteRule')}
-        onClick={(e) => { e.stopPropagation(); onDelete(ruleIndex) }}
-        color="error"
-        sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
-      >
-        <DeleteOutlineIcon fontSize="inherit" />
-      </IconButton>
+      {/* Action buttons — directly in the row, matching RecipeChip (which also hides
+          them on separators; move/duplicate/delete stay reachable via context menu/dnd). */}
+      {!isSeparator ? (
+        <>
+          <IconButton
+            size="small"
+            aria-label={t('chipMenuMoveUp')}
+            disabled={isFirst}
+            onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex - 1, 'up') }}
+            sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+          >
+            <ArrowUpwardIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label={t('chipMenuMoveDown')}
+            disabled={isLast}
+            onClick={(e) => { e.stopPropagation(); onMoveRule(ruleIndex, ruleIndex + 1, 'down') }}
+            sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+          >
+            <ArrowDownwardIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label={t('safeguardsDuplicateRule')}
+            onClick={(e) => { e.stopPropagation(); onDuplicate(ruleIndex) }}
+            sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+          >
+            <ContentCopyIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            aria-label={t('safeguardsDeleteRule')}
+            onClick={(e) => { e.stopPropagation(); onDelete(ruleIndex) }}
+            color="error"
+            sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25 }}
+          >
+            <DeleteOutlineIcon fontSize="inherit" />
+          </IconButton>
+        </>
+      ) : null}
     </Box>
   )
 })

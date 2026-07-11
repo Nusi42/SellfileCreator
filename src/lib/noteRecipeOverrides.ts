@@ -48,7 +48,12 @@ import {
   reportInvalidEnumValue,
   NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
   localizeDslDisplay,
+  parsePrefixedToken,
+  classifyListMode,
+  consumeCommaSeparatedRemainder,
 } from './noteOverridesParser'
+// Case-insensitive set display name → ArtifactSetId (SSOT defined next to the tuple parser).
+import { artifactSetIdByName } from './safeguards'
 import { normalizeRollTargetEntry } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { countPositiveSubstats } from './recipeNormalization'
@@ -1075,61 +1080,6 @@ const ARTIFACT_TYPE_NAME_MAP = new Map<string, ArtifactTypeId>(
   Object.entries(ArtifactType).map(([name, id]) => [name.toLowerCase(), id as ArtifactTypeId]),
 )
 
-// Case-insensitive lookup: artifact set display name → numeric ArtifactSetId.
-// Derived from artifactSetNames so additions in types.ts are reflected automatically.
-const ARTIFACT_SET_NAME_MAP = new Map<string, number>(
-  Object.entries(artifactSetNames).map(([id, name]) => [name.toLowerCase(), Number(id)]),
-)
-
-// Prefix categories for list-mutation fields.
-type ListTokenPrefix = 'none' | 'add' | 'remove' | 'addExcluded'
-type PrefixedToken = { prefix: ListTokenPrefix; value: string }
-
-// Parse a raw token string into a prefix category and the bare name.
-// `+-` is only meaningful for gearsets (add as excluded entry); for other
-// fields it is treated the same as `+` (caller decides).
-function parsePrefixedToken(raw: string): PrefixedToken {
-  const t = raw.trim()
-  if (t.startsWith('+-')) return { prefix: 'addExcluded', value: t.slice(2).trim() }
-  if (t.startsWith('+'))  return { prefix: 'add',         value: t.slice(1).trim() }
-  if (t.startsWith('-'))  return { prefix: 'remove',      value: t.slice(1).trim() }
-  return { prefix: 'none', value: t }
-}
-
-// Returns 'replace' if all tokens have no prefix, 'mutate' if all are prefixed,
-// or 'ignore' if the prefixes are mixed (no-prefix alongside prefixed).
-function classifyListMode(tokens: PrefixedToken[]): 'replace' | 'mutate' | 'ignore' {
-  const hasNone     = tokens.some((t) => t.prefix === 'none')
-  const hasPrefixed = tokens.some((t) => t.prefix !== 'none')
-  if (hasNone && hasPrefixed) return 'ignore'
-  return hasNone ? 'replace' : 'mutate'
-}
-
-// After the first value token of a list field has been consumed, collect any
-// remaining comma-separated word/string tokens that continue the list.
-// Handles the `+` symbol prefix so that `+Speed` and `+-Daze` are accepted
-// as comma-separated entries (e.g. `gearsets=-Lifesteal,+-Daze,+Speed`).
-const consumeCommaSeparatedRemainder = (cursor: TokenCursor): string[] => {
-  const extras: string[] = []
-  while (cursor.consumeSymbol(',')) {
-    // `+` is tokenized as a symbol; peek past it when followed by a word.
-    let prefix = ''
-    let next = cursor.peek()
-    if (next?.kind === 'symbol' && next.value === '+') {
-      const wordTok = cursor.peek(1)
-      if (wordTok?.kind === 'word' || wordTok?.kind === 'string') {
-        cursor.next()   // consume `+`
-        prefix = '+'
-        next = wordTok
-      }
-    }
-    if (!next || (next.kind !== 'word' && next.kind !== 'string')) break
-    cursor.next()
-    extras.push(prefix + next.value)
-  }
-  return extras
-}
-
 const parseSelectorTokens = (
   tokens: Token[],
   absoluteOffset = 0,
@@ -1785,7 +1735,7 @@ const parseOperations = (
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
       const resolveId = (name: string): ArtifactSetId | undefined =>
-        ARTIFACT_SET_NAME_MAP.get(name.toLowerCase()) as ArtifactSetId | undefined
+        artifactSetIdByName.get(name.trim().toLowerCase())
       if (listMode === 'replace') {
         // No-prefix tokens → plain includes only (no excluded flag in replace mode).
         const ids = parsed.map((t) => resolveId(t.value)).filter((v): v is ArtifactSetId => v != null)

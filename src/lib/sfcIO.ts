@@ -471,18 +471,23 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
     : []
 
 
-  const exportMode: SellfileExportMode = resolveExportModeField({
-    exportMode: (coerceSellfileExportModeToken(rec['exportMode'])
-      ?? coerceSellfileExportModeToken(rec['ExportMode'])) ?? null,
-    visibility: (coerceSellfileExportModeToken(rec['visibility'])
-      ?? coerceSellfileExportModeToken(rec['Visibility'])
-      ?? coerceSellfileExportModeToken(rec['sellfileVisibility'])
-      ?? coerceSellfileExportModeToken(rec['SellfileVisibility'])) ?? null,
-    sellfileMode: (coerceSellfileExportModeToken(rec['sellfileMode'])
-      ?? coerceSellfileExportModeToken(rec['SellfileMode'])) ?? null,
-    SellfileVisibility: typeof rec['SellfileVisibility'] === 'string' ? String(rec['SellfileVisibility']) : null,
-    enabled: typeof rec['enabled'] === 'boolean' ? rec['enabled'] : null,
-  })
+  // Current format marks separators with the same boolean flag safeguard entries use
+  // (`Separator: true`); the SellfileVisibility='Separator' label below is the legacy
+  // spelling and stays readable for old .sfc files.
+  const exportMode: SellfileExportMode = (rec['Separator'] === true || rec['separator'] === true)
+    ? 'separator'
+    : resolveExportModeField({
+      exportMode: (coerceSellfileExportModeToken(rec['exportMode'])
+        ?? coerceSellfileExportModeToken(rec['ExportMode'])) ?? null,
+      visibility: (coerceSellfileExportModeToken(rec['visibility'])
+        ?? coerceSellfileExportModeToken(rec['Visibility'])
+        ?? coerceSellfileExportModeToken(rec['sellfileVisibility'])
+        ?? coerceSellfileExportModeToken(rec['SellfileVisibility'])) ?? null,
+      sellfileMode: (coerceSellfileExportModeToken(rec['sellfileMode'])
+        ?? coerceSellfileExportModeToken(rec['SellfileMode'])) ?? null,
+      SellfileVisibility: typeof rec['SellfileVisibility'] === 'string' ? String(rec['SellfileVisibility']) : null,
+      enabled: typeof rec['enabled'] === 'boolean' ? rec['enabled'] : null,
+    })
 
   // Resolve appearance from the current nested form or legacy flat fields (incl. [#RRGGBB]).
   const baseAppearance = readAppearanceFromRecord(rec)
@@ -719,6 +724,15 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
   }
 }
 
+// First selectable recipe index for load-time selection: separators are list
+// dividers, not editable content, so fresh loads land on the first real recipe.
+// Falls back to index 0 when the list holds only separators (still selectable).
+export const firstSelectableRecipeIndex = (recipes: readonly BuilderRecipe[]): number | null => {
+  if (recipes.length === 0) return null
+  const idx = recipes.findIndex((r) => r.exportMode !== 'separator')
+  return idx >= 0 ? idx : 0
+}
+
 // Build a readable recipe object for SFC export/copy (labels, not numeric IDs)
 /** Build a single readable SFC recipe from internal BuilderRecipe state. */
 export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) {
@@ -760,11 +774,17 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
     return entries
   })()
   const exportMode: SellfileExportMode = recipe.exportMode
-  const exportModeLabel = exportMode === 'separator'
-    ? 'Separator'
-    : exportMode === 'disabled'
-      ? 'Disabled'
-      : 'Active'
+  // Separators are pure list dividers: persist ONLY the appearance and the marker flag
+  // (the same shape safeguard separators use). Every other recipe field is irrelevant
+  // to a divider and deliberately not written — the loader fills defaults.
+  if (exportMode === 'separator') {
+    const entry: ReadableSeparatorEntry = {
+      ...appearancePersistField(recipe.appearance),
+      Separator: true,
+    }
+    return entry
+  }
+  const exportModeLabel = exportMode === 'disabled' ? 'Disabled' : 'Active'
   const readableTargets = rollTargetsToReadable((recipe as BuilderRecipe).substatRollTargetsV)
   // Canonicalize tags for SFC output (includes legacy safeguard-ignore aliases).
   const tags = normalizeTagList(recipe.tags) ?? []
@@ -1075,8 +1095,9 @@ export function parseSfcObject(
     ? (parsedRec['SafeguardsEnabled'] === true || parsedRec['KeepUniquesEnabled'] === true)
     : null
   const recipesEnabled = parsedRec['RecipesEnabled'] !== false
-  // Manual loads always start at the first recipe; selection is not persisted in SFC.
-  const selectedIndex = recipes.length > 0 ? 0 : null
+  // Manual loads (file/clipboard/preset) start at the first NON-SEPARATOR recipe —
+  // selection is not persisted in SFC; autosave restore applies its own saved index.
+  const selectedIndex = firstSelectableRecipeIndex(recipes)
   // Canonicalize legacy note markers during SFC import so runtime state uses new wording only.
   // Accept both the legacy plain-string form and the current array-of-lines form.
   const rawVersion = typeof parsedRec['Version'] === 'string' ? parsedRec['Version'] : undefined
@@ -1148,6 +1169,16 @@ type ReadableSafeguardTuple = {
   factions: string[]
 }
 
+// Minimal persisted shape of a separator — identical for the Recipes and the
+// Safeguards array: label/color plus the marker flag, deliberately NO other
+// fields (they are irrelevant to a list divider; the loader rehydrates factory
+// defaults). Legacy recipe files spelled the marker `SellfileVisibility:
+// 'Separator'` instead — still accepted on read, never written anymore.
+export type ReadableSeparatorEntry = {
+  appearance?: NameAppearance
+  Separator: true
+}
+
 export type ReadableSafeguardRuleEntry = {
   // Nested appearance record (name + optional fgColor). Emitted first when present.
   appearance?: NameAppearance
@@ -1204,7 +1235,18 @@ const buildReadableSafeguardTuple = (combination: SafeguardRule['combination']):
 }
 
 // Build a readable safeguard export entry from an in-memory rule.
-export const buildReadableSafeguardRuleEntry = (rule: SafeguardRule): ReadableSafeguardRuleEntry => {
+export const buildReadableSafeguardRuleEntry = (
+  rule: SafeguardRule,
+): ReadableSafeguardRuleEntry | ReadableSeparatorEntry => {
+  // Separators persist minimally — appearance + marker, nothing else (see the
+  // ReadableSeparatorEntry doc). Applies to every persistence path
+  // (file save, autosave, clipboard, preset snapshot) since they all funnel here.
+  if (rule.separator === true) {
+    return {
+      ...appearancePersistField(rule.appearance),
+      Separator: true,
+    }
+  }
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
   const mode = sanitizeSafeguardCountMode(rule.countMode)
   // Capture selected substats in readable form so exports stay user-friendly.
@@ -1309,21 +1351,9 @@ export function buildSfcPayload(args: {
     Minima: unknown
     Recipes: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    Safeguards: Array<{
-      name?: string
-      requiredCount: number
-      activation: SafeguardRuleActivation
-      countMode: SafeguardRule['countMode']
-      ignorePreviousSafeguards_v2?: boolean
-      ignoreEquippedInCollection?: boolean
-      ignoreEquippedInVault?: boolean
-      tuple: ReadableSafeguardTuple
-      substats?: string[]
-      substatMatch?: string
-      substatWeights?: Record<string, number>
-      weightMainStatByRank?: boolean
-      mainStatRankWeightFactor?: number
-    }>
+    // The entry types are the serializer's own (SSOT) — the old inline copy here had
+    // silently drifted (missing appearance/tags/improvementChanceThreshold).
+    Safeguards: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry>
     SafeguardsEnabled: boolean
     RecipesEnabled: boolean
     // Array of lines for diff-friendliness; legacy files may still carry a plain string.

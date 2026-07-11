@@ -3,7 +3,7 @@ import { memo, useMemo, useState } from 'react'
 import type React from 'react'
 import type { JSX } from 'react'
 import { Box, Chip, IconButton, Typography } from '@mui/material'
-import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
+import { useTheme, useColorScheme } from '@mui/material/styles'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -43,6 +43,9 @@ import MarkdownTooltip from './MarkdownTooltip'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
 import { TINT } from '../lib/colorTints'
+// Divider decoration + row are shared with the safeguard chip list (one separator look).
+import { deriveSeparatorDividerDecoration } from '../lib/separators'
+import { SeparatorDividerRow } from './SeparatorDividerRow'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const RECIPE_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -50,75 +53,10 @@ const RECIPE_CHIP_SLOT_ICON_OFFSET_EM = -0.20
 const RECIPE_CHIP_ARTIFACT_SET_ICON_OFFSET_EM = -0.35
 const RECIPE_CHIP_METASET_ICON_BOX_PX = 16
 
-const SEPARATOR_SOLID_BORDER_WIDTH_PX = 2
-const SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX = 1.5
-const SEPARATOR_HASHED_BORDER_WIDTH_STEP_PX = 0.3
-const SEPARATOR_HASHED_MIN_BORDER_WIDTH_PX = 0.8
-const SEPARATOR_HASHED_LINE_ALPHA_BASE = 0.75
-const SEPARATOR_HASHED_LINE_ALPHA_STEP = 0.15
-const SEPARATOR_HASHED_LINE_ALPHA_MIN = 0.3
-
 const clampAggregateRollDisplayValue = (value: unknown): number => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
   const rounded = Math.round(value)
   return Math.max(0, Math.min(5, rounded))
-}
-
-type SeparatorDividerDecoration = {
-  displayName: string
-  hasLabel: boolean
-  borderStyle: 'solid' | 'dashed' | 'dotted'
-  borderWidthPx: number
-  lineColor: string
-  textColor: string
-  minLineWidthPx: number
-}
-
-// Separator dividers treat leading "#" prefixes as style hints (dash/dot width), and fgColor as the line color.
-function deriveSeparatorDividerDecoration(rawName: string | undefined, fgColor: string | undefined, baseColor: string): SeparatorDividerDecoration {
-  const trimmed = (rawName ?? '').trim()
-  const hashMatch = trimmed.match(/^(#+)/)
-  const hashPrefix = hashMatch?.[1] ?? ''
-  const hashCount = hashPrefix.length
-
-  const displayName = trimmed.slice(hashPrefix.length).trimStart()
-  // Use fgColor from appearance when set; fall back to the theme base color.
-  const resolvedColor = fgColor || baseColor
-  const hasLabel = displayName.length > 0
-
-  if (hashCount === 0) {
-    return {
-      displayName,
-      hasLabel,
-      borderStyle: 'solid',
-      borderWidthPx: SEPARATOR_SOLID_BORDER_WIDTH_PX,
-      lineColor: resolvedColor,
-      textColor: resolvedColor,
-      minLineWidthPx: hasLabel ? 16 : 32,
-    }
-  }
-
-  const intensityStep = Math.max(0, hashCount - 1)
-  const borderWidth = Math.max(SEPARATOR_HASHED_MIN_BORDER_WIDTH_PX, SEPARATOR_HASHED_BASE_BORDER_WIDTH_PX - intensityStep * SEPARATOR_HASHED_BORDER_WIDTH_STEP_PX)
-  const lineAlpha = Math.max(SEPARATOR_HASHED_LINE_ALPHA_MIN, SEPARATOR_HASHED_LINE_ALPHA_BASE - intensityStep * SEPARATOR_HASHED_LINE_ALPHA_STEP)
-  let lineColor: string
-  try {
-    lineColor = alpha(resolvedColor, lineAlpha)
-  } catch {
-    lineColor = resolvedColor
-  }
-  const textColor = resolvedColor
-  const borderStyle: 'dashed' | 'dotted' = hashCount >= 3 ? 'dotted' : 'dashed'
-
-  return {
-    displayName,
-    hasLabel,
-    borderStyle,
-    borderWidthPx: borderWidth,
-    lineColor,
-    textColor,
-    minLineWidthPx: hasLabel ? 16 : 32,
-  }
 }
 
 interface RecipeChipProps {
@@ -342,55 +280,7 @@ function RecipeChip({
       }}
     >
       {isSeparator ? (
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          width: '100%',
-          gap: separatorDecoration.hasLabel ? 1.5 : 0,
-          minHeight: 20,
-        }}
-        >
-          {separatorDecoration.hasLabel ? (
-            <>
-              <Box sx={{
-                flexGrow: 1,
-                minWidth: separatorDecoration.minLineWidthPx,
-                borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
-              }}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  flex: '0 1 auto',
-                  maxWidth: '100%',
-                  px: 1,
-                  textAlign: 'center',
-                  whiteSpace: 'normal',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'anywhere',
-                  fontWeight: 600,
-                  minWidth: 0,
-                  color: ensureContrastOnBg(separatorDecoration.textColor, bgPaper),
-                }}
-              >
-                {separatorDecoration.displayName}
-              </Typography>
-              <Box sx={{
-                flexGrow: 1,
-                minWidth: separatorDecoration.minLineWidthPx,
-                borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
-              }}
-              />
-            </>
-          ) : (
-            <Box sx={{
-              flexGrow: 1,
-              minWidth: separatorDecoration.minLineWidthPx,
-              borderBottom: `${separatorDecoration.borderWidthPx}px ${separatorDecoration.borderStyle} ${separatorDecoration.lineColor}`,
-            }}
-            />
-          )}
-        </Box>
+        <SeparatorDividerRow decoration={separatorDecoration} surfaceBg={bgPaper} />
       ) : (
         <Typography
           variant="caption"

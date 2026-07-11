@@ -311,7 +311,10 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     const built = buildHsfRules(cfg, defaultSubstatTargets())
     assert(built.length === 0, 'IO Draft: draft recipes must not emit HSF rows')
     const readable = buildReadableRecipe(cfg, []) as any
-    assert(readable.SellfileVisibility === 'Separator', 'IO Separator: writer should label separator export mode')
+    // Unified separator format: the boolean marker flag (legacy files used
+    // SellfileVisibility='Separator'; the writer no longer emits that label).
+    assert(readable.Separator === true, 'IO Separator: writer should mark separator entries')
+    assert(readable.SellfileVisibility === undefined, 'IO Separator: legacy visibility label must not be written')
   }
   // Scenario E: Rank Any uses the configured substatTargets fallback star
   {

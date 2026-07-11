@@ -44,9 +44,9 @@ import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { HsfRuleWithRecipe } from '../lib/merge'
 import type { SubstatTargetTable } from '../lib/hsfBuilder/types'
 import DungeonSimulatorNoteBlock from './DungeonSimulatorNoteBlock'
+import MetasetsNoteBlock from './MetasetsNoteBlock'
 import type { Metaset } from '../lib/metasets'
-import { metasetGlyph } from '../lib/metasets'
-import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
+import { NOTE_METASETS_MARKER_KEYWORD } from '../lib/metasets'
 import {
   artifactTypeI18nKey,
   artifactTypeNames,
@@ -479,6 +479,14 @@ const SG_QUESTION_ELEMENT_INDEX_ATTR = 'data-sg-question-index'
 const DUNGEON_SIM_COMMENT_REGEX = /^\s*dungeon-simulator\s*$/i
 // Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
 const DUNGEON_SIM_ELEMENT_TAG = 'dungeon-sim-block'
+
+// ── Metasets table tag ───────────────────────────────────────────────────────
+// Matches the body of <!-- metasets --> HTML comment markers (whole comment only —
+// the recipe-overrides `metasets=` assignment token can never collide because it
+// only occurs INSIDE overrides markers, which their own plugins consume first).
+const METASETS_COMMENT_REGEX = new RegExp(`^\\s*${NOTE_METASETS_MARKER_KEYWORD}\\s*$`, 'i')
+// Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
+const METASETS_ELEMENT_TAG = 'note-metasets-block'
 
 // ── Collapsible section block (<!-- collapse --> … <!-- /collapse -->) ──
 // Wraps a marker range in a click-to-expand section (default collapsed) so optional
@@ -1295,9 +1303,10 @@ const rehypeQuestionGroups: Pluggable = () => {
   }
 }
 
-// Replace <!-- dungeon-simulator --> comment nodes with a <dungeon-sim-block /> element.
-// The component reads rules + substatTargets + pipelineRunning from NoteRenderContext.
-const rehypeDungeonSimulatorComment: Pluggable = () => {
+// Factory for the simplest marker transforms: replace a whole-comment match with an
+// attribute-less custom element. One implementation for every such marker
+// (dungeon-simulator, metasets) so the traversal/replacement can never drift.
+const makeCommentElementPlugin = (regex: RegExp, tagName: string): Pluggable => () => {
   return (tree: Root) => {
     const transform = (node: Root | Element): void => {
       const nodeChildren = (node.children ?? []) as RootContent[]
@@ -1312,11 +1321,11 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
         // Only raw HTML comment nodes are candidates.
         if (child.type !== 'comment') continue
         const value = (child as { value?: string }).value ?? ''
-        if (!DUNGEON_SIM_COMMENT_REGEX.test(value)) continue
+        if (!regex.test(value)) continue
         // Replace the comment node with the custom element (no attributes needed).
         nodeChildren[i] = {
           type: 'element',
-          tagName: DUNGEON_SIM_ELEMENT_TAG,
+          tagName,
           properties: {},
           children: [],
         }
@@ -1325,6 +1334,14 @@ const rehypeDungeonSimulatorComment: Pluggable = () => {
     transform(tree)
   }
 }
+
+// Replace <!-- dungeon-simulator --> comment nodes with a <dungeon-sim-block /> element.
+// The component reads rules + substatTargets + pipelineRunning from NoteRenderContext.
+const rehypeDungeonSimulatorComment: Pluggable = makeCommentElementPlugin(DUNGEON_SIM_COMMENT_REGEX, DUNGEON_SIM_ELEMENT_TAG)
+
+// Replace <!-- metasets --> comment nodes with a <note-metasets-block /> element.
+// The component reads the live metasets list from NoteRenderContext.
+const rehypeMetasetsComment: Pluggable = makeCommentElementPlugin(METASETS_COMMENT_REGEX, METASETS_ELEMENT_TAG)
 
 // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges in a <div> tagged with
 // NOTE_CONDITIONAL_ATTR. The content is ALWAYS emitted into the DOM (never dropped)
@@ -1807,42 +1824,9 @@ function computeBlockInsertion(
   return { insert, cursorOffset }
 }
 
-function buildMetasetBulletList(
-  metasets: Metaset[],
-  t: ReturnType<typeof useI18n>['t'],
-  lang: string,
-): string {
-  if (!metasets.length) return ''
-  const fallbackIconOption = metasetIconOptionById(DEFAULT_METASET_ICON_ID)
-  return metasets
-    .map((meta) => {
-      const glyphInfo = metasetGlyph(meta)
-      let iconGlyph: string | null = null
-      if (glyphInfo.iconId === 'none') {
-        iconGlyph = null
-      } else if (glyphInfo.glyph) {
-        iconGlyph = glyphInfo.glyph
-      } else if (glyphInfo.iconId) {
-        const option = metasetIconOptionById(glyphInfo.iconId as MetasetIconId)
-        iconGlyph = option.variant === 'none' ? null : option.glyph
-      } else if (typeof meta.iconId === 'string') {
-        const option = metasetIconOptionById(meta.iconId as MetasetIconId)
-        iconGlyph = option.variant === 'none' ? null : option.glyph
-      }
-      if (!iconGlyph && fallbackIconOption.variant !== 'none') {
-        iconGlyph = fallbackIconOption.glyph
-      }
-      const setNames = (meta.sets ?? [])
-        .slice()
-        .sort((a, b) => compareArtifactSets(Number(a), Number(b)))
-        .map((id) => getLocalizedGearSetName(id, t, lang))
-      const setsLabel = setNames.length > 0 ? setNames.join(', ') : t('noteMetasetNoSets')
-      const iconPart = iconGlyph ? `${iconGlyph} ` : ''
-      const name = meta.name && meta.name.trim() ? meta.name.trim() : t('menuMetasetsSection')
-      return `- ${iconPart}**${name}** - ${setsLabel}.`
-    })
-    .join('\n')
-}
+// The former static bullet-list builder is gone: the toolbar button now inserts the
+// <!-- metasets --> marker, which MetasetsNoteBlock renders as a LIVE table (always
+// reflecting the current metasets instead of freezing a text snapshot).
 
 // Keep the recipe overrides EBNF header consistent across samples and tooltips.
 const RECIPE_OVERRIDES_EBNF_HEADER = 'Recipe overrides syntax (EBNF):'
@@ -2020,6 +2004,10 @@ const NOTE_MARKERS_REFERENCE_ITEMS: ReadonlyArray<{ code: string; desc: string; 
     desc: 'live keep-chance table (Fire Knight, Dragon, Ice Golem)',
   },
   {
+    code: `<!-- ${NOTE_METASETS_MARKER_KEYWORD} -->`,
+    desc: 'live metaset table (glyph + name + member sets)',
+  },
+  {
     code: '<!-- collapse --> … <!-- /collapse -->',
     desc: 'collapsible section wrapper',
   },
@@ -2075,19 +2063,16 @@ function buildRecipeOverridesSampleBlock(): string {
 }
 
 function buildMetasetInsertCommand(params: {
-  metasets: Metaset[]
-  t: ReturnType<typeof useI18n>['t']
-  lang: string
   setDraft: React.Dispatch<React.SetStateAction<string>>
 }): ICommand {
-  const { metasets, t, lang, setDraft } = params
+  const { setDraft } = params
   return {
     name: 'insert-metasets',
     keyCommand: 'insert-metasets',
     execute: (state, api) => {
-      if (metasets.length === 0) return
-      const block = buildMetasetBulletList(metasets, t, lang)
-      if (!block) return
+      // Insert the runtime marker — MetasetsNoteBlock renders it as a live table,
+      // so the note never carries a stale text snapshot of the metasets.
+      const block = `<!-- ${NOTE_METASETS_MARKER_KEYWORD} -->`
       const text = state.text ?? ''
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
@@ -4871,7 +4856,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG || tag === COLLAPSE_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG || tag === METASETS_ELEMENT_TAG || tag === COLLAPSE_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -4936,6 +4921,7 @@ export default function NoteDialog({
         SG_QUESTION_ELEMENT_TAG,
         SG_QUESTION_GROUP_ELEMENT_TAG,
         DUNGEON_SIM_ELEMENT_TAG,
+        METASETS_ELEMENT_TAG,
       ])),
     }
   }, [])
@@ -4957,6 +4943,8 @@ export default function NoteDialog({
       rehypeSafeguardOverridesGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
+      // Replaces <!-- metasets --> comments with the live metaset-table element.
+      rehypeMetasetsComment,
       // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges (always present in the
       // DOM) before sanitize strips the comment markers. State-independent: the
       // wrapper is shown/hidden via CSS keyed on the container's connection attr.
@@ -4977,6 +4965,8 @@ export default function NoteDialog({
     [SG_QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders a live dungeon simulation summary table from <!-- dungeon-simulator -->.
     [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    // Renders the live metaset table from <!-- metasets -->.
+    [METASETS_ELEMENT_TAG]: MetasetsNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders a <!-- collapse --> … <!-- /collapse --> range as a collapsible section.
     [COLLAPSE_ELEMENT_TAG]: NoteCollapseSection as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
@@ -6552,12 +6542,12 @@ function NoteEditorContent({
   const metasetCommand = useMemo<ICommand>(() => (
     // Reuse the metaset insert builder but attach toolbar visuals locally.
     ({
-      ...buildMetasetInsertCommand({ metasets, t, lang, setDraft }),
+      ...buildMetasetInsertCommand({ setDraft }),
       groupName: 'note-inserts',
       buttonProps: { 'aria-label': t('noteInsertMetasets'), title: t('noteInsertMetasets') },
       icon: <ViewListIcon fontSize="small" />,
     })
-  ), [lang, metasets, t, setDraft])
+  ), [t, setDraft])
 
   // Toolbar entry for the visual override-block editor (create mode). Captures the
   // caret and opens the editor; the block is spliced in on Apply — nothing is

@@ -44,7 +44,7 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText, firstSelectableRecipeIndex } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -145,6 +145,7 @@ import {
   safeguardEffectiveCountModeForDisplay,
   safeguardFocusGroupKeyFor,
   normalizeSafeguardSubstatMatch,
+  firstSelectableSafeguardIndex,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -7613,9 +7614,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } = payload
 
     const loadDescriptor = createSfcLoadedDescriptor(fileName)
+    // Fallback lands on the first NON-SEPARATOR recipe (SSOT: firstSelectableRecipeIndex).
     const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < recipes.length
       ? selectedIndex
-      : (recipes.length > 0 ? 0 : null)
+      : firstSelectableRecipeIndex(recipes)
     const rawNote = typeof note === 'string' ? note : ''
     const importedNote = rawNote.trim().length > 0 ? rawNote : null
     beginGearInspectorMatchReset('sfc')
@@ -7671,15 +7673,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (resolvedSel !== null && recipes[resolvedSel]) {
         setBuilder(recipes[resolvedSel]!)
       }
-      // Always land on the first safeguard rule when loading a file, and load its data into the builder.
+      // Land on the first NON-SEPARATOR safeguard rule when loading a file, and load its
+      // data into the builder (autosave restore applies its own saved index elsewhere).
       // Why: setSelectedSafeguardRuleIdx alone only updates the primary index; the multi-select
       // indices (selectedSafeguardRuleIndices) and the builder draft must also be reset so the
       // chip highlight and panel content stay in sync with the new SFC's rules.
-      const firstSafeguardRule = (safeguardRules ?? []).length > 0 ? (safeguardRules ?? [])[0]! : null
-      setSelectedSafeguardRuleIdx(firstSafeguardRule ? 0 : null)
+      const sgLoadSel = firstSelectableSafeguardIndex(safeguardRules ?? [])
+      setSelectedSafeguardRuleIdx(sgLoadSel)
       // Reset the multi-select index array; suppressWillChange avoids auto-applying the stale draft.
-      setSelectedSafeguardRuleIndices(firstSafeguardRule ? [0] : [], { suppressWillChange: true })
-      if (firstSafeguardRule) setSafeguardBuilder(cloneSafeguardRule(firstSafeguardRule))
+      setSelectedSafeguardRuleIndices(sgLoadSel !== null ? [sgLoadSel] : [], { suppressWillChange: true })
+      const sgLoadRule = sgLoadSel !== null ? (safeguardRules ?? [])[sgLoadSel] : undefined
+      if (sgLoadRule) setSafeguardBuilder(cloneSafeguardRule(sgLoadRule))
       // Increment nonce so the post-transition safety-net effect fires after the history
       // snapshot effect in this same commit (see sfcLoadNonce useEffect above).
       setSfcLoadNonce((n) => n + 1)
@@ -7802,11 +7806,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (modes.recipes === 'replace') {
         setCustomRecipes(remappedRecipes)
+        // Fallback lands on the first NON-SEPARATOR recipe (SSOT: firstSelectableRecipeIndex).
         const selected = typeof payload.selectedIndex === 'number'
           && payload.selectedIndex >= 0
           && payload.selectedIndex < remappedRecipes.length
           ? payload.selectedIndex
-          : (remappedRecipes.length > 0 ? 0 : null)
+          : firstSelectableRecipeIndex(remappedRecipes)
         // skipAutoApply: replacing the full recipe list; auto-applying stale state would
         // corrupt the freshly-loaded recipes with builder content from the previous session.
         syncSelectedRecipeIdx(selected, { forceSync: true, suppressDraft: true, skipAutoApply: true })
@@ -7867,13 +7872,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSafeguardsEnabled(payload.safeguardsEnabled ?? false)
         setRecipesEnabled(payload.recipesEnabled !== false)
         // Replace mode wipes existing rules, so the old selection is always stale.
-        // Reset both the primary index and the multi-select indices so the chip highlight
-        // and builder draft stay consistent with the incoming rule set.
-        const firstRemapped = remappedSafeguards.length > 0 ? remappedSafeguards[0]! : null
-        setSelectedSafeguardRuleIdx(firstRemapped ? 0 : null)
+        // Land on the first NON-SEPARATOR rule; reset both the primary index and the
+        // multi-select indices so chip highlight and builder draft stay consistent.
+        const sgReplaceSel = firstSelectableSafeguardIndex(remappedSafeguards)
+        setSelectedSafeguardRuleIdx(sgReplaceSel)
         // suppressWillChange avoids auto-applying the stale draft during the reset.
-        setSelectedSafeguardRuleIndices(firstRemapped ? [0] : [], { suppressWillChange: true })
-        if (firstRemapped) setSafeguardBuilder(cloneSafeguardRule(firstRemapped))
+        setSelectedSafeguardRuleIndices(sgReplaceSel !== null ? [sgReplaceSel] : [], { suppressWillChange: true })
+        const sgReplaceRule = sgReplaceSel !== null ? remappedSafeguards[sgReplaceSel] : undefined
+        if (sgReplaceRule) setSafeguardBuilder(cloneSafeguardRule(sgReplaceRule))
       } else {
         setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
         setSafeguardsEnabled((prev) => prev || (payload.safeguardsEnabled ?? false))

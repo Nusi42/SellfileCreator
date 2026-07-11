@@ -210,16 +210,35 @@ test('every lategame question carries a v1.0.34-compatible pinned id= (regressio
     'the shipped question ids must equal (and stay in the order of) the frozen v1.0.34 set')
 })
 
-test('the FW-Hard question is pure recipe handling — no safeguard coupling in either direction', () => {
+test('the FW-Hard question carries no option-write coupling; its safeguard effect is data-only (Daze)', () => {
   // The FW question once forced the utility card (`set util_off`/`set util_gaps`) and
-  // carried a hidden safeguard cross block; both were removed on purpose — safeguards
-  // are dealt with explicitly by their own cards. This pins the decoupling.
+  // carried a hidden rank/rarity safeguard cross block; both were removed on purpose —
+  // the safeguard CARDS stay under the user's sole control. What remains deliberate:
+  // Yes/Yes! carry a data-only `safeguard @tag=utility { gearsets=+-Daze }` block that
+  // excludes the Daze set from utility protection once FW Hard no longer needs it
+  // (the baseline rules carry no Daze exclusion, so `No` keeps Daze protected).
   const fwQ = seed.questions.find((q) => q.id === 'q_tfgi84')!
   for (const option of fwQ.options) {
     assert.deepEqual(option.setTokens, [], `${option.token} must not force other options`)
     assert.deepEqual(option.unsetTokens, [], `${option.token} must not unset other options`)
     assert.deepEqual(option.excludedTokens, [], `${option.token} must not exclude other options`)
-    assert.deepEqual(option.safeguardBlocks, [], `${option.token} must not carry safeguard cross blocks`)
+    // Cross blocks are allowed ONLY for the Daze gear-set exclusion — nothing may touch
+    // activation/count/rank/rarity (that is the utility card's domain).
+    for (const block of option.safeguardBlocks) {
+      assert.deepEqual(block.operations.map((op) => op.kind), ['sets'],
+        `${option.token} safeguard cross block must only carry gear-set ops`)
+    }
+  }
+  const yesTokens = fwQ.options.filter((o) => o.safeguardBlocks.length > 0).map((o) => o.token)
+  assert.deepEqual(yesTokens, ['fwh_yes16', 'fwh_yes'], 'exactly Yes and Yes! carry the Daze exclusion')
+  // The preset baseline must NOT pre-exclude Daze — the exclusion exists only through
+  // the question, so the default `No` answer keeps Daze utility pieces protected.
+  const utilityRules = (sfc.Safeguards as Array<{ tags?: string[]; tuple?: { sets?: Array<{ name?: string; excluded?: boolean }> } }>)
+    .filter((r) => r.tags?.includes('utility'))
+  assert.ok(utilityRules.length >= 6, 'the utility safeguard family must exist')
+  for (const rule of utilityRules) {
+    assert.ok(!(rule.tuple?.sets ?? []).some((s) => s.name === 'Daze'),
+      'baseline utility rules must not carry a Daze sets entry')
   }
   // And the utility card does not write back into the FW question either.
   const utilQ = resolveNoteSafeguardOverridesTags(note).questions.find((q) => q.id === 'q_utility')!

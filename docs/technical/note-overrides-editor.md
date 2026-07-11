@@ -148,10 +148,20 @@ To add a new assignment field, you touch only:
      `gearsetNameToId`/…, `rarityNameToRank`/…) map tokens ⇄ domain ids and are
      built from the SAME name tables the parser resolves against; the completeness
      suite round-trips every vocabulary token through them. Values the selects
-     cannot represent (mutate-prefixed lists, unknown metaset names) keep the
-     validated text/chip fallback — never silently dropped. Star/stat pickers for
-     the dotted families (`minima.★.STAT`, `substatmin.STAT`, `weight.STAT`) use
-     the same rank/substat selects.
+     cannot represent (mutate-prefixed lists other than gearsets, unknown metaset
+     names) keep the validated text/chip fallback — never silently dropped.
+     Star/stat pickers for the dotted families (`minima.★.STAT`, `substatmin.STAT`,
+     `weight.STAT`) use the same rank/substat selects.
+   - **`gearsets` is prefix-aware** (`GearsetsListValueControl` in
+     `EffectBodyBuilder.tsx`): a Replace/Modify mode toggle (`=` / `±`), the shared
+     `GearSetsSelect` for membership (right-click a set toggles the `+-`
+     excluded-add — promoting a Replace list to Modify first, since the replace
+     grammar has no exclusions), and one monospace chip per entry that cycles its
+     prefix on click in Modify mode (`+` → `+-` → `-`). Switching back to Replace
+     strips prefixes and drops `-` removals. Parsing/composition are model SSOTs
+     (`parsePrefixedTokenListValues` / `prefixedTokenListText` in
+     `overridesEditorModel.ts`, built on the parser's own `parsePrefixedToken`);
+     mixed bare+prefixed or unknown-name lists still fall back to the text field.
 
 Everything else is pinned by `tests/unit/overrides-ssot-completeness.test.ts`
 (map spellings are real grammar tokens, no dead fields, EBNF mentions every token,

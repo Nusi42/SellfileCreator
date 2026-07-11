@@ -357,6 +357,9 @@ export function normalizeMetasetIcons(metasets: Metaset[]): Metaset[] {
   })
 }
 
+/** HTML comment keyword that renders the note's live metaset table (<!-- metasets -->). */
+export const NOTE_METASETS_MARKER_KEYWORD = 'metasets'
+
 export type MetasetGlyphInfo = {
   iconId: MetasetIconId | null
   glyph: string | null
@@ -373,4 +376,16 @@ export function metasetGlyph(meta: Metaset): MetasetGlyphInfo {
     return { iconId, glyph: null }
   }
   return { iconId, glyph: option.glyph }
+}
+
+// Display glyph for a metaset row (note metaset table; formerly the editor's static
+// insert list): an explicit 'none' icon suppresses the glyph, a configured icon shows
+// its glyph, and a metaset without any iconId falls back to the default icon option
+// (which yields null while the shipped default is 'none').
+export function resolveMetasetDisplayGlyph(meta: Metaset): string | null {
+  const info = metasetGlyph(meta)
+  if (info.iconId === 'none') return null
+  if (info.glyph) return info.glyph
+  const fallback = metasetIconOptionById(DEFAULT_METASET_ICON_ID)
+  return fallback.variant === 'none' ? null : fallback.glyph
 }

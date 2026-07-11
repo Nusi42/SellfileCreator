@@ -241,11 +241,15 @@ pub struct ReadableRecipe {
     // Keep vs sell decision
     #[serde(default, rename = "keep")]
     pub keep: Option<bool>,
-    // Export mode ("Active" / "Disabled" / "Separator")
+    // Export mode ("Active" / "Disabled" / legacy "Separator")
     #[serde(default, rename = "visibility", alias = "SellfileVisibility", alias = "Visibility")]
     pub visibility: Option<String>,
     #[serde(default, rename = "exportMode", alias = "ExportMode")]
     pub export_mode: Option<String>,
+    // Current separator marker (`Separator: true`) — the same flag safeguard separator
+    // entries carry; the visibility "Separator" label above is the legacy spelling.
+    #[serde(default, rename = "Separator", alias = "separator")]
+    pub separator: Option<bool>,
 
     // Human-readable selectors
     #[serde(default, rename = "Rank")]
@@ -583,12 +587,13 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 // ---------------------------------------------------------------------------
 
 fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, String> {
-    // Determine export mode.
+    // Determine export mode. `Separator: true` is the current marker; the
+    // visibility label "Separator" is the legacy spelling (still accepted).
     let vis_raw = rec.visibility.as_deref()
         .or(rec.export_mode.as_deref())
         .unwrap_or("Active");
     let vis = vis_raw.trim().to_lowercase();
-    let is_separator = vis == "separator";
+    let is_separator = rec.separator.unwrap_or(false) || vis == "separator";
     let use_flag = vis != "disabled" && vis != "disable";
 
     // Rank.
@@ -772,6 +777,30 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
 /// The SFC stores these with readable labels; we convert to SafeguardWasmRuleIn.
 fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
     let rec = raw.as_object().ok_or("Safeguard rule is not a JSON object")?;
+
+    // Separator entries persist minimally ({ appearance?, Separator: true }) and are pure
+    // list dividers — parse them as inert activation="off" rules so the Safeguards array
+    // indices stay aligned with the TS side and matching never sees them.
+    if rec.get("Separator").and_then(|v| v.as_bool()).unwrap_or(false) {
+        return Ok(SafeguardWasmRuleIn {
+            id: None,
+            name: None,
+            combination: None,
+            required_count: None,
+            activation: Some("off".to_string()),
+            count_mode: None,
+            ignore_previous_safeguards: None,
+            ignore_equipped_in_collection: None,
+            ignore_equipped_in_vault: None,
+            substats: None,
+            substat_match: None,
+            substat_weights: None,
+            weight_main_stat_by_rank: None,
+            main_stat_rank_weight_factor: None,
+            improvement_chance_threshold: None,
+            tags: None,
+        });
+    }
 
     let id = rec.get("id").and_then(|v| v.as_str()).map(|s| s.trim().to_string());
 

@@ -257,6 +257,11 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 // We keep the underlying grid/gutters the same size and enlarge the
 // circle via CSS transform so labels remain unaffected.
 export const ROLL_BADGE_SCALE = 1.35
+// Horizontal nudge of the scaled badge, as a fraction of its right-side scale
+// overflow (SIZE × (SCALE−1) / 2). 1 would shift by the full overflow half
+// (16px × 0.35 / 2 = 2.8px); 0.75 pulls it back to 2.1px so the enlarged
+// circle sits visually centered in its gutter instead of hugging the edge.
+export const ROLL_BADGE_TRANSLATE_OVERFLOW_FACTOR = 0.75
 
 export const RECIPE_CHIP_BORDER_RADIUS_PX = 8
 export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3

@@ -417,6 +417,20 @@ export function serializeSafeguardOperation(op: SafeguardOverridesOperation): st
         ...op.add.map((f) => ({ prefix: '+' as const, name: factionCodeToName(f) })),
         ...op.remove.map((f) => ({ prefix: '-' as const, name: factionCodeToName(f) })),
       ])
+    // Gear-set / metaset lists mirror the recipe emitters exactly (same +/-/+- prefixes).
+    case 'sets': return op.mode === 'replace'
+      ? emitList(field, op.values.map((e) => ({ prefix: '' as const, name: artifactSetNames[e.id] ?? String(e.id) })))
+      : emitList(field, [
+        // `+-Name` marks an excluded-set add (kept distinct from plain '+').
+        ...op.add.map((e) => ({ prefix: (e.excluded ? '+-' : '+') as '+' | '+-', name: artifactSetNames[e.id] ?? String(e.id) })),
+        ...op.remove.map((id) => ({ prefix: '-' as const, name: artifactSetNames[id] ?? String(id) })),
+      ])
+    case 'metaSetNames': return op.mode === 'replace'
+      ? emitList(field, op.values.map((name) => ({ prefix: '' as const, name })))
+      : emitList(field, [
+        ...op.add.map((name) => ({ prefix: '+' as const, name })),
+        ...op.remove.map((name) => ({ prefix: '-' as const, name })),
+      ])
   }
 }
 

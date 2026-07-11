@@ -83,6 +83,7 @@ import {
   type FactionId,
   type RankValue,
   factionI18nKey,
+  getLocalizedGearSetName,
 } from '../lib/types'
 import {
   BUILDER_LABEL_TEXT_SX,
@@ -138,7 +139,10 @@ import {
   type KeepOverrideScopeKey,
 } from '../lib/keepOverrideScope'
 import { KeepOverrideScopeChip } from './keepOverrides/KeepOverrideScopeChip'
-import { normalizeArtifactSetSelections, splitArtifactSetSelections, pruneImplicitAnyExclusions } from '../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections, pruneImplicitAnyExclusions, buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel } from '../lib/gearSets/selection'
+import { parseSeparatorLabel } from '../lib/separators'
+import { SeparatorToggleButton } from './SeparatorToggleButton'
+import { separatorDisabledSectionSx } from './builderPanel/constants'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -237,11 +241,7 @@ const MIXED_TOGGLE_GROUP_OVERRIDES = (mixedBorderColor: string, mixedTextColor: 
 } as const)
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-
-// Strips leading "#" heading markers from separator names for display (color directives no longer live in the name).
-function parseSeparatorLabel(rawName: string | undefined): string {
-  return (rawName ?? '').replace(/^#+\s*/, '').trim()
-}
+// parseSeparatorLabel comes from the shared separator SSOT (lib/separators).
 
 // ── component ────────────────────────────────────────────────────────────────
 
@@ -649,6 +649,11 @@ export default function SafeguardBuilderPanel({
   // Which per-X scope chips are no-ops given the current combination filters.
   const redundantDimensions = safeguardRedundantCountModeDimensions(combination)
   const activation = rule.activation
+  // Separator drafts: only the name/color field and the ━ toggle stay interactive.
+  // The matching/quota controls remain MOUNTED at factory defaults (stable layout when
+  // switching chips) but are disabled+dimmed via separatorDisabledSectionSx on the row
+  // wrappers. Multi-edit never enters separator mode; the toggle is single-edit only.
+  const isSeparatorDraft = !multiEditActive && rule.separator === true
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
   // stored rule (empty instructions path above), so the guard lives in one place only.
   const displayActivation = effectiveRule.activation
@@ -667,6 +672,11 @@ export default function SafeguardBuilderPanel({
   const setSelection = normalizeArtifactSetSelections(combination.sets)
     .filter((entry) => allowedSetPool.includes(Number(entry.id)))
   const setsSectionDirty = setSelection.length > 0 || (combination.metaSetNames ?? []).length > 0
+  // Display values read from effectiveRule so the select reflects active gearsets/metasets
+  // overrides (displayRanks pattern below); dirty flags stay on stored values.
+  const displaySetSelection = normalizeArtifactSetSelections(effectiveRule.combination.sets)
+    .filter((entry) => allowedSetPool.includes(Number(entry.id)))
+  const displayMetaSetNames = effectiveRule.combination.metaSetNames ?? []
   const rankSelection = combination.ranks
   const rankSectionDirty = rankSelection.length > 0
   // Display values read from effectiveRule so the select reflects active overrides,
@@ -870,6 +880,13 @@ export default function SafeguardBuilderPanel({
   const factionOverrideActive = !multiEditActive
     && JSON.stringify(_sortedNums(effectiveRule.combination.factions ?? []))
        !== JSON.stringify(_sortedNums(rule.combination.factions ?? []))
+  // Sets + metasets share one control, so one flag covers both DSL fields
+  // (gearsets= / metasets=) — same composition as the recipe builder's sets badge.
+  const setsOverrideActive = !multiEditActive
+    && (buildArtifactSetSelectionKey(effectiveRule.combination.sets ?? [])
+          !== buildArtifactSetSelectionKey(rule.combination.sets ?? [])
+      || (effectiveRule.combination.metaSetNames ?? []).join('\0')
+          !== (rule.combination.metaSetNames ?? []).join('\0'))
 
   // Override badges live on their individual controls inside each section's <Collapse>, so they
   // unmount when the section is collapsed. Collapsed sections intentionally show no override
@@ -1776,8 +1793,9 @@ export default function SafeguardBuilderPanel({
       {/* ── Name field above scroll zone — floating label extends ~9 px above the input
           border when shrunk; keeping it outside overflowX:auto prevents the scroll
           container's implicit overflow-y from clipping it. ── */}
-      <Box sx={(theme) => ({ borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+      <Box sx={(theme) => ({ display: 'flex', alignItems: 'center', gap: 1, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <TextField
+          sx={{ flex: '1 1 auto', minWidth: 0 }}
           label={t('safeguardBuilderRuleName')}
           // In multi-edit mode show staged name value (or placeholder when mixed).
           value={multiEditActive
@@ -1810,6 +1828,29 @@ export default function SafeguardBuilderPanel({
           slotProps={{ input: { endAdornment: nameFieldEndAdornment } }}
           fullWidth
         />
+        {/* ━ separator on/off toggle — shared control, identical UX in the recipe builder.
+            Single-edit only; multi-edit never enters separator mode. */}
+        {!multiEditActive ? (
+          <SeparatorToggleButton
+            active={isSeparatorDraft}
+            tooltip={t('safeguardsSeparatorTooltip')}
+            dataTourId="safeguards.builder.separator"
+            onChange={(nextActive) => updateRule((prev) => {
+              if (!nextActive) {
+                const { separator: _dropped, ...rest } = prev
+                return rest
+              }
+              // Turning a rule into a divider resets the matching fields to factory
+              // defaults — that is exactly what a separator persists as (name + color
+              // only), so the disabled controls show the truth; undo restores the rule.
+              return {
+                ...createFactorySafeguardBuilderDefaults(),
+                ...(prev.appearance ? { appearance: prev.appearance } : {}),
+                separator: true,
+              }
+            })}
+          />
+        ) : null}
       </Box>
       {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
           than the splitter-controlled panel; name field above avoids label clipping.
@@ -1825,7 +1866,7 @@ export default function SafeguardBuilderPanel({
       >
 
       {/* ── Row 1: Mode toggle + Required count + Ignore chips + undo/redo (full-width) ── */}
-      <Box sx={{ gridColumn: '1 / -1' }}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         {/* Header row: chevron + Mode label + info icon + undo/redo (always visible).
             position+zIndex keep the label and undo/redo controls on top of the toggle row bleed. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, position: 'relative', zIndex: 1 }}>
@@ -2275,6 +2316,7 @@ export default function SafeguardBuilderPanel({
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
+        ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
@@ -2541,7 +2583,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader
@@ -2756,7 +2798,7 @@ export default function SafeguardBuilderPanel({
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
       {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
           The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
@@ -3133,7 +3175,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4: Slots (left) + Sets (right) — flex row; each always takes 50%, collapses vertically ── */}
-      <Box sx={{ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
@@ -3342,8 +3384,17 @@ export default function SafeguardBuilderPanel({
           <Collapse in={!builderCollapsed.sets} timeout="auto" unmountOnExit>
             {/* Sets selector and perSet chip collapse together as a unit */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <Box sx={{ position: 'relative' }}>
+              {/* Expanded-state control badge for gearsets/metasets overrides (one badge —
+                  the two DSL fields feed the same combined select). */}
+              {setsOverrideActive && renderSafeguardOverrideBadge(
+                buildSafeguardOverrideBadgeTooltip(
+                  formatArtifactSetSelectionLabel(rule.combination.sets, rule.combination.metaSetNames, (id) => getLocalizedGearSetName(id, t, lang), t('any')),
+                  formatArtifactSetSelectionLabel(effectiveRule.combination.sets, effectiveRule.combination.metaSetNames, (id) => getLocalizedGearSetName(id, t, lang), t('any')),
+                ),
+              )}
               <GearSetsSelect
-                value={setSelection}
+                value={displaySetSelection}
                 onChange={(nextSets) => {
                   const normalized = normalizeArtifactSetSelections(nextSets)
                   // Always update the builder draft so the select reflects the new value immediately.
@@ -3354,7 +3405,7 @@ export default function SafeguardBuilderPanel({
                   }
                 }}
                 metasets={metasets}
-                selectedMetasetIds={combination.metaSetNames}
+                selectedMetasetIds={displayMetaSetNames}
                 onChangeMetasetIds={(nextMetaIds) => {
                   const deduped = dedupeStringArray(nextMetaIds)
                   setRuleCombination((prev) => ({ ...prev, metaSetNames: deduped }))
@@ -3376,6 +3427,7 @@ export default function SafeguardBuilderPanel({
                   mixedLabel: t('builderMultiMixedValue'),
                 } : {})}
               />
+              </Box>
               {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, redundantDimensions.perSet, perScopeMixed.perSet,
                 perSetOverrideActive ? renderSafeguardOverrideBadge(
                   buildSafeguardOverrideBadgeTooltip(

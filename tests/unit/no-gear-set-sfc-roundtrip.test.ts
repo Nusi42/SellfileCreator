@@ -39,6 +39,8 @@ test('buildReadableRecipe serializes ACCESSORY_NO_SET_ID (-99) as "No Gear-Set"'
   const { recipes } = parseSfcText(fixtureText, EMPTY_PREV)
   for (const recipe of recipes) {
     const readable = buildReadableRecipe(recipe, [])
+    // Narrow past the slim separator-entry variant — these fixtures are normal recipes.
+    assert.ok('artifactSetNames' in readable, 'fixture recipes must serialize with the full field set')
     const setNames = readable.artifactSetNames ?? []
     assert.equal(setNames.length, 1, `serialized recipe should have one artifactSetNames entry`)
     assert.equal(
