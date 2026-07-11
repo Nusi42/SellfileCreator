@@ -118,8 +118,8 @@ Q "Are you done with all progressive missio" cols=1
   marius_open s blk:exportMode
   marius_finished s blk:exportMode
 Q "How many good substats does an artifact " cols=1
-  rolls_22 s blk:autoLate+lockedMinRequiredRolls+minRequiredRolls+minSubstats
-  rolls_32 s blk:autoLate+lockedMinRequiredRolls+minRequiredRolls+minSubstats
+  rolls_22 s blk:autoLate+exportMode+lockedMinRequiredRolls+minRequiredRolls+minSubstats
+  rolls_32 s blk:autoLate+exportMode+lockedMinRequiredRolls+minRequiredRolls+minSubstats
   rolls_33 s blk:lockedMinRequiredRolls+minRequiredRolls
   rolls_43 s
 Q "How many good substats does an accessory" cols=1

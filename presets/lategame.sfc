@@ -1674,6 +1674,223 @@
       "appearance": {
         "name": "Damage - Any Set"
       },
+      "Tags": [
+        "midgame"
+      ],
+      "keep": true,
+      "SellfileVisibility": "Disabled",
+      "Rank": "6★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "CR%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "fixed": true,
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "fixed": true,
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 4,
+      "autoMinCount": false,
+      "autoSubstatFlex": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 3,
+      "artifactTypeNames": [
+        "Gauntlets"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "appearance": {
+        "name": "Damage - Any Set"
+      },
+      "Tags": [
+        "midgame"
+      ],
+      "keep": true,
+      "SellfileVisibility": "Disabled",
+      "Rank": "6★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "CR%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "fixed": true,
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 4,
+      "autoMinCount": false,
+      "autoSubstatFlex": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [
+        "Gauntlets"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "appearance": {
+        "name": "Damage - Any Set"
+      },
+      "Tags": [
+        "midgame"
+      ],
+      "keep": true,
+      "SellfileVisibility": "Disabled",
+      "Rank": "6★",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [
+        "CR%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "SPD",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "CDMG%",
+          "fixed": true,
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ACC",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "RES",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "HP%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK%",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DEF%",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 4,
+      "autoMinCount": false,
+      "autoSubstatFlex": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [
+        "Gauntlets"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetNames": []
+    },
+    {
+      "appearance": {
+        "name": "Damage - Any Set"
+      },
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -12663,6 +12880,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -12742,6 +12960,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -12808,6 +13027,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -12879,6 +13099,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -12950,6 +13171,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13020,6 +13242,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13089,6 +13312,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13164,6 +13388,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13236,6 +13461,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13304,6 +13530,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13377,6 +13604,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13446,6 +13674,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13515,6 +13744,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13584,6 +13814,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13653,6 +13884,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13721,6 +13953,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13789,6 +14022,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13855,6 +14089,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13920,6 +14155,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -13985,6 +14221,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14050,6 +14287,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14119,6 +14357,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14192,6 +14431,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14251,6 +14491,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14319,6 +14560,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14398,6 +14640,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14461,6 +14704,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14526,6 +14770,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14594,6 +14839,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14662,6 +14908,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14731,6 +14978,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14805,6 +15053,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14868,6 +15117,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -14935,6 +15185,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -15002,6 +15253,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -15071,6 +15323,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -15146,6 +15399,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17644,6 +17898,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17712,6 +17967,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17774,6 +18030,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17836,6 +18093,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17897,6 +18155,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -17960,6 +18219,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18019,6 +18279,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18078,6 +18339,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18137,6 +18399,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18198,6 +18461,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18260,6 +18524,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18331,6 +18596,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18388,6 +18654,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -18445,6 +18712,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -19298,6 +19566,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -19377,6 +19646,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -19450,6 +19720,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -19538,6 +19809,7 @@
           "6★"
         ],
         "rarities": [
+          "Rare",
           "Epic",
           "Legendary",
           "Mythical"
@@ -19713,11 +19985,11 @@
     "  rb \"`Very few`\"",
     "     \"[[de]]`Sehr wenige`\"",
     "     \"All artifacts need only **2** good substats.\"",
-    "     \"[[de]]Alle Artefakte brauchen nur **2** gute Unterwerte.\" id=rolls_22 { @lockedminrolls=4 { lockedminrolls=2 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=2 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=2 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } }",
+    "     \"[[de]]Alle Artefakte brauchen nur **2** gute Unterwerte.\" id=rolls_22 { @lockedminrolls=4 { lockedminrolls=2 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=2 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=2 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } @tag=midgame { export=active } }",
     "  rb \"`Few`\"",
     "     \"[[de]]`Wenige`\"",
     "     \"Defensive and support artifacts need **3** good substats; everything else only **2**.\"",
-    "     \"[[de]]Defensiv- und Support-Artefakte brauchen **3** gute Unterwerte; alles andere nur **2**.\" id=rolls_32 { @lockedminrolls=4 { lockedminrolls=3 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=3 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=3 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } }",
+    "     \"[[de]]Defensiv- und Support-Artefakte brauchen **3** gute Unterwerte; alles andere nur **2**.\" id=rolls_32 { @lockedminrolls=4 { lockedminrolls=3 } @lockedminrolls=3 { lockedminrolls=2 } @minrolls=4 { minrolls=3 } @minrolls=3 { minrolls=2 } @minsubstats=4 { minsubstats=3 } @minsubstats=3 { minsubstats=2 } @all { autolate=rare } @tag=midgame { export=active } }",
     "  rb \"`Many`\"",
     "     \"[[de]]`Viele`\"",
     "     \"All artifacts need at least **3** good substats.\"",
