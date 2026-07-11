@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.37-dev",
+  "Version": "1.0.37",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -11517,7 +11517,62 @@
         "factions": []
       },
       "tags": [
-        "spd"
+        "spd",
+        "div8"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD"
+      ],
+      "substatMatch": "perSubstat"
+    },
+    {
+      "appearance": {
+        "name": "Protect: Speed - Across Sets"
+      },
+      "requiredCount": 4,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Weapon",
+          "Helmet",
+          "Shield",
+          "Gauntlets",
+          "Chestplate"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "spd",
+        "div4"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11573,7 +11628,8 @@
         "factions": []
       },
       "tags": [
-        "spd"
+        "spd",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11636,7 +11692,8 @@
         "factions": []
       },
       "tags": [
-        "spd"
+        "spd",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11694,7 +11751,8 @@
         "factions": []
       },
       "tags": [
-        "spd"
+        "spd",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11766,7 +11824,8 @@
         "factions": []
       },
       "tags": [
-        "spd"
+        "spd",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11842,7 +11901,8 @@
         "factions": []
       },
       "tags": [
-        "speed_set"
+        "speed_set",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11902,7 +11962,7 @@
       },
       "tags": [
         "speed_set",
-        "speed_set_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -11960,7 +12020,7 @@
       },
       "tags": [
         "speed_set",
-        "speed_set_boots"
+        "div4"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12034,7 +12094,7 @@
       },
       "tags": [
         "speed_set",
-        "speed_set_boots"
+        "div4"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12108,7 +12168,7 @@
       },
       "tags": [
         "speed_set",
-        "speed_set_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12164,8 +12224,7 @@
           "Weapon",
           "Helmet",
           "Shield",
-          "Gauntlets",
-          "Chestplate"
+          "Gauntlets"
         ],
         "sets": [
           {
@@ -12191,7 +12250,66 @@
         "factions": []
       },
       "tags": [
-        "debuffer"
+        "debuffer",
+        "div16"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC"
+      ],
+      "substatMatch": "2",
+      "substatWeights": {
+        "SPD": 2,
+        "ACC": 1.1
+      }
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer - Across Sets"
+      },
+      "requiredCount": 4,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Weapon",
+          "Helmet",
+          "Shield",
+          "Gauntlets"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [],
+        "factions": []
+      },
+      "tags": [
+        "debuffer",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12236,6 +12354,7 @@
         ],
         "metaSetNames": [
           "Debuffer",
+          "Debuffer - Limited Sets",
           "Need 4 Speed"
         ],
         "ranks": [
@@ -12255,7 +12374,7 @@
       },
       "tags": [
         "debuffer",
-        "debuffer_crit"
+        "div32"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12682,7 +12801,7 @@
       },
       "tags": [
         "debuffer",
-        "debuffer_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12748,7 +12867,68 @@
         "factions": []
       },
       "tags": [
-        "debuffer"
+        "debuffer",
+        "div16"
+      ],
+      "improvementChanceThreshold": {
+        "atLevel0": 50,
+        "atLevel4": null,
+        "atLevel8": null,
+        "atLevel12": null
+      },
+      "substats": [
+        "SPD",
+        "ACC"
+      ],
+      "substatWeights": {
+        "SPD": 2,
+        "ACC": 0.65
+      },
+      "weightMainStatByRank": true,
+      "mainStatRankWeightFactor": 4.5
+    },
+    {
+      "appearance": {
+        "name": "Protect: Debuffer - Across Sets"
+      },
+      "requiredCount": 4,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": true,
+        "perMainStat": true,
+        "perSlot": true
+      },
+      "ignorePreviousSafeguards_v2": false,
+      "ignoreEquippedInCollection": false,
+      "ignoreEquippedInVault": false,
+      "tuple": {
+        "slots": [
+          "Chestplate",
+          "Boots"
+        ],
+        "sets": [],
+        "metaSetNames": [],
+        "ranks": [
+          "5★",
+          "6★"
+        ],
+        "rarities": [
+          "Rare",
+          "Epic",
+          "Legendary",
+          "Mythical"
+        ],
+        "mainStats": [
+          "SPD",
+          "ACC"
+        ],
+        "factions": []
+      },
+      "tags": [
+        "debuffer",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12816,7 +12996,7 @@
       },
       "tags": [
         "debuffer",
-        "debuffer_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12890,7 +13070,7 @@
       },
       "tags": [
         "damage",
-        "damage_primary"
+        "div12"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -12970,7 +13150,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13039,7 +13219,7 @@
       },
       "tags": [
         "damage",
-        "damage_primary"
+        "div12"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13111,7 +13291,7 @@
       },
       "tags": [
         "damage",
-        "damage_primary"
+        "div12"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13254,7 +13434,7 @@
       },
       "tags": [
         "damage",
-        "damage_primary"
+        "div12"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13324,7 +13504,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13404,7 +13584,7 @@
       },
       "tags": [
         "damage",
-        "damage_primary"
+        "div12"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13546,7 +13726,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13616,7 +13796,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13686,7 +13866,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13756,7 +13936,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -13826,7 +14006,7 @@
       },
       "tags": [
         "damage",
-        "damage_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14650,7 +14830,7 @@
       },
       "tags": [
         "survivability",
-        "survivability_primary"
+        "div32"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14780,7 +14960,7 @@
       },
       "tags": [
         "survivability",
-        "survivability_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14854,7 +15034,7 @@
       },
       "tags": [
         "survivability",
-        "survivability_primary"
+        "div32"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -14993,7 +15173,7 @@
       },
       "tags": [
         "survivability",
-        "survivability_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15062,7 +15242,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15126,7 +15307,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15194,7 +15376,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15268,7 +15451,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15340,7 +15524,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15416,7 +15601,8 @@
         "factions": []
       },
       "tags": [
-        "utility"
+        "utility",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15553,7 +15739,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15668,7 +15854,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15783,7 +15969,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -15893,7 +16079,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16009,7 +16195,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16271,7 +16457,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16503,7 +16689,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16810,7 +16996,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -16868,7 +17054,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17044,7 +17230,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17102,7 +17288,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17278,7 +17464,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17336,7 +17522,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17445,7 +17631,7 @@
       },
       "tags": [
         "accessory",
-        "accessory_fallback"
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17553,8 +17739,9 @@
         "factions": []
       },
       "tags": [
-        "spd",
-        "accessory"
+        "spd_banner",
+        "accessory",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17603,9 +17790,9 @@
         "factions": []
       },
       "tags": [
-        "spd",
-        "spd_fallback",
-        "accessory"
+        "spd_banner",
+        "accessory",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17659,8 +17846,9 @@
         "factions": []
       },
       "tags": [
-        "spd",
-        "accessory"
+        "spd_banner",
+        "accessory",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17718,8 +17906,9 @@
         "factions": []
       },
       "tags": [
-        "spd",
-        "accessory"
+        "spd_banner",
+        "accessory",
+        "div8"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17792,7 +17981,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial8"
+        "mercurial",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17849,7 +18039,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17907,7 +18098,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial8"
+        "mercurial",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -17978,7 +18170,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18041,7 +18234,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18104,7 +18298,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18170,7 +18365,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18230,7 +18426,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18290,7 +18487,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18350,7 +18548,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18410,7 +18609,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial4"
+        "mercurial",
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18470,7 +18670,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial8"
+        "mercurial",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -18538,7 +18739,8 @@
         "factions": []
       },
       "tags": [
-        "mercurial8"
+        "mercurial",
+        "div1"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19576,7 +19778,7 @@
       },
       "tags": [
         "catchrest",
-        "catchrest_primary"
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19656,7 +19858,7 @@
       },
       "tags": [
         "catchrest",
-        "catchrest_primary"
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19739,7 +19941,7 @@
       },
       "tags": [
         "catchrest",
-        "catchrest_primary"
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19826,7 +20028,7 @@
       },
       "tags": [
         "catchrest",
-        "catchrest_primary"
+        "div2"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19965,7 +20167,7 @@
     "  cb \"`Keep 5★ safeguards`\"",
     "     \"[[de]]`5★ Schutzregeln behalten`\"",
     "     \"Let the safety-net reserve 5★ artifacts too.\"",
-    "     \"[[de]]Lässt das Sicherheitsnetz auch 5★-Artefakte reservieren.\" id=keep_safeguards { else { safeguard @tag=debuffer { rank=6 } safeguard @tag=slowdebuffer { rank=6 } safeguard @tag=bomber { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=crit_shield { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=spd and not tag=accessory { rank=6 } safeguard @tag=speed_set { rank=6 } safeguard @tag=mercurial4 { rank=6 } safeguard @tag=mercurial8 { rank=6 } safeguard @tag=catchrest { rank=6 } } }",
+    "     \"[[de]]Lässt das Sicherheitsnetz auch 5★-Artefakte reservieren.\" id=keep_safeguards { else { safeguard @tag=debuffer { rank=6 } safeguard @tag=slowdebuffer { rank=6 } safeguard @tag=bomber { rank=6 } safeguard @tag=damage { rank=6 } safeguard @tag=crit_shield { rank=6 } safeguard @tag=survivability { rank=6 } safeguard @tag=utility { rank=6 } safeguard @tag=spd { rank=6 } safeguard @tag=speed_set { rank=6 } safeguard @tag=mercurial { rank=6 } safeguard @tag=catchrest { rank=6 } } }",
     "-->",
     "<!-- recipe-overrides [columns=1]",
     "  q \"Are you done with all progressive missions for Marius?\\nNo matter what you pick, really good pieces are always protected.\"",
@@ -20169,18 +20371,18 @@
     "<!-- lang -->Each safeguard keeps a minimum number of pieces. The options set which pieces count toward it — from **none**, to **just what you own**, to also holding open the slots you are still **missing** so future drops are caught. The last option (**plus likely upgrades**) is the most thorough but **very slow**.",
     "<!-- lang:de -->Jede Schutzregel behält eine Mindestanzahl an Teilen. Die Optionen legen fest, welche Teile dafür zählen — von **keine**, über **nur Bestehendes**, bis hin zum Offenhalten der Arten, die dir noch **fehlen**, damit künftige Drops erfasst werden. Die letzte Option (**plus mögliche Upgrades**) ist am gründlichsten, aber **sehr langsam**.<!-- /lang -->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
-    "  q \"How many speed-set pieces **per slot** should be protected?\"",
-    "     \"[[de]]Wie viele SPD-Set-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
+    "  q \"How many speed pieces **per slot** should be protected?\"",
+    "     \"[[de]]Wie viele SPD-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=speed_set { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=speed_set or tag=spd { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=spd { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=spd { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=spd { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=speed_set { count=$value/2 } @tag=speed_set_boots { count=$value/4 } @tag=speed_set_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=speed_set and tag=div1 { count=$value } @tag=speed_set and tag=div2 { count=$value/2 } @tag=speed_set and tag=div4 { count=$value/4 } @tag=spd and tag=div4 { count=$value/4 } @tag=spd and tag=div8 { count=$value/8 } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many debuffer pieces **per slot** should be protected?\"",
@@ -20194,7 +20396,7 @@
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=slowdebuffer or tag=bomber { activation=anticipate_improvements } }",
     "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=32 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=debuffer { count=$value/16 } @tag=debuffer_crit { count=$value/32 } @tag=debuffer_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=debuffer and tag=div1 { count=$value } @tag=debuffer and tag=div8 { count=$value/8 } @tag=debuffer and tag=div16 { count=$value/16 } @tag=debuffer and tag=div32 { count=$value/32 } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many damage or survivability pieces **per slot** and **per main stat** should be protected?\"",
@@ -20208,21 +20410,21 @@
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=damage or tag=survivability or tag=crit_shield { activation=anticipate_improvements } }",
     "  slider \"\" id=min_dmgsurv_pieces min=1 max=64 default=32 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=survivability_primary { count=$value/32 } @tag=survivability_fallback { count=$value } @tag=damage_primary { count=$value/12 } @tag=damage_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=survivability and tag=div1 { count=$value } @tag=survivability and tag=div32 { count=$value/32 } @tag=damage and tag=div1 { count=$value } @tag=damage and tag=div12 { count=$value/12 } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many damage/survivability/debuffer pieces **per slot** and **per main stat** of **Mercurial** should be protected?\"",
     "     \"[[de]]Wie viele Damage-/Survival-/Debuffer-Teile **pro Art** und **pro Hauptwert** von **Unstet** sollen geschützt werden?\" id=q_muougk",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=mercurial4 or tag=mercurial8 { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=mercurial { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial4 or tag=mercurial8 { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=mercurial { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=mercurial { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial4 or tag=mercurial8 { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=mercurial { activation=anticipate_improvements } }",
     "  slider \"\" min=1 max=64 default=8 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=mercurial4 { count=$value/2 } @tag=mercurial8 { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=mercurial and tag=div1 { count=$value } @tag=mercurial and tag=div2 { count=$value/2 } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"How many utility pieces (Stun, Provoke, Toxic …) **per set and slot** should be protected?\"",
@@ -20236,7 +20438,7 @@
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" id=util_upg { @tag=utility { activation=anticipate_improvements } }",
     "  slider \"\" id=min_utility_pieces min=1 max=8 step=1 default=1 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=utility { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=utility and tag=div1 { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"Keep a minimum of **every** artifact kind as a catch-all?\\nThis guards the best pieces of every set + slot + main-stat combination — **even genuinely bad ones** — so no combination ends up empty. The slider sets how many per combination.\"",
@@ -20250,7 +20452,7 @@
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=catchrest { activation=anticipate_improvements } }",
     "  slider \"\" id=min_catchrest_pieces min=1 max=16 step=1 default=2 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=catchrest_primary { count=$value/2 } }",
+    "     \"[[de]] Teile\" { @tag=catchrest and tag=div2 { count=$value/2 } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **artifacts** (not accessories) by their **improvement chance**?\\nThis keeps gear with a good chance to become better than what you own; the slider sets the minimum chance.\"",
@@ -20270,29 +20472,29 @@
     "  q \"How many of the best SPD banners **per faction** should always be protected (across all sets)?\"",
     "     \"[[de]]Wie viele der besten SPD-Banner **pro Fraktion** sollen immer geschützt werden (über alle Sets)?\" id=q_ta25kl",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=spd { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=spd_banner { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=spd { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=spd_banner { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd_banner { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd_banner { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spdbanner_pieces min=1 max=64 step=1 default=16 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=spd { count=$value / 8 } @tag=spd_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=spd_banner and tag=div8 { count=$value/8 } @tag=spd_banner and tag=div1 { count=$value } }",
     "-->",
     "<!-- safeguard-overrides [columns=2 optcols=4]",
     "  q \"Protect the best accessories (rings, amulets, banners)?\"",
     "     \"[[de]]Die besten Schmuckstücke (Ringe, Amulette, Banner) schützen?\" id=q_acc_guard",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=accessory and not tag=spd or tag=fw_coverage { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=accessory and not tag=spd or tag=fw_coverage { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=accessory and not tag=spd or tag=fw_coverage { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=accessory and not tag=spd or tag=fw_coverage { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=accessory and not tag=spd_banner or tag=fw_coverage { activation=anticipate_improvements } }",
     "  slider \"\" id=min_acc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=accessory_fallback { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=accessory and not tag=spd_banner and tag=div1 { count=$value } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",

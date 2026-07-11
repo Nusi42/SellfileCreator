@@ -93,32 +93,44 @@ already displays slot, set, main stat, and substats:
 ## Tag conventions (drive the Note's dynamic overrides)
 
 - No domain uses an `acc*` tag anymore (too close to "accuracy"): the safeguard rename to
-  `accessory`/`accessory_fallback` was followed by the RECIPE-domain tags — `accessory`,
-  `accessory5`, `accessory6`, `accessory_flat` (option ids like `acc_rolls_22` are ids,
-  not tags, and keep their spelling for answer compatibility).
-- Family umbrella tags (`damage`, `survivability`, `utility`, `catchrest`, `accessory`, …):
-  activation radios and the `keep_safeguards` rank-bump select these, so **every** rule of
-  a family toggles even when its count stays fixed.
+  `accessory` was followed by the RECIPE-domain tags — `accessory`, `accessory5`,
+  `accessory6`, `accessory_flat` (option ids like `acc_rolls_22` are ids, not tags, and
+  keep their spelling for answer compatibility).
+- Every safeguard rule carries exactly one **family tag** (`spd`, `speed_set`, `debuffer`,
+  `slowdebuffer`, `bomber`, `damage`, `crit_shield`, `survivability`, `utility`,
+  `mercurial`, `catchrest`, `accessory`, `spd_banner`, `fw_coverage`; accessories add
+  `accessory` alongside `spd_banner`): activation radios and the `keep_safeguards`
+  rank-bump select these, so **every** rule of a family toggles even when its count stays
+  fixed. The artifact-SPD family (`spd`) is governed by the *speed pieces* question
+  (`q_bk3r8j`, shared with `speed_set`); the SPD **banners** are their own `spd_banner`
+  family under the banner question (`q_ta25kl`) — they deliberately do NOT carry `spd`,
+  so neither question can reach across (the old shared-`spd` wiring let the banner
+  question switch off all artifact speed protection).
+- **Count scaling is a generic factor-tag scheme**: a rule scales against its family's
+  slider iff it also carries a `divN` tag, and its count is `$value/N` (`div1` = the full
+  slider value). Slider blocks select `@tag=<family> and tag=divN`, one block per factor
+  present in that family (e.g. speed: `speed_set`×`div1/div2/div4` + `spd`×`div4/div8`;
+  debuffer: `div1/div8/div16/div32`). A rule opts OUT of its family slider simply by not
+  carrying a `div` tag — e.g. the any-set Bomber Amulet is `accessory`-only (fixed count
+  1, toggled by the accessory question, untouched by `min_acc_pieces`). Don't "fix" such
+  a missing tag. The factors preserve the pre-migration quotas: substat-split variants
+  keep their halved shares (ex-`debuffer_crit` = `div32`, ex-`speed_set_boots` = `div4`),
+  fallback tiers are `div1` (ex-`*_fallback`), and the truly-any-set artifact copies
+  (`Speed`/`Debuffer - Across Sets` with empty set filters) run at HALF the family divisor
+  (`spd`+`div4`, `debuffer`+`div8`) — i.e. double the count of the per-set rules they were
+  copied from. `mercurial4`/`mercurial8` collapsed into `mercurial`+`div2`/`div1`.
+- One collision to keep in mind: the SPD-banner fallback is `spd_banner`+`accessory`+`div1`,
+  and the accessory question's slider therefore selects
+  `@tag=accessory and not tag=spd_banner and tag=div1` — without the exclusion,
+  `min_acc_pieces` (default 3) would clobber the banner fallback's `min_spdbanner_pieces`
+  count (default 16) via last-block-wins.
 - **Artifact vs accessory is a hard tag boundary**: every safeguard rule is slot-pure
   (artifact slots or Ring/Amulet/Banner, never both — the mixed slow-debuffer rules were
   split), and the `keep_safeguards` checkbox's `else` block clamps **every artifact
   family** to 6★ (`debuffer`, `slowdebuffer`, `bomber`, `damage`, `crit_shield`,
-  `survivability`, `utility`, `speed_set`, `mercurial4/8`, `catchrest`, and
-  `spd and not tag=accessory` — the SPD banners share the `spd` tag for count scaling but
-  are accessories). Accessory rules are deliberately exempt: 5★ accessories stay reserved
-  even at Endgame.
-- `*_primary` / `*_fallback`: count sliders scale only these; plain-tagged specialized
-  rules keep fixed counts. A rule opts OUT of its family slider simply by not carrying the
-  scaling tag — e.g. the any-set Bomber Amulet is `accessory`-only (fixed count 1, toggled by the
-  accessory question, untouched by `min_acc_pieces`). Don't "fix" such a missing tag.
-- Split-scaling sub-tags (rules duplicated into substat variants have their quotas halved
-  so total protection matches the pre-split preset): `speed_set_boots` (`$value/4`),
-  `debuffer_crit` (`$value/32`), plus `survivability_primary` at `$value/32` and
-  `catchrest_primary` at `$value/2`. A rule with umbrella + sub-tag gets the sub-tag's
-  count via last-block-wins.
-- `accessory_fallback`: the any-set req=3 accessory tier, scaled by `min_acc_pieces`;
-  Accessory-Specific per-set floors (req=1), Mercurial/Merciless accessory rules, and
-  `fw_coverage` rules stay fixed.
+  `survivability`, `utility`, `spd`, `speed_set`, `mercurial`, `catchrest`). Accessory
+  rules (including the `spd_banner` family) are deliberately exempt: 5★ accessories stay
+  reserved even at Endgame.
 
 ## Override wiring notes
 

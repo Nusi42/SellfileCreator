@@ -167,7 +167,7 @@ Q "Actually, just **sell** all weak \`Chaos " cols=1
   ore_chaos_master_keep s * needs[ore5_epic,ore5_legendary,ore5_mythical,ore6_epic,ore6_legendary,ore6_mythical,ore6as_epic,ore6as_legendary,ore6as_mythical]
   ore_chaos_master_sell s blk:keepAction
 == SAFEGUARD ==
-Q "How many speed-set pieces **per slot** s" cols=2
+Q "How many speed pieces **per slot** shoul" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
