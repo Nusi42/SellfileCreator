@@ -2,7 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics, seedSafeguardAnswersFromRecipeDefaults } from '../../src/lib/noteRecipeOverrides.js'
+import {
+  resolveRecipeOverridesTags,
+  collectRecipeOverridesDiagnostics,
+  seedSafeguardAnswersFromRecipeDefaults,
+} from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
 import { listOverrideBlocks, parseOverridesBlockDraft } from '../../src/lib/overridesDraft.js'
 
@@ -204,4 +208,23 @@ test('every lategame question carries a v1.0.34-compatible pinned id= (regressio
   ].filter((q) => !q.id.startsWith('spacer')).map((q) => q.id)
   assert.deepEqual(resolvedIds, [...EXPECTED_QUESTION_IDS],
     'the shipped question ids must equal (and stay in the order of) the frozen v1.0.34 set')
+})
+
+test('the FW-Hard question is pure recipe handling — no safeguard coupling in either direction', () => {
+  // The FW question once forced the utility card (`set util_off`/`set util_gaps`) and
+  // carried a hidden safeguard cross block; both were removed on purpose — safeguards
+  // are dealt with explicitly by their own cards. This pins the decoupling.
+  const fwQ = seed.questions.find((q) => q.id === 'q_tfgi84')!
+  for (const option of fwQ.options) {
+    assert.deepEqual(option.setTokens, [], `${option.token} must not force other options`)
+    assert.deepEqual(option.unsetTokens, [], `${option.token} must not unset other options`)
+    assert.deepEqual(option.excludedTokens, [], `${option.token} must not exclude other options`)
+    assert.deepEqual(option.safeguardBlocks, [], `${option.token} must not carry safeguard cross blocks`)
+  }
+  // And the utility card does not write back into the FW question either.
+  const utilQ = resolveNoteSafeguardOverridesTags(note).questions.find((q) => q.id === 'q_utility')!
+  for (const option of utilQ.options) {
+    assert.deepEqual([...option.setTokens, ...option.unsetTokens, ...option.excludedTokens], [],
+      `${option.token} must not carry cross-domain option writes`)
+  }
 })

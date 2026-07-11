@@ -730,6 +730,12 @@ export type SafeguardNoteQuestionOption = {
   unsetOptionIds: string[]
   /** Resolved option IDs that cannot coexist with this option. */
   excludedOptionIds: string[]
+  // setTokens / unsetTokens / excludedTokens — raw header tokens; a token matching no
+  // in-domain option may name a RECIPE option's explicit id (the reverse cross-domain
+  // bridge, mirroring the recipe side's raw-token fields).
+  setTokens: string[]
+  unsetTokens: string[]
+  excludedTokens: string[]
   /** Only populated for slider groups. */
   sliderMin?: number
   sliderMax?: number
@@ -1062,6 +1068,10 @@ const buildResolvedQuestion = (
       setOptionIds,
       unsetOptionIds,
       excludedOptionIds,
+      // Raw tokens for the reverse cross-domain bridge (safeguard option → recipe option).
+      setTokens: option.setTokens,
+      unsetTokens: option.unsetTokens,
+      excludedTokens: option.excludedTokens,
       // 1-based positional index for the implicit DSL reference.
       positionalIndex: optionIndex + 1,
     }

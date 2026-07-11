@@ -86,7 +86,10 @@ import {
   resolveRecipeOverridesTags,
   collectCrossDomainSliderWrites,
   collectCrossDomainOptionWrites,
+  collectCrossDomainRecipeOptionWrites,
   collectTierOwnedSliderQuestionIds,
+  buildRecipeOptionTokenMap,
+  applyRecipeOptionWrites,
   seedSafeguardAnswersFromRecipeDefaults,
   RECIPE_OVERRIDES_OP_FIELD,
   formatRecipeOverridesOpValue,
@@ -2659,9 +2662,10 @@ type NoteInfoTooltipOption = {
   requiresDisabledState?: 'on' | 'off' | null
   // `setval token=N` cross-domain slider value forces (recipe option only carries these).
   setValueDirectives?: { token: string; value: number }[]
-  // Raw set/unset/excl tokens (recipe option only). In-domain hits are already resolved in
-  // set/unset/excludedOptionIds; the raw forms let the tooltip ALSO show cross-domain forces
-  // (tokens naming a safeguard option or slider) via the both-domain option lookup.
+  // Raw set/unset/excl tokens (both domains carry these). In-domain hits are already resolved
+  // in set/unset/excludedOptionIds; the raw forms let the tooltip ALSO show cross-domain forces
+  // (tokens naming the OTHER domain's option or slider) via the both-domain option lookup —
+  // forward (recipe→safeguard) and reverse (safeguard→recipe) writes render identically.
   setTokens?: string[]
   unsetTokens?: string[]
   excludedTokens?: string[]
@@ -4783,7 +4787,41 @@ export default function NoteDialog({
       })
       return normalized
     })
-  }, [onSafeguardOverridesAnswersChange, renderNote])
+    // REVERSE cross-domain option writes: a newly-selected SAFEGUARD option may (de)select a
+    // RECIPE option by its id=token. The flagship shape is the conditional replace (`excl X
+    // set Y`) — e.g. re-enabling utility protection downgrades the FW-Hard `Yes!` to `Yes`,
+    // because `Yes!` claimed "no utility safeguards" and that claim just stopped being true.
+    // Computed off live props (this handler fires on a user action) to avoid nested setState,
+    // exactly like the forward handler above. Crucially this path never re-runs the FORWARD
+    // writes, so the safeguard answer the user just picked is preserved (only a real click
+    // on the recipe option re-forces its safeguard targets).
+    const note = renderNote ?? ''
+    // Selection diff source: option ids only (slider value strings never carry writes).
+    const beforeIds = new Set(
+      safeguardOverridesResolution.questions.flatMap((q) => buildSafeguardAnswerParts(q.answer).optionIds),
+    )
+    // Recompute the same next-answers the setState above stores (prev == live prop here).
+    const nextSgAnswers = { ...safeguardOverridesAnswers }
+    if (changedMatchesDefault) delete nextSgAnswers[question.id]
+    else nextSgAnswers[question.id] = changedAnswer
+    const afterQuestions = resolveNoteSafeguardOverridesTags(note, nextSgAnswers, preferredId, removedId).questions
+    const reverseWrites = collectCrossDomainRecipeOptionWrites(
+      afterQuestions,
+      buildRecipeOptionTokenMap(resolveRecipeOverridesTags(note, recipeOverridesAnswers).questions),
+      // Only options that were NOT selected before this change contribute (newly selected).
+      (optionId) => !beforeIds.has(optionId),
+    )
+    if (reverseWrites.length > 0) {
+      onRecipeOverridesAnswersChange((prevRecipe) => applyRecipeOptionWrites(note, prevRecipe, reverseWrites))
+    }
+  }, [
+    onSafeguardOverridesAnswersChange,
+    onRecipeOverridesAnswersChange,
+    recipeOverridesAnswers,
+    safeguardOverridesAnswers,
+    safeguardOverridesResolution,
+    renderNote,
+  ])
   // summaryProgressRatio > 0 signals that the rule cache pipeline is still rebuilding.
   const pipelineRunning = summaryProgressRatio > 0
   const contextValue = useMemo<NoteRenderContextValue>(

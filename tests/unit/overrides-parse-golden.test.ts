@@ -129,7 +129,7 @@ Q "How many good substats does an accessory" cols=1
   acc_rolls_43 s blk:lockedMinRequiredRolls+minRequiredRolls+substatMinAll
 Q "Did you finish Faction Wars in Hard mode" cols=1
   fwh_no s blk:exportMode+level
-  fwh_yes16 s blk:artifactSets+exportMode+level x:ranks+rarities
+  fwh_yes16 s blk:artifactSets+exportMode+level
   fwh_yes s blk:exportMode
 Q "Do you play and win Live Arena and Siege" cols=1
   la_no s blk:exportMode+level

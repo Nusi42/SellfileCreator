@@ -95,10 +95,17 @@ matching substat (`substatMatch` min-1) — looser than the pre-rework preset's 
 
 ## Override wiring notes
 
-- The FW-Hard question drives the utility card **visibly** through the cross-domain
-  option-write bridge (`set util_off` / `set util_gaps` on its options) instead of a
-  hidden `safeguard … activation=off`; the utility card's options carry ids
-  `util_off`/`util_own`/`util_gaps`/`util_upg`.
+- The FW-Hard question is **pure recipe handling** — no safeguard coupling in either
+  direction. It once forced the utility card (`set util_off`/`set util_gaps`) and `Yes`
+  carried a hidden `safeguard @tag=utility { rank=6 rarity=legendary,mythical }` block;
+  all of it was removed deliberately: safeguards are dealt with explicitly by their own
+  cards, and `Yes!`'s "No extra protection — treat like any other gear" is honest on the
+  recipe side alone. Consequences: no account tier touches the utility card anymore
+  (Endgame+ included), and finishing FW Hard no longer narrows utility safeguards to
+  6★ legendary/mythical. A preset intent test pins the decoupling. The cross-domain
+  option-write bridges (forward and reverse) remain app capabilities, just unused here;
+  the utility card's option ids (`util_off`/`util_own`/`util_gaps`/`util_upg`) stay
+  pinned for saved-answer compatibility.
 - Rule order matches the pre-rework preset, new rules adjacent to their siblings, with
   the catch-alls last — gear displays the FIRST matching rule's name, so first match
   should imply the best match. Order is otherwise behavior-neutral

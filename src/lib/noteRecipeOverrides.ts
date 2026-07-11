@@ -15,6 +15,7 @@ import {
   buildSafeguardOptionTokenMap,
   applySafeguardOptionWrites,
   type NoteSafeguardOverridesAnswers,
+  type SafeguardNoteQuestionDefinition,
 } from './noteSafeguardOverrides'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
@@ -717,6 +718,134 @@ export const seedSafeguardAnswersFromRecipeDefaults = (
       optionWrites,
       (questionId) => existing[questionId] !== undefined,
     )
+  }
+  return next
+}
+
+// ── REVERSE cross-domain option writes (safeguard option → recipe radio/checkbox) ──
+//
+// Mirror of the forward bridge with one deliberate asymmetry: a source option that both
+// deselects X and selects Y is a CONDITIONAL REPLACE — it fires only while X is actually
+// selected. This is the "downgrade" shape (e.g. re-enabling utility safeguards turns the
+// FW-Hard answer `Yes!` into `Yes`), and the condition is what keeps the write from
+// stomping answers it has no business with (a player who picked `No` stays on `No`).
+// Reverse writes are interactive-only (no load-time seeding): stored answers are state,
+// not intent, so a repair only makes sense in response to an actual user change.
+
+/** One reverse write emitted per (source safeguard option × target recipe question). */
+export type CrossDomainRecipeOptionWrite = {
+  questionId: string
+  /** Recipe option to select (`set`); null for a bare deselect. */
+  selectId: string | null
+  /** Recipe option to deselect (`unset`/`excl`); when paired with selectId this GATES the write. */
+  deselectId: string | null
+}
+
+/**
+ * Build the `id=TOKEN → { questionId, optionId }` map for RECIPE options — the reverse
+ * counterpart of {@link buildSafeguardOptionTokenMap}, with identical rules: explicit
+ * non-numeric tokens only (implicit 1-based indices are question-local), sliders never
+ * participate, first occurrence wins.
+ */
+export const buildRecipeOptionTokenMap = (
+  questions: readonly NoteQuestionDefinition[],
+): Map<string, CrossDomainOptionTarget> => {
+  const map = new Map<string, CrossDomainOptionTarget>()
+  for (const question of questions) {
+    for (const option of question.options) {
+      if (option.groupType === 'slider') continue
+      const token = option.token
+      // A bare 1-based index is the implicit (question-local) token — never cross-domain.
+      if (!token || /^\d+$/.test(token)) continue
+      if (!map.has(token)) map.set(token, { questionId: question.id, optionId: option.id })
+    }
+  }
+  return map
+}
+
+/**
+ * Resolve selected safeguard options' `set`/`unset`/`excl` tokens into recipe-option
+ * writes. Tokens that name no recipe option are ignored (they are in-domain constraints
+ * or forward-bridge targets). `shouldApply` gates which selected options contribute —
+ * the change handler passes a "newly selected" predicate so writes fire on transitions,
+ * never on standing state.
+ */
+export const collectCrossDomainRecipeOptionWrites = (
+  safeguardQuestions: readonly SafeguardNoteQuestionDefinition[],
+  optionByToken: ReadonlyMap<string, CrossDomainOptionTarget>,
+  shouldApply: (optionId: string) => boolean = () => true,
+): CrossDomainRecipeOptionWrite[] => {
+  const writes: CrossDomainRecipeOptionWrite[] = []
+  for (const question of safeguardQuestions) {
+    for (const option of question.options) {
+      // Skip unselected options and any the caller wants excluded (already-selected).
+      if (!question.answer.includes(option.id) || !shouldApply(option.id)) continue
+      // Merge this option's tokens per target question so a set+excl pair becomes ONE
+      // replace-shaped write (the pairing is what encodes the conditionality).
+      const byQuestion = new Map<string, CrossDomainRecipeOptionWrite>()
+      const upsert = (target: CrossDomainOptionTarget, kind: 'select' | 'deselect') => {
+        const entry = byQuestion.get(target.questionId)
+          ?? { questionId: target.questionId, selectId: null, deselectId: null }
+        if (kind === 'select') entry.selectId = target.optionId
+        else entry.deselectId = target.optionId
+        byQuestion.set(target.questionId, entry)
+      }
+      for (const token of option.setTokens) {
+        const target = optionByToken.get(token)
+        if (target) upsert(target, 'select')
+      }
+      for (const token of [...option.unsetTokens, ...option.excludedTokens]) {
+        const target = optionByToken.get(token)
+        if (target) upsert(target, 'deselect')
+      }
+      writes.push(...byQuestion.values())
+    }
+  }
+  return writes
+}
+
+/**
+ * Apply reverse writes to stored RECIPE answers — persist-on-select via the same storage
+ * SSOT a real click takes ({@link applyRecipeOverridesAnswerChange}), so cross-question
+ * cascade, default-omission, and answer normalization behave identically. Firing rules:
+ *   • replace (selectId + deselectId): only while deselectId is selected; applied as a
+ *     radio switch to selectId (preferred), so no group fallback is consulted.
+ *   • select-only: hard select, skipped when already selected.
+ *   • deselect-only: skipped when not selected; otherwise an uncheck (removedId), with
+ *     single-select groups falling back per the usual default/first-option rule.
+ * The caller must NOT re-run forward writes off the result — a programmatic downgrade
+ * keeps the safeguard answer the user just picked (only a real click re-forces it).
+ */
+export const applyRecipeOptionWrites = (
+  note: string,
+  answers: NoteRecipeOverridesAnswers,
+  writes: readonly CrossDomainRecipeOptionWrite[],
+): NoteRecipeOverridesAnswers => {
+  let next = answers
+  for (const write of writes) {
+    // Re-resolve against the freshest answers so chained writes see each other's effect.
+    const question = resolveRecipeOverridesTags(note, next).questions
+      .find((q) => q.id === write.questionId)
+    if (!question) continue
+    const current = new Set(question.answer)
+    // Gate: a deselect target that is not selected makes the whole write a no-op
+    // (this is the conditionality of the replace shape, and a no-op bare deselect).
+    if (write.deselectId && !current.has(write.deselectId)) continue
+    // A select target that is already selected has nothing to do.
+    if (!write.deselectId && write.selectId && current.has(write.selectId)) continue
+    if (write.deselectId) current.delete(write.deselectId)
+    if (write.selectId) {
+      // Mirror the dialog's radio path: reset the target's single-select group first.
+      const group = question.groups.find((g) => g.options.some((o) => o.id === write.selectId))
+      if (group?.type === 'single') group.options.forEach((o) => current.delete(o.id))
+      current.add(write.selectId)
+    }
+    // Same rule pass + storage call a real interaction takes (preferred for selects,
+    // removed for bare deselects — matching the radio/checkbox handler contracts).
+    const preferredId = write.selectId ?? undefined
+    const removedId = write.selectId ? undefined : write.deselectId ?? undefined
+    const ruled = applyQuestionSelectionRules(Array.from(current), question, preferredId, removedId)
+    next = applyRecipeOverridesAnswerChange(note, next, question, ruled, preferredId, removedId)
   }
   return next
 }
