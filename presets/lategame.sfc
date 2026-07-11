@@ -13592,9 +13592,7 @@
         "factions": []
       },
       "tags": [
-        "acc",
-        "acc_fallback",
-        "attack"
+        "acc"
       ],
       "improvementChanceThreshold": {
         "atLevel0": 50,
@@ -19212,7 +19210,6 @@
         "factions": []
       },
       "tags": [
-        "fw_coverage",
         "acc"
       ],
       "weightMainStatByRank": true,
@@ -19257,8 +19254,6 @@
         "factions": []
       },
       "tags": [
-        "fw_coverage",
-        "fw_count",
         "acc"
       ],
       "weightMainStatByRank": true,
@@ -19303,8 +19298,6 @@
         "factions": []
       },
       "tags": [
-        "fw_coverage",
-        "fw_count",
         "acc"
       ],
       "weightMainStatByRank": true,
@@ -19349,8 +19342,6 @@
         "factions": []
       },
       "tags": [
-        "fw_coverage",
-        "fw_count",
         "acc"
       ],
       "weightMainStatByRank": true,
@@ -19716,8 +19707,7 @@
         "factions": []
       },
       "tags": [
-        "fw_coverage",
-        "fw_count"
+        "fw_coverage"
       ],
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -19992,13 +19982,13 @@
     "  q \"How many speed-set pieces **per slot** should be protected?\"",
     "     \"[[de]]Wie viele SPD-Set-Teile **pro Art** sollen geschützt werden?\" id=q_bk3r8j",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=speed_set or tag=speed_set_fallback { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=speed_set { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set or tag=speed_set_fallback { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=speed_set { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=speed_set { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set or tag=speed_set_fallback { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=speed_set { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spd_pieces min=1 max=64 default=16 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=speed_set { count=$value/2 } @tag=speed_set_boots { count=$value/4 } @tag=speed_set_fallback { count=$value } }",
     "-->",
@@ -20006,13 +19996,13 @@
     "  q \"How many debuffer pieces **per slot** should be protected?\"",
     "     \"[[de]]Wie viele Debuffer-Teile **pro Art** sollen geschützt werden?\" id=q_416mju",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=debuffer or tag=slowdebuffer or tag=bomber { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=debuffer or tag=slowdebuffer or tag=bomber { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=debuffer or tag=slowdebuffer or tag=bomber { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=debuffer_fallback or tag=slowdebuffer or tag=bomber { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=debuffer or tag=slowdebuffer or tag=bomber { activation=anticipate_improvements } }",
     "  slider \"\" id=min_debuffer_pieces min=1 max=64 default=32 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=debuffer { count=$value/16 } @tag=debuffer_crit { count=$value/32 } @tag=debuffer_fallback { count=$value } }",
     "--><br>",
@@ -20090,13 +20080,13 @@
     "  q \"How many of the best SPD banners **per faction** should always be protected (across all sets)?\"",
     "     \"[[de]]Wie viele der besten SPD-Banner **pro Fraktion** sollen immer geschützt werden (über alle Sets)?\" id=q_ta25kl",
     "  rb \"None\"",
-    "     \"[[de]]Keine\" { @tag=spd or tag=spd_fallback { activation=off } }",
+    "     \"[[de]]Keine\" { @tag=spd { activation=off } }",
     "  rb \"Just what I own\"",
-    "     \"[[de]]Nur Bestehendes\" { @tag=spd or tag=spd_fallback { activation=protect_existing } }",
+    "     \"[[de]]Nur Bestehendes\" { @tag=spd { activation=protect_existing } }",
     "  rb \"Plus missing slots\"",
-    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd or tag=spd_fallback { activation=anticipate_gaps } }",
+    "     \"[[de]]Plus fehlende Arten\" * { @tag=spd { activation=anticipate_gaps } }",
     "  rb \"Plus likely upgrades\"",
-    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd or tag=spd_fallback { activation=anticipate_improvements } }",
+    "     \"[[de]]Plus mögliche Upgrades\" { @tag=spd { activation=anticipate_improvements } }",
     "  slider \"\" id=min_spdbanner_pieces min=1 max=64 step=1 default=16 unit=\" pieces\"",
     "     \"[[de]] Teile\" { @tag=spd { count=$value / 8 } @tag=spd_fallback { count=$value } }",
     "-->",
@@ -20112,7 +20102,7 @@
     "  rb \"Plus likely upgrades\"",
     "     \"[[de]]Plus mögliche Upgrades\" { @tag=acc and not tag=spd or tag=fw_coverage { activation=anticipate_improvements } }",
     "  slider \"\" id=min_acc_pieces min=1 max=9 step=1 default=3 unit=\" pieces\"",
-    "     \"[[de]] Teile\" { @tag=acc_fallback and not tag=attack { count=$value } }",
+    "     \"[[de]] Teile\" { @tag=acc_fallback { count=$value } }",
     "--><br>",
     "<!-- safeguard-overrides [columns=2]",
     "  q \"Do you want to protect **accessories** (rings, amulets, banners) by their **improvement chance**?\\nSame idea as the artifact question; accessories score a little higher, so the same setting keeps more of them.\"",

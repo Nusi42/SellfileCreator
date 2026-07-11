@@ -68,7 +68,9 @@ SPD-carrying ones.
   activation radios and the `keep_safeguards` rank-bump select these, so **every** rule of
   a family toggles even when its count stays fixed.
 - `*_primary` / `*_fallback`: count sliders scale only these; plain-tagged specialized
-  rules keep fixed counts.
+  rules keep fixed counts. A rule opts OUT of its family slider simply by not carrying the
+  scaling tag — e.g. the any-set Bomber Amulet is `acc`-only (fixed count 1, toggled by the
+  accessory question, untouched by `min_acc_pieces`). Don't "fix" such a missing tag.
 - Split-scaling sub-tags (rules duplicated into substat variants have their quotas halved
   so total protection matches the pre-split preset): `speed_set_boots` (`$value/4`),
   `debuffer_crit` (`$value/32`), plus `survivability_primary` at `$value/32` and
