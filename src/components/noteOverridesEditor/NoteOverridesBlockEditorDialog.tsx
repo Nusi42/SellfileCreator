@@ -27,7 +27,7 @@ import {
   parseOverridesBlockDraft,
   validateOverridesBlockDraft,
 } from '../../lib/overridesDraft'
-import { collectKnownSelectorTags } from '../../lib/overridesEditorModel'
+import { collectOverridesTagSuggestions } from '../../lib/overridesEditorModel'
 import { serializeOverridesBlock } from '../../lib/overridesSerializer'
 import { OptionEditorCard } from './OptionEditorCard'
 import { LocalizedStringField } from './LocalizedStringField'
@@ -44,6 +44,9 @@ export interface NoteOverridesBlockEditorDialogProps {
   request: NoteOverridesBlockEditorRequest | null
   // Whole note draft (for cross-question id suggestions and insert framing).
   noteText: string
+  // Per-rule tag arrays from the live safeguard rules — merged with in-note selector
+  // tags so a freshly-tagged safeguard is offered before any selector references it.
+  safeguardRuleTags: readonly (readonly string[] | null | undefined)[]
   // App metasets + user substat colors for the body builder's domain value controls.
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
@@ -69,7 +72,7 @@ const cloneOption = (option: DraftOption, freshKeyFrom: DraftOption): DraftOptio
   key: freshKeyFrom.key,
 })
 
-function EditorContent({ request, noteText, metasets, substatColors, onApply, onClose }: NoteOverridesBlockEditorDialogProps & { request: NoteOverridesBlockEditorRequest }): JSX.Element {
+function EditorContent({ request, noteText, safeguardRuleTags, metasets, substatColors, onApply, onClose }: NoteOverridesBlockEditorDialogProps & { request: NoteOverridesBlockEditorRequest }): JSX.Element {
   const { t } = useI18n()
   // Initial draft: parse the block being edited, or start a fresh recipe question.
   const [draft, setDraft] = useState<OverridesBlockDraft>(() => (
@@ -101,8 +104,12 @@ function EditorContent({ request, noteText, metasets, substatColors, onApply, on
     return Array.from(tokens).sort()
   }, [noteText])
 
-  // Known selector tag values across the note — condition-row suggestions.
-  const knownTags = useMemo(() => collectKnownSelectorTags(noteText), [noteText])
+  // Tag suggestions: in-note selector tags unioned with live safeguard rule tags,
+  // so newly-tagged safeguards surface without first being typed into a selector.
+  const knownTags = useMemo(
+    () => collectOverridesTagSuggestions(noteText, safeguardRuleTags),
+    [noteText, safeguardRuleTags],
+  )
 
   // Live pre-apply validation (serialize + re-parse round included).
   const problems = useMemo(() => validateOverridesBlockDraft(draft), [draft])

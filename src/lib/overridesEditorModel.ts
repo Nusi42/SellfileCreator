@@ -35,6 +35,8 @@ import {
 import type { I18nKey } from './i18n'
 // Numeric widget bounds mirror the apply-side clamp SSOTs — never re-spelled here.
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
+// Tag merge/normalize SSOT — the tag autocomplete unions selector tags with rule tags.
+import { mergeTagList, normalizeTagList } from './tagHelpers'
 import { GEAR_INSPECTOR_SORT_WEIGHT_MAX, GEAR_INSPECTOR_SORT_WEIGHT_MIN, GEAR_INSPECTOR_SORT_WEIGHT_STEP } from './gearInspectorSort'
 import {
   type RecipeOverridesOperation,
@@ -898,4 +900,30 @@ export function collectKnownSelectorTags(note: string): string[] {
     }
   }
   return Array.from(tags).sort()
+}
+
+/** All tags defined on the safeguard rules — the OTHER source of tag suggestions.
+ *  Rule tags exist as soon as an author tags a safeguard, before any selector uses
+ *  them, so a freshly-created tag can be offered without first being typed into DSL.
+ *  Input is just the per-rule tag arrays (kept decoupled from the SafeguardRule type)
+ *  and is normalized through the shared tag grammar so casing/aliases match selectors. */
+export function collectSafeguardRuleTags(
+  ruleTagLists: readonly (readonly string[] | null | undefined)[],
+): string[] {
+  const tags = new Set<string>()
+  for (const list of ruleTagLists) {
+    // normalizeTagList canonicalizes case + legacy aliases exactly like selector tags.
+    for (const tag of normalizeTagList(list) ?? []) tags.add(tag)
+  }
+  return Array.from(tags).sort()
+}
+
+/** Union of tags already used in the note's selectors and tags defined on safeguard
+ *  rules — the full suggestion set for the tag autocomplete. Selector tags come first
+ *  (author's own usage), rule tags fill in the rest via the shared merge helper. */
+export function collectOverridesTagSuggestions(
+  note: string,
+  ruleTagLists: readonly (readonly string[] | null | undefined)[],
+): string[] {
+  return mergeTagList(collectKnownSelectorTags(note), collectSafeguardRuleTags(ruleTagLists)).sort()
 }

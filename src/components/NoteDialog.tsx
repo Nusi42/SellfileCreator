@@ -6271,6 +6271,13 @@ function NoteEditorContent({
   // Open request for the block editor dialog; null = closed. The nonce forces a
   // fresh editor mount per open so its draft state re-initializes from the source.
   const [blockEditorRequest, setBlockEditorRequest] = useState<NoteOverridesBlockEditorRequest | null>(null)
+  // Per-rule tag arrays for the block editor's tag autocomplete — lets a freshly-tagged
+  // safeguard be suggested before any selector references it. Rebuilt only when the rules
+  // (hence their tags) change, not on every draft keystroke.
+  const safeguardRuleTags = React.useMemo(
+    () => safeguardRules.map((rule) => rule.tags),
+    [safeguardRules],
+  )
   // Pencil entry point: resolve the whole-marker span (already memoized per draft)
   // and capture the source slice. The editor dialog is modal, so the draft cannot
   // change while it is open and the captured span stays valid until Apply.
@@ -7070,6 +7077,7 @@ function NoteEditorContent({
       <NoteOverridesBlockEditorDialog
         request={blockEditorRequest}
         noteText={draft}
+        safeguardRuleTags={safeguardRuleTags}
         metasets={metasets}
         substatColors={baseContext.substatColors}
         onApply={handleBlockEditorApply}
