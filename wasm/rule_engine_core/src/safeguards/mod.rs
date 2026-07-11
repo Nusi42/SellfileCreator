@@ -516,6 +516,27 @@ pub struct SafeguardWasmArtifactOut {
     pub substats: Vec<SafeguardWasmSubstatOut>,
 }
 
+// Per-candidate, per-substat bucket membership for `perSubstat` rules. A perSubstat rule is
+// scored once per selected substat, so a single artifact can sit in several independent
+// substat sub-buckets (e.g. strong on both HP% and DEF%). This records, for each substat the
+// item ranks in, its 1-based rank WITHIN that substat's count-group bucket and whether it made
+// that substat's top-N quota. The substat-weights flyout reads this to scope a focus click to a
+// concrete (count-group × substat) sub-bucket. Empty on non-perSubstat rules (top-level
+// bucket_rank/candidate_rank already fully describe those).
+//
+// ts-rs export: leaf type referenced by SafeguardWasmCandidateOut.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmSubstatBucketOut {
+    // Numeric substat variant (StatVariant) this sub-bucket ranks by.
+    pub variant: i64,
+    // 1-based rank within this substat's own count-group bucket (mirrors bucket_rank semantics).
+    pub bucket_rank: u32,
+    // True when the candidate is in this substat's top-N selection.
+    pub is_within_quota: bool,
+}
+
 // Per-candidate scored output exposed in detection entries for UI overlays.
 // candidateRank is 1-based (1 = best score) across ALL of this rule's buckets (global rank);
 // bucketRank is 1-based within the candidate's own count-group bucket. Both are 0 on the
@@ -531,6 +552,10 @@ pub struct SafeguardWasmCandidateOut {
     pub candidate_rank: u32,
     pub bucket_rank: u32,
     pub is_within_quota: bool,
+    // Per-substat sub-bucket ranks for `perSubstat` multi-substat rules; empty otherwise.
+    // Serde default keeps snapshots persisted before this field existed loadable.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub substat_buckets: Vec<SafeguardWasmSubstatBucketOut>,
 }
 
 // ts-rs export: one substat threshold of an improvement-watch corner rule.
@@ -739,6 +764,10 @@ pub(super) enum SafeguardCountKey {
 struct SafeguardWasmEntryEvalOut {
     entry: SafeguardWasmEntryOut,
     selected_candidate_indices: Vec<usize>,
+    // The single substat variant this eval ranked by, when built for one substat on the
+    // perSubstat merge path. None on the aggregate/non-perSubstat path. The merge uses it to
+    // tag each merged candidate with its per-substat sub-bucket rank + quota membership.
+    substat_variant: Option<i64>,
 }
 
 // ts-rs export: input wire struct for safeguard_count_key_value entry point.
@@ -3207,6 +3236,14 @@ fn safeguard_build_entry_for_substats(
 ) -> SafeguardWasmEntryEvalOut {
     // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
+    // When exactly one substat is selected this eval ranks by that lone variant, so its bucket
+    // ranks are a per-substat sub-bucket. Tag the result with the variant so the perSubstat merge
+    // can attribute each candidate's sub-bucket rank; consumers off the merge path ignore it.
+    let eval_substat_variant: Option<i64> = if selected_substats.len() == 1 {
+        Some(selected_substats[0])
+    } else {
+        None
+    };
     // HashSet gives O(1) membership checks during candidate scans.
     let selected_set = selected_substats.iter().copied().collect::<HashSet<_>>();
     // Placeholders include the active substat variants when filtering is active.
@@ -3520,6 +3557,9 @@ fn safeguard_build_entry_for_substats(
                 candidate_rank: (rank_idx + 1) as u32,
                 bucket_rank: bucket_rank_by_idx.get(&entry.candidate_idx).copied().unwrap_or(0),
                 is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
+                // Per-substat attribution is stamped by the merge; single-substat entries here
+                // carry none of their own (their whole bucket_rank IS the sub-bucket rank).
+                substat_buckets: Vec::new(),
             })
             .collect();
         return SafeguardWasmEntryEvalOut {
@@ -3543,6 +3583,7 @@ fn safeguard_build_entry_for_substats(
                 candidates: candidates_out,
             },
             selected_candidate_indices,
+            substat_variant: eval_substat_variant,
         };
     }
 
@@ -3620,6 +3661,8 @@ fn safeguard_build_entry_for_substats(
                 bucket_rank: 0,
                 is_within_quota: !candidate_sold_state[*idx]
                     || selected_sold_set.contains(idx),
+                // Non-ranking path never feeds the perSubstat merge (that path always ranks).
+                substat_buckets: Vec::new(),
             })
             .collect();
         return SafeguardWasmEntryEvalOut {
@@ -3643,6 +3686,7 @@ fn safeguard_build_entry_for_substats(
                 candidates: candidates_out,
             },
             selected_candidate_indices: selected_sold,
+            substat_variant: eval_substat_variant,
         };
     }
 
@@ -3840,6 +3884,8 @@ fn safeguard_build_entry_for_substats(
             candidate_rank: 0,
             bucket_rank: 0,
             is_within_quota: !candidate_sold_state[idx] || at_risk_set.contains(&idx),
+            // Non-ranking grouped path never feeds the perSubstat merge.
+            substat_buckets: Vec::new(),
         })
         .collect();
     SafeguardWasmEntryEvalOut {
@@ -3863,6 +3909,7 @@ fn safeguard_build_entry_for_substats(
             candidates: candidates_out,
         },
         selected_candidate_indices: at_risk,
+        substat_variant: eval_substat_variant,
     }
 }
 
@@ -3880,13 +3927,18 @@ fn safeguard_merge_substat_entries(
     let mut selected_candidate_set = HashSet::<usize>::new();
     let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
     let mut candidates_merged = Vec::<SafeguardWasmCandidateOut>::new();
-    let mut candidate_item_key_set = HashSet::<i64>::new();
+    // item_key → index into candidates_merged, so later per-substat entries append their
+    // sub-bucket rank to the SAME merged candidate instead of being dropped as duplicates.
+    let mut candidate_index_by_item_key = BTreeMap::<i64, usize>::new();
     let mut required_count = 0i64;
     let mut current_count = 0i64;
     let mut projected_count = 0i64;
     let mut deficit = 0i64;
     let mut groups_tracked = 0i64;
     for mut eval in entries {
+        // The single substat this entry ranked by (perSubstat merge always feeds single-variant
+        // entries; None would leave sub-bucket attribution empty, which is a safe no-op).
+        let eval_variant = eval.substat_variant;
         let entry = eval.entry;
         // Sum scalar counters across all per-substat entries.
         required_count += entry.required_count;
@@ -3914,10 +3966,40 @@ fn safeguard_merge_substat_entries(
                 artifacts.push(artifact);
             }
         }
-        // Deduplicate candidate rows across per-substat entries.
+        // Merge candidate rows across per-substat entries. First sighting of an item creates its
+        // merged row; later sightings append this entry's substat sub-bucket to the SAME row so
+        // the flyout can restrict a focus click to one (count-group × substat) sub-bucket. The
+        // top-level bucket_rank / is_within_quota track the item's BEST substat (lowest bucket
+        // rank; within-quota if within-quota for ANY substat) so the unfocused list stays coherent.
         for candidate in entry.candidates {
-            if candidate_item_key_set.insert(candidate.item_key) {
-                candidates_merged.push(candidate);
+            // A per-substat sub-bucket record for this item, if this entry was single-variant.
+            let sub_bucket = eval_variant.map(|variant| SafeguardWasmSubstatBucketOut {
+                variant,
+                bucket_rank: candidate.bucket_rank,
+                is_within_quota: candidate.is_within_quota,
+            });
+            if let Some(&existing_idx) = candidate_index_by_item_key.get(&candidate.item_key) {
+                // Item already merged — fold in this substat's sub-bucket + best-rank promotion.
+                let merged = &mut candidates_merged[existing_idx];
+                if let Some(bucket) = sub_bucket {
+                    // Promote top-level fields to the better (lower-rank) substat; keep within-quota
+                    // sticky across substats so an item kept for ANY substat reads as protected.
+                    if bucket.bucket_rank > 0
+                        && (merged.bucket_rank == 0 || bucket.bucket_rank < merged.bucket_rank)
+                    {
+                        merged.bucket_rank = bucket.bucket_rank;
+                        merged.score = candidate.score;
+                        merged.candidate_rank = candidate.candidate_rank;
+                    }
+                    merged.is_within_quota = merged.is_within_quota || bucket.is_within_quota;
+                    merged.substat_buckets.push(bucket);
+                }
+            } else {
+                // First sighting — seed the merged row and record its sub-bucket.
+                let mut merged = candidate;
+                merged.substat_buckets = sub_bucket.into_iter().collect();
+                candidate_index_by_item_key.insert(merged.item_key, candidates_merged.len());
+                candidates_merged.push(merged);
             }
         }
     }
@@ -3942,6 +4024,8 @@ fn safeguard_merge_substat_entries(
             candidates: candidates_merged,
         },
         selected_candidate_indices,
+        // Aggregate merge result is not itself a single-substat entry.
+        substat_variant: None,
     }
 }
 
@@ -4344,50 +4428,36 @@ pub struct SafeguardWasmScorePreviewIn {
     // (one global bucket), preserving the legacy preview behaviour for older callers.
     #[serde(default)]
     pub count_mode: Option<SafeguardWasmCountMode>,
+    // Optional substat-match token. When it is `perSubstat` and more than one substat is
+    // selected, the preview additionally emits per-substat sub-buckets (variant + bucket rank +
+    // quota membership) so the flyout's per-substat focus buttons stay live during weight edits,
+    // matching the detection snapshot. Absent / any other value = no sub-buckets (legacy behaviour).
+    #[serde(default)]
+    pub substat_match: Option<String>,
 }
 
-// Score and rank candidates with the given substats/weights for live popover preview.
-// Mirrors the detection-side ranking partition: groups by count_mode, picks top-N per group
-// with the same tie-boundary extension used by safeguard_build_entry_for_substats, then
-// unions per-group selections into isWithinQuota. The output therefore matches what the
-// candidate list shows on first open of the popover — the cutoff stays anchored across
-// weight nudges instead of snapping to `rank < requiredCount`.
-pub fn score_safeguard_candidates_for_preview_core(
-    input: SafeguardWasmScorePreviewIn,
-) -> Vec<SafeguardWasmCandidateOut> {
-    // Honor the same sanitization detection applies so per-rule fallback and
-    // mutually-exclusive flag handling stay in lockstep.
-    let count_mode = safeguard_resolve_count_mode(input.count_mode);
-    // Detection clamps required-count up to 1; replicate so the per-group quota
-    // here matches the detection-side partition exactly.
-    let required_per_group = input.required_count.max(1);
-    // Wrap each input artifact in a synthetic candidate so we can reuse the detection
-    // helpers (count-key, tie-extension top-N) without forking ranking semantics.
-    let candidates: Vec<SafeguardWasmCandidateIn> = input
-        .artifacts
-        .into_iter()
-        .map(|artifact| {
-            let group_key = safeguard_group_key_from_artifact(&artifact);
-            // item_key resolves from artifact.id when present; UI maps look up by this
-            // value, so missing ids fall back to a stable but unique sentinel later.
-            let item_key = artifact.id.unwrap_or(0);
-            SafeguardWasmCandidateIn {
-                item_key,
-                group_key,
-                // Preview never represents the sold/kept axis — it only ranks.
-                is_sold: false,
-                artifact,
-            }
-        })
-        .collect();
+// Score a candidate set by the given substats/weights, bucket by count_mode, and return the
+// per-bucket rank (1-based within each count-group) and the union of per-group top-N selections
+// (isWithinQuota). SSOT for the preview ranking partition — used once for the combined-score
+// preview and once per substat when the rule is `perSubstat`, so both stay in lockstep with the
+// detection-side tie-boundary top-N semantics.
+fn score_and_bucket_preview_candidates(
+    candidates: &[SafeguardWasmCandidateIn],
+    substats: &[i64],
+    weights: &BTreeMap<i64, f64>,
+    weight_main_stat_by_rank: bool,
+    main_stat_rank_weight_factor: f64,
+    count_mode: SafeguardWasmCountMode,
+    required_per_group: i64,
+) -> (HashSet<usize>, BTreeMap<usize, u32>) {
     // Score and drop zero-score entries; matches detection's `score <= 0` filter.
     let scored: Vec<SafeguardWasmScoredCandidate> = candidates
         .iter()
         .enumerate()
         .filter_map(|(idx, candidate)| {
             let score = safeguard_compute_score(
-                &candidate.artifact, &input.substats, &input.weights, input.weight_main_stat_by_rank,
-                input.main_stat_rank_weight_factor,
+                &candidate.artifact, substats, weights, weight_main_stat_by_rank,
+                main_stat_rank_weight_factor,
             );
             if score > 0.0 {
                 Some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
@@ -4417,7 +4487,7 @@ pub fn score_safeguard_candidates_for_preview_core(
     let mut bucket_rank_by_idx: BTreeMap<usize, u32> = BTreeMap::new();
     for bucket in groups.values() {
         // Reuse the detection top-N picker so tie-boundary expansion stays identical.
-        let selected = safeguard_select_top_scored_candidates(bucket, required_per_group, &candidates);
+        let selected = safeguard_select_top_scored_candidates(bucket, required_per_group, candidates);
         for entry in selected {
             within_quota_indices.insert(entry.candidate_idx);
         }
@@ -4428,7 +4498,7 @@ pub fn score_safeguard_candidates_for_preview_core(
                 if challenger.candidate_idx == entry.candidate_idx {
                     continue;
                 }
-                if safeguard_compare_scored_candidates_tie_only(challenger, entry, &candidates)
+                if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates)
                     == Ordering::Less
                 {
                     better += 1;
@@ -4437,8 +4507,100 @@ pub fn score_safeguard_candidates_for_preview_core(
             bucket_rank_by_idx.insert(entry.candidate_idx, better + 1);
         }
     }
+    (within_quota_indices, bucket_rank_by_idx)
+}
+
+// Score and rank candidates with the given substats/weights for live popover preview.
+// Mirrors the detection-side ranking partition: groups by count_mode, picks top-N per group
+// with the same tie-boundary extension used by safeguard_build_entry_for_substats, then
+// unions per-group selections into isWithinQuota. The output therefore matches what the
+// candidate list shows on first open of the popover — the cutoff stays anchored across
+// weight nudges instead of snapping to `rank < requiredCount`.
+//
+// perSubstat rules additionally get one sub-bucket per selected substat attached to each
+// candidate (variant + per-substat bucket rank + quota membership), so the flyout's per-substat
+// focus buttons stay live while weights are dragged. The top-level bucket_rank still reflects the
+// COMBINED-score ranking (unchanged), matching how detection's merge leaves the aggregate fields.
+pub fn score_safeguard_candidates_for_preview_core(
+    input: SafeguardWasmScorePreviewIn,
+) -> Vec<SafeguardWasmCandidateOut> {
+    // Honor the same sanitization detection applies so per-rule fallback and
+    // mutually-exclusive flag handling stay in lockstep.
+    let count_mode = safeguard_resolve_count_mode(input.count_mode);
+    // Detection clamps required-count up to 1; replicate so the per-group quota
+    // here matches the detection-side partition exactly.
+    let required_per_group = input.required_count.max(1);
+    // Wrap each input artifact in a synthetic candidate so we can reuse the detection
+    // helpers (count-key, tie-extension top-N) without forking ranking semantics.
+    let candidates: Vec<SafeguardWasmCandidateIn> = input
+        .artifacts
+        .into_iter()
+        .map(|artifact| {
+            let group_key = safeguard_group_key_from_artifact(&artifact);
+            // item_key resolves from artifact.id when present; UI maps look up by this
+            // value, so missing ids fall back to a stable but unique sentinel later.
+            let item_key = artifact.id.unwrap_or(0);
+            SafeguardWasmCandidateIn {
+                item_key,
+                group_key,
+                // Preview never represents the sold/kept axis — it only ranks.
+                is_sold: false,
+                artifact,
+            }
+        })
+        .collect();
+    // Combined-score partition drives the top-level score/rank/bucket_rank + isWithinQuota for the
+    // ordered list. This is the SSOT for the cutoff divider position, unchanged from before.
+    let (within_quota_indices, bucket_rank_by_idx) = score_and_bucket_preview_candidates(
+        &candidates, &input.substats, &input.weights, input.weight_main_stat_by_rank,
+        input.main_stat_rank_weight_factor, count_mode, required_per_group,
+    );
+
+    // perSubstat rules keep the best substat's quota per group, so compute one sub-bucket per
+    // selected substat — mirroring the detection merge — and attach them to each candidate. Each
+    // pass scores by exactly one substat (weight 1.0, matching detection's per-substat evaluation
+    // which passes SAFEGUARD_SUBSTAT_ANY with the lone variant).
+    let is_multi_per_substat = input
+        .substat_match
+        .as_deref()
+        .map(safeguard_normalize_substat_match)
+        .as_deref()
+        == Some(SAFEGUARD_SUBSTAT_PER_SUBSTAT)
+        && input.substats.len() > 1;
+    // candidate_idx → accumulated per-substat sub-buckets. Only populated for perSubstat rules.
+    let mut sub_buckets_by_idx: BTreeMap<usize, Vec<SafeguardWasmSubstatBucketOut>> = BTreeMap::new();
+    if is_multi_per_substat {
+        for &variant in &input.substats {
+            // Single-variant weight map: score purely by this substat (default weight 1.0).
+            let single_weight: BTreeMap<i64, f64> =
+                input.weights.get(&variant).map(|&w| (variant, w)).into_iter().collect();
+            let (sub_within, sub_bucket_rank) = score_and_bucket_preview_candidates(
+                &candidates, &[variant], &single_weight, input.weight_main_stat_by_rank,
+                input.main_stat_rank_weight_factor, count_mode, required_per_group,
+            );
+            for (&idx, &bucket_rank) in &sub_bucket_rank {
+                sub_buckets_by_idx.entry(idx).or_default().push(SafeguardWasmSubstatBucketOut {
+                    variant,
+                    bucket_rank,
+                    is_within_quota: sub_within.contains(&idx),
+                });
+            }
+        }
+    }
+
+    // Re-score by the combined weights for the ordered output list (score field + candidate_rank).
+    let mut ordered: Vec<SafeguardWasmScoredCandidate> = candidates
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, candidate)| {
+            let score = safeguard_compute_score(
+                &candidate.artifact, &input.substats, &input.weights, input.weight_main_stat_by_rank,
+                input.main_stat_rank_weight_factor,
+            );
+            (score > 0.0).then_some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
+        })
+        .collect();
     // Sort all scored entries by score descending for rank assignment in output order.
-    let mut ordered = scored;
     ordered.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
     ordered
         .iter()
@@ -4448,13 +4610,21 @@ pub fn score_safeguard_candidates_for_preview_core(
             // emitted key stays unique across artifacts that omit ids.
             let candidate = &candidates[entry.candidate_idx];
             let item_key = candidate.artifact.id.unwrap_or(entry.candidate_idx as i64);
+            // Per-substat rules attach their sub-buckets; combined isWithinQuota then becomes
+            // "within quota for ANY substat" so the unfocused list matches detection's merge.
+            let substat_buckets = sub_buckets_by_idx.remove(&entry.candidate_idx).unwrap_or_default();
+            let within_quota = if is_multi_per_substat {
+                substat_buckets.iter().any(|b| b.is_within_quota)
+            } else {
+                within_quota_indices.contains(&entry.candidate_idx)
+            };
             SafeguardWasmCandidateOut {
                 item_key,
                 score: entry.score,
                 candidate_rank: (rank_idx + 1) as u32,
                 bucket_rank: bucket_rank_by_idx.get(&entry.candidate_idx).copied().unwrap_or(0),
-                // Mirrors detection: union of per-group top-N with tie extension.
-                is_within_quota: within_quota_indices.contains(&entry.candidate_idx),
+                is_within_quota: within_quota,
+                substat_buckets,
             }
         })
         .collect()
@@ -4629,6 +4799,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 2,
             count_mode: None,
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         assert_eq!(out.len(), 3);
@@ -4665,6 +4836,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 2,
             count_mode: Some(mode),
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         assert_eq!(out.len(), 3);
@@ -4707,6 +4879,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 1,
             count_mode: Some(mode),
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         // Three bucket winners → in_quota even though required_count = 1.
@@ -4749,6 +4922,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 1,
             count_mode: Some(mode),
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         let kept: Vec<i64> = out
@@ -4778,6 +4952,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 2,
             count_mode: Some(SafeguardWasmCountMode::default()),
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         assert_eq!(out.len(), 2, "zero-score entry filtered out before rank");
@@ -4800,6 +4975,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 1,
             count_mode: None,
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         assert_eq!(out.len(), 3);
@@ -4834,6 +5010,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             weights: cr_weights(1.0),
             required_count: 0,
             count_mode: None,
+            substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         let kept_count = out.iter().filter(|c| c.is_within_quota).count();

@@ -91,6 +91,9 @@ export type ScoreCandidatesParams = {
   // detection — without it the WASM partition falls back to top-N and the
   // cutoff divider visibly snaps to row `requiredCount` after weight nudges.
   countMode?: SafeguardRuleCountMode
+  // Editing rule's substat-match token. `perSubstat` (with >1 substat) makes the preview emit
+  // per-substat sub-buckets so the flyout's per-substat focus buttons stay live during weight edits.
+  substatMatch?: string
 }
 
 type PendingRequest<T> = {
@@ -717,6 +720,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         // count-mode (legacy callers / tests). The worker handler treats an
         // absent key as "use canonical default."
         ...(params.countMode ? { countMode: params.countMode } : {}),
+        // Forward substat-match so perSubstat rules get sub-buckets in the live preview.
+        ...(params.substatMatch ? { substatMatch: params.substatMatch } : {}),
       },
     }
     worker.postMessage(message)

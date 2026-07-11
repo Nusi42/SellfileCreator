@@ -519,6 +519,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // matches detection-side bucketing. Drop the key when absent so the
         // wasm wrapper substitutes its `null` default (canonical resolution).
         ...(payload.countMode ? { countMode: payload.countMode } : {}),
+        // Forward substat-match so perSubstat rules get per-substat sub-buckets in the preview.
+        ...(payload.substatMatch ? { substatMatch: payload.substatMatch } : {}),
       })
       const response: RuleCacheWorkerResponse = {
         id,

@@ -52,6 +52,7 @@ const RUST_TYPES_OUTPUTS = [
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardCollectedSnapshotOut.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmArtifactOut.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmCandidateOut.ts'),
+  path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmSubstatBucketOut.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmEntryOut.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmGroupSample.ts'),
   path.join(RUST_TYPES_OUT_DIR, 'SafeguardWasmPlaceholderOut.ts'),

@@ -701,6 +701,9 @@ export default function SafeguardBuilderPanel({
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(effectiveRule.substatMatch)
     : SafeguardSubstatMatch.Min1
+  // perSubstat scoring (each substat ranked independently) only takes effect with >1 substat; the
+  // flyout uses this to expose per-substat focus buckets. Mirrors the WASM merge's own gate.
+  const isMultiPerSubstat = effectiveSubstatMatch === SafeguardSubstatMatch.PerSubstat && substatSelection.length > 1
   // Display count mode: derived from effectiveRule so scope chips reflect active overrides.
   const displayCountMode = sanitizeSafeguardCountMode(effectiveRule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const effectiveCountMode = hasAccessorySlot
@@ -1249,6 +1252,9 @@ export default function SafeguardBuilderPanel({
         // mode the snapshot was computed under — even when the editing rule
         // has since drifted (multi-edit / pending re-detection).
         countMode: detectionEntry.countMode,
+        // Forward the editing rule's substat-match so a perSubstat rule keeps emitting per-substat
+        // sub-buckets during weight drags (keeps the flyout's per-substat focus buttons live).
+        ...(rule?.substatMatch ? { substatMatch: rule.substatMatch } : {}),
       }).then((candidates) => {
         if (id !== scoringRequestIdRef.current) return
         setLivePreviewCandidates(candidates)
@@ -3843,6 +3849,7 @@ export default function SafeguardBuilderPanel({
               combination={rule?.combination}
               artifactsByItemKey={artifactsByItemKey}
               substats={substatSelection}
+              perSubstat={isMultiPerSubstat}
               weights={rule?.substatWeights ?? {}}
               noMatchesYet={detectionEntry !== null && detectionEntry !== undefined && (detectionEntry.candidates?.length ?? 0) === 0}
               showSlotIcons={showSlotIcons}

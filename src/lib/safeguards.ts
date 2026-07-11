@@ -679,11 +679,19 @@ export type SafeguardDetectionSubstat = {
 // Mirrors how WASM buckets candidates: only dimensions active in `effectiveCountMode` participate,
 // so two artifacts share a key iff they would share a quota bucket. Each segment is prefixed so
 // values from different dimensions can never collide (e.g. a set id equal to a faction id).
-// Returns null when no per-group dimension is active — every candidate is then one global group
-// and focusing would be a no-op (callers hide the focus control in that case).
+//
+// `substatVariant` adds a `substat:X` segment for `perSubstat` rules: those score each substat
+// independently, so the true quota bucket is (count-group × substat). Passing a variant scopes the
+// key to that substat's sub-bucket. A substat segment alone is a valid focus target even when no
+// count dimension is active (per-rule mode still splits by substat), so the null-guard only fires
+// when NO segment of any kind was produced.
+//
+// Returns null when no per-group dimension AND no substat is active — every candidate is then one
+// global group and focusing would be a no-op (callers hide the focus control in that case).
 export function safeguardFocusGroupKeyFor(
   artifact: SafeguardDetectionArtifact,
   effectiveCountMode: SafeguardRuleCountMode,
+  substatVariant?: StatVariant,
 ): string | null {
   // Collect the active-dimension segments in the same display order as the cutoff label.
   const segments: string[] = []
@@ -691,9 +699,25 @@ export function safeguardFocusGroupKeyFor(
   if (effectiveCountMode.perSet) segments.push(`set:${artifact.set}`)
   if (effectiveCountMode.perFaction) segments.push(`faction:${artifact.faction}`)
   if (effectiveCountMode.perMainStat) segments.push(`main:${artifact.mainStat}`)
-  // No active dimension → single global group; signal "no focus possible" to callers.
+  // Per-substat sub-bucket dimension: appended last so the label reads "…faction · DEF%".
+  if (substatVariant != null) segments.push(`substat:${substatVariant}`)
+  // No active dimension of any kind → single global group; signal "no focus possible".
   if (segments.length === 0) return null
   return segments.join('|')
+}
+
+// Parse the substat variant out of a focus-group key produced with a `substat:X` segment, or null
+// when the key has none. SSOT so the flyout list and the focus chip label read the substat back the
+// same way they wrote it (avoids a second, drifting parser).
+export function safeguardFocusGroupSubstatVariant(focusGroupKey: string | null): StatVariant | null {
+  if (focusGroupKey == null) return null
+  for (const seg of focusGroupKey.split('|')) {
+    if (seg.startsWith('substat:')) {
+      const v = Number(seg.slice('substat:'.length))
+      return Number.isFinite(v) ? (v as StatVariant) : null
+    }
+  }
+  return null
 }
 
 // Per-candidate scoring output from the WASM detection pass or live preview.
@@ -1062,6 +1086,9 @@ export const scoreSafeguardCandidates = (params: {
   // Editing rule's count-mode flags; optional so legacy callers pre-dating the
   // partitioning fix keep working (Rust resolves to the canonical default).
   countMode?: SafeguardRuleCountMode
+  // Editing rule's substat-match token. `perSubstat` (with >1 substat) makes the preview emit
+  // per-substat sub-buckets for the flyout's per-substat focus buttons; omit for combined-only.
+  substatMatch?: string
 }): SafeguardCandidateOut[] =>
   // Map to the WASM wire type explicitly so tsc catches field renames on either side.
   // SafeguardDetectionArtifact.itemKey → SafeguardWasmArtifactIn.id (camelCase of Rust `id`).
@@ -1089,6 +1116,8 @@ export const scoreSafeguardCandidates = (params: {
     // Pass-through only when caller supplied a mode; undefined drops the field
     // entirely so the wasm wrapper substitutes its `countMode: null` default.
     ...(params.countMode ? { countMode: params.countMode } : {}),
+    // Pass-through the substat-match token so perSubstat rules get sub-buckets in the preview.
+    ...(params.substatMatch ? { substatMatch: params.substatMatch } : {}),
   })
 
 // sortSafeguardCombination enforces stable ordering across every safeguard filter.

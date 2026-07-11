@@ -121,6 +121,10 @@ export type RuleCacheScoreCandidatesRequest = {
     // perSlot bucketing with tie extension). Omitting it lets the WASM side
     // resolve the canonical default count mode.
     countMode?: SafeguardRuleCountMode
+    // Editing rule's substat-match token. When `perSubstat` with >1 substat the preview emits
+    // per-substat sub-buckets so the flyout's per-substat focus buttons stay live during weight
+    // edits. Omitted → combined-score-only preview (no sub-buckets).
+    substatMatch?: string
   }
 }
 

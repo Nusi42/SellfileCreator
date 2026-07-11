@@ -1423,6 +1423,10 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
   // Bucketing flags from the editing rule. Omit to let Rust resolve canonical
   // detection defaults; callers in the popover always pass the live rule's mode.
   countMode?: SafeguardRuleCountMode
+  // Substat-match token from the editing rule. When `perSubstat` with >1 substat, the preview
+  // emits per-substat sub-buckets so the flyout's per-substat focus buttons stay live while
+  // weights are dragged. Omit for the legacy combined-score-only behaviour.
+  substatMatch?: string
 }): SafeguardCandidateOut[] => {
   assertWasmInitializedSync()
   const result = scoreSafeguardCandidatesWasmValueBinding(JSON.stringify({
@@ -1436,6 +1440,8 @@ export const scoreSafeguardCandidatesWithLoadedWasm = (params: {
     // through to safeguard_resolve_count_mode (matches the wire form of an
     // omitted Option<SafeguardWasmCountMode>).
     countMode: params.countMode ?? null,
+    // Null when omitted → Rust treats it as no per-substat split (legacy combined-score preview).
+    substatMatch: params.substatMatch ?? null,
   }))
   if (Array.isArray(result)) return result as SafeguardCandidateOut[]
   throw new Error('WASM safeguard score preview returned an invalid payload.')

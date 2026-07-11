@@ -144,6 +144,7 @@ import {
   computeArtifactSetContentHash,
   safeguardEffectiveCountModeForDisplay,
   safeguardFocusGroupKeyFor,
+  normalizeSafeguardSubstatMatch,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
@@ -5964,6 +5965,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (artifact == null) return null
     // Use the same effective (redundancy-suppressed) count mode the list uses for its cutoff label.
     const effectiveMode = safeguardEffectiveCountModeForDisplay(rule.combination, rule.countMode)
+    // perSubstat rules bucket per (count-group × substat). Seed the focus to the gear's BEST substat
+    // sub-bucket (lowest bucketRank) so the flyout opens on the substat this piece is most relevant
+    // to — matching how the row's own focus buttons scope. Falls back to the count-group key when
+    // the rule isn't perSubstat or the candidate carries no sub-buckets.
+    const isMultiPerSubstat = normalizeSafeguardSubstatMatch(rule.substatMatch) === SafeguardSubstatMatch.PerSubstat
+      && (rule.substats?.length ?? 0) > 1
+    if (isMultiPerSubstat) {
+      const candidate = entry.candidates?.find((c) => c.itemKey === itemKey) ?? null
+      const buckets = candidate?.substatBuckets ?? []
+      // Best = lowest positive bucketRank; ties keep the first (rule substat order).
+      const best = buckets.reduce<typeof buckets[number] | null>((acc, b) => {
+        if (b.bucketRank <= 0) return acc
+        if (acc == null || b.bucketRank < acc.bucketRank) return b
+        return acc
+      }, null)
+      if (best != null) return safeguardFocusGroupKeyFor(artifact, effectiveMode, best.variant as StatVariant)
+    }
     return safeguardFocusGroupKeyFor(artifact, effectiveMode)
   }, [safeguardRules, safeguardDetection, safeguardItemKeyByArtifactId])
   const openLogicHubSafeguardRule = useCallback((ruleIdx: number, artifactId?: number): boolean => {
