@@ -460,7 +460,7 @@ test('per-slot grouping splits quotas by slot and avoids zero-missing placeholde
   assert.strictEqual(entry.groupsTracked, 2, 'slot grouping should track one group per selected slot')
   assert.strictEqual(entry.requiredCount, 2, 'required total should scale with the two slot groups')
   assert.strictEqual(entry.deficit, 0, 'no deficit is expected when both slot groups are covered')
-  assert.strictEqual(entry.placeholders.length, 0, 'covered slot groups must not emit zero-missing placeholders')
+  assert.strictEqual(entry.placeholderCount, 0, 'covered slot groups must not emit zero-missing placeholders')
 })
 
 test('ranked ties on the same main stat prefer higher rank', () => {
@@ -819,7 +819,7 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
   const detection = computeSafeguardProtection({ candidates: [], rules: [anticipateRule], enabled: true })
   const entry = detection.entries[0]
   assert.ok(entry, 'expected detection entry for anticipate rule')
-  assert.strictEqual(entry.placeholders.length, 1, 'placeholder should be recorded when quota is unmet')
+  assert.strictEqual(entry.placeholderCount, 1, 'placeholder should be recorded when quota is unmet')
   const keepRules = buildSafeguardRules([anticipateRule], detection)
   assert.strictEqual(keepRules.length, 1, 'placeholder should emit a keep rule even without gear')
   const placeholderRule = keepRules[0]!

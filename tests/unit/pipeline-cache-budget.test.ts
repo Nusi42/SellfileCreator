@@ -18,7 +18,9 @@ const makeEntry = (overrides?: Partial<BudgetedPipelineCacheEntry>): BudgetedPip
   processedSnapshot: { mergedRules: new Array(100) },
   processedRows: new Array(10),
   processedSafeguardDetection: {
-    entries: [{ placeholders: new Array(50), artifacts: new Array(5), itemKeys: [1, 2, 3] }],
+    // Placeholder objects are wasm-resident and never appear in JS snapshots; only
+    // per-entry artifacts + itemKeys carry budgeted bytes here.
+    entries: [{ artifacts: new Array(5), itemKeys: [1, 2, 3] }],
   },
   processedImprovementChance: new Map([[1, {}]]),
   ...overrides,

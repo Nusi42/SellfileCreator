@@ -176,26 +176,19 @@ const keysEqual = (a: string[], b: string[]): boolean => {
 // scannedAt is excluded — it changes every run regardless of content.
 const computeDetectionKey = (snapshot: SafeguardDetectionSnapshot | null): string => {
   if (snapshot === null || snapshot.entries.length === 0) return ''
-  // For each detected combination: its stable hash + per-placeholder (missing count, reason,
-  // and substat variant VALUES). Hashing only length was insufficient: when an item is upgraded
-  // and its substats change, the placeholder list may carry the same count but different variant
-  // numbers, producing different __safeguardSubstatVariant placeholder rules in mergedRulesFinal.
+  // For each detected combination: its stable hash + the ENGINE-computed placeholder
+  // fingerprint + an itemKeys hash. The placeholder fingerprint (folded in Rust at stash
+  // time over each placeholder's missing/reason/substat-variant values + corner count —
+  // see safeguard_placeholder_fingerprint) replaced the JS fold that iterated all
+  // placeholder objects: those never cross the wasm boundary anymore, and this pass is
+  // now O(entries) instead of O(placeholders).
   return snapshot.entries.map((e) => {
-    const ph = e.placeholders.map((p) => {
-      // XOR-multiply hash over the variant array so order and value both matter.
-      // Seeded with length so an empty array never collides with a single-element array.
-      let variantHash = p.substatVariants?.length ?? 0
-      if (p.substatVariants) {
-        for (const v of p.substatVariants) variantHash = Math.imul(variantHash ^ v, 0x9e3779b9) | 0
-      }
-      return `${p.missing}${p.reason}${variantHash}`
-    }).join(',')
     // Hash itemKeys: specific artifact IDs counted toward this safeguard drive per-item
     // keep rules (__safeguardItemKey) in mergedRulesFinal. When a safeguarded item is removed
     // and a spare absorbs the gap, placeholders stay empty but itemKeys changes.
     let keyHash = e.itemKeys.length
     for (const k of e.itemKeys) keyHash = Math.imul(keyHash ^ k, 0x9e3779b9) | 0
-    return `${e.hash}:${ph}:${keyHash}`
+    return `${e.hash}:${e.placeholderFingerprint}:${keyHash}`
   }).join('|')
 }
 

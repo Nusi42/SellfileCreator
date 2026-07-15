@@ -406,14 +406,28 @@ export function buildRulesFor(label: string, dataset: GearDbRawDataset): ExportR
     ...(parsed.finalSellRemainder != null ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
     safeguards: withDet, omitDisabledBeforeSafeguards: false, dedupeBeforeSafeguards: false, rulesCacheKey: 'repro-fixed',
   })
-  // Detection snapshot entries carry per-safeguard `artifacts`, `itemKeys` and
-  // `placeholders` arrays; only their lengths matter here, so read them through a narrow
-  // shape. `itemKeys` is the worker's "protected" count in the [detect-io] log — the real
-  // artifacts a safeguard keeps; it is what tracks the wrong-build rule inflation.
-  type DetEntry = { ruleOrdinal?: number | null; artifacts?: unknown[]; itemKeys?: number[]; placeholders?: unknown[] }
+  // Detection snapshot entries carry per-safeguard `artifacts` + `itemKeys` arrays and a
+  // placeholderCount (the placeholder OBJECTS stay wasm-resident — see
+  // docs/technical/pipeline-memory.md); read them through a narrow shape. `itemKeys` is
+  // the worker's "protected" count in the [detect-io] log — the real artifacts a
+  // safeguard keeps; it is what tracks the wrong-build rule inflation.
+  type DetEntry = { ruleOrdinal?: number | null; artifacts?: unknown[]; itemKeys?: number[]; placeholderCount?: number }
   const entries = (det.detection?.entries ?? []) as readonly DetEntry[]
+  // REPRO_PLACEHOLDER_BREAKDOWN=1 — per-rule placeholder counts (the objects themselves
+  // are wasm-resident, so JS-side classification by missing/corners is no longer
+  // possible; the emission gate in rule_engine_core safeguards/mod.rs owns that split).
+  if (process.env.REPRO_PLACEHOLDER_BREAKDOWN === '1') {
+    const perRule = [...entries]
+      .map((e) => [`o${e.ruleOrdinal ?? '?'}`, e.placeholderCount ?? 0] as const)
+      .filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([k, c]) => `${k}=${c}`)
+      .join(' ')
+    console.log(`[ph-breakdown] ${label} top placeholder rules: ${perRule}`)
+  }
   const protectedArtifacts = entries.reduce((s, e) => s + (e.itemKeys?.length ?? e.artifacts?.length ?? 0), 0)
-  const placeholders = entries.reduce((s, e) => s + (e.placeholders?.length ?? 0), 0)
+  const placeholders = entries.reduce((s, e) => s + (e.placeholderCount ?? 0), 0)
 
   // REPRO_PERRULE=1 — mirror the worker's [detect-perrule] diagnostic so a captured live
   // wrong-build line can be diffed against the faithful correct baseline to pinpoint which
@@ -454,7 +468,7 @@ export function buildRulesFor(label: string, dataset: GearDbRawDataset): ExportR
     clearStoredRowsWithLoadedWasm()
     const staleEntries = (detStale.detection?.entries ?? []) as readonly DetEntry[]
     const staleProtected = staleEntries.reduce((s, e) => s + (e.itemKeys?.length ?? 0), 0)
-    const stalePlace = staleEntries.reduce((s, e) => s + (e.placeholders?.length ?? 0), 0)
+    const stalePlace = staleEntries.reduce((s, e) => s + (e.placeholderCount ?? 0), 0)
      
     console.log(
       `[stale-final] ${label}: baselineProtected=${protectedArtifacts} ` +

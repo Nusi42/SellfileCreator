@@ -1122,13 +1122,14 @@ pub fn merge_cached_and_configure_engine(
     let (generated, safeguard_rules, safeguard_enabled) = cached_merge_inputs_engine()
         .ok_or_else(|| "merge-cached-and-configure: no cached merge inputs (cache miss)".to_string())?;
     // Same per-push merge half as compute_merged_rules_cached_value — byte-identical rules.
+    // Result-typed: a stale placeholder-rehydration store fails the merge loudly.
     let merged = finish_merge_with_generated(
         generated,
         safeguard_enabled,
         safeguard_rules,
         safeguard_detection,
         safeguard_recipe_id_base,
-    );
+    )?;
     let count = merged.len();
     // configure_engine preserves stored_rows + the cached merge inputs across the rebuild.
     configure_engine(merged, recipe_modes);

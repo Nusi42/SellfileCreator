@@ -504,8 +504,14 @@ pub fn build_safeguard_rules_value(
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers rules + optional detection snapshot.
-    let input: BuildSafeguardRulesInWire = serde_json::from_str(payload)
+    let mut input: BuildSafeguardRulesInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid build-safeguard-rules payload: {error}")))?;
+    // Placeholders never travel in the JS payload — rehydrate from the wasm-resident
+    // store (loud failure on a stale store, never silent placeholder-rule loss).
+    if let Some(detection) = input.detection.as_mut() {
+        safeguards::rehydrate_detection_placeholders(detection)
+            .map_err(|error| JsValue::from_str(&error))?;
+    }
     let safeguard_rules = build_safeguard_rules_core(
         &input.rules,
         input.detection.as_ref(),
@@ -1023,7 +1029,8 @@ pub fn compute_merged_rules_cached_value(payload: &str) -> Result<String, JsValu
         safeguard_rules,
         wire.safeguard_detection,
         wire.safeguard_recipe_id_base,
-    );
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
     let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
     let count = wire_result.len();
     serialize_json_prealloc(&wire_result, count)
@@ -2078,11 +2085,8 @@ mod build_safeguard_rules_value_wire_tests {
             "exactLevel": null, "faction": 0, "mainStat": 1,
             "substats": [{ "variant": 5, "isFlat": false, "value": 8.0 }]
           }],
-          "pl": [{
-            "combination": { "slots": [5], "sets": [{"id": 19, "excluded": false}], "metaSetNames": [], "ranks": [6], "rarities": [6], "mainStats": [1], "factions": [] },
-            "missing": 0,
-            "reason": "global"
-          }],
+          "plc": 1,
+          "plf": "cbf29ce484222325",
           "ca": [{ "itemKey": 42, "score": 1.0, "candidateRank": 1, "bucketRank": 1, "isWithinQuota": true }]
         }]
       }
@@ -2151,8 +2155,11 @@ mod build_safeguard_rules_value_wire_tests {
         let artifacts = entry.get("ar").and_then(|v| v.as_array()).expect("entry.ar (artifacts)");
         assert_eq!(artifacts.len(), 1, "entry.ar length");
         assert_eq!(artifacts[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ar[0].itemKey");
-        let placeholders = entry.get("pl").and_then(|v| v.as_array()).expect("entry.pl (placeholders)");
-        assert_eq!(placeholders.len(), 1, "entry.pl length");
+        // Placeholder OBJECTS never travel on the wire (wasm-resident hand-off) —
+        // only the count + fingerprint stamped by stash_detection_placeholders do.
+        assert_eq!(entry.get("plc").and_then(|v| v.as_i64()), Some(1), "entry.plc (placeholderCount)");
+        assert_eq!(entry.get("plf").and_then(|v| v.as_str()), Some("cbf29ce484222325"), "entry.plf (placeholderFingerprint)");
+        assert!(entry.get("pl").is_none(), "entry.pl must not exist on the wire (placeholders are wasm-resident)");
         let candidates = entry.get("ca").and_then(|v| v.as_array()).expect("entry.ca (candidates)");
         assert_eq!(candidates.len(), 1, "entry.ca length");
         assert_eq!(candidates[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ca[0].itemKey");

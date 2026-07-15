@@ -45,9 +45,8 @@ const RULE_BYTES = 500
 const MATCH_BYTES = 300
 // Row object + two GearInspectorPreviewMatch objects (~12 props each).
 const ROW_BYTES = 400
-// combination object + missing/reason + optional substatVariants/sample/watchCorners.
-const PLACEHOLDER_BYTES = 250
-// 10 scalar fields + ~4 substat objects.
+// 10 scalar fields + ~4 substat objects. (Placeholder objects no longer appear in the
+// JS snapshot at all — they stay wasm-resident; entries carry only count+fingerprint.)
 const DETECTION_ARTIFACT_BYTES = 300
 // Numeric array slot.
 const ITEM_KEY_BYTES = 8
@@ -57,7 +56,6 @@ const IMPROVEMENT_ENTRY_BYTES = 300
 // Structural slice of a detection snapshot sufficient for size estimation — keeps this
 // module decoupled from the full SafeguardDetectionSnapshot type (no App.tsx imports).
 type DetectionEntriesLike = ReadonlyArray<{
-  placeholders: readonly unknown[]
   artifacts: readonly unknown[]
   itemKeys: readonly number[]
 }>
@@ -137,8 +135,7 @@ const budgetedGraphs = (
     // O(#entries) — ~150 safeguard rules, run once per DISTINCT snapshot graph.
     let bytes = 0
     for (const e of entry.processedSafeguardDetection?.entries ?? []) {
-      bytes += e.placeholders.length * PLACEHOLDER_BYTES
-        + e.artifacts.length * DETECTION_ARTIFACT_BYTES
+      bytes += e.artifacts.length * DETECTION_ARTIFACT_BYTES
         + e.itemKeys.length * ITEM_KEY_BYTES
     }
     return bytes

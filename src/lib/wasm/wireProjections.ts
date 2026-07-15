@@ -12,7 +12,6 @@ import type {
   SafeguardDetectionSnapshot,
   SafeguardDetectionEntry,
   SafeguardDetectionArtifact,
-  SafeguardPlaceholderRequest,
   SafeguardRuleActivation,
 } from '../safeguards'
 import type { BuilderRecipe } from '../hsfBuilder'
@@ -29,7 +28,6 @@ import type { SafeguardWasmSnapshotOut } from './generated/rust-types/SafeguardW
 import type { SafeguardWasmEntryOut } from './generated/rust-types/SafeguardWasmEntryOut'
 import type { SafeguardWasmCombination } from './generated/rust-types/SafeguardWasmCombination'
 import type { SafeguardWasmArtifactOut } from './generated/rust-types/SafeguardWasmArtifactOut'
-import type { SafeguardWasmPlaceholderOut } from './generated/rust-types/SafeguardWasmPlaceholderOut'
 import type { SafeguardWasmExpectedGroupDomainIn } from './generated/rust-types/SafeguardWasmExpectedGroupDomainIn'
 import type { AutoFlexRarityRecipeIn } from './generated/rust-types/AutoFlexRarityRecipeIn'
 import type { AutoFlexRarityBoundsIn } from './generated/rust-types/AutoFlexRarityBoundsIn'
@@ -200,7 +198,10 @@ function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDet
     coveredByExisting: wire.cbe,
     itemKeys: wire.ik,
     artifacts: bridgeMirrorShapes<SafeguardDetectionArtifact, SafeguardWasmArtifactOut>(wire.ar),
-    placeholders: bridgeMirrorShapes<SafeguardPlaceholderRequest, SafeguardWasmPlaceholderOut>(wire.pl),
+    // Placeholder objects stay wasm-resident (see pipeline-memory.md); the wire carries
+    // only their count + the engine-computed fingerprint.
+    placeholderCount: wire.plc,
+    placeholderFingerprint: wire.plf,
     candidates: wire.ca,
   }
 }
@@ -209,6 +210,9 @@ function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDet
 export const expandSafeguardSnapshotFromWire = (wire: SafeguardWasmSnapshotOutWire): SafeguardDetectionSnapshot => ({
   scannedAt: wire.sa,
   entries: wire.e.map(expandSafeguardEntryFromWire),
+  // Round-tripped so merge calls can validate the engine still holds THIS snapshot's
+  // resident placeholders (absent ⇔ nothing stashed).
+  ...(wire.pid != null ? { placeholderStateId: wire.pid } : {}),
 })
 
 // Project app-domain SafeguardDetectionSnapshot → wire form for WASM input.
@@ -232,7 +236,10 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
     cbe: entry.coveredByExisting,
     ik: entry.itemKeys,
     ar: bridgeMirrorShapes<SafeguardWasmArtifactOut, SafeguardDetectionArtifact>(entry.artifacts),
-    pl: bridgeMirrorShapes<SafeguardWasmPlaceholderOut, SafeguardPlaceholderRequest>(entry.placeholders),
+    // Count + fingerprint only — the engine rehydrates the actual placeholder objects
+    // from its resident store, validated by the snapshot-level pid below.
+    plc: entry.placeholderCount,
+    plf: entry.placeholderFingerprint,
     ca: entry.candidates ?? [],
   }
 }
@@ -241,6 +248,7 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
 export const projectSafeguardSnapshotForWire = (snapshot: SafeguardDetectionSnapshot): SafeguardWasmSnapshotOutWire => ({
   sa: snapshot.scannedAt,
   e: snapshot.entries.map(projectSafeguardEntryForWire),
+  ...(snapshot.placeholderStateId != null ? { pid: snapshot.placeholderStateId } : {}),
 })
 
 // ─── AutoFlexRarityRecipeIn projection / expansion ───────────────────────────

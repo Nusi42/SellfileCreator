@@ -237,9 +237,16 @@ pub fn finish_merge_with_generated(
     generated_rules: Vec<RuleRaw>,
     safeguard_enabled: bool,
     safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    safeguard_detection: Option<SafeguardWasmSnapshotOut>,
+    mut safeguard_detection: Option<SafeguardWasmSnapshotOut>,
     safeguard_recipe_id_base: Option<i64>,
-) -> Vec<RuleRaw> {
+) -> Result<Vec<RuleRaw>, String> {
+    // Placeholders never cross the JS boundary (see stash_detection_placeholders):
+    // rehydrate them from the wasm-resident store before merge-time rule emission.
+    // A stale/mismatched store fails the merge LOUDLY rather than silently emitting
+    // no placeholder rules.
+    if let Some(detection) = safeguard_detection.as_mut() {
+        crate::safeguards::rehydrate_detection_placeholders(detection)?;
+    }
     let parsed_safeguard_rules = safeguard_rules;
     // Safeguard merge prepends injected rows ahead of the transformed base set.
     let mut merged = if safeguard_enabled {
@@ -278,14 +285,16 @@ pub fn finish_merge_with_generated(
     for (idx, rule) in merged.iter_mut().enumerate() {
         rule.line_idx = Some(idx as i64);
     }
-    merged
+    Ok(merged)
 }
 
 // Merge pipeline core combines base/custom/final-sell/safeguard rows and
 // assigns stable preview line indices in one Rust-owned orchestration step.
 // Now a thin composition of the two halves above so the cached path and this
 // legacy single-shot path share one definition (SSOT) and stay byte-identical.
-pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Vec<RuleRaw> {
+// Result-typed since the placeholder-rehydration gate (a stale resident store
+// must fail the merge loudly, never silently drop placeholder rules).
+pub fn compute_merged_rules_core(input: ComputeMergedRulesIn) -> Result<Vec<RuleRaw>, String> {
     let ComputeMergedRulesIn {
         base_rules,
         custom_rules,

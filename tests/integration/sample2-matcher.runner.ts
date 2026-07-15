@@ -157,20 +157,22 @@ const main = async (): Promise<void> => {
     rules: safeguardRules,
     enabled: parsed.safeguardsEnabled ?? false,
   })
-  // Invariant: placeholders must represent real deficits only.
-  // Zero-missing placeholders indicate grouping regressions in safeguard scans.
-  let zeroMissingPlaceholders = 0
+  // Invariant: placeholders must represent real deficits only. Placeholder OBJECTS are
+  // wasm-resident now (entries expose only placeholderCount/-Fingerprint), so the old
+  // per-placeholder zero-missing scan cannot run in JS; the emission gate itself
+  // (`deficit_group > 0 || improvement_watch` in rule_engine_core safeguards/mod.rs)
+  // structurally prevents the historic regression. What JS can still verify: a fully
+  // covered entry (deficit 0) of a non-watch rule must carry no placeholders at all.
   for (const entry of detection.entries) {
-    for (const placeholder of entry.placeholders) {
-      if ((placeholder.missing ?? 0) <= 0) {
-        zeroMissingPlaceholders += 1
-      }
+    const rule = entry.ruleOrdinal != null ? safeguardRules[entry.ruleOrdinal - 1] : undefined
+    const isWatch = rule?.improvementChanceThreshold != null
+    if (!isWatch && entry.deficit === 0) {
+      assert(
+        entry.placeholderCount === 0,
+        `covered non-watch entry (ordinal ${entry.ruleOrdinal}) reports ${entry.placeholderCount} placeholders`,
+      )
     }
   }
-  assert(
-    zeroMissingPlaceholders === 0,
-    `safeguard detection emitted zero-missing placeholders: ${zeroMissingPlaceholders}`,
-  )
 
   // Rebuild merged rules with the safeguard detection snapshot applied.
   const mergedWithKeepRules = computeMergedRules({

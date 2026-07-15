@@ -95,13 +95,23 @@ Secondary contributors (not the root cause):
    refcounted by object identity (`SharedGraphBudget`) so graphs shared across entries
    via (1) are charged once. Costs a handful of Map ops at insert/evict only — nothing
    per frame. All cache mutations flow through one insert/delete/clear SSOT in App.tsx.
-3. **Aggregate placeholders inside WASM** *(future work)*. 210k
-   `SafeguardPlaceholderRequest` objects still cross the boundary per CHANGED build (only
-   to be grouped into keep rules at merge time; no UI consumer reads the raw list).
-   After (1)+(2) they cross once per distinct detection outcome and are retained once,
-   so the remaining win is transient/wasm-side. Emitting the grouped form from Rust
-   would shrink per-changed-build cost and the WASM high-water; needs a compat path for
-   persisted detection snapshots.
+3. **Placeholders are wasm-resident** *(implemented)*. Placeholder objects
+   never cross the JS boundary at all anymore: detection moves them into an engine-side
+   hand-off store (`stash_detection_placeholders` in
+   `wasm/rule_engine_core/src/safeguards/mod.rs`), and JS snapshots carry only a
+   per-entry `placeholderCount` + an engine-computed `placeholderFingerprint` plus a
+   snapshot-level `placeholderStateId`. Merge-time rule emission rehydrates the store
+   inside the engine (`rehydrate_detection_placeholders`), validating the state id +
+   per-entry hashes — a stale store fails the merge loudly instead of silently dropping
+   placeholder rules. Composition note: on the reference account ALL 210,279 placeholders
+   are deficit placeholders (`missing > 0`, mostly-empty expected groups) that legitimately
+   drive merge-time keep rules — so "drop dead weight" was not an option; removing the
+   boundary crossing was. Side effects: the worker's `detectionKey` fold is now
+   O(entries) instead of O(placeholders), the merge payload no longer serializes the
+   placeholder lists in either direction, and detection snapshots retained by the
+   pipeline cache shrink accordingly. Detection snapshots are not persisted (verified:
+   no sfcIO/autosave consumer), so no migration path was needed. Rule-output parity
+   verified exactly on the capture session (finalRules/protected/Σcount unchanged).
 4. **Idle-gated worker recycle** *(implemented)*. When the worker has been fully idle
    for 60 s and its linear memory exceeds 3× the 256 MiB pre-grow (768 MiB), it is
    replaced once, releasing the grow-only reservation. Under-load cycling remains

@@ -1092,6 +1092,7 @@ mod improvement_watch_tests {
         }];
         placeholders.extend(extra_placeholders);
         SafeguardWasmSnapshotOut {
+            placeholder_state_id: None,
             scanned_at: 0.0,
             entries: vec![SafeguardWasmEntryOut {
                 hash: "watch-hash".to_string(),
@@ -1116,6 +1117,8 @@ mod improvement_watch_tests {
                 item_keys: vec![],
                 artifacts: vec![],
                 placeholders,
+                placeholder_count: 0,
+                placeholder_fingerprint: String::new(),
                 candidates: vec![],
             }],
         }

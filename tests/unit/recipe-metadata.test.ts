@@ -196,7 +196,10 @@ test('safeguard exports include sentinel RecipeID/RecipeName', () => {
           value: 12,
         }],
       }],
-      placeholders: [],
+      // Placeholder objects are wasm-resident; JS entries carry only the count +
+      // engine-computed fingerprint (empty here — this mock protects real artifacts).
+      placeholderCount: 0,
+      placeholderFingerprint: '',
     }],
   }
   const keepRules = buildSafeguardRules([keepRule], detection)

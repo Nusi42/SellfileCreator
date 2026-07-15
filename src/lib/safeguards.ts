@@ -799,7 +799,14 @@ export type SafeguardDetectionEntry = {
   coveredByExisting: boolean
   itemKeys: number[]
   artifacts: SafeguardDetectionArtifact[]
-  placeholders: SafeguardPlaceholderRequest[]
+  // Placeholder requests stay WASM-RESIDENT (they number in the hundreds of thousands
+  // on large accounts — rules × expected-group domain — and were the dominant wasm→JS
+  // materialization + retention cost; see docs/technical/pipeline-memory.md). JS only
+  // sees their count plus a Rust-computed fingerprint; merge-time rule emission
+  // rehydrates the actual objects inside the engine via the snapshot's
+  // placeholderStateId. Both fields are stamped by the engine's stash pass.
+  placeholderCount: number
+  placeholderFingerprint: string
   // Scored candidates from the detection pass (present when substats are configured).
   // Populated by WASM; absent on older snapshots (treated as empty array).
   candidates?: SafeguardCandidateOut[]
@@ -808,26 +815,11 @@ export type SafeguardDetectionEntry = {
 export type SafeguardDetectionSnapshot = {
   scannedAt: number
   entries: SafeguardDetectionEntry[]
-}
-
-// Generated wire shapes for the improvement-watch placeholder extensions. The mirror
-// below must stay key-set-identical to SafeguardWasmPlaceholderOut (bridgeMirrorShapes
-// in wireProjections.ts pins the key sets at compile time).
-import type { SafeguardWasmGroupSample } from './wasm/generated/rust-types/SafeguardWasmGroupSample'
-import type { SafeguardWatchCornerOut } from './wasm/generated/rust-types/SafeguardWatchCornerOut'
-
-export type SafeguardPlaceholderRequest = {
-  combination: SafeguardCombination
-  missing: number
-  reason: 'global' | 'group'
-  // Optional substat filter for per-substat gaps (keeps placeholder rules scoped).
-  substatVariants?: StatVariant[]
-  // Concrete group dims on zero-missing improvement-watch placeholders (corner probing);
-  // absent on deficit placeholders and on snapshots persisted before the field existed.
-  sample?: SafeguardWasmGroupSample | null
-  // Improvement-watch corner frontier attached post-detection; merge-time emission pins
-  // one HSF keep rule per corner. Absent until the watch pass attaches (or removes) it.
-  watchCorners?: SafeguardWatchCornerOut[] | null
+  // Id of the engine-resident placeholder store backing this snapshot's entries.
+  // Round-tripped verbatim into merge calls so the engine can validate it still holds
+  // THIS snapshot's placeholders (stale stores fail the merge loudly). Absent when no
+  // entry carries placeholders.
+  placeholderStateId?: number
 }
 
 export type SafeguardCandidate = {

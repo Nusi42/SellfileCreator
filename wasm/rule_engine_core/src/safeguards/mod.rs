@@ -1,4 +1,5 @@
 use super::*;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
@@ -665,9 +666,29 @@ pub struct SafeguardWasmEntryOut {
     #[serde(rename = "ar")]
     #[ts(rename = "ar")]
     pub artifacts: Vec<SafeguardWasmArtifactOut>,
-    #[serde(rename = "pl")]
-    #[ts(rename = "pl")]
+    // Merge-time placeholder requests. These NEVER cross the JS boundary (serde+ts skip):
+    // on real accounts they number in the hundreds of thousands (rules × expected-group
+    // domain) and were the dominant wasm→JS materialization + clone + merge round-trip
+    // cost. Detection moves them into the wasm-resident hand-off store
+    // (stash_detection_placeholders) and merge-time emission reads them back via the
+    // snapshot's placeholder_state_id (rehydrate_detection_placeholders). JS sees only
+    // the count + fingerprint fields below. Rust tests/native callers may populate this
+    // field directly — a non-empty field always wins over the resident store.
+    #[serde(skip)]
+    #[ts(skip)]
     pub placeholders: Vec<SafeguardWasmPlaceholderOut>,
+    // Number of placeholder requests behind this entry (JS-visible; the objects
+    // themselves stay wasm-resident). Filled by stash_detection_placeholders.
+    #[serde(rename = "plc", default)]
+    #[ts(rename = "plc")]
+    pub placeholder_count: i64,
+    // Order-sensitive fingerprint over every placeholder's (missing, reason, substat
+    // variants, corner count) — the ingredients the worker's detectionKey previously
+    // folded in JS by iterating all placeholders. Computing it here at stash time makes
+    // the JS fingerprint pass O(entries) instead of O(placeholders).
+    #[serde(rename = "plf", default)]
+    #[ts(rename = "plf")]
+    pub placeholder_fingerprint: String,
     // All matched+scored candidates with their ranks; omitted from old snapshots (default = empty).
     #[serde(rename = "ca", default)]
     #[ts(rename = "ca")]
@@ -686,6 +707,156 @@ pub struct SafeguardWasmSnapshotOut {
     #[serde(rename = "e")]
     #[ts(rename = "e")]
     pub entries: Vec<SafeguardWasmEntryOut>,
+    // Id of the wasm-resident placeholder store this snapshot's entries were stashed
+    // into (stash_detection_placeholders). A merge input whose entries report
+    // placeholder_count > 0 must present the engine's CURRENT store id — that guards
+    // against silently merging a stale snapshot against newer resident placeholders.
+    // None ⇔ nothing stashed (detection disabled/empty, or a test-built snapshot whose
+    // entries carry their placeholders directly in the skipped field).
+    #[serde(rename = "pid", default, skip_serializing_if = "Option::is_none")]
+    #[ts(rename = "pid", optional)]
+    pub placeholder_state_id: Option<i64>,
+}
+
+// ─── wasm-resident placeholder hand-off (detection → merge) ─────────────────────
+// Placeholder requests never leave the wasm instance: detection stashes them here and
+// merge-time emission rehydrates them, so the ~10^5-object lists stop being materialized
+// as JS objects, structured-cloned to the main thread, and re-serialized back into wasm
+// for every merge. One generation only — each detection replaces the previous store,
+// matching the detection→merge call order of every production pipeline (worker, headless
+// background push, native DLL, repro harness).
+struct ResidentPlaceholderEntry {
+    // Entry hash at stash time; rehydration re-checks it so an index-aligned lookup can
+    // never silently pair a stale store with a different snapshot shape.
+    hash: String,
+    placeholders: Vec<SafeguardWasmPlaceholderOut>,
+}
+struct ResidentPlaceholderState {
+    state_id: i64,
+    entries: Vec<ResidentPlaceholderEntry>,
+}
+thread_local! {
+    static RESIDENT_PLACEHOLDERS: RefCell<Option<ResidentPlaceholderState>> =
+        const { RefCell::new(None) };
+    // Monotonic id source; wasm is single-threaded so a plain Cell suffices.
+    static NEXT_PLACEHOLDER_STATE_ID: Cell<i64> = const { Cell::new(1) };
+}
+
+// Order-sensitive 64-bit fold over the fingerprint ingredients of one placeholder list:
+// (missing, reason, substat variant values, corner count). Matches what the worker's
+// detectionKey used to fold per placeholder in JS (plus the corner count, which only
+// makes the key stricter). Only self-consistency matters — the algorithm is free as long
+// as equal fingerprints ⇒ identical merge-time placeholder rules for fixed rule inputs.
+fn safeguard_placeholder_fingerprint(placeholders: &[SafeguardWasmPlaceholderOut]) -> String {
+    // FNV-1a seeded with the length so an empty list never collides with a short one.
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325 ^ (placeholders.len() as u64);
+    let mut fold = |value: u64, state: &mut u64| {
+        *state ^= value;
+        *state = state.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    for placeholder in placeholders {
+        fold(placeholder.missing as u64, &mut hash);
+        for byte in placeholder.reason.as_bytes() {
+            fold(u64::from(*byte), &mut hash);
+        }
+        if let Some(variants) = placeholder.substat_variants.as_ref() {
+            fold(variants.len() as u64 | 0x8000_0000, &mut hash);
+            for variant in variants {
+                fold(*variant as u64, &mut hash);
+            }
+        }
+        fold(
+            placeholder
+                .watch_corners
+                .as_ref()
+                .map_or(0, |corners| corners.len() as u64),
+            &mut hash,
+        );
+    }
+    format!("{hash:016x}")
+}
+
+/// Move every entry's placeholders into the resident store, stamping the JS-visible
+/// count + fingerprint and the snapshot's store id. MUST run on every snapshot that
+/// leaves the engine (after attach_watch_corners) — the placeholders field itself is
+/// serde-skipped, so an un-stashed snapshot would silently report zero placeholders.
+pub(crate) fn stash_detection_placeholders(detection: &mut SafeguardWasmSnapshotOut) {
+    let mut resident_entries = Vec::with_capacity(detection.entries.len());
+    let mut any = false;
+    for entry in &mut detection.entries {
+        entry.placeholder_count = entry.placeholders.len() as i64;
+        entry.placeholder_fingerprint = safeguard_placeholder_fingerprint(&entry.placeholders);
+        any = any || !entry.placeholders.is_empty();
+        resident_entries.push(ResidentPlaceholderEntry {
+            hash: entry.hash.clone(),
+            placeholders: std::mem::take(&mut entry.placeholders),
+        });
+    }
+    if !any {
+        // Nothing to hand off — leave any previous store untouched (harmless either way;
+        // production merges always follow their own detection) and mark the snapshot.
+        detection.placeholder_state_id = None;
+        return;
+    }
+    let state_id = NEXT_PLACEHOLDER_STATE_ID.with(|next| {
+        let id = next.get();
+        next.set(id + 1);
+        id
+    });
+    detection.placeholder_state_id = Some(state_id);
+    RESIDENT_PLACEHOLDERS.with(|cell| {
+        *cell.borrow_mut() = Some(ResidentPlaceholderState { state_id, entries: resident_entries });
+    });
+}
+
+/// Clone the resident placeholders back into a snapshot about to drive merge-time rule
+/// emission. Entries whose skipped field is already populated (tests / native callers
+/// that never stash) win untouched. Errors are LOUD: a missing/stale/mismatched store
+/// must fail the merge rather than silently emit no placeholder rules.
+pub fn rehydrate_detection_placeholders(
+    detection: &mut SafeguardWasmSnapshotOut,
+) -> Result<(), String> {
+    let Some(expected_id) = detection.placeholder_state_id else {
+        // Never stashed (or nothing was stashed) — direct-populated fields still apply.
+        return Ok(());
+    };
+    RESIDENT_PLACEHOLDERS.with(|cell| {
+        let borrow = cell.borrow();
+        let Some(store) = borrow.as_ref() else {
+            return Err(format!(
+                "safeguard placeholder store empty but snapshot expects state {expected_id} — re-run detection before merging"
+            ));
+        };
+        if store.state_id != expected_id {
+            return Err(format!(
+                "stale safeguard detection snapshot: placeholder state {expected_id} requested, engine holds {} — re-run detection before merging",
+                store.state_id
+            ));
+        }
+        if store.entries.len() != detection.entries.len() {
+            return Err(format!(
+                "safeguard placeholder store shape mismatch: {} resident entries vs {} snapshot entries",
+                store.entries.len(),
+                detection.entries.len()
+            ));
+        }
+        for (idx, entry) in detection.entries.iter_mut().enumerate() {
+            // Direct-populated placeholders (tests) take precedence; never overwrite.
+            if !entry.placeholders.is_empty() {
+                continue;
+            }
+            let resident = &store.entries[idx];
+            if resident.hash != entry.hash {
+                return Err(format!(
+                    "safeguard placeholder store entry {idx} hash mismatch ({} vs {})",
+                    resident.hash, entry.hash
+                ));
+            }
+            // Clone (not move) so repeated merges against the same detection stay valid.
+            entry.placeholders = resident.placeholders.clone();
+        }
+        Ok(())
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -3661,6 +3832,8 @@ fn safeguard_build_entry_for_substats(
                 item_keys,
                 artifacts,
                 placeholders,
+                placeholder_count: 0,
+                placeholder_fingerprint: String::new(),
                 candidates: candidates_out,
             },
             selected_candidate_indices,
@@ -3764,6 +3937,8 @@ fn safeguard_build_entry_for_substats(
                 item_keys,
                 artifacts,
                 placeholders,
+                placeholder_count: 0,
+                placeholder_fingerprint: String::new(),
                 candidates: candidates_out,
             },
             selected_candidate_indices: selected_sold,
@@ -3987,6 +4162,8 @@ fn safeguard_build_entry_for_substats(
             item_keys,
             artifacts,
             placeholders,
+            placeholder_count: 0,
+            placeholder_fingerprint: String::new(),
             candidates: candidates_out,
         },
         selected_candidate_indices: at_risk,
@@ -4102,6 +4279,8 @@ fn safeguard_merge_substat_entries(
             item_keys,
             artifacts,
             placeholders,
+            placeholder_count: 0,
+            placeholder_fingerprint: String::new(),
             candidates: candidates_merged,
         },
         selected_candidate_indices,
@@ -4322,7 +4501,7 @@ fn compute_safeguard_protection_core(
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.
     let scanned_at = if now.is_finite() { now } else { 0.0 };
-    SafeguardWasmSnapshotOut { scanned_at, entries }
+    SafeguardWasmSnapshotOut { scanned_at, entries, placeholder_state_id: None }
 }
 
 pub fn compute_safeguard_protection_core_pub(
@@ -4342,14 +4521,18 @@ pub fn compute_safeguard_protection_core_pub(
     // Resolve expected groups payload (None = empty default).
     let resolved_payload = parse_safeguard_expected_groups_payload(expected_payload);
     // Run the shared protection core.
-    compute_safeguard_protection_core(
+    let mut detection = compute_safeguard_protection_core(
         parsed_candidates,
         parsed_rules,
         resolved_payload,
         enabled,
         now,
         &improvement_chances,
-    )
+    );
+    // Legacy raw path (no corner attachment): placeholders still stay wasm-resident so
+    // every snapshot leaving the engine has consistent plc/plf/pid semantics.
+    stash_detection_placeholders(&mut detection);
+    detection
 }
 
 // Combined safeguard export runs candidate collection + protection in one pass.
@@ -4414,6 +4597,9 @@ pub fn collect_and_compute_safeguard_protection_core(
     if let Some(watch_rules) = rules_for_watch {
         improvement_watch::attach_watch_corners(&mut detection, &watch_rules, &rows);
     }
+    // Placeholders stay wasm-resident: stash them (stamping count/fingerprint/state id)
+    // before the snapshot is serialized to JS.
+    stash_detection_placeholders(&mut detection);
     // Return both candidate and detection payloads for TS call sites.
     Ok(SafeguardCollectedAndProtectedSnapshotOut {
         candidates: collected.candidates,
@@ -4470,6 +4656,9 @@ pub fn compute_safeguard_protection_from_collected_core(
     if let Some(watch_rules) = rules_for_watch {
         improvement_watch::attach_watch_corners(&mut detection, &watch_rules, rows);
     }
+    // Placeholders stay wasm-resident: stash them (stamping count/fingerprint/state id)
+    // before the snapshot is serialized to JS.
+    stash_detection_placeholders(&mut detection);
     detection
 }
 
@@ -6162,6 +6351,8 @@ mod no_substat_protect_all_tests {
             item_keys: vec![],
             artifacts: vec![],
             placeholders: vec![placeholder],
+            placeholder_count: 0,
+            placeholder_fingerprint: String::new(),
             candidates: vec![],
         };
         let make_rule = |activation: &str| SafeguardWasmRuleIn {

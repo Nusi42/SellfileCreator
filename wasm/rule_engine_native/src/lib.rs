@@ -252,6 +252,8 @@ fn run(input_json: &str) -> Result<String, String> {
     };
 
     // 7. Merge custom rules + safeguard-injected rules into the final HSF rule list.
+    //    Result-typed since the placeholder-rehydration gate; in this single-process
+    //    flow detection ran moments ago, so a store mismatch is a programming error.
     let merged_rules = compute_merged_rules_core(ComputeMergedRulesIn {
         base_rules:                  vec![],
         custom_rules,
@@ -263,7 +265,7 @@ fn run(input_json: &str) -> Result<String, String> {
         safeguard_rules:             parsed.safeguard_rules.clone(),
         safeguard_detection,
         safeguard_recipe_id_base:    None,
-    });
+    }).map_err(|e| format!("Merge error: {e}"))?;
 
     // 8. Compute per-artifact improvement-chance percentages.
     //    Returns an empty vec when safeguards are disabled or no rules/rows are present.
