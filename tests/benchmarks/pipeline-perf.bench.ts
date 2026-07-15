@@ -31,7 +31,10 @@ import {
 import {
   configureWasmRuleEngineWithLoadedWasm,
   evaluateWasmRuleEngineItemsWithLoadedWasm,
+  storeArtifactRowsWithLoadedWasm,
+  clearStoredRowsWithLoadedWasm,
 } from '../../src/lib/wasm/wasmRuleEngine.js'
+import { toWasmArtifactStoreRow } from '../../src/lib/safeguards.js'
 import {
   resolveSafeguardRulesWithMetasets,
   collectAndComputeSafeguardProtection,
@@ -150,6 +153,15 @@ const mergedRulesBaseline: HsfRuleWithRecipe[] = computeMergedRules({
   safeguards: safeguardsNoDetect,
 })
 
+// Configure the engine + store artifact rows BEFORE any detection, in the worker's
+// order (configure → store → detect): collectAndComputeSafeguardProtection computes
+// improvement chances internally when any safeguard rule carries an
+// improvementChanceThreshold, and that WASM pass reads the ENGINE's stored rows —
+// which silently no-op unless an engine exists (store requires a prior configure).
+// Rows stay stored for the whole run, mirroring the worker's fingerprint-gated re-store.
+configureWasmRuleEngineWithLoadedWasm({ rules: mergedRulesBaseline, recipeModes: Array.from(recipeModes) })
+storeArtifactRowsWithLoadedWasm({ rows: artifacts.map((a) => toWasmArtifactStoreRow(a)) })
+
 // Run detection once to get a realistic detection snapshot for the final-rules path.
 const prebuiltDetect = collectAndComputeSafeguardProtection({
   rows: previewRows,
@@ -212,6 +224,21 @@ const b3 = bench(`collectAndComputeSafeguardProtection (${artifacts.length} rows
     now: Date.now(),
   })
 })
+
+// Refresh the detection snapshot AFTER benchmark 3's loop: placeholders are handed
+// from detection to merge through a single-generation wasm-resident store (see
+// pipeline-memory.md), so merging with the setup-time snapshot after 8 newer
+// detections would loudly fail the stale-state guard — exactly as it should. The
+// merge benchmarks below therefore use the store's CURRENT generation, matching the
+// production order (every merge follows its own detection).
+safeguardsWithDetect.detection = collectAndComputeSafeguardProtection({
+  rows: previewRows,
+  baseRules: mergedRulesBaseline,
+  recipeModes,
+  rules: safeguardRules,
+  enabled: parsed.safeguardsEnabled ?? false,
+  now: Date.now(),
+}).detection
 
 // ── benchmark 4: double computeMergedRules (original pattern) ─────────────────
 // Original worker called computeMergedRules twice — each call runs flattenRuleBatches.
@@ -287,3 +314,7 @@ console.log(`  double computeMergedRules:    ${b4.mean.toFixed(1)}ms/run  (origi
 console.log(`  components + fromComp × 2:    ${b5.mean.toFixed(1)}ms/run  (${mergeSpeedup}× vs double)`)
 console.log(`  FULL PIPELINE:                ${b6.mean.toFixed(1)}ms/run`)
 console.log()
+
+// Release the engine-stored rows from the fixture setup (mirrors the worker's
+// clear-after-detection hygiene; keeps repeated bench invocations independent).
+clearStoredRowsWithLoadedWasm()
