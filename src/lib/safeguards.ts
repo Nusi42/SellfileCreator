@@ -1,7 +1,7 @@
 import { stableSerialize } from './stableSerialize'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
-import { substatNormalizedContribution, mainStatRankRatio } from './substatRollNormalization'
+import { substatNormalizedContribution, mainStatRankRatio, unselectedSubstatEpsilonBonus } from './substatRollNormalization'
 import { retainAllowedSubstats } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
@@ -1423,6 +1423,20 @@ export const computeSafeguardScoreFromArtifact = (
     const weight = Number(weights.get(variant) ?? 1)
     // Shared SSOT contribution: normalized current value + rank-limited glyph potential.
     total += substatNormalizedContribution(rank, variant as StatVariant, raw, weight)
+  }
+  // Epsilon tie-break ladder for present-but-unselected substats (non-flat lines, then
+  // relevance-aligned flats). Gated like the main-stat bonus on a non-empty selection
+  // (mirrors the Rust scorer's gate exactly).
+  if (selectedSubstats.length > 0) {
+    total += unselectedSubstatEpsilonBonus(
+      (artifact.substats ?? []).map((substat) => ({
+        variant: Number(substat.variant),
+        value: Number(substat.totalValue),
+      })),
+      selectedSubstats,
+      // Main alignment keys off the piece's own main stat; absent mains disable the tier.
+      artifact.mainStat ? Number(artifact.mainStat.variant) : undefined,
+    )
   }
   // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
   // gated by the toggle and by having at least one selected substat (constant across levels),

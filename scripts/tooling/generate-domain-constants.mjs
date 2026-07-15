@@ -145,6 +145,8 @@ const safeguardCountModeDefault = safeguard.countModeDefault
 const safeguardRuleOptionsDefault = safeguard.ruleOptionsDefault ?? {}
 const safeguardPlaceholderReason = safeguard.placeholderReason
 const safeguardWeight = safeguard.weight
+// Scorer-internal tuning knobs (not user-facing weights) live in their own group.
+const safeguardScoring = safeguard.scoring
 
 // Emit stable string literals for each target language.
 const asTsStringLiteral = (value) => JSON.stringify(String(value))
@@ -293,6 +295,10 @@ const tsLines = [
   `export const SAFEGUARD_WEIGHT_MIN = ${Number(safeguardWeight.min)}`,
   `export const SAFEGUARD_WEIGHT_MAX = ${Number(safeguardWeight.max)}`,
   `export const SAFEGUARD_WEIGHT_DEFAULT = ${Number(safeguardWeight.default)}`,
+  '// Internal scorer tie-break weights for present-but-unselected substats (see domain-constants.json).',
+  `export const SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT = ${Number(safeguardScoring.nonFlatEpsilonWeight)}`,
+  `export const SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT = ${Number(safeguardScoring.selectedAlignedFlatEpsilonWeight)}`,
+  `export const SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT = ${Number(safeguardScoring.mainAlignedFlatEpsilonWeight)}`,
   '',
   '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
   `export const PREFERRED_ARTIFACT_TYPE_ORDER = [${preferredArtifactTypeOrder.join(', ')}] as const`,
@@ -437,6 +443,10 @@ const rustLines = [
   `pub const SAFEGUARD_WEIGHT_MIN: f64 = ${asRustF64Literal(safeguardWeight.min)};`,
   `pub const SAFEGUARD_WEIGHT_MAX: f64 = ${asRustF64Literal(safeguardWeight.max)};`,
   `pub const SAFEGUARD_WEIGHT_DEFAULT: f64 = ${asRustF64Literal(safeguardWeight.default)};`,
+  '// Internal scorer tie-break weights for present-but-unselected substats (see domain-constants.json).',
+  `pub const SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT: f64 = ${asRustF64Literal(safeguardScoring.nonFlatEpsilonWeight)};`,
+  `pub const SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT: f64 = ${asRustF64Literal(safeguardScoring.selectedAlignedFlatEpsilonWeight)};`,
+  `pub const SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT: f64 = ${asRustF64Literal(safeguardScoring.mainAlignedFlatEpsilonWeight)};`,
   '',
   '// Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.',
   `pub const PREFERRED_ARTIFACT_TYPE_ORDER: [i64; ${preferredArtifactTypeOrder.length}] = [${preferredArtifactTypeOrder.join(", ")}];`,

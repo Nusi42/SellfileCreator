@@ -10,7 +10,7 @@
  */
 
 import { metasetIconOptionById, type MetasetIconId } from './metasetIcons'
-import { StatVariant, STAT_VARIANTS_PRIORITY } from './types'
+import { StatVariant, STAT_VARIANTS_PRIORITY, isFlatSubstatVariant } from './types'
 
 // Presets are UI-facing as [1..9], but stored internally as [0..8] to keep arrays compact.
 export const GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT = 9 as const
@@ -56,7 +56,7 @@ const DEFAULT_GEAR_INSPECTOR_NORMALIZED_PRESET_DEFINITIONS: readonly GearInspect
   {
     iconId: 'glyph.sun',
     entries: STAT_VARIANTS_PRIORITY
-      .filter((variant) => ![StatVariant.HP_FLAT, StatVariant.ATK_FLAT, StatVariant.DEF_FLAT].includes(variant))
+      .filter((variant) => !isFlatSubstatVariant(variant))
       .map((variant) => ({ variant })),
   },
   // [8] Flat HP/ATK/DEF only (neutral weights).

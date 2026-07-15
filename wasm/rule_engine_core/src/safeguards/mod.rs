@@ -1048,16 +1048,31 @@ pub(super) fn safeguard_normalize_substat_value(variant: i64, value: f64) -> f64
     (value / max).max(0.0)
 }
 
+// Canonical (percent, flat) variant pairing — HP/ATK/DEF are the only stats with both
+// variants. Single table so the percent→flat and flat→percent mappings can never drift.
+const SAFEGUARD_PERCENT_FLAT_PAIRS: [(i64, i64); 3] = [
+    (SAFEGUARD_MAIN_HP_PERCENT, SAFEGUARD_MAIN_HP_FLAT),
+    (SAFEGUARD_MAIN_ATK_PERCENT, SAFEGUARD_MAIN_ATK_FLAT),
+    (SAFEGUARD_MAIN_DEF_PERCENT, SAFEGUARD_MAIN_DEF_FLAT),
+];
+
 // pub(super) so improvement_chance can replicate the tie-break percent→flat mapping.
 pub(super) fn safeguard_percent_to_flat_main(variant: i64) -> Option<i64> {
     // Map percent mains to their flat counterpart for tie-priority logic.
     // Non HP/ATK/DEF mains have no flat companion and return None.
-    match variant {
-        SAFEGUARD_MAIN_HP_PERCENT => Some(SAFEGUARD_MAIN_HP_FLAT),
-        SAFEGUARD_MAIN_ATK_PERCENT => Some(SAFEGUARD_MAIN_ATK_FLAT),
-        SAFEGUARD_MAIN_DEF_PERCENT => Some(SAFEGUARD_MAIN_DEF_FLAT),
-        _ => None,
-    }
+    SAFEGUARD_PERCENT_FLAT_PAIRS
+        .iter()
+        .find(|&&(percent, _)| percent == variant)
+        .map(|&(_, flat)| flat)
+}
+
+// Inverse: a flat substat's percent twin — drives the aligned-flat epsilon tiers below.
+// Mirrors TS flatToPercentSubstatVariant (lib/types.ts).
+fn safeguard_flat_to_percent_substat(variant: i64) -> Option<i64> {
+    SAFEGUARD_PERCENT_FLAT_PAIRS
+        .iter()
+        .find(|&&(_, flat)| flat == variant)
+        .map(|&(percent, _)| percent)
 }
 
 pub fn safeguard_normalize_set_selections(
@@ -2848,6 +2863,53 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
     0.0
 }
 
+// Epsilon tie-break ladder for substats PRESENT on the piece but NOT selected by the rule
+// (selected lines always score at their real weight). Per unselected line, the internal
+// tie-break weight is (all far below the user weight floor, so stacking can never outweigh
+// an explicit selection; no glyph terms — the tie-break reads only what actually rolled):
+//   - non-flat line (spd/cr/cdmg/res/acc/%stat): SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
+//   - flat HP/ATK/DEF line whose percent twin IS a selected substat:
+//     SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
+//   - flat line whose percent twin is the piece's own main stat:
+//     SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT (additive with the previous when
+//     both apply, so a doubly-aligned flat outranks a singly-aligned one)
+//   - unrelated flat line: exactly 0
+// Flat classification is by variant token via the percent↔flat pairs table — never the wire
+// is_flat flag (SPD/RES/ACC are wire-flat but count as useful non-flat lines here).
+// Mirrors TS unselectedSubstatEpsilonBonus (substatRollNormalization.ts).
+fn safeguard_unselected_substat_epsilon_bonus(
+    artifact: &SafeguardWasmArtifactIn,
+    selected_substats: &[i64],
+) -> f64 {
+    let mut bonus = 0.0;
+    for substat in &artifact.substats {
+        // Selected substats (flat or not) already score at their real weight.
+        if selected_substats.contains(&substat.variant) {
+            continue;
+        }
+        // Unknown variants and absent/invalid values normalize to 0 and drop out.
+        let normalized = safeguard_normalize_substat_value(substat.variant, substat.value);
+        if normalized <= 0.0 {
+            continue;
+        }
+        if let Some(percent_twin) = safeguard_flat_to_percent_substat(substat.variant) {
+            // Flat line: only relevance-aligned flats earn a micro tie-break.
+            let mut weight = 0.0;
+            if selected_substats.contains(&percent_twin) {
+                weight += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT;
+            }
+            if artifact.main_stat == percent_twin {
+                weight += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT;
+            }
+            bonus += weight * normalized;
+        } else {
+            // Useful non-flat line: the top epsilon tier.
+            bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT * normalized;
+        }
+    }
+    bonus
+}
+
 // Average glyph enchantment value for a given gear rank and substat variant.
 // Returns 0.0 for non-glyphable variants (CR, CDMG) or invalid inputs.
 // Source data: shared/domain-constants.json → GLYPH_RANGES_BY_RANK (SSOT).
@@ -2899,6 +2961,15 @@ pub(super) fn safeguard_compute_score(
                 total += weight * safeguard_normalize_substat_value(*variant, glyph_avg);
             }
         }
+    }
+    // Epsilon tie-break ladder for unselected substats (non-flat lines, then relevance-aligned
+    // flats — see safeguard_unselected_substat_epsilon_bonus). Gated like the main-stat bonus on
+    // a non-empty selection so no-substat rules keep their legacy all-zero scoring. Deliberately
+    // NOT mirrored into the improvement-chance projections (compute_projected_challenger_score /
+    // compute_score_from_state): those compare epsilon-free scores against epsilon-free
+    // boundaries — internally consistent — and their quantization grids dwarf these terms.
+    if !selected_substats.is_empty() {
+        total += safeguard_unselected_substat_epsilon_bonus(artifact, selected_substats);
     }
     // Add the per-artifact main-stat rank bonus (SSOT helper). Zero unless the rule's
     // "Weight by Rank" toggle is on and at least one substat is selected.
@@ -4742,6 +4813,150 @@ mod score_safeguard_candidates_for_preview_core_tests {
             safeguard_compute_score(&six, &[], &weights, true, f),
             safeguard_compute_score(&six, &[], &weights, false, f),
             "with no substats selected the toggle must not change the score",
+        );
+    }
+
+    // Epsilon tie-break: unselected non-flat substats separate otherwise-tied pieces, flats never
+    // earn the bonus, and the term stays far below any real weighted-substat difference.
+    #[test]
+    fn non_flat_epsilon_bonus_breaks_ties_without_overriding_real_weights() {
+        let weights = cr_weights(1.0);
+        let selected = [STAT_VARIANT_CR];
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
+        // Three pieces tied on the selected CR line; they differ only in the unselected extra line.
+        let bare = make_boots_spd_artifact(1, 6, 4.0);
+        let mut with_flat = make_boots_spd_artifact(2, 6, 4.0);
+        with_flat.substats.push(SafeguardWasmSubstatIn {
+            variant: STAT_VARIANT_HP_FLAT, is_flat: true, value: 300.0, rolls: Some(1),
+        });
+        let mut with_spd = make_boots_spd_artifact(3, 6, 4.0);
+        with_spd.substats.push(SafeguardWasmSubstatIn {
+            variant: STAT_VARIANT_SPD, is_flat: true, value: 5.0, rolls: Some(1),
+        });
+
+        let bare_score = safeguard_compute_score(&bare, &selected, &weights, false, f);
+        let flat_score = safeguard_compute_score(&with_flat, &selected, &weights, false, f);
+        let spd_score = safeguard_compute_score(&with_spd, &selected, &weights, false, f);
+        // Flat extras earn nothing: the piece stays exactly tied with the bare one.
+        assert_eq!(flat_score, bare_score, "flat HP must not earn the epsilon tie-break");
+        // A useful extra line wins the tie — and by more than the ranking tie window,
+        // otherwise safeguard_select_top_scored_candidates would still treat them as tied.
+        assert!(spd_score > flat_score, "an unselected SPD line must outrank a flat line");
+        assert!(
+            spd_score - flat_score > SAFEGUARD_SCORE_TIE_EPSILON,
+            "epsilon term must clear the score tie window to affect quota selection",
+        );
+
+        // The tie-break must never flip a real (explicitly weighted) substat difference:
+        // a piece slightly ahead on the selected CR line stays ahead of a piece stacked
+        // with three unselected non-flat lines (max epsilon ≈ 3 × 0.0001 × normalized).
+        let better_cr = make_boots_spd_artifact(4, 6, 4.05);
+        let mut stacked = make_boots_spd_artifact(5, 6, 4.0);
+        for (variant, value) in [
+            (STAT_VARIANT_SPD, 6.0), (STAT_VARIANT_ACC, 12.0), (STAT_VARIANT_RES, 12.0),
+        ] {
+            stacked.substats.push(SafeguardWasmSubstatIn {
+                variant, is_flat: true, value, rolls: Some(1),
+            });
+        }
+        assert!(
+            safeguard_compute_score(&better_cr, &selected, &weights, false, f)
+                > safeguard_compute_score(&stacked, &selected, &weights, false, f),
+            "epsilon stacking must not overcome a real selected-substat edge",
+        );
+
+        // Empty selection keeps legacy all-zero scoring — the epsilon term is suppressed.
+        assert_eq!(
+            safeguard_compute_score(&with_spd, &[], &weights, false, f),
+            0.0,
+            "no selected substats must still score 0 (epsilon gated on non-empty selection)",
+        );
+    }
+
+    // Aligned-flat epsilon tiers: a flat line earns a micro tie-break only when its percent
+    // twin is a selected substat and/or the piece's own main stat; unrelated flats earn 0 and
+    // any useful non-flat line still outranks even a max-rolled aligned flat.
+    #[test]
+    fn aligned_flat_epsilon_ladder_orders_relevant_flats_above_unrelated_ones() {
+        // Flexible builder: boots at rank 6 with an arbitrary main stat and substat list.
+        fn make(id: i64, main: i64, substats: &[(i64, f64)]) -> SafeguardWasmArtifactIn {
+            SafeguardWasmArtifactIn {
+                id: Some(id),
+                slot: ARTIFACT_TYPE_BOOTS,
+                set: 1,
+                rank: 6,
+                rarity: 6,
+                level: 16,
+                exact_level: Some(16),
+                faction: 0,
+                main_stat: main,
+                equipped_in_collection: false,
+                equipped_in_vault: false,
+                substats: substats
+                    .iter()
+                    .map(|&(variant, value)| SafeguardWasmSubstatIn {
+                        variant,
+                        // Wire flag is irrelevant to the ladder (classification is by variant).
+                        is_flat: true,
+                        value,
+                        rolls: Some(1),
+                    })
+                    .collect(),
+            }
+        }
+        let weights = BTreeMap::<i64, f64>::new();
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
+        let score = |artifact: &SafeguardWasmArtifactIn, selected: &[i64]| {
+            safeguard_compute_score(artifact, selected, &weights, false, f)
+        };
+
+        // Selected-aligned: HP% is weighted → the flat HP extra beats the flat ATK extra.
+        let hp_selected = [STAT_VARIANT_HP_PERCENT];
+        let base = [(STAT_VARIANT_HP_PERCENT, 5.0)];
+        let with_flat_hp = make(1, STAT_VARIANT_SPD, &[base[0], (STAT_VARIANT_HP_FLAT, 300.0)]);
+        let with_flat_atk = make(2, STAT_VARIANT_SPD, &[base[0], (STAT_VARIANT_ATK_FLAT, 16.0)]);
+        assert!(
+            score(&with_flat_hp, &hp_selected) > score(&with_flat_atk, &hp_selected),
+            "flat HP must edge flat ATK when HP% is a selected substat",
+        );
+
+        // Main-aligned: piece's own main is HP% → flat HP beats flat ATK even though the
+        // selection (SPD) is unrelated to either flat.
+        let spd_selected = [STAT_VARIANT_SPD];
+        let spd_base = (STAT_VARIANT_SPD, 4.0);
+        let main_hp_flat_hp = make(3, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_HP_FLAT, 300.0)]);
+        let main_hp_flat_atk = make(4, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_ATK_FLAT, 16.0)]);
+        assert!(
+            score(&main_hp_flat_hp, &spd_selected) > score(&main_hp_flat_atk, &spd_selected),
+            "flat HP must edge flat ATK when the piece's main stat is HP%",
+        );
+
+        // Doubly aligned beats singly aligned: same flat HP value, but one piece also has the
+        // HP% main so both alignment tiers stack additively.
+        let hp_spd_selected = [STAT_VARIANT_HP_PERCENT, STAT_VARIANT_SPD];
+        let doubly = make(5, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_HP_FLAT, 300.0)]);
+        let singly = make(6, STAT_VARIANT_DEF_PERCENT, &[spd_base, (STAT_VARIANT_HP_FLAT, 300.0)]);
+        assert!(
+            score(&doubly, &hp_spd_selected) > score(&singly, &hp_spd_selected),
+            "a flat aligned to BOTH the selection and the main stat must outrank a singly-aligned one",
+        );
+
+        // Tier order: even a max-rolled doubly-aligned flat stays below a weak genuine
+        // non-flat line (the non-flat tier is ~100× above the flat tiers).
+        let weak_res = make(7, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_RES, 3.0)]);
+        let god_flat = make(8, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_HP_FLAT, 2825.0)]);
+        assert!(
+            score(&weak_res, &hp_spd_selected) > score(&god_flat, &hp_spd_selected),
+            "any useful non-flat line must outrank even a max-rolled doubly-aligned flat",
+        );
+
+        // Unrelated flats stay at exactly zero: adding one changes nothing.
+        let bare = make(9, STAT_VARIANT_HP_PERCENT, &[spd_base]);
+        let unrelated = make(10, STAT_VARIANT_HP_PERCENT, &[spd_base, (STAT_VARIANT_DEF_FLAT, 16.0)]);
+        assert_eq!(
+            score(&unrelated, &spd_selected),
+            score(&bare, &spd_selected),
+            "a flat unrelated to both the selection and the main stat must earn nothing",
         );
     }
 

@@ -32,7 +32,7 @@ export const LARGE_ACCOUNT_DB_PATH = path.resolve(EXAMPLES_DIR, 'um109288203_RSL
 // fragmentation the warmup pre-grow is designed to absorb. Re-importing a single
 // DB only exercises same-size alloc/free and never exposes that fragmentation.
 export const EXAMPLE_RSLHELPER_DB_PATHS = [
-  path.resolve(EXAMPLES_DIR, 'um27993749_RslHelper.db'),
+  path.resolve(EXAMPLES_DIR, 'um27993749_RSLHelper.db'),
   path.resolve(EXAMPLES_DIR, 'um85268209_RSLHelper.db'),
   path.resolve(EXAMPLES_DIR, 'um53210834_RSLHelper.db'),
   path.resolve(EXAMPLES_DIR, 'um109288203_RSLHelper.db'),

@@ -197,6 +197,12 @@
       "default": 1,
       "fineStep": 0.01,
       "fineMax": 0.1
+    },
+    "scoring": {
+      "_comment": "Internal scorer tie-break weights for substats PRESENT on the piece but NOT in the rule's selected substats (selected lines always score at their real weight). Tier ladder, each far below weight.min (0.01) so stacking can never outweigh an explicit user weight, and each clearing the 1e-9 score-tie window: nonFlatEpsilonWeight (1e-4) — every unselected non-flat line (spd/cr/cdmg/res/acc/%stats); selectedAlignedFlatEpsilonWeight (1e-6) — a flat HP/ATK/DEF line whose percent twin IS a selected substat; mainAlignedFlatEpsilonWeight (1e-6) — a flat line whose percent twin is the piece's own main stat (additive with the previous when both apply, so a doubly-aligned flat wins). Unrelated flats earn exactly 0. The two flat tiers share one value on purpose (equally strong relevance signals); both must stay ~100x below nonFlatEpsilonWeight because contributions scale with normalized roll value (~0.14..5). No glyph terms. Improvement-chance math stays epsilon-free on both sides of its comparisons (its quantization grids dwarf these terms).",
+      "nonFlatEpsilonWeight": 0.0001,
+      "selectedAlignedFlatEpsilonWeight": 0.000001,
+      "mainAlignedFlatEpsilonWeight": 0.000001
     }
   },
   "ordering": {

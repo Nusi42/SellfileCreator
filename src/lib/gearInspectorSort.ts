@@ -8,7 +8,7 @@ import {
   type ArtifactTypeId,
 } from './types'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
-import { substatNormalizedContribution } from './substatRollNormalization'
+import { substatNormalizedContribution, unselectedSubstatEpsilonBonus } from './substatRollNormalization'
 
 const generalSlotBucket = (slot: ArtifactTypeId): number => (isAccessorySlot(slot) ? 1 : 0)
 
@@ -391,6 +391,19 @@ export function computeGearInspectorNormalizedSubstatScore(
     // Normalized current value + rank-limited glyph potential, so a 6★ outranks an equal-substat 5★.
     total += substatNormalizedContribution(rank, variant, raw, weight)
   }
+  // Epsilon tie-break ladder for present-but-unselected substats (non-flat lines, then
+  // relevance-aligned flats) — the same terms the safeguard scorer applies, so both rank
+  // mixed gear by one formula (SSOT). Values respect the excludeGlyphs toggle via the same
+  // accessor the selected substats use.
+  total += unselectedSubstatEpsilonBonus(
+    row.artifact.substats.map((substat) => ({
+      variant: Number(substat.variant),
+      value: statValueForSubstatSort(row, Number(substat.variant) as StatVariant, excludeGlyphs),
+    })),
+    spec.variants,
+    // Main alignment keys off the piece's own main stat; absent mains disable the tier.
+    row.artifact.mainStat ? Number(row.artifact.mainStat.variant) : undefined,
+  )
   // Treat non-finite totals as "no score" so callers never render NaN/Infinity into UI.
   return Number.isFinite(total) ? total : null
 }

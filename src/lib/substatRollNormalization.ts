@@ -5,8 +5,14 @@
  * These values intentionally reflect the 6★ in-game roll caps so mixed-star gear can be compared
  * on a consistent 0..1 scale without inventing additional tier-specific heuristics.
  */
-import { StatVariant, statSupportsGlyphs } from './types'
-import { GLYPH_RANGES_BY_RANK, MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT } from './generated/domainConstants'
+import { StatVariant, statSupportsGlyphs, flatToPercentSubstatVariant } from './types'
+import {
+  GLYPH_RANGES_BY_RANK,
+  MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT,
+  SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
+  SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT,
+  SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT,
+} from './generated/domainConstants'
 
 // 6★ per-roll maximums for substats (same units as `totalValue` / `glyphValue` from gearDbNormalizer).
 // Why: these caps are the most stable reference point across the app (builder + Gear Inspector) and match samples.
@@ -76,6 +82,46 @@ export function normalizeSubstatByMax6(variant: StatVariant, rawValue: number): 
 // (gearInspectorSort.ts) so both rank mixed-star gear by the same formula. CR/CDMG are non-glyphable
 // (getGlyphAverageForVariant returns 0), so they contribute no rank separation here by design — their
 // 5★/6★ ordering is settled by the caller's rank tie-breaker instead.
+// Epsilon tie-break ladder for substats PRESENT on the piece but NOT in the caller's
+// selection (selected lines always score at their real weight). Per unselected line (all
+// tiers far below the user weight floor of 0.01, so stacking can never outweigh an explicit
+// selection; no glyph terms — the tie-break reads only what actually rolled):
+//   - non-flat line (spd/cr/cdmg/res/acc/%stat): SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
+//   - flat HP/ATK/DEF line whose percent twin IS selected: SELECTED_ALIGNED_FLAT weight
+//   - flat line whose percent twin is the piece's own main stat: MAIN_ALIGNED_FLAT weight
+//     (additive with the previous, so a doubly-aligned flat outranks a singly-aligned one)
+//   - unrelated flat line: exactly 0
+// SSOT shared by the safeguard scorer mirror (safeguards.ts) and the Gear Inspector
+// normalized sort (gearInspectorSort.ts); mirrors Rust
+// safeguard_unselected_substat_epsilon_bonus (safeguards/mod.rs).
+export function unselectedSubstatEpsilonBonus(
+  substats: ReadonlyArray<{ variant: number; value: number }>,
+  selectedVariants: ReadonlyArray<number>,
+  // The piece's own main-stat variant; undefined/unknown simply disables main alignment.
+  mainStatVariant?: number | undefined,
+): number {
+  let bonus = 0
+  for (const { variant, value } of substats) {
+    // Selected substats (flat or not) already score at their real weight.
+    if (selectedVariants.includes(variant)) continue
+    // Unknown variants and absent/invalid values normalize to 0 and drop out here.
+    const normalized = normalizeSubstatByMax6(variant as StatVariant, value)
+    if (normalized <= 0) continue
+    const percentTwin = flatToPercentSubstatVariant(variant)
+    if (percentTwin !== null) {
+      // Flat line: only relevance-aligned flats earn a micro tie-break.
+      let weight = 0
+      if (selectedVariants.includes(percentTwin)) weight += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
+      if (Number(mainStatVariant) === percentTwin) weight += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT
+      bonus += weight * normalized
+    } else {
+      // Useful non-flat line: the top epsilon tier.
+      bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT * normalized
+    }
+  }
+  return bonus
+}
+
 export function substatNormalizedContribution(
   rank: number,
   variant: StatVariant,

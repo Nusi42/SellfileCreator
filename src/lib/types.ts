@@ -764,6 +764,32 @@ export function statSupportsGlyphs(variant: StatVariantLike): boolean {
   return !NON_GLYPHABLE_VARIANTS.has(numeric)
 }
 
+// Canonical (percent, flat) variant pairing — HP/ATK/DEF are the only stats with both
+// variants. Single table so percent→flat and flat→percent lookups can never drift apart.
+// SPD/RES/ACC carry isFlat=true on the wire but have NO pair here: flat classification is
+// by variant token, never by the wire flag. Mirrors Rust SAFEGUARD_PERCENT_FLAT_PAIRS
+// (wasm/rule_engine_core/src/safeguards/mod.rs).
+const PERCENT_FLAT_SUBSTAT_PAIRS: ReadonlyArray<readonly [number, number]> = [
+  [StatVariant.HP, StatVariant.HP_FLAT],
+  [StatVariant.ATK, StatVariant.ATK_FLAT],
+  [StatVariant.DEF, StatVariant.DEF_FLAT],
+]
+
+/**
+ * A flat HP/ATK/DEF substat's percent twin (drives the scorer's aligned-flat epsilon
+ * tiers); null for every other variant. Mirrors Rust safeguard_flat_to_percent_substat.
+ */
+export function flatToPercentSubstatVariant(variant: StatVariantLike): number | null {
+  const numeric = Number(variant)
+  const pair = PERCENT_FLAT_SUBSTAT_PAIRS.find(([, flat]) => flat === numeric)
+  return pair ? pair[0] : null
+}
+
+/** Returns true for the flat HP/ATK/DEF substat variants (the paired-table flats). */
+export function isFlatSubstatVariant(variant: StatVariantLike): boolean {
+  return flatToPercentSubstatVariant(variant) !== null
+}
+
 // --- Slot constraints (domain facts)
 // Why: Keep allowed main/substat constraints centralized so builder and UI
 // agree on feasibility. Mirrors docs/TECHNICAL.md#artifact-rules. Use StatVariant

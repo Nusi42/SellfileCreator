@@ -129,6 +129,10 @@ export const SAFEGUARD_WEIGHT_STEP = 0.05
 export const SAFEGUARD_WEIGHT_MIN = 0.01
 export const SAFEGUARD_WEIGHT_MAX = 9.9
 export const SAFEGUARD_WEIGHT_DEFAULT = 1
+// Internal scorer tie-break weights for present-but-unselected substats (see domain-constants.json).
+export const SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT = 0.0001
+export const SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT = 0.000001
+export const SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT = 0.000001
 
 // Shared UI/rule ordering tables so TS and Rust sort with one SSOT payload.
 export const PREFERRED_ARTIFACT_TYPE_ORDER = [5, 1, 6, 3, 2, 4, 7, 8, 9] as const
