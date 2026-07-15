@@ -114,6 +114,17 @@ const mergedOutputSignatureEquals = (a: MergedOutputSignature | null, b: MergedO
 // Signature of the most recently SENT full rule payload (null until the first send).
 let lastSentSignature: MergedOutputSignature | null = null
 
+// detectionKey of the most recently SENT non-null detection snapshot (null after a null
+// send / before the first send). Drives the safeguardDetectionUnchanged elision: during a
+// farm session the detection content is typically identical across dozens of pipelines
+// while only the artifact list grows, so re-cloning the snapshot (placeholder lists of
+// 200k+ objects on large accounts) every run was the single largest per-pipeline clone.
+let lastSentDetectionKey: string | null = null
+// Improvement-chance memo key of the most recently SENT entries (null after a null send).
+// Same elision idea: the compute itself is already memoized (lastImprovementChance), but
+// the entries were still re-cloned to the main thread on every pipeline.
+let lastSentImprovementKey: string | null = null
+
 // Memo for computeExportedHsfFingerprint: the export crc clones + stringifies the whole
 // export (~150 ms at 33k rules) yet its only inputs are the merged output signature and the
 // export recipe names — both unchanged on artifact-only bursts. Reuse the crc when they match.
@@ -623,6 +634,9 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     let safeguardDetectionSnapshot: SafeguardDetectionSnapshot | null = null
     // Populated inside needsDetection branch when payload.computeImprovementChance is true.
     let improvementChanceEntries: ImprovementChanceWasmEntry[] | null = null
+    // Memo key of the entries above (null while entries are null) — compared against
+    // lastSentImprovementKey at response time to elide re-cloning unchanged entries.
+    let improvementChanceKeyForSend: string | null = null
     if (needsDetection) {
       // Configure baseline rules so the combined WASM evaluate+collect call uses them —
       // but ONLY when the baseline rules or recipe modes actually changed. The engine
@@ -697,6 +711,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // column active). Detection below always receives them — previously a threshold-only
         // run discarded this result and detection recomputed it internally (double WASM pass).
         improvementChanceEntries = payload.computeImprovementChance ? improvementChanceForDetection : null
+        // The memo key fully determines the entries, so it doubles as the send-elision key.
+        improvementChanceKeyForSend = improvementChanceEntries !== null ? improvementChanceKey : null
       }
       // Pass baselineExcludeSources so keep-override sources are excluded from the
       // safeguard base-match the same way as the regular evaluate pass.
@@ -891,6 +907,18 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       lastSentSignature = outputSignature
     }
 
+    // Detection elision: identical detectionKey ⇒ content-identical snapshot (scannedAt
+    // aside) ⇒ skip cloning it; the receiver reuses its previous snapshot. A null snapshot
+    // ("detection did not run") is always sent as-is — null must never read as "unchanged"
+    // because an EMPTY snapshot also fingerprints to '' and the two differ semantically.
+    const detectionUnchanged = safeguardDetectionSnapshot !== null && detectionKey === lastSentDetectionKey
+    lastSentDetectionKey = safeguardDetectionSnapshot === null ? null : detectionKey
+    // Improvement-chance elision: same idea keyed by the compute-memo key. A null key
+    // (entries not requested this run) resets the sentinel so a later send is full.
+    const improvementUnchanged = improvementChanceKeyForSend !== null
+      && improvementChanceKeyForSend === lastSentImprovementKey
+    lastSentImprovementKey = improvementChanceKeyForSend
+
     // Fingerprint of the EXACT bytes an HSF export would produce from these merged rules.
     // The main thread's "export/push needed" indicator compares this against the fingerprint
     // captured at the last export, so it flags only when the EXPORTED file would actually
@@ -935,8 +963,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         totalLimitHit: pipelineState.totalLimitHit,
         excludedByTotalLimitIndices: pipelineState.excludedByTotalLimitIndices.slice(),
         matches,
-        safeguardDetection: safeguardDetectionSnapshot,
-        improvementChanceEntries,
+        // Elided (null + unchanged flag) when content-identical to the last send — the
+        // receiver reuses its previous snapshot/entries, so consecutive pipeline results
+        // share ONE object graph instead of stacking independent clones (see the
+        // lastSentDetectionKey / lastSentImprovementKey sentinels).
+        safeguardDetection: detectionUnchanged ? null : safeguardDetectionSnapshot,
+        safeguardDetectionUnchanged: detectionUnchanged,
+        improvementChanceEntries: improvementUnchanged ? null : improvementChanceEntries,
+        improvementChanceUnchanged: improvementUnchanged,
         // Snapshot taken after all WASM work completes; logged in DEV mode to
         // verify the WASM heap is not growing across consecutive pipeline runs.
         wasmLinearBytes: getWasmLinearMemoryBytes(),

@@ -31,8 +31,9 @@ SellfileCreator*.zip
 old_releases/*-dev.html
 
 # Dev-only inbound-endpoint packet captures (see scripts/vite/packetCapturePlugin.ts).
-# Live session recordings; promote a useful one out of captures/ by hand if it should
-# become a committed fixture.
+# Live session recordings AND the local unpack cache for committed capture fixtures.
+# Promote a useful session with `npm run fixtures:captures:pack -- <session>` (writes a
+# small tar.zst under tests/fixtures/captures/); tests unpack it back here on demand.
 /docs/orig/sampleLog/captures/
 
 # Compiled C/C++ smoke-test binary for the native DLL (rebuilt via its Makefile).

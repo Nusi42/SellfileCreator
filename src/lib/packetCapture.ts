@@ -47,10 +47,31 @@ export type PacketCaptureRecord = {
 let active: boolean | null = null
 let sessionId = ''
 let frameIndex = 0
-// Tail of the POST queue. Each capture chains onto this so writes happen strictly in
-// receive order and never run concurrently — concurrent fetches were silently racing
-// and dropping frames (observed gaps in captured indices). Resolves once drained.
-let postChain: Promise<void> = Promise.resolve()
+// ── capture POST queue ──────────────────────────────────────────────────────────
+// Explicit FIFO drained by a single sequential loop: writes happen strictly in receive
+// order and never run concurrently — concurrent fetches were silently racing and
+// dropping frames (observed gaps in captured indices). An explicit queue (rather than
+// a promise chain) is what makes the coalescing backpressure below possible: a chained
+// promise cannot shed an already-queued link.
+type CapturePostItem =
+  | { kind: 'frame'; record: PacketCaptureRecord }
+  | { kind: 'log'; text: string }
+const postQueue: CapturePostItem[] = []
+// True while the drain loop is running; a push during drain is picked up by the loop.
+let postDrainActive = false
+// Backlog cap for FRAME items. Each queued frame pins its serialized body (an ~11 MB
+// pretty string per artifacts frame, ~27 MB per uploadSellfile) until its POST drains,
+// so an unbounded backlog inflates the dev heap by hundreds of MB during farm bursts —
+// on top of the very memory behaviour a capture session is usually observing.
+//
+// Backpressure policy = coalesce, never drop-newest: gear frames are FULL snapshots
+// (artifacts / inboxArtifacts / champions / lastUsed resend the complete state), so when
+// the backlog is full the OLDEST queued frame of the SAME method is shed in favour of
+// the incoming one. The newest frame of every method is therefore always captured — a
+// replayed session always ends on the latest state; only intermediate duplicates are
+// lost (each loss is warned with both indices, so gaps in the numbering stay explained).
+// A frame with no queued same-method twin is never dropped, even over the cap.
+const MAX_QUEUED_CAPTURE_FRAMES = 6
 
 // Zero-pad a number to a fixed width for stable, sortable filenames.
 const pad = (value: number, width: number): string => String(value).padStart(width, '0')
@@ -113,7 +134,8 @@ export const capturePacket = (frame: unknown, methodOverride?: string, compact =
   if (!ensureSession()) return
   // Assign the index synchronously so it always reflects true receive order, even
   // though the POST is async. A gap in written files vs. logged indices therefore
-  // unambiguously means "write failed", never "frame never arrived".
+  // unambiguously means "write failed or was coalesced", never "frame never arrived"
+  // (both paths warn with the index).
   frameIndex += 1
   const index = frameIndex
   let record: PacketCaptureRecord
@@ -135,27 +157,76 @@ export const capturePacket = (frame: unknown, methodOverride?: string, compact =
     console.warn(`[packet-capture] frame #${index} skipped: could not serialize`)
     return
   }
-  // Chain the POST onto the queue so writes are sequential (no concurrent fetches)
-  // and ordered. NOT keepalive: keepalive caps the request body at ~64 KB, which
-  // silently dropped multi-MB artifacts/champions packets — the exact frames we most
-  // need. Sequential plain fetches have no such cap. Failures are logged, not thrown.
-  postChain = postChain.then(async () => {
-    try {
-      const res = await fetch(PACKET_CAPTURE_ENDPOINT, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(record),
-      })
-      if (!res.ok) {
-        console.warn(`[packet-capture] frame #${index} (${record.method}) write failed: HTTP ${res.status}`)
-      } else {
-        console.log(`[packet-capture] frame #${index} ${record.method} captured`)
-      }
-    } catch (err) {
-      // Surface the loss so a gap in captured indices is never silent.
-      console.warn(`[packet-capture] frame #${index} (${record.method}) POST error: ${String(err)}`)
+  // Enqueue with the coalescing backpressure documented at MAX_QUEUED_CAPTURE_FRAMES:
+  // over the cap, shed the OLDEST queued frame of this method (full-snapshot semantics
+  // make the newest strictly more valuable); a frame without a queued twin always queues.
+  let queuedFrames = 0
+  for (const item of postQueue) { if (item.kind === 'frame') queuedFrames += 1 }
+  if (queuedFrames >= MAX_QUEUED_CAPTURE_FRAMES) {
+    const twinIndex = postQueue.findIndex((item) => item.kind === 'frame' && item.record.method === record.method)
+    if (twinIndex !== -1) {
+      const twin = postQueue[twinIndex] as { kind: 'frame'; record: PacketCaptureRecord }
+      postQueue.splice(twinIndex, 1)
+      // Warn with BOTH indices so the numbering gap in the written files stays explained.
+      console.warn(`[packet-capture] frame #${twin.record.index} (${twin.record.method}) coalesced away: `
+        + `backlog full, superseded by frame #${index}`)
     }
-  })
+  }
+  postQueue.push({ kind: 'frame', record })
+  drainPostQueue()
+}
+
+// POST one frame record to the dev middleware. NOT keepalive: keepalive caps the request
+// body at ~64 KB, which silently dropped multi-MB artifacts/champions packets — the exact
+// frames we most need. Sequential plain fetches have no such cap. Failures are logged,
+// not thrown, so capture never perturbs the live data flow it observes.
+const postFrame = async (record: PacketCaptureRecord): Promise<void> => {
+  try {
+    const res = await fetch(PACKET_CAPTURE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(record),
+    })
+    if (!res.ok) {
+      console.warn(`[packet-capture] frame #${record.index} (${record.method}) write failed: HTTP ${res.status}`)
+    } else {
+      console.log(`[packet-capture] frame #${record.index} ${record.method} captured`)
+    }
+  } catch (err) {
+    // Surface the loss so a gap in captured indices is never silent.
+    console.warn(`[packet-capture] frame #${record.index} (${record.method}) POST error: ${String(err)}`)
+  }
+}
+
+// POST buffered console-log text (append mode server-side). Best-effort like postFrame.
+const postLog = async (text: string): Promise<void> => {
+  try {
+    await fetch(PACKET_CAPTURE_LOG_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session: sessionId, text }),
+    })
+  } catch {
+    // Swallow — log capture is best-effort dev scaffolding.
+  }
+}
+
+// Sequential drain: one in-flight POST at a time, FIFO order. Items pushed while the
+// loop runs are drained by the same loop; a new drain starts only when idle.
+const drainPostQueue = (): void => {
+  if (postDrainActive) return
+  postDrainActive = true
+  void (async () => {
+    try {
+      while (postQueue.length > 0) {
+        const item = postQueue.shift()!
+        if (item.kind === 'frame') await postFrame(item.record)
+        else await postLog(item.text)
+      }
+    } finally {
+      postDrainActive = false
+    }
+  })()
 }
 
 // True when capture is active — lets callers skip building override labels otherwise.
@@ -202,24 +273,16 @@ let logBuffer = ''
 let logFlushTimer: ReturnType<typeof setTimeout> | null = null
 let consoleCaptureInstalled = false
 
-// POST the buffered log text (append mode on the server). Fire-and-forget; failures are
-// swallowed (a broken log sink must never perturb the app or the original console).
+// Flush the buffered log text onto the shared POST queue. Fire-and-forget; failures are
+// swallowed in postLog (a broken log sink must never perturb the app or the console).
+// Sharing the queue with frame writes keeps log-vs-frame ordering roughly preserved;
+// log items are tiny and exempt from the frame backpressure cap.
 const flushLogBuffer = (): void => {
   if (!logBuffer) return
   const text = logBuffer
   logBuffer = ''
-  // Chain onto the same queue as frame writes so ordering vs frames is roughly preserved.
-  postChain = postChain.then(async () => {
-    try {
-      await fetch(PACKET_CAPTURE_LOG_ENDPOINT, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ session: sessionId, text }),
-      })
-    } catch {
-      // Swallow — log capture is best-effort dev scaffolding.
-    }
-  })
+  postQueue.push({ kind: 'log', text })
+  drainPostQueue()
 }
 
 // Render one console argument to a stable string. Objects are JSON-stringified (compact)

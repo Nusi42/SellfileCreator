@@ -35,6 +35,12 @@ export const BINARY_MEMORY_ROUNDS = pick(8, 2)
 // reproduces a real leak; full 60 gives the wide flatness margin (and Firefox headroom).
 export const INCREMENTAL_REVEAL_ROUNDS = pick(20, 15)
 
+// capture-replay-memory: how many timestamp bursts of the recorded farm-run session to
+// replay. Real settles run ~8 s/burst on this dataset, so the dev count keeps the spec
+// inside the endpoint-sweep budget while still reaching the heap plateau (~burst 20-25
+// in the 2026-07-15 session); full replays the entire capture.
+export const CAPTURE_REPLAY_BURSTS = pick(Infinity, 25)
+
 // binary-endpoint-fragmentation: cross-product of account modes × keep-toggle × DBs.
 // The fragmentation signal needs allocation SIZES to churn run-to-run, which a subset
 // still does (multiple modes + both keep states + multiple DBs). Dev caps the DBs per

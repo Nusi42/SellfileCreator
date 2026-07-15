@@ -83,9 +83,19 @@ export type RuleCachePipelineResponse = {
     excludedByTotalLimitIndices: number[]
     matches: GearInspectorMatchWorkerItemResult[]
     safeguardDetection: SafeguardDetectionSnapshot | null
+    // True when the detection content is identical (by detectionKey) to the previously SENT
+    // snapshot: safeguardDetection is null then and the receiver reuses its last snapshot
+    // (lastDetectionRef), skipping the structured clone of the entries — which carry the
+    // placeholder lists (200k+ objects on large accounts, the dominant per-pipeline clone).
+    // False with safeguardDetection null means "detection did not run" (safeguards off).
+    safeguardDetectionUnchanged: boolean
     // Flat array of improvement-chance entries; null when computeImprovementChance was false.
     // Receiver reconstructs Map<artifactId, entry> to avoid structured-clone Map issues.
     improvementChanceEntries: ImprovementChanceWasmEntry[] | null
+    // True when the entries are identical (by the improvement-chance memo key) to the
+    // previously SENT entries: improvementChanceEntries is null then and the receiver
+    // reuses its last reconstructed map. False with entries null means "not requested".
+    improvementChanceUnchanged: boolean
     // WASM linear memory size at the end of this pipeline run, in bytes.
     // Logged in DEV mode to spot unexpected WASM heap growth across pipelines.
     wasmLinearBytes: number

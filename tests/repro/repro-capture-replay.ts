@@ -545,7 +545,11 @@ export function diffRules(aRules: HsfRuleWithRecipe[], bRules: HsfRuleWithRecipe
 // Default: auto-group packets into export points by a time gap between consecutive
 // sends (a fresh burst after a pause = a new in-app state the user likely exported).
 type ExportPoint = { label: string; packets: string[] }
-const allPackets = readdirSync(CAP).filter((f) => f.startsWith('packet_') && f.endsWith('.json')).sort()
+// Numeric index sort — the capture writer zero-pads the index to 2 digits only, so a
+// >99-packet session (e.g. the 110-packet farm-run OOM capture) misorders lexically
+// (packet_100 sorts between packet_10 and packet_11), scrambling export-point grouping.
+const allPackets = readdirSync(CAP).filter((f) => f.startsWith('packet_') && f.endsWith('.json'))
+  .sort((a, b) => Number(a.match(/^packet_(\d+)_/)?.[1] ?? 0) - Number(b.match(/^packet_(\d+)_/)?.[1] ?? 0))
 function timeOf(file: string): number {
   // packet_<NN>_<method>_<YYMMDD>_<HHMMSS.mmm>.json
   const m = file.match(/_(\d{6})_(\d{6})\.(\d{3})\.json$/)

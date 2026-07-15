@@ -3,6 +3,12 @@
 This folder feeds the file-based SFC → HSF tests and mirrors the rule set
 users can export from the app.
 
+> **Subfolder exception:** `captures/` holds compressed real endpoint-capture
+> sessions (`<session>.tar.zst`, packed/unpacked via
+> `npm run fixtures:captures:pack|unpack`), not SFC→HSF pairs. See
+> [`docs/technical/packet-capture.md`](../docs/technical/packet-capture.md)
+> ("Promoting a recording") for the workflow and the session inventory.
+
 ## File pairs
 - Each test case is a pair of files sharing the same base name.
   - `<name>.sfc` (input) holds the readable SFC recipe or recipe set.

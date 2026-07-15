@@ -21,6 +21,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { GearInspectorMatchWorkerItemResult } from '../workers/gearInspectorMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import type { ImprovementChanceWasmEntry } from '../lib/wasm/wasmRuleEngine'
+import { PRE_GROW_TARGET_BYTES } from '../lib/wasm/wasmRuleEngine'
 import { postRuleCacheWasmInit } from '../lib/headlessRuleCachePipeline'
 import { getLogWasmHeap } from '../lib/runtimeConfig'
 import { ALLOW_TEST_HOOKS } from '../lib/testHooks'
@@ -207,10 +208,10 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
   })
 }
 
-// No proactive worker cycling.
+// No proactive worker cycling UNDER LOAD; one idle-gated recycle above a high floor.
 //
 // Earlier iterations cycled the worker when the WASM heap exceeded a threshold or
-// after every N pipelines.  Both strategies backfire:
+// after every N pipelines.  Both strategies backfire under load:
 //
 // • The WASM heap (pre-grown to 256 MiB at startup) grows to 400–600 MiB on the
 //   first pipeline with a large rule set (32 000+ rules).  This one-time growth is
@@ -221,12 +222,28 @@ const withCallerAbort = <T>(promise: Promise<T>, signal: AbortSignal | null): Pr
 //   for Worker threads is lazy — the dead heap lingers until GC decides to run,
 //   stacking dead 400–600 MiB allocations and causing the multi-GB main-thread growth
 //   users observed.
-// • Without cycling, one worker heap grows once to ~460 MiB and remains stable; that
-//   is strictly better than N dead heaps accumulating faster than GC can free them.
 //
-// The runtime-error recovery path (replaceWorkerAfterRuntimeError) still handles
-// genuine WASM traps (unreachable / out-of-bounds) by replacing the worker.  That
-// path is the only necessary safeguard.
+// What that policy left open: WASM linear memory is grow-only, so a heavy farm session
+// ratchets the heap far past the steady-state working set (925 MiB observed live on a
+// 7.7k-artifact account — see docs/technical/pipeline-memory.md) and that reservation
+// then stays for the whole app lifetime.  The compromise: when the worker has been
+// completely IDLE for a while and its linear memory sits above a high threshold, replace
+// it once.  At idle only ONE dead heap exists (GC has quiet time to reclaim it before
+// the next pipeline), so the dead-heap stacking that killed per-pipeline cycling cannot
+// occur; the recycled worker re-pre-grows to 256 MiB and rebuilds its caches lazily on
+// the next pipeline (a one-off, off-latency-path cost).
+//
+// The runtime-error recovery path (same replaceWorker) also handles genuine WASM traps
+// (unreachable / out-of-bounds) by replacing the worker.
+
+// Idle-recycle floor: 3× the pre-grow target. Well above every light/mid working set
+// (which settles at or near the 256 MiB pre-grow), so recycling only ever fires after
+// genuinely heavy sessions whose high-water mark is worth reclaiming.
+const WASM_IDLE_RECYCLE_THRESHOLD_BYTES = 3 * PRE_GROW_TARGET_BYTES
+// How long the worker must be fully idle (no active/queued/pending work) before the
+// threshold check runs. Long enough that farm-run bursts (seconds apart) never recycle
+// mid-session; short enough to reclaim the reservation soon after the session ends.
+const WASM_IDLE_RECYCLE_DELAY_MS = 60_000
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
@@ -254,6 +271,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   // or was an artifact-only burst (mergedRules === null → rules unchanged).
   // Read by promoteQueuedPipeline's .finally() to pass the correct flag to signalPipelineDone.
   const rulesChangedRef = useRef(false)
+  // Fallbacks for the two other elidable payload fields (mirrors lastRulesRef): the worker
+  // sends safeguardDetection / improvementChanceEntries as null with the matching
+  // `…Unchanged` flag when their content is identical to the previous send, and these refs
+  // supply the reuse. Sharing ONE snapshot / map across consecutive results is what keeps
+  // the pipeline cache from stacking ~10 independent copies of the detection placeholder
+  // lists (200k+ objects on large accounts) — the farm-run OOM's dominant retention.
+  // Same restart guarantee as lastRulesRef: a fresh worker's first response is always full.
+  const lastDetectionRef = useRef<SafeguardDetectionSnapshot | null>(null)
+  const lastImprovementMapRef = useRef<Map<number, ImprovementChanceWasmEntry> | null>(null)
 
   // Browser builds must use worker execution; no in-thread fallback path exists.
   const rejectWhenWorkerUnavailable = useCallback(<T,>(signal: AbortSignal | null): Promise<T> => {
@@ -281,6 +307,57 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           return
         }
         case 'pipeline:done': {
+          // ── Record payload content FIRST, before any early return ──────────────────
+          // The worker's send-elision sentinels (lastSentSignature / lastSentDetectionKey /
+          // lastSentImprovementKey) advanced the moment it POSTED this response. If the
+          // local caller already aborted (pending deleted below) and we skipped recording,
+          // these fallback refs would desync from the worker and a later "unchanged"
+          // elision would resurrect STALE content. So the refs always mirror the newest
+          // posted response, even for responses the UI never consumes.
+          //
+          // Detection: on safeguardDetectionUnchanged the worker sent null and the content
+          // lives in lastDetectionRef. Reuse keeps entry graphs shared across consecutive
+          // results; only scannedAt is restamped (the worker DID re-scan — the content just
+          // came out identical), matching the pipeline-cache hit restamp in App.tsx.
+          const detectionResolved = data.payload.safeguardDetectionUnchanged
+            ? (lastDetectionRef.current !== null
+              ? { ...lastDetectionRef.current, scannedAt: Date.now() }
+              : null)
+            : data.payload.safeguardDetection
+          lastDetectionRef.current = detectionResolved
+          // Improvement chance: reconstruct the artifactId → entry map from the flat array
+          // (structured-clone safe), or reuse the previous map on the unchanged elision.
+          let improvementChanceByArtifactId: Map<number, ImprovementChanceWasmEntry> | null
+          if (data.payload.improvementChanceUnchanged) {
+            improvementChanceByArtifactId = lastImprovementMapRef.current
+          } else {
+            const entries = data.payload.improvementChanceEntries
+            improvementChanceByArtifactId = entries != null
+              ? new Map(entries.map((e) => [e.artifactId, e] as const))
+              : null
+            lastImprovementMapRef.current = improvementChanceByArtifactId
+          }
+          // Rules: fall back to lastRulesRef when the worker sent null for the three large
+          // fields (artifact-only burst where per-recipe fingerprints were unchanged), and
+          // update the ref only on full data so it always holds the most recent valid set.
+          const state = toStateSnapshotFromWorker(data.payload, lastRulesRef.current)
+          // mergedRules non-null = full pipeline (rules changed); null = artifact-only burst.
+          const rulesChanged = data.payload.mergedRules !== null
+          rulesChangedRef.current = rulesChanged
+          if (rulesChanged) {
+            lastRulesRef.current = {
+              rulesByRecipe: state.rulesByRecipe,
+              mergedRules: state.mergedRules,
+              keys: state.keys,
+            }
+          }
+
+          // (Re)arm the idle wasm-heap recycle with this run's linear-memory reading —
+          // also before the early returns so dropped (aborted) responses still count as
+          // activity and still report their heap growth.
+          scheduleIdleWasmRecycle(data.payload.wasmLinearBytes)
+
+          // ── Consume the response (early returns allowed from here on) ───────────────
           const pending = pipelineMap.get(data.id)
           if (!pending) return
           pipelineMap.delete(data.id)
@@ -293,11 +370,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
             console.log(`[rule-cache-worker] pipeline-done id=${data.id} wasmHeapMB=${wasmMB} mainHeapMB=${mainHeap / 1024 / 1024 | 0}`)
           }
           // TEST hook (?logWasmHeap): stash the worker's WASM heap on window so the
-          // endpoint-incremental-updates leak spec can read it (performance.memory on the
-          // main thread cannot see the worker heap; worker console.log doesn't reliably
-          // reach Playwright). ALLOW_TEST_HOOKS folds to false in DEV and release builds, so
-          // getLogWasmHeap() is provably false there and this whole branch tree-shakes out;
-          // only the e2e TEST build (VITE_TEST_HOOKS=1) keeps it.
+          // endpoint leak specs can read it (performance.memory on the main thread cannot
+          // see the worker heap; worker console.log doesn't reliably reach Playwright).
+          // ALLOW_TEST_HOOKS folds to false in DEV and release builds, so getLogWasmHeap()
+          // is provably false there and this whole branch tree-shakes out; only the e2e
+          // TEST build (VITE_TEST_HOOKS=1) keeps it.
           if (ALLOW_TEST_HOOKS && getLogWasmHeap()) {
             try {
               (window as unknown as { __wasmHeapMB?: number }).__wasmHeapMB =
@@ -308,43 +385,23 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           // Playwright spec can replay captured endpoint packets through the REAL worker and assert
           // the count stays correct — reproducing the phantom over-protection (1270 vs 1490/1555)
           // in CI without manual capture. The protected set = the union of detection entries'
-          // itemKeys (same metric as the worker's [detect-io] protected=). Stored as a history
-          // array + the latest value. Tree-shaken out of DEV/release (ALLOW_TEST_HOOKS=false).
+          // itemKeys (same metric as the worker's [detect-io] protected=). Reads the RESOLVED
+          // snapshot so elided (unchanged) responses still report the live count. Stored as a
+          // history array + the latest value. Tree-shaken out of DEV/release.
           if (ALLOW_TEST_HOOKS && getLogWasmHeap()) {
             try {
-              const snap = data.payload.safeguardDetection
               const keys = new Set<number>()
-              for (const e of snap?.entries ?? []) for (const k of e.itemKeys ?? []) keys.add(k)
+              for (const e of detectionResolved?.entries ?? []) for (const k of e.itemKeys ?? []) keys.add(k)
               const w = window as unknown as { __protectedHistory?: number[]; __protectedCount?: number }
               w.__protectedCount = keys.size
               ;(w.__protectedHistory ??= []).push(keys.size)
             } catch { /* ignore */ }
           }
           if (abortedSet.delete(data.id)) return
-          // Reconstruct the artifactId → entry map from the flat array (structured-clone safe).
-          const entries = data.payload.improvementChanceEntries
-          const improvementChanceByArtifactId = entries != null
-            ? new Map(entries.map((e) => [e.artifactId, e] as const))
-            : null
-          // Fall back to lastRulesRef when the worker sent null for the three large fields
-          // (artifact-only burst where per-recipe fingerprints were unchanged).
-          const state = toStateSnapshotFromWorker(data.payload, lastRulesRef.current)
-          // Update the ref only when full data was received, so it always holds the
-          // most recently valid rule set without being clobbered by null-skipped runs.
-          // mergedRules non-null = full pipeline (rules changed); null = artifact-only burst (rules same).
-          const rulesChanged = data.payload.mergedRules !== null
-          rulesChangedRef.current = rulesChanged
-          if (rulesChanged) {
-            lastRulesRef.current = {
-              rulesByRecipe: state.rulesByRecipe,
-              mergedRules: state.mergedRules,
-              keys: state.keys,
-            }
-          }
           pending.resolve({
             state,
             matches: data.payload.matches,
-            safeguardDetection: data.payload.safeguardDetection,
+            safeguardDetection: detectionResolved,
             improvementChanceByArtifactId,
             mergedRulesHash: data.payload.mergedRulesHash,
           })
@@ -392,7 +449,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           //   "unreachable" — Rust panic / OOM abort
           //   "out of bounds" — memory access fault (allocator corruption, use-after-free)
           if (data.error.includes('unreachable') || data.error.includes('out of bounds')) {
-            replaceWorkerAfterRuntimeError()
+            replaceWorker()
           }
           return
         }
@@ -419,6 +476,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     // AbortController per worker instance lets the lint rule trace listener cleanup.
     let workerAc = new AbortController()
+    // Idle-recycle state: wasm linear-memory size from the newest pipeline:done, and the
+    // pending idle timer (re-armed per response, cleared on teardown).
+    let lastWasmLinearBytes = 0
+    let idleRecycleTimer: ReturnType<typeof setTimeout> | null = null
     const attachWorkerListeners = (worker: Worker) => {
       worker.addEventListener('message', handleMessage, { signal: workerAc.signal })
       worker.addEventListener('error', handleError, { signal: workerAc.signal })
@@ -435,8 +496,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // this hook's historical "skip init, fail at call time" behavior.
       void postRuleCacheWasmInit(worker).catch(() => {})
     }
-    const replaceWorkerAfterRuntimeError = () => {
-      // Runtime faults are recoverable by replacing the worker instance.
+    // Single replace path (SSOT) with two callers: WASM-trap recovery (pendings rejected
+    // as aborted) and the idle wasm-heap recycle (pendings verifiably empty → no-ops).
+    const replaceWorker = () => {
       rejectAllPending(createAbortError(), { markAborted: true })
       const queued = queuedPipelineRunRef.current
       if (queued) {
@@ -455,12 +517,39 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       spawnWorker()
     }
     const handleError = (_event: ErrorEvent | MessageEvent) => {
-      replaceWorkerAfterRuntimeError()
+      replaceWorker()
+    }
+
+    // Idle-gated wasm-heap recycle (policy comment above WASM_IDLE_RECYCLE_THRESHOLD_BYTES).
+    // (Re)armed after every pipeline:done; fires only when the worker has been untouched
+    // for the whole delay AND its last reported linear memory exceeds the threshold.
+    const scheduleIdleWasmRecycle = (wasmLinearBytes: number) => {
+      lastWasmLinearBytes = wasmLinearBytes
+      if (idleRecycleTimer !== null) clearTimeout(idleRecycleTimer)
+      idleRecycleTimer = setTimeout(() => {
+        idleRecycleTimer = null
+        // Truly idle = nothing pending, active, or queued on ANY request channel.
+        const idle = pipelineMap.size === 0 && countMap.size === 0 && scoreMap.size === 0
+          && activePipelineRunRef.current === null && queuedPipelineRunRef.current === null
+        if (!idle || lastWasmLinearBytes <= WASM_IDLE_RECYCLE_THRESHOLD_BYTES) return
+        if (import.meta.env.DEV) {
+          console.log(`[rule-cache-worker] idle recycle: wasmHeapMB=${lastWasmLinearBytes / 1024 / 1024 | 0} > threshold=${WASM_IDLE_RECYCLE_THRESHOLD_BYTES / 1024 / 1024 | 0}`)
+        }
+        // Fresh worker starts at the 256 MiB pre-grow; reset the mark so a second timer
+        // firing (nothing re-arms it until the next pipeline) cannot recycle again.
+        lastWasmLinearBytes = 0
+        replaceWorker()
+      }, WASM_IDLE_RECYCLE_DELAY_MS)
     }
 
     spawnWorker()
 
     return () => {
+      // Cancel a pending idle-recycle check; the worker is being torn down anyway.
+      if (idleRecycleTimer !== null) {
+        clearTimeout(idleRecycleTimer)
+        idleRecycleTimer = null
+      }
       const activeWorker = workerRef.current
       if (activeWorker) {
         // Abort all listeners registered via the shared AbortController.

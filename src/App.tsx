@@ -10,7 +10,7 @@
 import { scopeColorsText } from './lib/colorScope'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
-import { readHsfFile, buildHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
+import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
@@ -148,6 +148,15 @@ import {
   firstSelectableSafeguardIndex,
 } from './lib/safeguards'
 import { updateRecipeRulesCache } from './lib/ruleCache'
+import {
+  PIPELINE_CACHE_MAX_ENTRIES,
+  PIPELINE_CACHE_TTL_MS,
+  PIPELINE_CACHE_BUDGET_BYTES,
+  PIPELINE_CACHE_MIN_ENTRIES,
+  SharedGraphBudget,
+  retainPipelineCacheEntry,
+  releasePipelineCacheEntry,
+} from './lib/pipelineCache'
 import { hasRecipeMeaningfulDifferences } from './lib/recipeDiff'
 import { buildGearInspectorAutosavePayload, createGearInspectorMath, loadCustomGearAutosaveDraft, loadGearInspectorAutosaveDraft, newGearInspectorCompressionCache, partitionGearInspectorItemsForPersistence, type GearInspectorItem } from './lib/gearInspectorSession'
 import {
@@ -232,19 +241,9 @@ const WORKLOAD_SPINNER_HANG_MS = 450 as const
 const PIPELINE_DEBOUNCE_MS = 200 as const
 // Minimum gap between end of one endpoint apply+settle cycle and start of the next.
 const ENDPOINT_PUSH_COOLDOWN_MS = 5000 as const
-// Pipeline result cache: maximum number of entries kept in memory at once.
-// Sized to the worst-case farming round-trip we want to keep fully cached: a player can farm at
-// most 2 items at once, each levelled to 16 in steps of 4 (4 level-up pushes per item → up to 8
-// distinct endpoint updates), then deleted (≈2 more updates). That tops out around 10 distinct
-// artifact-content states in one churn cycle, so 10 entries lets the whole cycle stay resident
-// and the return-to-prior state hit instead of recompute. Each entry is heavy (a full pipeline
-// result — merged rules + per-artifact rows/improvement-chance), so we deliberately do NOT grow
-// this; we rely on true-LRU renewal (below) to keep the *useful* states, not on a bigger cap.
-const PIPELINE_CACHE_MAX = 10 as const
-// Pipeline result cache: entries idle longer than this are evicted. SLIDING — renewed on every
-// cache hit (see the lookup path), so a state you keep returning to during farming stays warm;
-// only states untouched for this long age out.
-const PIPELINE_CACHE_TTL_MS = 3 * 60 * 1000
+// Pipeline result cache limits — count cap, sliding TTL, byte budget and min-entry floor —
+// live in lib/pipelineCache.ts (the cache-policy SSOT) together with the shared-graph byte
+// accounting; see that module for the sizing rationale.
 // Duration of the Diff-button border-chase when the diff reference changes (kept in sync
 // with the keyframe duration in PreviewHeaderActions).
 const GEAR_DIFF_REFERENCE_PULSE_MS = 1000
@@ -1377,6 +1376,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // USED. A hit re-inserts its key (delete + add) to move it to the back, and eviction drops the
   // first key — making this a true LRU, not FIFO. Also enables O(1) key removal on TTL eviction.
   const pipelineCacheOrderRef = useRef<Set<string>>(new Set())
+  // Shared-graph byte budget over the cached generations (distinct graphs counted once —
+  // consecutive entries share rules/detection/improvement graphs via the worker's
+  // unchanged-elision). Policy constants + accounting live in lib/pipelineCache.ts.
+  const pipelineCacheBudgetRef = useRef<SharedGraphBudget>(new SharedGraphBudget())
+  // ── Pipeline-cache mutation SSOT ──────────────────────────────────────────────────
+  // Every insert/delete/clear flows through these three helpers so the byte budget can
+  // never drift from the map contents. Do NOT mutate pipelineCacheRef/OrderRef directly.
+  const pipelineCacheDelete = useCallback((key: string): void => {
+    const entry = pipelineCacheRef.current.get(key)
+    if (entry) {
+      releasePipelineCacheEntry(pipelineCacheBudgetRef.current, entry)
+      pipelineCacheRef.current.delete(key)
+    }
+    // Always drop the recency key, even without a map entry: a stale order key would
+    // otherwise make the insert-time eviction loop spin forever (it evicts front-first
+    // and relies on the order set strictly shrinking).
+    pipelineCacheOrderRef.current.delete(key)
+  }, [])
+  const pipelineCacheClear = useCallback((): void => {
+    pipelineCacheBudgetRef.current.clear()
+    pipelineCacheRef.current.clear()
+    pipelineCacheOrderRef.current.clear()
+  }, [])
+  const pipelineCacheInsert = useCallback((key: string, entry: PipelineCacheEntry): void => {
+    // Replace-on-reinsert: releases the overwritten entry's charge and moves the key to
+    // the back of the recency order (delete + re-add) in one step.
+    pipelineCacheDelete(key)
+    pipelineCacheRef.current.set(key, entry)
+    pipelineCacheOrderRef.current.add(key)
+    retainPipelineCacheEntry(pipelineCacheBudgetRef.current, entry)
+    // Evict LRU-first until both caps hold, but never below the min-entry floor (the
+    // just-inserted key sits at the recency back, so the floor always protects it).
+    while (
+      pipelineCacheOrderRef.current.size > PIPELINE_CACHE_MIN_ENTRIES
+      && (pipelineCacheOrderRef.current.size > PIPELINE_CACHE_MAX_ENTRIES
+        || pipelineCacheBudgetRef.current.totalBytes > PIPELINE_CACHE_BUDGET_BYTES)
+    ) {
+      const oldest = pipelineCacheOrderRef.current.values().next().value!
+      pipelineCacheDelete(oldest)
+    }
+  }, [pipelineCacheDelete])
   // Pipeline cache hit/miss tally for measuring real-world farming hit rate. Exposed on
   // window (test hooks) and logged in dev so we can verify the round-trip cache actually fires
   // on representative endpoint traffic instead of assuming it does.
@@ -1414,15 +1454,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // same key (hit — the add-then-remove farming round-trip). An in-flight run that completes
   // after the artifacts changed writes its result under the hash of the artifacts it actually
   // processed, so it can never be served as a stale hit for a different set. LRU + TTL bound the
-  // entry count (PIPELINE_CACHE_MAX / PIPELINE_CACHE_TTL_MS).
+  // entry count and bytes (see lib/pipelineCache.ts for the caps/budget).
   // Wipe the pipeline cache whenever the base HSF changes.
   // The cache key is history-based (recipes/metasets CRC) and does not include HSF identity,
   // so any result cached against a different (or absent) HSF is now stale.
   // Declared before the pipeline effect so it runs first in the same React commit.
   useEffect(() => {
-    pipelineCacheRef.current.clear()
-    pipelineCacheOrderRef.current.clear()
-  }, [hsf])
+    pipelineCacheClear()
+  }, [hsf, pipelineCacheClear])
 
   // Proactively evict entries that have exceeded the TTL so GC can reclaim their memory
   // even when no new pipeline runs happen to trigger a lookup-based eviction.
@@ -1431,13 +1470,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const now = Date.now()
       for (const [key, entry] of pipelineCacheRef.current) {
         if (now - entry.insertedAt > PIPELINE_CACHE_TTL_MS) {
-          pipelineCacheRef.current.delete(key)
-          pipelineCacheOrderRef.current.delete(key)
+          pipelineCacheDelete(key)
         }
       }
     }, 60_000)
     return () => window.clearInterval(id)
-  }, [])
+  }, [pipelineCacheDelete])
 
   useEffect(() => {
     // Pipeline payloads use immediate state snapshots.
@@ -1489,8 +1527,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const cachedEntry = rawEntry !== null && nowMs - rawEntry.insertedAt <= PIPELINE_CACHE_TTL_MS
         ? rawEntry : null
       if (rawEntry !== null && cachedEntry === null) {
-        pipelineCacheRef.current.delete(cacheKey!)
-        pipelineCacheOrderRef.current.delete(cacheKey!)
+        pipelineCacheDelete(cacheKey!)
       }
       // True-LRU + sliding-TTL renewal on a hit: slide the TTL forward (insertedAt = now) and
       // move the key to the back of the recency order (delete + re-add) so a frequently revisited
@@ -1853,19 +1890,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           recoverMissingRulesRef.current = false
 
           // Cache the processed outputs so the next revisit of this history state is instant.
+          // Insertion, LRU/count/byte-budget eviction and budget bookkeeping all live in
+          // pipelineCacheInsert (the mutation SSOT above).
           if (cacheKey !== null) {
-            // Drop any existing recency entry for this key FIRST so a re-insert (recompute of a
-            // key still present) moves it to the back rather than no-op'ing, and so the size
-            // check below doesn't evict when we're merely overwriting an existing key.
-            pipelineCacheOrderRef.current.delete(cacheKey)
-            if (pipelineCacheOrderRef.current.size >= PIPELINE_CACHE_MAX) {
-              // Evict the least-recently-USED entry — the first key in recency order (a hit
-              // re-adds its key to the back, so the front is genuinely the LRU, not FIFO).
-              const oldest = pipelineCacheOrderRef.current.values().next().value!
-              pipelineCacheRef.current.delete(oldest)
-              pipelineCacheOrderRef.current.delete(oldest)
-            }
-            pipelineCacheRef.current.set(cacheKey, {
+            pipelineCacheInsert(cacheKey, {
               result,
               processedSnapshot: snapshot,
               processedRows,
@@ -1873,7 +1901,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               processedImprovementChance: improvementChanceResult ?? null,
               insertedAt: Date.now(),
             })
-            pipelineCacheOrderRef.current.add(cacheKey)
           }
         })
         .catch((error: unknown) => {
@@ -1937,6 +1964,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     getArtifactItemId,
     showSafeguardImprovementChance,
     safeguardChanceSortEnabled,
+    // Stable mutation-SSOT helpers for the pipeline cache (lookup-expiry + insert).
+    pipelineCacheDelete,
+    pipelineCacheInsert,
   ])
   useEffect(() => {
     return () => {
@@ -9089,7 +9119,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Default export always serializes the active in-app ruleset.
     // Dedupe-by-default is already applied in the pre-safeguard pipeline.
     const payload = buildExportPayload()
-    const blob = hsfToBlob(payload)
     const filename = sellfileFilename()
     // forceLocal bypasses the push path so the menu "Export to file" item always downloads.
     const target = forceLocal ? null : pushExportEndpoint
@@ -9098,12 +9127,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       try {
         // Send the upload command using the shared endpoint compatibility shim.
         // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
+        // No Blob here: the push only needs the payload object + the shared content type;
+        // materializing the download Blob would add a throwaway multi-MB pretty-print.
         const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
           // Account stamp first so a phase-2 Helper can save sellfiles per game account;
           // pre-stamping versions ignore the extra params (confirmed harmless).
           ...buildAccountRpcParams(),
           fileName: filename,
-          contentType: blob.type || 'application/json',
+          contentType: HSF_EXPORT_CONTENT_TYPE,
           data: payload,
         })
         if (response.ok) {
@@ -9132,7 +9163,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       return
     }
-    // Local export path mirrors prior behavior and keeps push optional.
+    // Local export path mirrors prior behavior and keeps push optional. The Blob is
+    // built only on this branch (the push path above sends the payload object).
+    const blob = hsfToBlob(payload)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

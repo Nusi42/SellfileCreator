@@ -29,6 +29,10 @@ const PERF_SPECS = [
   '**/binary-endpoint-fragmentation.spec.ts',
   '**/endpoint-incremental-updates.spec.ts',
   '**/endpoint-replay.spec.ts',
+  // Real captured-session replay + note-override churn: both track heap growth and
+  // replay/drive the full pipeline dozens of times — timing- and memory-sensitive.
+  '**/capture-replay-memory.spec.ts',
+  '**/override-churn-memory.spec.ts',
   // Large-DB pipeline specs. Their fixtures used to be tens of MB and crashed Chromium
   // under parallel workers; the fixtures now ship in RSL Helper's slim format (~1 MB),
   // so the memory pressure is gone. Kept serialized for now because each still drives a

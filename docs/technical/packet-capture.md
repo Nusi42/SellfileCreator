@@ -46,6 +46,18 @@ change required.
 The middleware exposes two endpoints: `/__capture-packet` (frames) and `/__capture-log`
 (console log lines, see below).
 
+### Backpressure (coalescing, latest-state preserving)
+
+Frames are POSTed strictly sequentially from an explicit FIFO queue; each queued frame
+pins its serialized body (~11 MB per artifacts frame) until written. When more than
+`MAX_QUEUED_CAPTURE_FRAMES` frames are backed up, the **oldest queued frame of the same
+method** is shed in favour of the incoming one — never the newest. Because RSL Helper's
+gear frames are full snapshots, a replayed capture therefore always ends on the latest
+state; only intermediate duplicates can be lost, and every shed frame is warned with both
+indices so gaps in the file numbering stay explained. A frame with no queued same-method
+twin is never dropped. Live app ingestion is entirely unaffected — this bounds only the
+dev recording's memory footprint.
+
 ## On-disk layout
 
 Frames land under a per-session folder:
@@ -116,10 +128,39 @@ manual copy-paste from DevTools.
   worker installer tree-shake out unless capture is on.
 - The `captures/` directory is gitignored.
 
-## Promoting a recording
+## Promoting a recording — committed compressed fixtures
 
-A capture is throwaway by default. To keep one:
+A capture is throwaway by default. To keep one, pack it into a committed compressed
+fixture (real sessions are huge — the 2026-07-15 farm-run session is ~940 MB of JSON —
+but so redundant that a solid tar+zstd archive shrinks it ~500×, to ~2 MB):
 
-- Promote a useful recording into `docs/orig/sampleLog/` by hand if it should become a
-  committed fixture, or
-- Feed it to the `endpoint-replay` harness to replay the session through the pipeline.
+```
+npm run fixtures:captures:pack -- session_YYMMDD_HHMMSS.mmm
+```
+
+- Writes `tests/fixtures/captures/<session>.tar.zst` (committed; the raw session dir under
+  `captures/` stays gitignored and can be deleted once packed).
+- Compression is Node's **built-in zstd** (`node:zlib`, needs Node ≥ 22.15) at level 19
+  with long-distance matching (128 MiB window) — the near-identical consecutive `artifacts`
+  frames dedupe against each other. Tar comes from the pure-JS `tar` devDependency, so
+  pack/unpack run identically on Windows. Implementation: `scripts/test/capture-fixtures.mjs`.
+
+Consumers unpack on demand back to `docs/orig/sampleLog/captures/<session>/` (the
+gitignored live-captures dir doubles as the local unpack cache), so every path-based
+consumer works unchanged:
+
+- **Playwright**: `tests/playwright/capture-replay-memory.spec.ts` calls
+  `ensureCaptureSession()` in `beforeAll` — no manual step; unpack is idempotent and
+  skipped when the session dir already exists.
+- **Node repro harness**: run `npm run fixtures:captures:unpack` once (unpacks every
+  committed archive), then `REPRO_SESSION=<session> npm run repro:capture-replay` as usual.
+
+Committed capture fixtures:
+
+- `session_260715_212027.627` — app started with `?capturePackets`, previous data restored,
+  RSL Helper started afterwards; one farm run; ends at the live OOM crash (52 MB raw).
+- `session_260715_212207.259` — RSL Helper already running, app connected to the live
+  endpoint; several farm runs (110 packets, ~60 full `artifacts` resends of ~7.7k artifacts,
+  10 `uploadSellfile` pushes of ~25k rules); ends at the live OOM crash (940 MB raw).
+  Both sessions' `console.log` files record the heap telemetry
+  (`[rule-cache-worker] pipeline-done … wasmHeapMB=… mainHeapMB=…`) leading up to the crash.

@@ -169,7 +169,13 @@ export function computeExportedHsfFingerprint(
   return computeCrc32(JSON.stringify(buildHsfFileFromMerged(rules, options)))
 }
 
+// MIME type of every exported HSF payload — the download Blob and the endpoint push
+// envelope's contentType field share this one definition (SSOT). The push path reads the
+// constant directly instead of materializing a throwaway Blob (a ~58 MB pretty-printed
+// string on large rule sets) just to ask it for `.type`.
+export const HSF_EXPORT_CONTENT_TYPE = 'application/json'
+
 /** Convert an HSF file object to a Blob ready to download. */
 export function hsfToBlob(file: HsfFile): Blob {
-  return new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
+  return new Blob([JSON.stringify(file, null, 2)], { type: HSF_EXPORT_CONTENT_TYPE })
 }
