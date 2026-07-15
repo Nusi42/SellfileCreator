@@ -790,6 +790,19 @@ export function isFlatSubstatVariant(variant: StatVariantLike): boolean {
   return flatToPercentSubstatVariant(variant) !== null
 }
 
+/**
+ * True when the slot's substat pool can roll at least one percent HP/ATK/DEF variant.
+ * False today only for the amulet — the slot the epsilon tie-break ladder must skip
+ * (demoting flats against percent twins is meaningless where twins can't roll).
+ * Unknown slots return true (conservative armor-like fallback). Mirrors the Rust gate
+ * in safeguard_unselected_substat_epsilon_bonus (safeguards/mod.rs).
+ */
+export function slotSupportsAnyPercentSubstat(slot: ArtifactTypeId): boolean {
+  const pool = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
+  if (!pool) return true
+  return PERCENT_FLAT_SUBSTAT_PAIRS.some(([percent]) => pool.has(percent))
+}
+
 // --- Slot constraints (domain facts)
 // Why: Keep allowed main/substat constraints centralized so builder and UI
 // agree on feasibility. Mirrors docs/TECHNICAL.md#artifact-rules. Use StatVariant

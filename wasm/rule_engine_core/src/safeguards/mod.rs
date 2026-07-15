@@ -3041,14 +3041,16 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
 // are for. Per unselected present line (all tiers far below the user weight floor, so
 // stacking can never outweigh an explicit selection; no glyph terms):
 //   - non-flat line (spd/cr/cdmg/res/acc/%stat): SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
-//   - flat line whose percent twin CANNOT ROLL on this slot (amulet — the flat IS that
-//     slot's only HP/ATK/DEF carrier, not padding): the same non-flat tier
 //   - flat HP/ATK/DEF line whose percent twin IS a selected substat:
 //     SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
 //   - flat line whose percent twin is the piece's own main stat:
 //     SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT (additive with the previous when
 //     both apply, so a doubly-aligned flat outranks a singly-aligned one)
 //   - unrelated flat line: exactly 0
+// The whole ladder is INERT on slots whose substat pool has no percent variants (amulet):
+// demoting flats against percent twins is meaningless where twins can't roll, so amulets
+// rank purely by selected substats + main-stat bonus and ties fall to the provable
+// tie-breakers. Unknown/empty pools keep the ladder (conservative armor-like behaviour).
 // Flat classification is by variant token via the percent↔flat pairs table — never the wire
 // is_flat flag (SPD/RES/ACC are wire-flat but count as useful non-flat lines here).
 // Mirrors TS unselectedSubstatEpsilonBonus (substatRollNormalization.ts).
@@ -3056,9 +3058,15 @@ fn safeguard_unselected_substat_epsilon_bonus(
     artifact: &SafeguardWasmArtifactIn,
     selected_substats: &[i64],
 ) -> f64 {
-    // Slot substat pool for the twin-rollability check. Unknown slots return an empty pool
-    // and fall back to alignment gating (the conservative, armor-like behaviour).
+    // Slot-level gate: a known pool without any percent variant (amulet) skips the ladder.
     let slot_pool = improvement_chance::allowed_substats_for_slot(artifact.slot);
+    if !slot_pool.is_empty()
+        && !SAFEGUARD_PERCENT_FLAT_PAIRS
+            .iter()
+            .any(|&(percent, _)| slot_pool.contains(&percent))
+    {
+        return 0.0;
+    }
     let mut bonus = 0.0;
     for substat in &artifact.substats {
         // Selected substats (flat or not) already score at their real weight.
@@ -3071,12 +3079,7 @@ fn safeguard_unselected_substat_epsilon_bonus(
             continue;
         }
         if let Some(percent_twin) = safeguard_flat_to_percent_substat(substat.variant) {
-            // Flat whose twin can't roll on this slot counts as a useful line outright.
-            if !slot_pool.is_empty() && !slot_pool.contains(&percent_twin) {
-                bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT;
-                continue;
-            }
-            // Otherwise only relevance-aligned flats earn a micro tie-break.
+            // Flat line: only relevance-aligned flats earn a micro tie-break.
             if selected_substats.contains(&percent_twin) {
                 bonus += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT;
             }
@@ -5169,11 +5172,12 @@ mod score_safeguard_candidates_for_preview_core_tests {
         );
     }
 
-    // Amulet slot-awareness: amulets can never roll percent substats, so their flat lines are
-    // the slot's only HP/ATK/DEF carriers and earn the full non-flat tier instead of the
-    // alignment-gated padding treatment armor/ring/banner flats get.
+    // Amulet slot-awareness: amulets can never roll percent substats, so demoting flats
+    // against percent twins is meaningless there — the epsilon ladder is INERT on amulets
+    // (every line earns 0) and ranking is left to selected substats + the provable
+    // tie-breakers. Ring/banner keep the ladder (their pools have percent variants).
     #[test]
-    fn amulet_flats_count_as_useful_lines_in_the_epsilon_ladder() {
+    fn amulet_slot_is_exempt_from_the_epsilon_ladder() {
         fn make(id: i64, slot: i64, substats: &[(i64, f64)]) -> SafeguardWasmArtifactIn {
             SafeguardWasmArtifactIn {
                 id: Some(id),
@@ -5203,19 +5207,20 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let acc_line = (STAT_VARIANT_ACC, 20.0);
 
-        // On an amulet, an extra flat HP line is a useful line (HP% cannot roll there) …
+        // On an amulet NO unselected line earns any epsilon — neither an extra flat HP …
         let amulet_bare = make(1, ARTIFACT_TYPE_AMULET, &[acc_line]);
         let amulet_flat_hp = make(2, ARTIFACT_TYPE_AMULET, &[acc_line, (STAT_VARIANT_HP_FLAT, 900.0)]);
-        assert!(
-            score(&amulet_flat_hp) > score(&amulet_bare),
-            "amulet flat HP must earn the non-flat tier (no percent twin exists on the slot)",
-        );
-        // … and categorically equal to any other useful amulet line (fixed per-line bonus).
-        let amulet_res = make(3, ARTIFACT_TYPE_AMULET, &[acc_line, (STAT_VARIANT_RES, 15.0)]);
         assert_eq!(
             score(&amulet_flat_hp),
+            score(&amulet_bare),
+            "amulet flat HP must earn nothing (ladder inert on the percent-free slot)",
+        );
+        // … nor an extra non-flat RES line (the non-flat tier is disabled on amulets too).
+        let amulet_res = make(3, ARTIFACT_TYPE_AMULET, &[acc_line, (STAT_VARIANT_RES, 15.0)]);
+        assert_eq!(
             score(&amulet_res),
-            "amulet flat HP and RES lines are the same category under the fixed epsilon",
+            score(&amulet_bare),
+            "amulet RES must earn nothing (ladder inert on the percent-free slot)",
         );
 
         // On a ring the HP% twin IS rollable, so an unaligned flat HP stays padding (0).
@@ -5228,6 +5233,14 @@ mod score_safeguard_candidates_for_preview_core_tests {
             safeguard_compute_score(&ring_flat_hp, &ring_selected, &weights, false, f),
             safeguard_compute_score(&ring_bare, &ring_selected, &weights, false, f),
             "ring flat HP (unaligned, twin rollable) must remain zero-bonus padding",
+        );
+        // … while a ring's unselected percent line still earns the non-flat tier — the
+        // slot-level exemption is amulet-only, not accessory-wide.
+        let ring_hp_percent = make(6, ARTIFACT_TYPE_RING, &[def_line, (STAT_VARIANT_HP_PERCENT, 5.0)]);
+        assert!(
+            safeguard_compute_score(&ring_hp_percent, &ring_selected, &weights, false, f)
+                > safeguard_compute_score(&ring_bare, &ring_selected, &weights, false, f),
+            "ring HP% (unselected non-flat) must still earn the non-flat tier",
         );
     }
 

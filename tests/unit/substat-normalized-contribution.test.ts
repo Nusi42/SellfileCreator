@@ -125,21 +125,40 @@ test('epsilon bonus: ladder order — doubly aligned > singly aligned, non-flat 
   assert.ok(weakRes > doubly, 'the non-flat tier dominates every flat-alignment stack')
 })
 
-test('epsilon bonus: amulet flats count as useful lines (no percent twin on the slot)', () => {
-  const flatHp = [{ variant: StatVariant.HP_FLAT, value: 900 }]
-  // On an amulet the HP% twin can never roll → the flat earns the full non-flat tier.
+test('epsilon bonus: the ladder is inert on amulets (percent-free substat pool)', () => {
+  // Amulets can never roll percent substats, so demoting flats against percent twins is
+  // meaningless there — NO amulet line earns any epsilon, flat or not.
   assert.equal(
-    unselectedSubstatEpsilonBonus(flatHp, [StatVariant.ACC], StatVariant.ATK_FLAT, ArtifactType.Amulet),
-    SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
-    'amulet flat HP is the slot\'s only HP carrier and earns the non-flat tier',
+    unselectedSubstatEpsilonBonus(
+      [{ variant: StatVariant.HP_FLAT, value: 900 }], [StatVariant.ACC], StatVariant.ATK_FLAT, ArtifactType.Amulet,
+    ),
+    0,
+    'amulet flat HP earns nothing (ladder inert on the slot)',
   )
-  // On a ring the HP% twin IS rollable → an unaligned flat HP stays zero-bonus padding.
+  assert.equal(
+    unselectedSubstatEpsilonBonus(
+      [{ variant: StatVariant.RES, value: 15 }, { variant: StatVariant.CDMG, value: 10 }],
+      [StatVariant.ACC], StatVariant.ATK_FLAT, ArtifactType.Amulet,
+    ),
+    0,
+    'amulet RES/CDMG lines earn nothing either (the non-flat tier is disabled on amulets)',
+  )
+  // On a ring (percent twins rollable) the ladder stays active: unaligned flat = padding,
+  // an unselected percent line still earns the non-flat tier.
+  const flatHp = [{ variant: StatVariant.HP_FLAT, value: 900 }]
   assert.equal(
     unselectedSubstatEpsilonBonus(flatHp, [StatVariant.DEF], StatVariant.ATK_FLAT, ArtifactType.Ring),
     0,
     'ring flat HP (twin rollable, unaligned) remains padding',
   )
-  // Without a slot the check falls back to the conservative alignment-gated behaviour.
+  assert.equal(
+    unselectedSubstatEpsilonBonus(
+      [{ variant: StatVariant.HP, value: 5 }], [StatVariant.DEF], StatVariant.ATK_FLAT, ArtifactType.Ring,
+    ),
+    SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
+    'ring HP% (unselected non-flat) still earns the non-flat tier',
+  )
+  // Without a slot the gate is skipped — conservative armor-like behaviour is kept.
   assert.equal(
     unselectedSubstatEpsilonBonus(flatHp, [StatVariant.DEF], StatVariant.ATK_FLAT),
     0,
