@@ -2864,10 +2864,14 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
 }
 
 // Epsilon tie-break ladder for substats PRESENT on the piece but NOT selected by the rule
-// (selected lines always score at their real weight). Per unselected line, the internal
-// tie-break weight is (all far below the user weight floor, so stacking can never outweigh
-// an explicit selection; no glyph terms — the tie-break reads only what actually rolled):
+// (selected lines always score at their real weight). The tiers are FIXED per-line bonuses —
+// deliberately NOT scaled by roll value: the epsilon only marks a line's *category* (useful
+// vs padding vs relevance-aligned padding); comparing roll quality is what the real weights
+// are for. Per unselected present line (all tiers far below the user weight floor, so
+// stacking can never outweigh an explicit selection; no glyph terms):
 //   - non-flat line (spd/cr/cdmg/res/acc/%stat): SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
+//   - flat line whose percent twin CANNOT ROLL on this slot (amulet — the flat IS that
+//     slot's only HP/ATK/DEF carrier, not padding): the same non-flat tier
 //   - flat HP/ATK/DEF line whose percent twin IS a selected substat:
 //     SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
 //   - flat line whose percent twin is the piece's own main stat:
@@ -2881,30 +2885,36 @@ fn safeguard_unselected_substat_epsilon_bonus(
     artifact: &SafeguardWasmArtifactIn,
     selected_substats: &[i64],
 ) -> f64 {
+    // Slot substat pool for the twin-rollability check. Unknown slots return an empty pool
+    // and fall back to alignment gating (the conservative, armor-like behaviour).
+    let slot_pool = improvement_chance::allowed_substats_for_slot(artifact.slot);
     let mut bonus = 0.0;
     for substat in &artifact.substats {
         // Selected substats (flat or not) already score at their real weight.
         if selected_substats.contains(&substat.variant) {
             continue;
         }
-        // Unknown variants and absent/invalid values normalize to 0 and drop out.
-        let normalized = safeguard_normalize_substat_value(substat.variant, substat.value);
-        if normalized <= 0.0 {
+        // Presence gate: unknown variants and absent/invalid values normalize to 0 and drop
+        // out. Only presence matters — the bonus below is per-line, not value-scaled.
+        if safeguard_normalize_substat_value(substat.variant, substat.value) <= 0.0 {
             continue;
         }
         if let Some(percent_twin) = safeguard_flat_to_percent_substat(substat.variant) {
-            // Flat line: only relevance-aligned flats earn a micro tie-break.
-            let mut weight = 0.0;
+            // Flat whose twin can't roll on this slot counts as a useful line outright.
+            if !slot_pool.is_empty() && !slot_pool.contains(&percent_twin) {
+                bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT;
+                continue;
+            }
+            // Otherwise only relevance-aligned flats earn a micro tie-break.
             if selected_substats.contains(&percent_twin) {
-                weight += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT;
+                bonus += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT;
             }
             if artifact.main_stat == percent_twin {
-                weight += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT;
+                bonus += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT;
             }
-            bonus += weight * normalized;
         } else {
             // Useful non-flat line: the top epsilon tier.
-            bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT * normalized;
+            bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT;
         }
     }
     bonus
@@ -4957,6 +4967,78 @@ mod score_safeguard_candidates_for_preview_core_tests {
             score(&unrelated, &spd_selected),
             score(&bare, &spd_selected),
             "a flat unrelated to both the selection and the main stat must earn nothing",
+        );
+
+        // Fixed per-line semantics: the bonus marks the line's category, never its roll
+        // quality — a weak and a max-rolled unselected SPD line earn the identical epsilon.
+        let weak_spd = make(11, STAT_VARIANT_HP_PERCENT, &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 1.0)]);
+        let god_spd = make(12, STAT_VARIANT_HP_PERCENT, &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 30.0)]);
+        assert_eq!(
+            score(&weak_spd, &hp_selected),
+            score(&god_spd, &hp_selected),
+            "epsilon must be roll-value independent — quality comparison is the weights' job",
+        );
+    }
+
+    // Amulet slot-awareness: amulets can never roll percent substats, so their flat lines are
+    // the slot's only HP/ATK/DEF carriers and earn the full non-flat tier instead of the
+    // alignment-gated padding treatment armor/ring/banner flats get.
+    #[test]
+    fn amulet_flats_count_as_useful_lines_in_the_epsilon_ladder() {
+        fn make(id: i64, slot: i64, substats: &[(i64, f64)]) -> SafeguardWasmArtifactIn {
+            SafeguardWasmArtifactIn {
+                id: Some(id),
+                slot,
+                set: ACCESSORY_NO_SET_ID,
+                rank: 6,
+                rarity: 6,
+                level: 16,
+                exact_level: Some(16),
+                faction: 1,
+                main_stat: STAT_VARIANT_ATK_FLAT,
+                equipped_in_collection: false,
+                equipped_in_vault: false,
+                substats: substats
+                    .iter()
+                    .map(|&(variant, value)| SafeguardWasmSubstatIn {
+                        variant, is_flat: true, value, rolls: Some(1),
+                    })
+                    .collect(),
+            }
+        }
+        let weights = BTreeMap::<i64, f64>::new();
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
+        let selected = [STAT_VARIANT_ACC];
+        let score = |artifact: &SafeguardWasmArtifactIn| {
+            safeguard_compute_score(artifact, &selected, &weights, false, f)
+        };
+        let acc_line = (STAT_VARIANT_ACC, 20.0);
+
+        // On an amulet, an extra flat HP line is a useful line (HP% cannot roll there) …
+        let amulet_bare = make(1, ARTIFACT_TYPE_AMULET, &[acc_line]);
+        let amulet_flat_hp = make(2, ARTIFACT_TYPE_AMULET, &[acc_line, (STAT_VARIANT_HP_FLAT, 900.0)]);
+        assert!(
+            score(&amulet_flat_hp) > score(&amulet_bare),
+            "amulet flat HP must earn the non-flat tier (no percent twin exists on the slot)",
+        );
+        // … and categorically equal to any other useful amulet line (fixed per-line bonus).
+        let amulet_res = make(3, ARTIFACT_TYPE_AMULET, &[acc_line, (STAT_VARIANT_RES, 15.0)]);
+        assert_eq!(
+            score(&amulet_flat_hp),
+            score(&amulet_res),
+            "amulet flat HP and RES lines are the same category under the fixed epsilon",
+        );
+
+        // On a ring the HP% twin IS rollable, so an unaligned flat HP stays padding (0).
+        // Ring substat pool has no ACC, so gate on DEF% instead to keep the rule slot-legal.
+        let ring_selected = [STAT_VARIANT_DEF_PERCENT];
+        let def_line = (STAT_VARIANT_DEF_PERCENT, 5.0);
+        let ring_bare = make(4, ARTIFACT_TYPE_RING, &[def_line]);
+        let ring_flat_hp = make(5, ARTIFACT_TYPE_RING, &[def_line, (STAT_VARIANT_HP_FLAT, 900.0)]);
+        assert_eq!(
+            safeguard_compute_score(&ring_flat_hp, &ring_selected, &weights, false, f),
+            safeguard_compute_score(&ring_bare, &ring_selected, &weights, false, f),
+            "ring flat HP (unaligned, twin rollable) must remain zero-bonus padding",
         );
     }
 

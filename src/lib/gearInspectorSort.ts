@@ -403,6 +403,8 @@ export function computeGearInspectorNormalizedSubstatScore(
     spec.variants,
     // Main alignment keys off the piece's own main stat; absent mains disable the tier.
     row.artifact.mainStat ? Number(row.artifact.mainStat.variant) : undefined,
+    // Slot drives the twin-rollability check (amulet flats count as useful lines).
+    Number(row.artifact.slot),
   )
   // Treat non-finite totals as "no score" so callers never render NaN/Infinity into UI.
   return Number.isFinite(total) ? total : null

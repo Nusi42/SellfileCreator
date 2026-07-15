@@ -5,7 +5,7 @@
  * These values intentionally reflect the 6★ in-game roll caps so mixed-star gear can be compared
  * on a consistent 0..1 scale without inventing additional tier-specific heuristics.
  */
-import { StatVariant, statSupportsGlyphs, flatToPercentSubstatVariant } from './types'
+import { StatVariant, statSupportsGlyphs, flatToPercentSubstatVariant, ALLOWED_SUB_BY_SLOT, type ArtifactType } from './types'
 import {
   GLYPH_RANGES_BY_RANK,
   MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT,
@@ -83,10 +83,14 @@ export function normalizeSubstatByMax6(variant: StatVariant, rawValue: number): 
 // (getGlyphAverageForVariant returns 0), so they contribute no rank separation here by design — their
 // 5★/6★ ordering is settled by the caller's rank tie-breaker instead.
 // Epsilon tie-break ladder for substats PRESENT on the piece but NOT in the caller's
-// selection (selected lines always score at their real weight). Per unselected line (all
-// tiers far below the user weight floor of 0.01, so stacking can never outweigh an explicit
-// selection; no glyph terms — the tie-break reads only what actually rolled):
+// selection (selected lines always score at their real weight). The tiers are FIXED per-line
+// bonuses — deliberately NOT scaled by roll value: the epsilon only marks a line's *category*
+// (useful vs padding vs relevance-aligned padding); comparing roll quality is what the real
+// weights are for. Per unselected present line (all tiers far below the user weight floor of
+// 0.01, so stacking can never outweigh an explicit selection; no glyph terms):
 //   - non-flat line (spd/cr/cdmg/res/acc/%stat): SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
+//   - flat line whose percent twin CANNOT ROLL on the piece's slot (amulet — the flat IS
+//     that slot's only HP/ATK/DEF carrier, not padding): the same non-flat tier
 //   - flat HP/ATK/DEF line whose percent twin IS selected: SELECTED_ALIGNED_FLAT weight
 //   - flat line whose percent twin is the piece's own main stat: MAIN_ALIGNED_FLAT weight
 //     (additive with the previous, so a doubly-aligned flat outranks a singly-aligned one)
@@ -99,24 +103,31 @@ export function unselectedSubstatEpsilonBonus(
   selectedVariants: ReadonlyArray<number>,
   // The piece's own main-stat variant; undefined/unknown simply disables main alignment.
   mainStatVariant?: number | undefined,
+  // The piece's slot for the twin-rollability check; undefined/unknown slots fall back to
+  // alignment gating (the conservative, armor-like behaviour).
+  slot?: number | undefined,
 ): number {
+  const slotPool = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
   let bonus = 0
   for (const { variant, value } of substats) {
     // Selected substats (flat or not) already score at their real weight.
     if (selectedVariants.includes(variant)) continue
-    // Unknown variants and absent/invalid values normalize to 0 and drop out here.
-    const normalized = normalizeSubstatByMax6(variant as StatVariant, value)
-    if (normalized <= 0) continue
+    // Presence gate: unknown variants and absent/invalid values normalize to 0 and drop out.
+    // Only presence matters — the bonus below is per-line, not value-scaled.
+    if (normalizeSubstatByMax6(variant as StatVariant, value) <= 0) continue
     const percentTwin = flatToPercentSubstatVariant(variant)
     if (percentTwin !== null) {
-      // Flat line: only relevance-aligned flats earn a micro tie-break.
-      let weight = 0
-      if (selectedVariants.includes(percentTwin)) weight += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
-      if (Number(mainStatVariant) === percentTwin) weight += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT
-      bonus += weight * normalized
+      // Flat whose twin can't roll on this slot counts as a useful line outright.
+      if (slotPool && !slotPool.has(percentTwin)) {
+        bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
+        continue
+      }
+      // Otherwise only relevance-aligned flats earn a micro tie-break.
+      if (selectedVariants.includes(percentTwin)) bonus += SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT
+      if (Number(mainStatVariant) === percentTwin) bonus += SAFEGUARD_SCORE_MAIN_ALIGNED_FLAT_EPSILON_WEIGHT
     } else {
       // Useful non-flat line: the top epsilon tier.
-      bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT * normalized
+      bonus += SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT
     }
   }
   return bonus

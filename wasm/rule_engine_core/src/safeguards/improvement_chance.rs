@@ -433,7 +433,8 @@ struct ViabilityContext {
 
 // ─── per-slot allowed substat pools ──────────────────────────────────────────
 
-fn allowed_substats_for_slot(slot: i64) -> &'static [i64] {
+// pub(super) so the scorer's epsilon tie-break can check twin-rollability per slot.
+pub(super) fn allowed_substats_for_slot(slot: i64) -> &'static [i64] {
     // Mirrors TS ALLOWED_SUB_BY_SLOT; caller excludes the main stat variant.
     // Constants are from generated_domain_constants.rs via `use crate::*`.
     match slot {

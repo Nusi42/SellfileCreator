@@ -12,7 +12,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { substatNormalizedContribution, getGlyphAverageForVariant, unselectedSubstatEpsilonBonus } from '../../src/lib/substatRollNormalization.js'
-import { StatVariant } from '../../src/lib/types.js'
+import { StatVariant, ArtifactType } from '../../src/lib/types.js'
 import {
   SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
   SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT,
@@ -64,11 +64,18 @@ test('epsilon bonus: unaligned flat HP/ATK/DEF lines never earn the tie-break', 
 test('epsilon bonus: selected substats are excluded (they already score at real weight)', () => {
   const substats = [{ variant: StatVariant.SPD, value: 6 }]
   assert.equal(unselectedSubstatEpsilonBonus(substats, [StatVariant.SPD]), 0, 'selected SPD earns no epsilon')
-  const expected = SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT * (6 / SPD_MAX6)
-  assert.ok(
-    Math.abs(unselectedSubstatEpsilonBonus(substats, [StatVariant.CR]) - expected) < 1e-15,
-    'unselected SPD earns exactly epsilon × normalized value (no glyph term)',
+  assert.equal(
+    unselectedSubstatEpsilonBonus(substats, [StatVariant.CR]),
+    SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
+    'an unselected SPD line earns exactly the fixed per-line epsilon (no value scaling, no glyph term)',
   )
+})
+
+test('epsilon bonus: fixed per-line — roll value never changes the bonus', () => {
+  // The epsilon marks a line's category only; quality comparison is the real weights' job.
+  const weak = unselectedSubstatEpsilonBonus([{ variant: StatVariant.SPD, value: 1 }], [StatVariant.CR])
+  const god = unselectedSubstatEpsilonBonus([{ variant: StatVariant.SPD, value: 30 }], [StatVariant.CR])
+  assert.equal(weak, god, 'a weak and a max-rolled line of the same category earn the identical epsilon')
 })
 
 test('epsilon bonus: stacked full rolls stay below the minimum explicit weight contribution', () => {
@@ -88,12 +95,13 @@ test('epsilon bonus: stacked full rolls stay below the minimum explicit weight c
 
 test('epsilon bonus: flat aligned to a selected percent stat edges an unaligned flat', () => {
   // HP% is selected → a flat HP line earns the selected-aligned tier; flat ATK earns nothing.
-  const HP_FLAT_MAX6 = 565
   const flatHp = [{ variant: StatVariant.HP_FLAT, value: 300 }]
   const flatAtk = [{ variant: StatVariant.ATK_FLAT, value: 16 }]
-  const hpBonus = unselectedSubstatEpsilonBonus(flatHp, [StatVariant.HP])
-  const expected = SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT * (300 / HP_FLAT_MAX6)
-  assert.ok(Math.abs(hpBonus - expected) < 1e-18, 'selected-aligned flat earns exactly its tier weight × normalized value')
+  assert.equal(
+    unselectedSubstatEpsilonBonus(flatHp, [StatVariant.HP]),
+    SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT,
+    'selected-aligned flat earns exactly its fixed tier weight',
+  )
   assert.equal(unselectedSubstatEpsilonBonus(flatAtk, [StatVariant.HP]), 0, 'unaligned flat ATK earns nothing')
 })
 
@@ -112,10 +120,29 @@ test('epsilon bonus: ladder order — doubly aligned > singly aligned, non-flat 
   const doubly = unselectedSubstatEpsilonBonus(flatHp, [StatVariant.HP], StatVariant.HP)
   const singly = unselectedSubstatEpsilonBonus(flatHp, [StatVariant.HP], StatVariant.ATK)
   assert.ok(doubly > singly, 'selected+main alignment stacks above selection alignment alone')
-  // Even a max-rolled doubly-aligned flat stays below a weak genuine non-flat line.
-  const godFlat = unselectedSubstatEpsilonBonus(
-    [{ variant: StatVariant.HP_FLAT, value: 2825 }], [StatVariant.HP], StatVariant.HP,
-  )
+  // A doubly-aligned flat still stays below any genuine non-flat line.
   const weakRes = unselectedSubstatEpsilonBonus([{ variant: StatVariant.RES, value: 3 }], [StatVariant.HP])
-  assert.ok(weakRes > godFlat, 'the non-flat tier dominates every flat-alignment stack')
+  assert.ok(weakRes > doubly, 'the non-flat tier dominates every flat-alignment stack')
+})
+
+test('epsilon bonus: amulet flats count as useful lines (no percent twin on the slot)', () => {
+  const flatHp = [{ variant: StatVariant.HP_FLAT, value: 900 }]
+  // On an amulet the HP% twin can never roll → the flat earns the full non-flat tier.
+  assert.equal(
+    unselectedSubstatEpsilonBonus(flatHp, [StatVariant.ACC], StatVariant.ATK_FLAT, ArtifactType.Amulet),
+    SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
+    'amulet flat HP is the slot\'s only HP carrier and earns the non-flat tier',
+  )
+  // On a ring the HP% twin IS rollable → an unaligned flat HP stays zero-bonus padding.
+  assert.equal(
+    unselectedSubstatEpsilonBonus(flatHp, [StatVariant.DEF], StatVariant.ATK_FLAT, ArtifactType.Ring),
+    0,
+    'ring flat HP (twin rollable, unaligned) remains padding',
+  )
+  // Without a slot the check falls back to the conservative alignment-gated behaviour.
+  assert.equal(
+    unselectedSubstatEpsilonBonus(flatHp, [StatVariant.DEF], StatVariant.ATK_FLAT),
+    0,
+    'unknown slot keeps the armor-like padding treatment',
+  )
 })

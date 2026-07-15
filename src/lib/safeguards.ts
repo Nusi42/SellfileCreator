@@ -1436,6 +1436,8 @@ export const computeSafeguardScoreFromArtifact = (
       selectedSubstats,
       // Main alignment keys off the piece's own main stat; absent mains disable the tier.
       artifact.mainStat ? Number(artifact.mainStat.variant) : undefined,
+      // Slot drives the twin-rollability check (amulet flats count as useful lines).
+      Number(artifact.slot),
     )
   }
   // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
