@@ -1,5 +1,10 @@
 # Pre-Release Checklist
 
+## v1.0.38 — 2026-07-16
+
+- Investigate and optimize autosave restore memory usage in multi-account scenarios — restoring previous session state shows 1.75 GB heap spike right after restore, before any endpoint frame; flagged as a secondary contributor to the OOM issue and needs follow-up investigation (b50e50e1)
+
+
 This file is generated and maintained by `scripts/release/run-release-notes-catchup.sh`,
 which runs Claude worker/reducer agents during a release-notes pass and mechanically
 prepends a `## v<version> — <date>` section of maintainer review items (prompts:

@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.37",
+  "Version": "1.0.38-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -15696,7 +15696,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.3
+        "DEF%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15753,7 +15753,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.3
+        "DEF%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15811,7 +15811,7 @@
         "ATK%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15868,7 +15868,7 @@
         "ATK%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15926,7 +15926,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -15983,7 +15983,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18825,7 +18825,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "DEF%": 0.3
+        "DEF%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18885,7 +18885,7 @@
         "ATK%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
@@ -18945,7 +18945,7 @@
         "DEF%"
       ],
       "substatWeights": {
-        "HP%": 0.3
+        "HP%": 0.2
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
