@@ -750,7 +750,7 @@ thread_local! {
 fn safeguard_placeholder_fingerprint(placeholders: &[SafeguardWasmPlaceholderOut]) -> String {
     // FNV-1a seeded with the length so an empty list never collides with a short one.
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325 ^ (placeholders.len() as u64);
-    let mut fold = |value: u64, state: &mut u64| {
+    let fold = |value: u64, state: &mut u64| {
         *state ^= value;
         *state = state.wrapping_mul(0x0000_0100_0000_01b3);
     };
