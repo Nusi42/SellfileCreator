@@ -107,8 +107,12 @@ Upload a generated sellfile.
 - `data` (object, required): The `.hsf` file as an inline JSON object. The server re-serialises it to disk.
 
 **Result**
-- `ok` (boolean)
-- `savedAs` (string)
+
+Any response carrying a `result` is treated as success; its contents are not
+required (an empty `{}` is accepted). A server may return
+`{"ok":true,"savedAs":"…"}` for clarity. Signal failure with an `error` object
+instead — its `message` is shown to the user. The response `id` must equal the
+numeric request `id`.
 
 ### requestSfcSync
 
@@ -302,8 +306,8 @@ Champion roster. Provides display names and equipped-slot context.
   |---|---|---|
   | `id` | `Champs.ID` | champion instance id |
   | `typeId` | `Champs.HeroID` | variant/ascension ID (e.g. `2066`); base hero ID is derived as `Math.floor(typeId / 10) * 10` |
-  | `Name` | `Champs.Name` | display name (present only in first send of each sync cycle) |
-  | `Rarity` | `Champs.Rarity` | rarity tier 1–6 (present only in first send) |
+  | `Name` | `Champs.Name` | display name (optional; a server may include it on every message) |
+  | `Rarity` | `Champs.Rarity` | rarity tier 1–6 (optional; a server may include it on every message) |
   | `Affinity` | `Champs.Affinity` | **planned but not yet sent** — once shipped, will use the SQL encoding 1=Magic, 2=Force, 3=Spirit, 4=Void |
   | `grade` | `Champs.Rang` | current yellow-star count (1–6) — **not** the blessing grade |
   | `level` | `Champs.Lvl` | champion XP level 1–60 |
@@ -332,7 +336,12 @@ Champion roster. Provides display names and equipped-slot context.
 ]}}
 ```
 
-**Double-send behaviour**: RSL Helper emits `champions` twice per sync cycle. The first message includes `Name` and `Rarity`; the second repeats the full roster without them. Rows are merged field-by-field — when an incoming row leaves a field absent, the previously-known value is preserved. This protects the first-send metadata (Name, Rarity) and keeps the data forward-compatible: when a field such as `Affinity` arrives it is recorded, and until then any earlier-known value is not nulled out by a follow-up packet that omits it.
+**Repeated champion messages merge by `id`.** When a later `champions` message
+omits a field, the value from an earlier message is kept (it is not cleared).
+So `Name` and `Rarity` are optional per message — a server may include them on
+every `champions` message, or send them once and omit them afterwards; both
+work. A field introduced later (e.g. a future `Affinity`) is likewise adopted
+when it first appears and retained thereafter.
 
 ### ArtifactByHeroID
 
@@ -373,7 +382,7 @@ Fields present in every artifact row from RSL Helper:
 | Field | Type | Notes |
 |---|---|---|
 | `id` | number | artifact instance id |
-| `kindId` | number | slot id (1=weapon, 2=helmet, 3=shield, 4=gloves, 5=chest, 6=boots, 7=ring, 8=amulet, 9=banner) |
+| `kindId` | number | slot id (1=helmet, 2=chestplate, 3=gauntlets, 4=boots, 5=weapon, 6=shield, 7=ring, 8=amulet, 9=banner). Must be within 1–9; a row with an out-of-range slot is ignored. |
 | `rankId` | number | star rank (1–6) |
 | `rarityId` | number | rarity (1=common … 6=legendary) |
 | `setKindId` | number | set id |
