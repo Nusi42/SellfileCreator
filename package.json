@@ -5,9 +5,9 @@
     "type":  "module",
     "scripts":  {
                     "dev":  "node scripts/tooling/run-dev-with-wasm-watch.mjs",
-                    "dev:vite":  "vite",
-                    "build":  "node -e \"console.log(\u0027Build started:\u0027, new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 npm run wasm:ensure:rule-engine-dsim \u0026\u0026 vite build",
-                    "build:web":  "node -e \"console.log(\u0027Build started:\u0027, new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 npm run wasm:ensure:rule-engine-dsim \u0026\u0026 vite build --mode web",
+                    "dev:vite":  "node scripts/tooling/vite-realpath.mjs",
+                    "build":  "node -e \"console.log(\u0027Build started:\u0027, new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 npm run wasm:ensure:rule-engine-dsim \u0026\u0026 node scripts/tooling/vite-realpath.mjs build",
+                    "build:web":  "node -e \"console.log(\u0027Build started:\u0027, new Date().toLocaleString())\" \u0026\u0026 npm run wasm:ensure:rule-engine \u0026\u0026 npm run wasm:ensure:rule-engine-dsim \u0026\u0026 node scripts/tooling/vite-realpath.mjs build --mode web",
                     "preview":  "vite preview",
                     "typecheck":  "npm run wasm:ensure:rule-engine \u0026\u0026 npm run wasm:ensure:rule-engine-dsim \u0026\u0026 tsc --noEmit \u0026\u0026 npm run typecheck:scripts",
                     "typecheck:scripts":  "tsc -p tsconfig.scripts.json --noEmit",

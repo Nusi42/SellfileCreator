@@ -47,6 +47,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `scripts/tooling/build-rule-engine-wasm.mjs` — builds the `wasm/rule_engine_wasm` cdylib crate for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
 - `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale.
 - `scripts/tooling/run-dev-with-wasm-watch.mjs` — dev orchestrator used by `npm run dev`; runs an initial ensure, starts `npm run dev:vite`, and polls Rust/domain source inputs (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, `shared/domain-constants.json`) to trigger incremental ensure checks during active development.
+- `scripts/tooling/vite-realpath.mjs` — thin launcher that re-spawns the Vite CLI with the working directory normalized to its filesystem realpath. `dev:vite`, `build`, and `build:web` all go through it. See "Junction/symlink checkouts" below for why.
 - `scripts/tooling/check-rust-wasm-toolchain.mjs` — verifies required Rust/WASM binaries and target installation for the current platform; with `--fix`, it auto-installs missing `wasm-bindgen-cli` and wasm target when possible.
 - `postinstall` runs `npm run ensure:wasm-toolchain` before Playwright browser installation.
 - `dev` now runs an initial `npm run wasm:ensure:rule-engine` pass and then keeps polling Rust/domain inputs so follow-up edits trigger fresh ensure checks while Vite stays running.
@@ -81,6 +82,23 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - Worker matcher evaluation runs through WASM when enabled.
   - Worker warm/build generation now routes generated branch-rule finalization (epic/legendary collapse, obsolete pruning, stable ordering) through WASM and fails closed if the WASM module is unavailable.
   - Cache reuse remains enabled in worker matcher paths; profile with representative fixtures (`npm run measure:rule-tester`) instead of cache-disable runtime flags.
+
+### Junction/Symlink Checkouts (`vite-realpath.mjs`)
+
+This checkout is commonly reached through a Windows junction — `<projects>` → `<projects>` — so every file has two equally valid spellings. Node keeps whichever spelling you launched from in `process.cwd()`, while `fs.realpathSync()` (and esbuild/Rollup, which resolve junctions the same way) report the `OneDrive` one.
+
+Vite mixes the two conventions internally, so launching from the junction side breaks it in two different ways:
+
+- **`vite build`** — `vite:build-html` emits the entry at a path relative to the literal cwd, producing `../../<junction target>/…/index.html`. That escapes the output root, and Rollup rejects it: *"The `fileName` or `name` properties of emitted chunks and assets must be strings that are neither absolute nor relative paths."*
+- **`vite` dev** — the dependency optimizer builds its `metafile.outputs` lookup key with `path.relative(process.cwd(), …)` while esbuild keyed the same entry off the realpath. The lookup misses, the output is `undefined`, and it throws `Cannot read properties of undefined (reading 'imports')`.
+
+**The fix is to normalize the cwd before Vite starts**, which is all `scripts/tooling/vite-realpath.mjs` does: `realpathSync(process.cwd())`, then spawn the Vite CLI with that cwd, forwarding argv and re-raising signals so Ctrl-C isn't misread as a build failure. It is a no-op when the cwd is already its own realpath, so it is safe on any machine and in CI. It resolves the CLI entry via `vite/package.json`'s `bin` field — Vite 8 does not expose `./bin/vite.js` through its `exports` map, so `require.resolve('vite/bin/vite.js')` fails.
+
+Notes:
+
+- **Do not try to fix this in `vite.config.ts`.** `resolve.preserveSymlinks: true` and a custom `cacheDir` were both tested; they only change which side of the mismatch you land on.
+- **`optimizeDeps.entries` must stay an exclusion list, never a positive one.** A positive `['index.html']` makes the entry list depend on how the root was spelled and reintroduces the crash even when the scan itself is fine. The negative globs are still required for a separate reason: `old_releases/*.html` are prebuilt self-contained releases whose minified Prism regexes make esbuild's scanner fail ("Failed to scan for dependencies"), which silently disables dep pre-bundling in dev.
+- **Only Vite-based scripts need the launcher.** `tsc`, ESLint, cargo, and `vite preview` are unaffected — preview serves prebuilt files with no dep optimizer.
 
 ### Validation Before Handoff
 

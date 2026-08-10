@@ -155,10 +155,17 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     }
   })(),
   optimizeDeps: {
-    // Keep dep-scan anchored to the real app entry.
-    // Why: this repo also contains archived/report HTML files that can break
-    // esbuild's scanner and disable pre-bundling during `vite` dev runs.
-    entries: ['index.html'],
+    // Exclusion globs, not a positive entry list.
+    // Why exclusions: a positive `['index.html']` makes the entry list depend on how the
+    // project root was spelled on the command line. Reaching this checkout through the
+    // `<projects>` junction then yields a relative entry that escapes the root
+    // (`../../OneDrive/.../index.html`), which the dep scanner and `vite:build-html` both
+    // reject. See scripts/tooling/vite-realpath.mjs for the other half of that fix.
+    // Why any globs at all: `old_releases/*.html` are prebuilt self-contained releases whose
+    // minified Prism regexes make esbuild's scanner fail ("Failed to scan for dependencies"),
+    // which silently disables dep pre-bundling in dev. Build output and Rust artifacts are
+    // excluded for the same scan-cost reason.
+    entries: ['**/*.html', '!**/old_releases/**', '!**/dist*/**', '!**/target/**', '!**/node_modules/**'],
   },
   build: {
     // Write to dist.app/ for the single-file app build, dist.web/ for web-server deployment.
