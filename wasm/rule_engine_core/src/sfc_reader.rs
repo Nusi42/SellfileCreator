@@ -459,18 +459,20 @@ fn default_any_rank_star() -> i64 { 6 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubstatTargetTableIn {
+    // Values are f64: the anomalous mode-damage substats carry fractional percent
+    // targets (1.25 per line at rank 5); classic stats keep integral values.
     #[serde(default)]
-    pub one:   BTreeMap<i64, i64>,
+    pub one:   BTreeMap<i64, f64>,
     #[serde(default)]
-    pub two:   BTreeMap<i64, i64>,
+    pub two:   BTreeMap<i64, f64>,
     #[serde(default)]
-    pub three: BTreeMap<i64, i64>,
+    pub three: BTreeMap<i64, f64>,
     #[serde(default)]
-    pub four:  BTreeMap<i64, i64>,
+    pub four:  BTreeMap<i64, f64>,
     #[serde(default)]
-    pub five:  BTreeMap<i64, i64>,
+    pub five:  BTreeMap<i64, f64>,
     #[serde(default)]
-    pub six:   BTreeMap<i64, i64>,
+    pub six:   BTreeMap<i64, f64>,
     // Star bucket to use for "Any"-rank recipes (1..6); mirrors anyRankDefaultsTo in
     // sfcIO.ts. Defaults to 6 (strictest) when absent, matching coerceFallback.
     #[serde(default = "default_any_rank_star", rename = "anyRankDefaultsTo")]
@@ -1001,7 +1003,8 @@ fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTa
         };
         if let Some(inner) = value.as_object() {
             for (stat_label, stat_val) in inner {
-                if let (Some(variant), Some(val)) = (stat_variant_from_label(stat_label), stat_val.as_i64()) {
+                // f64 coercion: anomalous targets are fractional (1.25); classic stay integral.
+                if let (Some(variant), Some(val)) = (stat_variant_from_label(stat_label), stat_val.as_f64()) {
                     bucket_map.insert(variant, val);
                 }
             }

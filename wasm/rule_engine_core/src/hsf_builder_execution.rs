@@ -84,10 +84,11 @@ pub struct PrepareHsfBuilderRecipeIn {
     pub substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
     pub substat_roll_targets_v: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
+    // f64 values: anomalous mode-damage targets are fractional (1.25 at rank 5).
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub substat_target_by_variant: BTreeMap<i64, i64>,
+    pub substat_target_by_variant: BTreeMap<i64, f64>,
     #[serde(default, deserialize_with = "crate::deserialize_i64_key_map")]
-    pub factory_base_by_variant_for_star: BTreeMap<i64, i64>,
+    pub factory_base_by_variant_for_star: BTreeMap<i64, f64>,
     #[serde(default)]
     pub variant_priority: Vec<i64>,
 }
@@ -247,13 +248,17 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     let mut target_base_override_by_variant = BTreeMap::<i64, Option<i32>>::new();
     let mut target_entries_by_variant = BTreeMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
     for variant in &selected_pool_v {
+        // Fractional targets (anomalous 1.25 grid) FLOOR at this i32 boundary: the
+        // branch runtime quantizes base values, and on a k*1.25 value grid floored
+        // thresholds are matching-equivalent to the exact decimals. Emitted preview
+        // values show the floored number until the runtime learns f64 emission.
         let current_base = input
             .substat_target_by_variant
             .get(variant)
             .copied()
-            .unwrap_or(0)
-            .max(0)
-            .min(i32::MAX as i64) as i32;
+            .unwrap_or(0.0)
+            .max(0.0)
+            .min(i32::MAX as f64) as i32;
         current_base_by_variant.insert(*variant, current_base);
         factory_base_by_variant.insert(
             *variant,
@@ -261,7 +266,7 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
                 .factory_base_by_variant_for_star
                 .get(variant)
                 .copied()
-                .map(|value| value.max(0).min(i32::MAX as i64) as i32),
+                .map(|value| value.max(0.0).min(i32::MAX as f64) as i32),
         );
         let maybe_target = input.substat_roll_targets_v.get(variant).cloned();
         let Some(target_entry) = maybe_target else {

@@ -7,8 +7,8 @@ import {
   anomalousSubstatLabel,
   anomalousVariantFromLabel,
   isAnomalousEligibleSlotId,
+  isAnomalousStatId,
   isAnomalousSubstatVariant as localIsAnomalousSubstatVariant,
-  isProvisionalAnomalousStatId,
 } from './anomalousAccessories'
 import {
   ARTIFACT_TYPE_AMULET,
@@ -750,9 +750,9 @@ export function subToVariant(id?: number, isFlat?: boolean | number | string): S
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   if (id === StatId.RollCount) return StatVariant.RollCount
-  // PROVISIONAL(anomalous): placeholder anomalous substat ids ride the standard
-  // percent-shaped encoding so app-internal state can carry them (never HSF).
-  if (isProvisionalAnomalousStatId(id)) return (((id & 0xFF) << 8) | 0) as StatVariant
+  // PROVISIONAL(anomalous): anomalous substat ids ride the standard percent-shaped
+  // encoding so app state and DB ingest can carry them (never exported HSF).
+  if (isAnomalousStatId(id)) return (((id & 0xFF) << 8) | 0) as StatVariant
   return StatVariant.Any
 }
 

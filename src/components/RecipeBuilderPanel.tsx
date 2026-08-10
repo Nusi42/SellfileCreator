@@ -69,11 +69,10 @@ import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normaliz
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
-// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+// PROVISIONAL(anomalous): accessory-only substat rows.
 import {
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
-  isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
@@ -440,6 +439,10 @@ const applySingleSubstatTargets = React.useCallback((variant: number, builder: (
 }, [recipe, normalizeKeepWithAuto, onChange])
 const [substatMenu, setSubstatMenu] = React.useState<{ variant: StatVariant; anchor: { x: number; y: number } } | null>(null)
 const [substatMenuDraft, setSubstatMenuDraft] = React.useState<SubstatMenuDraftState | null>(null)
+// Focused target-input raw text ("base" or "roll:<idx>") so intermediate decimal
+// input ("1.", "1.2") survives the controlled re-render; blur drops back to numbers.
+// Needed since target values accept 2-decimal precision (anomalous 1.25% bases).
+const [substatMenuTargetText, setSubstatMenuTargetText] = React.useState<{ key: string; text: string } | null>(null)
 const [substatMenuChipWidths, setSubstatMenuChipWidths] = React.useState<{ min: number; max: number }>({ min: 0, max: 0 })
 const resetSubstatMenuChipWidths = React.useCallback(() => {
   setSubstatMenuChipWidths((prev) => {
@@ -860,6 +863,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const handleSubstatMenuClose = React.useCallback(() => {
     setSubstatMenu(null)
     setSubstatMenuDraft(null)
+    // Drop any in-progress target text so the next open starts from stored values.
+    setSubstatMenuTargetText(null)
     resetSubstatMenuChipWidths()
   }, [resetSubstatMenuChipWidths])
   const activeMenuInfo = React.useMemo(
@@ -3228,6 +3233,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
           anchor: anchorPosition,
         })
         setSubstatMenuDraft(null)
+        setSubstatMenuTargetText(null)
         resetSubstatMenuChipWidths()
       }
       if (!info) {
@@ -3711,15 +3717,23 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     }
     const handleTargetBaseChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       if (!activeMenuInfo) return
+      // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
+      setSubstatMenuTargetText({ key: 'base', text: event.target.value })
       const nextValue = clampTargetValue(parseNumericInput(event.target.value))
       applyTargetSelection(nextValue, targetDraftRolls)
     }
     const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       if (!activeMenuInfo) return
+      // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
+      setSubstatMenuTargetText({ key: `roll:${index}`, text: event.target.value })
       const nextValue = clampTargetValue(parseNumericInput(event.target.value))
       const nextRolls = cloneTargetRolls(targetDraftRolls)
       nextRolls[index] = nextValue
       applyTargetSelection(targetDraftBase, nextRolls)
+    }
+    // Blur handler shared by the base + roll inputs: drop the text draft for that key.
+    const releaseTargetText = (key: string) => () => {
+      setSubstatMenuTargetText((current) => (current?.key === key ? null : current))
     }
     const handleTargetReset = () => {
       if (!activeMenuInfo) return
@@ -4035,30 +4049,27 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         >
           {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
         </ToggleButtonGroup>
-        {/* PROVISIONAL(anomalous): accessory-only mode-scoped damage substats (Update
-            11.70). Rows appear only while the slot scope can reach a jewelry slot. */}
-        {allowedSubstatOptions.some((variant) => isAnomalousSubstatVariant(variant)) ? (
-          <>
-            {/* Row 3: PvE/PvP/Boss/DNG DMG + (damage dealt) */}
-            <ToggleButtonGroup
-              size="small"
-              value={value}
-              onChange={() => {}}
-              sx={substatToggleGroupSx}
-            >
-              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatToggle(variant))}
-            </ToggleButtonGroup>
-            {/* Row 4: PvE/PvP/Boss/DNG DMG − (damage taken) */}
-            <ToggleButtonGroup
-              size="small"
-              value={value}
-              onChange={() => {}}
-              sx={substatToggleGroupSx}
-            >
-              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatToggle(variant))}
-            </ToggleButtonGroup>
-          </>
-        ) : null}
+        {/* PROVISIONAL(anomalous): accessory-only mode-scoped damage substats. Rows render
+            unconditionally like every other stat row; the per-chip disabled state (via
+            allowedSubstatOptions) greys them out when the slot scope has no jewelry slot. */}
+        {/* Row 3: PvE/PvP/Boss/DNG ⚔ (damage dealt) */}
+        <ToggleButtonGroup
+          size="small"
+          value={value}
+          onChange={() => {}}
+          sx={substatToggleGroupSx}
+        >
+          {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatToggle(variant))}
+        </ToggleButtonGroup>
+        {/* Row 4: PvE/PvP/Boss/DNG 🛡 (damage taken) */}
+        <ToggleButtonGroup
+          size="small"
+          value={value}
+          onChange={() => {}}
+          sx={substatToggleGroupSx}
+        >
+          {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatToggle(variant))}
+        </ToggleButtonGroup>
       </>
     )
     return (
@@ -4258,8 +4269,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     <TextField
                       size="small"
                       type="number"
-                      value={targetDraftBase ?? ''}
+                      value={(substatMenuTargetText?.key === 'base' ? substatMenuTargetText.text : null) ?? targetDraftBase ?? ''}
                       onChange={handleTargetBaseChange}
+                      onBlur={releaseTargetText('base')}
                       onClick={(event) => { event.stopPropagation() }}
                       disabled={targetInputsDisabled}
                       sx={(theme) => ({
@@ -4273,8 +4285,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       })}
                       slotProps={{
                         htmlInput: {
-                          inputMode: 'numeric',
-                          pattern: '[0-9]*',
+                          inputMode: 'decimal',
+                          step: 'any',
                           min: 0,
                           // Focus-cycling hook: keep Tab within the Roll Targets inputs.
                           [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
@@ -4346,8 +4358,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         <TextField
                           size="small"
                           type="number"
-                          value={rollValue ?? ''}
+                          value={(substatMenuTargetText?.key === `roll:${rollIndex - 1}` ? substatMenuTargetText.text : null) ?? rollValue ?? ''}
                           onChange={handleTargetRollChange(rollIndex - 1)}
+                          onBlur={releaseTargetText(`roll:${rollIndex - 1}`)}
                           onClick={(event) => { event.stopPropagation() }}
                           disabled={disabled}
                           sx={(themeInner) => ({
@@ -4361,8 +4374,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           })}
                           slotProps={{
                             htmlInput: {
-                              inputMode: 'numeric',
-                              pattern: '[0-9]*',
+                              inputMode: 'decimal',
+                              step: 'any',
                               min: 0,
                               // Focus-cycling hook: keep Tab within the Roll Targets inputs.
                               [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',

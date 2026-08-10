@@ -145,14 +145,20 @@ pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 
 
 // Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) placeholders.
 // (variant, placeholder stat id) pairs; ids are NOT real game/HSF ids.
-pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[(51200, 200), (51456, 201), (51712, 202), (51968, 203), (52224, 204), (52480, 205), (52736, 206), (52992, 207)];
+pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[(2816, 11), (3072, 12), (3328, 13), (3584, 14), (3840, 15), (4096, 16), (4352, 17), (4608, 18)];
 // (variant, canonical display label) pairs for SFC label parsing.
-pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(51200, "PvE DMG +"), (51456, "PvP DMG +"), (51712, "Boss DMG +"), (51968, "DNG DMG +"), (52224, "PvE DMG -"), (52480, "PvP DMG -"), (52736, "Boss DMG -"), (52992, "DNG DMG -")];
+pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(2816, "PvE DMG +"), (3072, "PvP DMG +"), (3328, "Boss DMG +"), (3584, "DNG DMG +"), (3840, "PvE DMG -"), (4096, "PvP DMG -"), (4352, "Boss DMG -"), (4608, "DNG DMG -")];
 // True when a variant encodes one of the anomalous placeholder substats.
 pub fn is_anomalous_substat_variant(variant: i64) -> bool {
     // Linear scan — the table has eight entries.
     ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)
 }
+// Anomalous variants in announcement order (mirrors the TS list).
+pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[2816, 3072, 3328, 3584, 3840, 4096, 4352, 4608];
+// Accessory slots that can carry anomalous substats (Banner observed in the DB).
+pub const ANOMALOUS_ELIGIBLE_SLOT_IDS: &[i64] = &[7, 8, 9];
+// Observed rank-5 per-line base percent (zero rolls); judged per-roll step.
+pub const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE: f64 = 1.25;
 
 // Faction IDs — one constant per faction.
 pub const FACTION_ID_BANNER_LORDS: i64 = 1;

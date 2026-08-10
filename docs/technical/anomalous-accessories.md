@@ -1,12 +1,26 @@
-# Anomalous Accessories (Update 11.70) — Provisional Preparation
+# Anomalous Accessories — Provisional Preparation
 
-**Status: PROVISIONAL(anomalous).** The game update that introduces Anomalous
-Accessories (Champion Proving Grounds) is announced but we have neither RSL
-Helper data nor sample sellfiles for it. Everything in this layer is a judged
-placeholder designed to be replaced wholesale once real data exists. Every
+**Status: PROVISIONAL(anomalous), now grounded in real DB data.** RSL Helper
+dumps Anomalous Accessories into its gear database, and the substat ids have
+been reverse-engineered from `examples/um109288203_RSLHelper.db` (artifacts
+264537–264539, verified against in-game screenshots). What is still missing is
+a **sample sellfile** demonstrating how RSL Helper *rules* encode these stats —
+so exports keep scrubbing them — plus the roll model beyond rank 5. Every
 judged value in code, spec, and docs carries the greppable marker
-`PROVISIONAL(anomalous)` — search for that token to find every site that must be
-revisited.
+`PROVISIONAL(anomalous)` — search for that token to find every site that must
+be revisited.
+
+## Observed DB facts (the id/value model)
+
+| Fact | Basis |
+| --- | --- |
+| Stat ids: `11` PvE DMG, `12` PvP DMG, `13` Boss DMG — damage **dealt** ("+") with positive values | Observed (artifacts 264537–264539) |
+| Stat id `16` = PvP DMG **taken** ("−"), stored as a **negative** percent (−1.25% renders "PvP DMG-") | Observed |
+| Dealt family `11..14`, taken family `15..18`, mode order PvE/PvP/Boss/DNG (so `14` DNG+, `15` PvE−, `17` Boss−, `18` DNG−) | **Inferred** from contiguity + the observed `16` |
+| All lines `fl = 0` (percent), values scale by 2³² with ×100 display conversion (±53687091 → 1.25%) | Observed |
+| Rank-5 base per line = **1.25%** at zero rolls; one roll believed to add another 1.25 | Observed base; per-roll step judged |
+| A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
+| Rank-6 values, glyphability, mixing rules, roll milestones | Unknown |
 
 ## What the announcement establishes (known facts)
 
@@ -41,75 +55,69 @@ revisited.
 | Generated TS constants (`ANOMALOUS_*`) + Rust label/tuple tables | `scripts/tooling/generate-domain-constants.mjs` → `src/lib/generated/domainConstants.ts`, `wasm/rule_engine_core/src/generated_domain_constants.rs` |
 | Typed domain helpers (incl. the `+`/`−` UI row split) | `src/lib/anomalousAccessories.ts` |
 | Variant/label/i18n-key resolution | `src/lib/types.ts` (`subToVariant`, `labelOfVariant`, `variantFromLabel`, `statVariantI18nKey`), i18n keys `statPveDmgPlus` … `statDungeonDmgMinus` in every `src/lib/i18n/catalogs/*.ts` |
-| Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a jewelry slot |
-| Builder UIs | `RecipeBuilderPanel.tsx` + `SafeguardBuilderPanel.tsx` render two extra accessory-gated rows (`+` damage dealt, `−` damage taken) |
-| Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (empty defaults — no known roll values), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
+| Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a jewelry slot; mirrored in Rust `recipe_builder.rs::resolve_allowed_substats_for_slots_and_mains` (the native-DLL rule-build path) |
+| Builder UIs | `RecipeBuilderPanel.tsx` + `SafeguardBuilderPanel.tsx` always render two extra rows (`⚔` damage dealt, `🛡` damage taken) — like every other stat row, individual chips grey out via the shared `allowedSubstatOptions` disabled state when the slot scope has no jewelry slot; safeguard multi-edit selection scan includes them |
+| Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
+| Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
+| Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous values keep 2-decimal precision; the session's random auto-fill pool stays classic on purpose |
+| Decimal targets | Substat Targets tab + recipe flyout accept 2-decimal values **for anomalous variants only** (classic stats stay integral — the engine's branch runtime quantizes to integers, and classic decimals would diverge). Engine-side, minima travel as f64 and FLOOR at the i32 boundary — matching-equivalent on the 1.25 grid, but emitted preview values display the floored number |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
-| Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the placeholder id tuple (never "Any"), so internal/preview rules with a required anomalous substat match nothing — the truth, since no current gear carries these ids |
-| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops unsatisfiable rules / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point) |
-| Guard tests | `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-export-scrub.test.ts` |
+| Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
+| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing — disclosed via console warning; unavoidable until a sample sellfile shows the rule encoding |
+| Guard tests | `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-export-scrub.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
 
-SFC documents persist substats as **label strings**, so the placeholder numeric
-scheme never leaks into saved files — a later id swap only touches the shared
-spec and the label tables, not the SFC format.
+SFC documents persist substats as **label strings**, so the numeric id scheme
+never leaks into saved files — the placeholder→real id swap needed no SFC
+migration, and future churn wouldn't either.
 
-**Deliberately NOT wired** (revisit when real data lands): the shared
+**Deliberately NOT wired** (revisit as data firms up): the shared
 `allowedSubsBySlot` / `STAT_VARIANTS_PRIORITY` tables (they feed the Rust
-engine's substat-gap anticipation — enumerating 8 impossible-in-data variants
-would inflate placeholder combinatorics), roll ranges / glyph data (values
-unknown — the Substat Targets tab shows the rows with empty defaults for
-user-entered guesses, but there are no factory values and no roll-range math),
-safeguard score normalization (unknown variants normalize to 0
-and stay inert by design), and the note-overrides DSL stat-key grammar (a
-user-facing documented format — no provisional tokens in it yet). The gear
-inspector's custom-gear editor DOES offer them on jewelry slots
-(`slotSupportsSub` in `types.ts` is anomalous-aware), so hand-crafted preview
-accessories can carry the substats and match rules that require them; the
-session's random substat auto-fill pool stays classic on purpose.
+engine's substat-gap anticipation — anticipation must not invent anomalous
+lines while the roll/addition model is unknown; a selected anomalous substat is
+conservatively treated as never-appearing-later), roll ranges beyond the rank-5
+base / glyph data, safeguard score normalization (anomalous values normalize to
+0 and stay inert in ranking until the roll model is confirmed), set-eligibility
+as a combination constraint (all observed pieces carry one of the 9 sets, but
+setless anomalous accessories are unconfirmed — no false "impossible"
+verdicts), and the note-overrides DSL stat-key grammar.
 
-## Judged placeholders (the PROVISIONAL(anomalous) ledger)
+## Judged values (the PROVISIONAL(anomalous) ledger)
 
 | Judged value | Current choice | Why / replacement source |
 | --- | --- | --- |
-| Substat numeric ids | `200`–`207` (`ANOMALOUS_PROVISIONAL_ID_FLOOR` = 200) | Real game/RSL-Helper stat ids are unknown. The range clears every real stat id (≤ 99) while staying byte-sized, so the standard `statVariant` encoding (`(id&255)<<8 \| flat`) carries them through existing encode/decode paths. The generator fail-fasts on violations. Replace with real ids from an RSL Helper dump / sample sellfile. |
-| Variant shape | Percent-shaped (`flat` suffix 0) | The boons read as percentages; the wire shape is unknown. |
-| Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens that can survive the id swap (and the SFC label anchor). |
+| Inferred stat ids `14`, `15`, `17`, `18` | DNG+, PvE−, Boss−, DNG− by mode-order contiguity | Only `11/12/13/16` are directly observed. Confirm from a DB dump containing the other four kinds; the generator + `tests/unit/anomalous-accessories.test.ts` pin the table. |
+| Per-roll step | Equal to the rank-5 base (1.25) | Base observed at zero rolls; the roll increment is the user's judgment. Rank 6 (and 1–4) values entirely unknown. |
+| Variant shape | Percent-shaped (`flat` suffix 0) | Matches the DB `fl = 0` lines. |
+| Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens (and the SFC label anchor). |
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
-| Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `+` brighter than `−` | Pure judgment; user-editable in Manage Colors. |
-| Slot eligibility | Ring, Amulet, **Banner** | The announcement only says "Accessories"/"Jewelry"; Banner inclusion is a judgment call. Confirm in-game. |
+| Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `⚔` brighter than `🛡` | Pure judgment; user-editable in Manage Colors. |
 
-**Hard rule until replacement:** placeholder ids must never reach exported
-`.hsf` bytes. App-internal state and SFC documents may carry them (SFC stores
-labels anyway); the export scrub in `hsfIO.ts` plus
-`isProvisionalAnomalousStatId()` enforce the boundary.
+**Hard rule until a sample sellfile exists:** anomalous ids must never reach
+exported `.hsf` bytes. App state, SFC documents, and DB ingest carry them; the
+export scrub in `hsfIO.ts` plus `isAnomalousStatId()` enforce the boundary.
 
-## Open unknowns (blockers for real wiring)
+## Open unknowns
 
-- Real stat ids, and whether the game models these as new stat ids, a new
-  variant dimension, or something else entirely (affects the `statVariant`
-  encoding decision).
-- HSF/SFC representation — per the project safety rule, serialization is only
-  extended against sample `.hsf` files under `docs/orig/`, never guessed.
-- How RSL Helper will expose the substats (SQLite dump columns, WebSocket
-  payloads) and whether "anomalous" is a piece-level flag or inferred from the
-  substat lines.
-- Value ranges, roll behavior at level milestones, glyphability, and
-  rarity/rank distribution of the new substats.
-- Whether classic and anomalous substat lines mix on one piece, and whether the
-  four-substat-slot model (`SUBSTAT_SLOT_COUNT`) still holds.
+- How RSL Helper **rules** encode these stats in `.hsf` sellfiles — the sole
+  blocker for exporting them; per the project safety rule, serialization is
+  only extended against sample files under `docs/orig/`, never guessed.
+- The remaining four stat ids (`14/15/17/18`) — inferred, not observed.
+- Rank-6 (and 1–4) values, per-roll increments, roll milestones, glyphability,
+  and rarity distribution.
+- Whether "anomalous" is a piece-level flag anywhere in the DB or purely
+  inferred from the substat lines; whether setless anomalous accessories exist.
+- WebSocket `gearDbRaw*` payload parity for these rows (same normalizer runs,
+  so expected to Just Work — unverified against a live push).
 
-## Replacement checklist (when real data arrives)
+## Replacement checklist (as the rest firms up)
 
 1. Grep `PROVISIONAL(anomalous)` — every hit is a site to revisit.
-2. Replace the placeholder ids in `shared/domain-constants.json` with the real
-   ones; keep the internal keys (SFC files anchor on labels, so no SFC
-   migration is needed for the id swap itself). Rework or retire the
-   floor/range guards in the generator and
-   `tests/unit/anomalous-accessories.test.ts` to match the real id domain.
-3. Confirm the wire shape (flat suffix, value semantics, roll behavior), then
-   extend the shared spec (`statVariantLabels`, `allowedSubsBySlot` or an
-   anomalous-specific table, roll ranges, glyph data) and the Rust engine's
-   matching/scoring tables; regenerate WASM.
+2. Confirm ids `14/15/17/18` and non-rank-5 values from richer DB dumps; update
+   `shared/domain-constants.json` (the id table + `star5RollValue` siblings)
+   and the pinned tests.
+3. Once the roll model is known, extend the shared roll-range tables + Rust
+   scoring normalization so safeguard ranking values anomalous lines, and
+   teach the branch runtime f64 emission so preview values stop flooring.
 4. Extend HSF serialization only against sample files in `docs/orig/`, then
    retire the export scrub in `hsfIO.ts` (and its test) once RSL Helper
    understands the real ids. Update the SFC label tables/read-side aliases if

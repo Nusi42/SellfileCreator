@@ -1,19 +1,19 @@
 /**
  * anomalousAccessories.ts
  *
- * PROVISIONAL(anomalous) — preparation layer for the Update 11.70 "Anomalous
- * Accessories" (Champion Proving Grounds jewelry whose substats can be
- * mode-scoped damage boons instead of classic flat stats).
+ * PROVISIONAL(anomalous) — domain layer for the "Anomalous Accessories"
+ * (Champion Proving Grounds jewelry whose substats can be mode-scoped damage
+ * boons instead of classic flat stats).
  *
  * Single source of truth for everything the app knows about the feature today.
  * The data itself is generated from shared/domain-constants.json; this module
- * only adds the typed helpers around it. The numeric substat ids are byte-sized
- * placeholders (reserved [floor, floor+7]) so the standard StatVariant encoding
- * ((id<<8)|flat) carries them through UI state and SFC documents unchanged —
- * but they are NOT the real game/RSL-Helper ids, and they must NEVER be emitted
- * into HSF sellfile payloads (RSL Helper cannot parse them). The known/unknown
- * ledger and replacement checklist live in
- * docs/technical/anomalous-accessories.md.
+ * only adds the typed helpers around it. The substat ids are the REAL RSL
+ * Helper DB ids (11..14 damage dealt, 15..18 damage taken — 14/15/17/18 still
+ * inferred, see the spec comment), riding the standard StatVariant encoding
+ * ((id<<8)|flat, percent-shaped) through UI state, SFC documents, and DB
+ * ingest. They must still NOT be emitted into HSF sellfile payloads: no sample
+ * sellfile demonstrates how RSL Helper rules encode them, and we never guess
+ * at schema. Ledger: docs/technical/anomalous-accessories.md.
  *
  * Like artifactSets.ts, this module stays free of runtime imports beyond the
  * pure generated-constants module so it can never join an init cycle.
@@ -22,9 +22,9 @@
 import {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
-  ANOMALOUS_PROVISIONAL_ID_FLOOR,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
+  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
 } from './generated/domainConstants'
 
@@ -32,9 +32,9 @@ import {
 export {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
-  ANOMALOUS_PROVISIONAL_ID_FLOOR,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
+  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
 }
 
@@ -66,17 +66,16 @@ export const ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS: readonly AnomalousSubstatVari
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus,
 ]
 
-// Exact placeholder range bounds — the ceiling is derived, never hand-kept.
-const anomalousIdMax = Math.max(...ANOMALOUS_SUBSTAT_IDS)
-
 // Membership checks use Sets so callers get O(1) lookups without re-deriving.
+const anomalousIdSet = new Set<number>(ANOMALOUS_SUBSTAT_IDS)
 const anomalousVariantSet = new Set<number>(ANOMALOUS_SUBSTAT_VARIANTS)
 const eligibleSetIdSet = new Set<number>(ANOMALOUS_ELIGIBLE_SET_IDS)
 const eligibleSlotIdSet = new Set<number>(ANOMALOUS_ELIGIBLE_SLOT_IDS)
 
-// True when a raw stat id is one of our placeholders (exact range, not open-ended).
-export const isProvisionalAnomalousStatId = (id: number): boolean =>
-  Number.isInteger(id) && id >= ANOMALOUS_PROVISIONAL_ID_FLOOR && id <= anomalousIdMax
+// True when a raw stat id is one of the anomalous DB ids (exact membership).
+// Gates the HSF export scrub: these ids never reach exported sellfile bytes
+// until a sample sellfile confirms the rule encoding.
+export const isAnomalousStatId = (id: number): boolean => anomalousIdSet.has(id)
 
 // True when a StatVariant value encodes one of the anomalous placeholder substats.
 export const isAnomalousSubstatVariant = (variant: number): boolean =>

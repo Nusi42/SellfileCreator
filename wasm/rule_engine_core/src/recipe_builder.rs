@@ -153,7 +153,14 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
         }
     }
     // Return in STAT_VARIANTS_PRIORITY order (matches the TS output order).
-    STAT_VARIANTS_PRIORITY.iter().copied().filter(|v| allowed.contains(v)).collect()
+    let mut resolved: Vec<i64> = STAT_VARIANTS_PRIORITY.iter().copied().filter(|v| allowed.contains(v)).collect();
+    // PROVISIONAL(anomalous): anomalous substats are feasible on jewelry slots only —
+    // mirrors the TS resolver's append (statCompatibility.ts); they cannot be mains,
+    // so no main-stat clash filtering applies, and they stay out of the classic tables.
+    if slot_pool.iter().any(|s| ANOMALOUS_ELIGIBLE_SLOT_IDS.contains(s)) {
+        resolved.extend(ANOMALOUS_SUBSTAT_VARIANTS.iter().copied());
+    }
+    resolved
 }
 
 // ---------------------------------------------------------------------------
@@ -184,19 +191,28 @@ pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
 
 /// Return the factory-default substat minimum map for the given star (1..6).
 /// Derived from SUBSTAT_ROLL_RANGES_BY_STAR — the min per-roll value is the factory default.
-pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, i64> {
+/// Values are f64: the anomalous substats carry a fractional rank-5 base (1.25).
+pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, f64> {
     // SUBSTAT_ROLL_RANGES_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
     for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
             // Each triple is (variant, min, max); extract (variant, min) pairs.
-            return triples.iter().map(|&(variant, min, _max)| (variant, min)).collect();
+            let mut minima: BTreeMap<i64, f64> = triples.iter().map(|&(variant, min, _max)| (variant, min as f64)).collect();
+            // PROVISIONAL(anomalous): rank 5 is the only tier with an observed base
+            // for the mode-damage substats — mirror the TS defaultSubstatTargets seed.
+            if s == 5 {
+                for &variant in ANOMALOUS_SUBSTAT_VARIANTS {
+                    minima.insert(variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE);
+                }
+            }
+            return minima;
         }
     }
     BTreeMap::new()
 }
 
 /// Lookup the user-provided substat target map for a given star bucket.
-fn minima_for_star(table: &SubstatTargetTableIn, star: i64) -> BTreeMap<i64, i64> {
+fn minima_for_star(table: &SubstatTargetTableIn, star: i64) -> BTreeMap<i64, f64> {
     match star {
         6 => table.six.clone(),
         5 => table.five.clone(),
@@ -393,7 +409,7 @@ pub fn build_hsf_rules_for_recipe(
     let factory_base_for_star = factory_minima_for_star(star);
 
     // 4. Substat target map: user-provided minima if available, else factory defaults.
-    let substat_target_by_variant: BTreeMap<i64, i64> = match minima {
+    let substat_target_by_variant: BTreeMap<i64, f64> = match minima {
         Some(table) => minima_for_star(table, star),
         None        => factory_base_for_star.clone(),
     };

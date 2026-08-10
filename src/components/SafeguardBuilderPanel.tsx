@@ -146,9 +146,9 @@ import { separatorDisabledSectionSx } from './builderPanel/constants'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
 // PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
 import {
+  ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
-  isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
@@ -1544,9 +1544,10 @@ export default function SafeguardBuilderPanel({
   }
   // Group value lists only 'all' variants — MUI uses it to compute each button's
   // selected state; 'partial' variants stay unselected and get data-mixed CSS instead.
+  // PROVISIONAL(anomalous): the anomalous rows join the scan so their chips highlight too.
   const substatGroupProps = multiEditActive
     ? {
-        value: [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2]
+        value: [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2, ...ANOMALOUS_SUBSTAT_VARIANTS]
           .filter(v => getSubstatPresence(v) === 'all').map(String),
       }
     : { value: substatValueStrings, onChange: handleSubstatChange }
@@ -2845,14 +2846,13 @@ export default function SafeguardBuilderPanel({
               <>
                 {/* One shared chip renderer per row: Row 1 SPD/CR%/CDMG%/ACC/RES, Row 2 the
                     HP/ATK/DEF flats+percents, then — PROVISIONAL(anomalous) — the accessory-only
-                    "+"/"−" mode-damage rows (Update 11.70), shown only while the slot scope can
-                    reach a jewelry slot. */}
+                    ⚔/🛡 mode-damage rows. All rows render unconditionally like every other stat;
+                    the per-chip disabled state greys anomalous chips out on non-jewelry scopes. */}
                 {[
                   STAT_VARIANTS_PRIORITY_ROW1,
                   STAT_VARIANTS_PRIORITY_ROW2,
-                  ...(allowedSubstatOptions.some((variant) => isAnomalousSubstatVariant(variant))
-                    ? [ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS, ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS]
-                    : []),
+                  ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+                  ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
                 ].map((rowVariants) => (
                   // Each row's first variant is unique and stable — use it as the row key.
                   <ToggleButtonGroup key={String(rowVariants[0])} size="small" {...substatGroupProps} sx={substatGroupSx}>

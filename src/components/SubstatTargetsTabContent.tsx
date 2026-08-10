@@ -6,7 +6,7 @@
  * the Tools (Logic Hub) dialog.
  */
 import { scopeColorsText } from '../lib/colorScope'
-import React, { useMemo, useRef } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Box, Chip, TextField, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
@@ -58,6 +58,8 @@ export function SubstatTargetsTabContent({
   const adaptStatFg = useSubstatFgAdapter()
 
   const substatTargetGridRef = useRef<HTMLDivElement | null>(null)
+  // Focused-cell raw text (see renderSubstatTargetInput) — one active editor at a time.
+  const [substatTargetDraft, setSubstatTargetDraft] = useState<{ key: string; text: string } | null>(null)
   // The stored fallback is which star column's values apply when a recipe uses "Any Rank".
   const storedFallback = substatTargets.anyRankDefaultsTo
   // Reuse the builder status chip style for the selected star-header chip.
@@ -141,26 +143,38 @@ export function SubstatTargetsTabContent({
     // Show the override badge when a recipe override has shifted this cell's value.
     const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
-    // Clamp to non-negative integers; NaN inputs reset to zero.
+    // Clamp to non-negative values with 2-decimal precision (the anomalous
+    // mode-damage substats carry fractional bases like 1.25); NaN resets to zero.
     const clampValue = (raw: number): number => {
       if (!Number.isFinite(raw)) return 0
-      return Math.max(0, Math.round(raw))
+      return Math.max(0, Math.round(raw * 100) / 100)
     }
     const commitValue = (next: number) => updateSubstatTargetValue(starKey, variantKey, next)
+    // While a cell has focus its raw text lives in draft state, so intermediate
+    // decimal input ("1.", "1.2") survives the controlled re-render instead of
+    // being normalized away mid-keystroke. Blur drops the draft back to the value.
+    const cellKey = `${starKey}:${variantKey}`
+    const draftText = substatTargetDraft?.key === cellKey ? substatTargetDraft.text : null
     return (
       <TextField
         key={`${starKey}-${variantKey}`}
         size="small"
         type="number"
-        value={currentValue}
+        value={draftText ?? currentValue}
         onChange={(event) => {
-          const raw = Number(event.target.value)
-          commitValue(clampValue(raw))
+          const text = event.target.value
+          setSubstatTargetDraft({ key: cellKey, text })
+          const raw = Number(text)
+          // Commit every parseable draft immediately; empty text just waits.
+          if (text.trim() !== '' && Number.isFinite(raw)) commitValue(clampValue(raw))
+        }}
+        onBlur={() => {
+          setSubstatTargetDraft((current) => (current?.key === cellKey ? null : current))
         }}
         slotProps={{
           htmlInput: {
-            inputMode: 'numeric',
-            pattern: '[0-9]*',
+            inputMode: 'decimal',
+            step: 'any',
             min: 0,
             [SUBSTAT_TARGET_INPUT_ATTR]: 'true',
             [SUBSTAT_TARGET_INPUT_STAR_ATTR]: starKey,

@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-// PROVISIONAL(anomalous): the sellfile export boundary must never emit placeholder
-// anomalous-substat ids to RSL Helper. The scrub inside buildHsfFileFromMerged is
-// semantics-preserving today (no gear can carry these substats): a rule REQUIRING
-// one can never fire → the whole rule is dropped; a negated ("¬") line is vacuously
-// true → only the line is dropped, re-padded with a neutral Any entry.
+// PROVISIONAL(anomalous): the sellfile export boundary must never emit anomalous
+// substat ids — no sample .hsf demonstrates how RSL Helper rules encode them, and
+// we never guess at schema. Inside buildHsfFileFromMerged: a rule REQUIRING one
+// cannot be expressed → the whole rule is dropped (disclosed via console warning);
+// a negated ("¬") line only drops that line, re-padded with a neutral Any entry.
 import { buildHsfFileFromMerged } from '../../src/lib/hsfIO.js'
 import { ANOMALOUS_SUBSTAT_IDS } from '../../src/lib/anomalousAccessories.js'
 import { STAT_ID_ANY, STAT_ID_SPD } from '../../src/lib/generated/domainConstants.js'

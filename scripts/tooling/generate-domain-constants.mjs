@@ -531,30 +531,32 @@ const artifactSetEntries = Object.entries(artifactSetSpec)
   .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
   .sort((a, b) => a.id - b.id)
 
-// ── Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) ─────────
-// Placeholder domain data for the new mode-scoped damage substats. TS-only
-// emission on purpose: nothing may reach the Rust rule engine tables or HSF
-// sellfile payloads until the real game/RSL-Helper ids replace these
-// placeholders (app-internal state and SFC documents may carry them).
+// ── Anomalous Accessories — PROVISIONAL(anomalous) ────────────────────────
+// Mode-scoped damage substats with the REAL RSL Helper DB stat ids (see the
+// spec comment for the observation basis). Minimal Rust emission (labels +
+// variant->id tuples); nothing may reach HSF sellfile payloads until a sample
+// sellfile demonstrates the rule encoding (app state/SFC/DB ingest carry them).
 const anomalousSpec = spec.anomalousAccessories
-const anomalousFloor = Number(anomalousSpec.provisionalIdFloor)
-// The floor must clear every real stat id so placeholders can never collide,
-// yet stay byte-sized so the standard variant encoding (id<<8|flat) still works.
-const maxRealStatId = Math.max(...Object.values(statId).map(Number))
-const statIdByteMask = Number(encoding.statVariantIdMask)
-if (!(anomalousFloor > maxRealStatId && anomalousFloor <= statIdByteMask)) {
-  throw new Error('anomalousAccessories.provisionalIdFloor must exceed every real statId while fitting the variant id byte.')
+// Observed rank-5 per-line base value (percent); judged to equal the per-roll step.
+const anomalousStar5RollValue = Number(anomalousSpec.star5RollValue)
+if (!(Number.isFinite(anomalousStar5RollValue) && anomalousStar5RollValue > 0)) {
+  throw new Error('anomalousAccessories.star5RollValue must be a positive number.')
 }
 // Substat entries keep spec order (announcement order) for stable emission.
-// Variants are derived percent-shaped (flat 0 — judged) via the shared mkVariant.
+// Variants are derived percent-shaped (flat 0 — matches the DB fl=0 encoding).
 const anomalousSubstatEntries = Object.entries(anomalousSpec.substats)
   .map(([key, val]) => ({ key, id: Number(val.id), label: String(val.label), variant: mkVariant(Number(val.id), 0) }))
-// Validate placeholder ids: unique, inside [floor, byte mask], labels unique.
+// Validate ids: unique, byte-sized, and never colliding with a classic stat id.
+const statIdByteMask = Number(encoding.statVariantIdMask)
+const realStatIdValues = new Set(Object.values(statId).map(Number))
 const seenAnomalousIds = new Set()
 const seenAnomalousLabels = new Set()
 for (const { key, id, label } of anomalousSubstatEntries) {
-  if (!Number.isFinite(id) || id < anomalousFloor || id > statIdByteMask) {
-    throw new Error(`anomalousAccessories.substats.${key}.id must sit in [provisionalIdFloor, ${statIdByteMask}].`)
+  if (!Number.isFinite(id) || id <= 0 || id > statIdByteMask) {
+    throw new Error(`anomalousAccessories.substats.${key}.id must sit in (0, ${statIdByteMask}].`)
+  }
+  if (realStatIdValues.has(id)) {
+    throw new Error(`anomalousAccessories.substats.${key}.id collides with a classic statId value.`)
   }
   if (seenAnomalousIds.has(id)) throw new Error(`Duplicate anomalous substat id ${id} (${key}).`)
   if (label.length === 0 || seenAnomalousLabels.has(label)) {
@@ -646,14 +648,16 @@ tsLines.push(
 // ── TS: Anomalous Accessories — PROVISIONAL(anomalous), TS-only on purpose ──
 // Consumed via src/lib/anomalousAccessories.ts; see docs/technical/anomalous-accessories.md.
 tsLines.push('')
-tsLines.push('// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous).')
-tsLines.push('// Substat ids are byte-sized placeholders (NOT game/HSF ids) reserved in the range')
-tsLines.push('// starting at the floor below; variants use the standard encoding, percent-shaped.')
-tsLines.push('// Placeholders may live in app state/SFC docs but must NEVER reach HSF payloads.')
-tsLines.push(`export const ANOMALOUS_PROVISIONAL_ID_FLOOR = ${anomalousFloor}`)
+tsLines.push('// Anomalous Accessories — PROVISIONAL(anomalous).')
+tsLines.push('// Substat ids are the REAL RSL Helper DB ids (11..14 dealt, 15..18 taken; see')
+tsLines.push('// shared/domain-constants.json for the observation basis). Variants use the')
+tsLines.push('// standard percent-shaped encoding. The ids flow through app state, SFC docs,')
+tsLines.push('// and DB ingest — but must NOT reach HSF payloads (rule encoding unconfirmed).')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, id }) => `${key}: ${id}`).join(', ')} } as const`
 )
+tsLines.push('// Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.')
+tsLines.push(`export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = ${anomalousStar5RollValue}`)
 tsLines.push('// Variant encoding of the same placeholders ((id<<8)|0 — percent-shaped, judged).')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, variant }) => `${key}: ${variant}`).join(', ')} } as const`
@@ -690,6 +694,16 @@ rustLines.push('pub fn is_anomalous_substat_variant(variant: i64) -> bool {')
 rustLines.push('    // Linear scan — the table has eight entries.')
 rustLines.push('    ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)')
 rustLines.push('}')
+rustLines.push('// Anomalous variants in announcement order (mirrors the TS list).')
+rustLines.push(
+  `pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[${anomalousSubstatEntries.map(({ variant }) => variant).join(', ')}];`
+)
+rustLines.push('// Accessory slots that can carry anomalous substats (Banner observed in the DB).')
+rustLines.push(
+  `pub const ANOMALOUS_ELIGIBLE_SLOT_IDS: &[i64] = &[${anomalousEligibleSlotIds.join(', ')}];`
+)
+rustLines.push('// Observed rank-5 per-line base percent (zero rolls); judged per-roll step.')
+rustLines.push(`pub const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE: f64 = ${asRustF64Literal(anomalousStar5RollValue)};`)
 
 // ── TS: artifactTypeNames display map ────────────────────────────────────
 // Resolve token → numeric ID from artifactType then build ID → name map.

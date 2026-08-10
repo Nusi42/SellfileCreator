@@ -133,7 +133,9 @@ export const buildTargetEntryFromDraft = (
 
 export const clampTargetValue = (value: number | null): number | null => {
   if (value == null) return null
-  return Math.max(0, Math.round(value))
+  // 2-decimal precision: anomalous mode-damage substats carry fractional
+  // bases (1.25% per line), so target values are no longer integer-only.
+  return Math.max(0, Math.round(value * 100) / 100)
 }
 
 // Numeric parser mirrors the builder inputs: whitespace tolerant, ignores NaN.
