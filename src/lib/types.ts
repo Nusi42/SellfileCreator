@@ -1,5 +1,15 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
 import { ACCESSORY_NO_SET_ID, NBSP } from './constants'
+// PROVISIONAL(anomalous): placeholder anomalous-accessory substat helpers (Update 11.70 prep).
+// The membership check gets a local alias because this module also re-exports it by name.
+import {
+  ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
+  anomalousSubstatLabel,
+  anomalousVariantFromLabel,
+  isAnomalousEligibleSlotId,
+  isAnomalousSubstatVariant as localIsAnomalousSubstatVariant,
+  isProvisionalAnomalousStatId,
+} from './anomalousAccessories'
 import {
   ARTIFACT_TYPE_AMULET,
   ARTIFACT_TYPE_BANNER,
@@ -636,6 +646,12 @@ export const STAT_VARIANTS_PRIORITY: readonly StatVariant[] = (
   GENERATED_STAT_VARIANTS_PRIORITY as readonly StatVariant[]
 )
 
+// PROVISIONAL(anomalous): re-export the anomalous substat variants (announcement order)
+// so UI surfaces can append them to the classic rows for accessory slots without a
+// second definition. Deliberately NOT merged into STAT_VARIANTS_PRIORITY — that list
+// mirrors a shared TS/Rust ordering table and drives artifact-slot surfaces too.
+export { ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousSubstatVariant } from './anomalousAccessories'
+
 /** UI label string for a StatVariant (or numeric-encoded variant). */
 export function labelOfVariant(v: StatVariantLike): string {
   const n = Number(v)
@@ -659,6 +675,10 @@ export function labelOfVariant(v: StatVariantLike): string {
     case StatVariant.CDMG: return 'CDMG%'
     case StatVariant.RollCount: return 'Roll Count'
   }
+  // PROVISIONAL(anomalous): the new mode-scoped damage substats resolve via
+  // their own generated label catalog before the raw-number fallback.
+  const anomalousLabel = anomalousSubstatLabel(n)
+  if (anomalousLabel !== undefined) return anomalousLabel
   return String(n)
 }
 
@@ -679,7 +699,8 @@ export function variantFromLabel(input: string): StatVariant | null {
     case 'CDMG%': return StatVariant.CDMG
     case 'ROLL COUNT': return StatVariant.RollCount
   }
-  return null
+  // PROVISIONAL(anomalous): accept the announcement labels ("PvE DMG +", ...).
+  return anomalousVariantFromLabel(s)
 }
 
 // HSF tuple helpers live in hsfTypes.ts to keep this module focused on UI-facing variants.
@@ -729,6 +750,9 @@ export function subToVariant(id?: number, isFlat?: boolean | number | string): S
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   if (id === StatId.RollCount) return StatVariant.RollCount
+  // PROVISIONAL(anomalous): placeholder anomalous substat ids ride the standard
+  // percent-shaped encoding so app-internal state can carry them (never HSF).
+  if (isProvisionalAnomalousStatId(id)) return (((id & 0xFF) << 8) | 0) as StatVariant
   return StatVariant.Any
 }
 
@@ -833,6 +857,9 @@ export function slotSupportsSub(slot: ArtifactTypeId, sub: StatVariantLike): boo
   const set = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
   if (!set) return false
   if (Number(sub) === StatVariant.Any) return true
+  // PROVISIONAL(anomalous): the mode-damage substats are legal on jewelry slots only
+  // (kept out of the shared ALLOWED_SUB_BY_SLOT table — see anomalousAccessories.ts).
+  if (localIsAnomalousSubstatVariant(Number(sub))) return isAnomalousEligibleSlotId(Number(slot))
   return set.has(Number(sub))
 }
 
@@ -1070,6 +1097,8 @@ export function statVariantI18nKey(v: StatVariantLike):
   | 'statDEF' | 'statDEF_flat' | 'statDEF_percent'
   | 'statSPD' | 'statRES' | 'statACC' | 'statCR' | 'statCDMG' | 'statRollCount'
   | 'statHPATKDEF'
+  | 'statPveDmgPlus' | 'statPvpDmgPlus' | 'statBossDmgPlus' | 'statDungeonDmgPlus'
+  | 'statPveDmgMinus' | 'statPvpDmgMinus' | 'statBossDmgMinus' | 'statDungeonDmgMinus'
 {
   const n = Number(v)
   if (n >= 0) {
@@ -1089,8 +1118,38 @@ export function statVariantI18nKey(v: StatVariantLike):
     case StatVariant.CR: return 'statCR'
     case StatVariant.CDMG: return 'statCDMG'
     case StatVariant.RollCount: return 'statRollCount'
+    // PROVISIONAL(anomalous): Update 11.70 mode-scoped damage substats.
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus: return 'statPveDmgPlus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus: return 'statPvpDmgPlus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus: return 'statBossDmgPlus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus: return 'statDungeonDmgPlus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus: return 'statPveDmgMinus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus: return 'statPvpDmgMinus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus: return 'statBossDmgMinus'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus: return 'statDungeonDmgMinus'
   }
   return 'statHP'
+}
+
+// PROVISIONAL(anomalous): tooltip i18n key for an anomalous substat variant, null for
+// every other variant. Surfaces compose it with statAnomalousTooltipNote via the
+// anomalousSubstatTooltipMarkdown helper in substatDisplay.ts (one copy everywhere).
+export function anomalousSubstatTooltipI18nKey(v: StatVariantLike):
+  | 'statPveDmgPlusTooltip' | 'statPvpDmgPlusTooltip' | 'statBossDmgPlusTooltip' | 'statDungeonDmgPlusTooltip'
+  | 'statPveDmgMinusTooltip' | 'statPvpDmgMinusTooltip' | 'statBossDmgMinusTooltip' | 'statDungeonDmgMinusTooltip'
+  | null
+{
+  switch (Number(v)) {
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus: return 'statPveDmgPlusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus: return 'statPvpDmgPlusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus: return 'statBossDmgPlusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus: return 'statDungeonDmgPlusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus: return 'statPveDmgMinusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus: return 'statPvpDmgMinusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus: return 'statBossDmgMinusTooltip'
+    case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus: return 'statDungeonDmgMinusTooltip'
+  }
+  return null
 }
 
 // Faction IDs used in HSF files (1..17), 0 = Any — values from generated constants.
@@ -1238,6 +1297,16 @@ export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#2979FF',
   [StatVariant.CR]: '#00E5FF',
   [StatVariant.CDMG]: '#FF80AB',
+  // PROVISIONAL(anomalous): judged defaults — one hue per game mode (PvE teal,
+  // PvP red, Boss violet, DNG umber), "+" brighter than "−". User-editable.
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#26A69A',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#EF5350',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#7E57C2',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#A1887F',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#00897B',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#C62828',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#5E35B1',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#795548',
 }
 
 export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
@@ -1252,4 +1321,13 @@ export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#0A1E40',
   [StatVariant.CR]: '#062833',
   [StatVariant.CDMG]: '#2A0F1E',
+  // PROVISIONAL(anomalous): dark tints matching the judged FG hues above.
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#0E2B27',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#2F1414',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#221A33',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#291F1B',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#0A211E',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#260F0F',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#1B1429',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#211814',
 }

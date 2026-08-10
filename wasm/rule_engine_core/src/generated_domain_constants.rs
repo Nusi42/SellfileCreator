@@ -143,6 +143,17 @@ pub const STAT_VARIANTS_PRIORITY: [i64; 11] = [1025, 1792, 2048, 1537, 1281, 257
 pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345];
 
 
+// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) placeholders.
+// (variant, placeholder stat id) pairs; ids are NOT real game/HSF ids.
+pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[(51200, 200), (51456, 201), (51712, 202), (51968, 203), (52224, 204), (52480, 205), (52736, 206), (52992, 207)];
+// (variant, canonical display label) pairs for SFC label parsing.
+pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(51200, "PvE DMG +"), (51456, "PvP DMG +"), (51712, "Boss DMG +"), (51968, "DNG DMG +"), (52224, "PvE DMG -"), (52480, "PvP DMG -"), (52736, "Boss DMG -"), (52992, "DNG DMG -")];
+// True when a variant encodes one of the anomalous placeholder substats.
+pub fn is_anomalous_substat_variant(variant: i64) -> bool {
+    // Linear scan — the table has eight entries.
+    ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)
+}
+
 // Faction IDs — one constant per faction.
 pub const FACTION_ID_BANNER_LORDS: i64 = 1;
 pub const FACTION_ID_HIGH_ELVES: i64 = 2;

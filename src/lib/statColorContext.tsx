@@ -16,7 +16,7 @@
  */
 import { createContext, use, useMemo } from 'react'
 import { useControlFgAdapter, useSubstatFgAdapter } from './themeContrastHooks'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from './types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from './types'
 import { type ColorScope, scopeColorsControls, scopeColorsText } from './colorScope'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
@@ -47,7 +47,8 @@ export function StatColorProvider({
     if (!controls && !text) return { control: {}, text: {} }
     const textColours: ColorByVariant = {}
     const controlColours: ColorByVariant = {}
-    for (const variant of STAT_VARIANTS_PRIORITY) {
+    // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones.
+    for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
       const fg = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
       if (text) textColours[variant] = adaptText(fg)
       if (controls) controlColours[variant] = adaptControl(fg)

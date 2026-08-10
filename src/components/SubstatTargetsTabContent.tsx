@@ -15,7 +15,9 @@ import { useI18n } from '../lib/i18n'
 import { StatLabel } from './StatLabel'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
-import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+// PROVISIONAL(anomalous): shared hover copy for the mode-damage substat rows.
+import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -122,7 +124,8 @@ export function SubstatTargetsTabContent({
     // Walk columns then rows to produce the desired Tab sequence.
     const ordered: HTMLInputElement[] = []
     for (const { key: starKey } of substatTargetsStarColumns) {
-      for (const variant of STAT_VARIANTS_PRIORITY) {
+      // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones.
+      for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
         const match = byKey.get(`${starKey}:${Number(variant)}`)
         if (match) ordered.push(match)
       }
@@ -326,13 +329,21 @@ export function SubstatTargetsTabContent({
             {starHeaderCell({ label, star })}
           </React.Fragment>
         ))}
-        {STAT_VARIANTS_PRIORITY.map((variant) => {
+        {/* Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — the
+            anomalous rows start empty (no known roll values); users may enter judged
+            targets once the game update lands. */}
+        {[...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => {
           const label = t(statVariantI18nKey(variant))
           const vKey = Number(variant)
+          // PROVISIONAL(anomalous): glyph-token rows explain themselves on hover.
+          const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
+          const rowLabel = <Typography sx={{ pr: 1 }}><StatLabel variant={variant} /></Typography>
           return (
             <React.Fragment key={`row-${variant}`}>
               {/* Row stat-name label — TEXT context (display, not a control). */}
-              <Typography sx={{ pr: 1 }}><StatLabel variant={variant} /></Typography>
+              {anomalousTooltip
+                ? <MarkdownTooltip markdown={anomalousTooltip}>{rowLabel}</MarkdownTooltip>
+                : rowLabel}
               {substatTargetsStarColumns.map(({ key, label: starLabel }) => (
                 renderSubstatTargetInput(key, vKey, label, starLabel)
               ))}

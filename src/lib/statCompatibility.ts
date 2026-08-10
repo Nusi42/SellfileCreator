@@ -8,6 +8,8 @@ import {
   StatId,
   StatVariant as StatVariantEnum,
 } from './types'
+// PROVISIONAL(anomalous): accessory-only substats join the feasible pool for jewelry slots.
+import { ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousEligibleSlotId } from './anomalousAccessories'
 import { variantToMain, variantToSub } from './hsfTypes'
 
 // substatMatchesMainVariant reports when a substat would duplicate the main stat.
@@ -86,8 +88,15 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
       allowed.add(Number(subVariant))
     }
   }
-  // Preserve the app's preferred ordering for the final list.
-  return STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant)))
+  // PROVISIONAL(anomalous): anomalous substats are feasible on accessory slots only.
+  // They cannot be mains, so no main-stat clash filtering applies; kept out of the
+  // classic slot tables on purpose (see shared/domain-constants.json rationale).
+  const includeAnomalous = slotPool.some((slotId) => isAnomalousEligibleSlotId(Number(slotId)))
+  // Preserve the app's preferred ordering, appending anomalous in announcement order.
+  return [
+    ...STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant))),
+    ...(includeAnomalous ? ANOMALOUS_SUBSTAT_VARIANTS : []),
+  ]
 }
 
 // retainAllowedSubstats filters any array whose items carry a stat variant to only

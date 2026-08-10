@@ -179,6 +179,21 @@ export const ARTIFACT_SET_NAMES: Record<number, string> = { 1: "Life", 2: "Offen
 // Artifact/accessory set name → numeric id (SSOT for the ArtifactSet enum).
 export const ARTIFACT_SET_IDS = { Life: 1, Offense: 2, Defense: 3, Speed: 4, CriticalRate: 5, CritDamage: 6, Accuracy: 7, Resistance: 8, Lifesteal: 9, Fury: 10, Daze: 11, Cursed: 12, Frost: 13, Frenzy: 14, Regeneration: 15, Immunity: 16, Shield: 17, Relentless: 18, Savage: 19, Destroy: 20, Stun: 21, Toxic: 22, Provoke: 23, Retaliation: 24, Avenging: 25, Stalwart: 26, Reflex: 27, Curing: 28, Cruel: 29, Immortal: 30, DivineOffense: 31, DivineCriticalRate: 32, DivineLife: 33, DivineSpeed: 34, SwiftParry: 35, Deflection: 36, Resilience: 37, Perception: 38, Affinitybreaker: 39, Untouchable: 40, Fatal: 41, Frostbite: 42, Bloodthirst: 43, Guardian: 44, Fortitude: 45, Lethal: 46, Protection: 47, Stoneskin: 48, Killstroke: 49, Instinct: 50, Bolster: 51, Defiant: 52, Impulse: 53, Zeal: 54, Righteous: 57, Supersonic: 58, Merciless: 59, Slayer: 60, Feral: 61, Pinpoint: 62, Stonecleaver: 63, Rebirth: 64, Chronophage: 65, Mercurial: 66, Refresh: 1000, Cleansing: 1001, Bloodshield: 1002, Reaction: 1003, Revenge: 1004 } as const
 
+// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous).
+// Substat ids are byte-sized placeholders (NOT game/HSF ids) reserved in the range
+// starting at the floor below; variants use the standard encoding, percent-shaped.
+// Placeholders may live in app state/SFC docs but must NEVER reach HSF payloads.
+export const ANOMALOUS_PROVISIONAL_ID_FLOOR = 200
+export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { pveDmgPlus: 200, pvpDmgPlus: 201, bossDmgPlus: 202, dungeonDmgPlus: 203, pveDmgMinus: 204, pvpDmgMinus: 205, bossDmgMinus: 206, dungeonDmgMinus: 207 } as const
+// Variant encoding of the same placeholders ((id<<8)|0 — percent-shaped, judged).
+export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { pveDmgPlus: 51200, pvpDmgPlus: 51456, bossDmgPlus: 51712, dungeonDmgPlus: 51968, pveDmgMinus: 52224, pvpDmgMinus: 52480, bossDmgMinus: 52736, dungeonDmgMinus: 52992 } as const
+// Variant → canonical display label (announcement wording; final strings may differ).
+export const ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT: Record<number, string> = { 51200: "PvE DMG +", 51456: "PvP DMG +", 51712: "Boss DMG +", 51968: "DNG DMG +", 52224: "PvE DMG -", 52480: "PvP DMG -", 52736: "Boss DMG -", 52992: "DNG DMG -" }
+// Sets that can appear on anomalous accessories (announced and final).
+export const ANOMALOUS_ELIGIBLE_SET_IDS: readonly number[] = [47, 48, 58, 59, 1000, 1001, 1002, 1003, 1004]
+// Accessory slots assumed eligible — Banner inclusion is a judgment call (PROVISIONAL).
+export const ANOMALOUS_ELIGIBLE_SLOT_IDS: readonly number[] = [7, 8, 9]
+
 // Artifact slot display names by numeric ID (mirrors artifactTypeNames in types.ts).
 export const ARTIFACT_TYPE_DISPLAY_NAMES: Record<number, string> = { 1: "Helmet", 2: "Chestplate", 3: "Gauntlets", 4: "Boots", 5: "Weapon", 6: "Shield", 7: "Ring", 8: "Amulet", 9: "Banner" }
 

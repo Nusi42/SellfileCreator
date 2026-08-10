@@ -1,6 +1,8 @@
 import type { HsfRule } from './hsfTypes'
+import { ANOMALOUS_SUBSTAT_IDS } from './anomalousAccessories'
 import { NBSP } from './constants'
 import {
+  anomalousSubstatTooltipI18nKey,
   compareHsfSubstats,
   statIsAny,
   StatId,
@@ -34,10 +36,23 @@ const COLORIZED_SUBSTAT_IDS = new Set<number>([
   StatId.ACC,
   StatId.CR,
   StatId.CDMG,
+  // PROVISIONAL(anomalous): the accessory-only mode-scoped damage substats are
+  // colorized like every real substat (placeholder ids, Update 11.70 prep).
+  ...ANOMALOUS_SUBSTAT_IDS,
 ])
 
 export function substatSupportsColor(statId: number): boolean {
   return COLORIZED_SUBSTAT_IDS.has(statId)
+}
+
+// PROVISIONAL(anomalous): shared hover copy for the mode-damage substats — the
+// per-variant description plus the shared context note. Single composer so every
+// surface (builder chips, filter chips, targets rows) shows identical copy;
+// null for non-anomalous variants, which keep their surface's regular tooltip.
+export function anomalousSubstatTooltipMarkdown(variant: number, t: TranslateFn): string | null {
+  const key = anomalousSubstatTooltipI18nKey(variant)
+  if (!key) return null
+  return `${t(key)}\n\n${t('statAnomalousTooltipNote')}`
 }
 
 export function normalizeRuleSubstats(substats: HsfRule['Substats']): RuleSubstatDetail[] {

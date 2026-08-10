@@ -126,6 +126,19 @@ Glyphs add a bonus to an existing substat (never `CR%`/`CDMG%` — those are non
 - Lower ranks have their own `GLYPH_RANGES_BY_RANK` entries (1–5); only 6★ is reproduced here since it is the relevant tier for sell decisions. The generated constant is the SSOT.
 - The app scores glyph potential rank-capped in the safeguard/normalized-sort math; the mechanics live in [Application Behavior → Safeguards State](app-behavior.md#safeguards-state).
 
+## Anomalous Accessories (Update 11.70 — provisional)
+
+- A new accessory type from the Champion Proving Grounds whose substats can be
+  mode-scoped damage boons (PvE/PvP/Boss/Dungeon, damage dealt or taken)
+  instead of the classic flat stats, while keeping the parent set bonus.
+- Announced set scope: Stone Skin, Protection, Supersonic, Merciless,
+  Bloodshield, Reaction, Revenge, Refresh, Cleansing.
+- The stat tables in this document do **not** cover these substats yet — real
+  ids, ranges, and serialization are unknown. The placeholder data layer and
+  the full known/unknown ledger live in
+  [Anomalous Accessories](anomalous-accessories.md) (grep marker:
+  `PROVISIONAL(anomalous)`).
+
 ## Gear and its sources
 
 **"# for Set"** is how many pieces the set bonus needs: `2` and `4` are fixed set sizes; `1–9` marks the variable per-piece sets whose bonus grows one step at a time from 1 up to 9 pieces (Hydra / seasonal / event sets); `1` marks the single-piece accessory sets (Refresh, Cleansing, Bloodshield, Reaction, Revenge — accessory slots only). The SSOT for every set's piece count is `setDescriptions.ts` (`pieces`); the numeric set IDs live in `src/lib/artifactSets.ts`.

@@ -597,6 +597,60 @@
       "name": "Revenge"
     }
   },
+  "_comment_anomalousAccessories": "PROVISIONAL(anomalous): preparation layer for the Update 11.70 'Anomalous Accessories' (Champion Proving Grounds jewelry with mode-scoped damage substats). The game/RSL-Helper stat ids, HSF wire encoding, and value ranges are NOT yet known, so the numeric substat ids below are deliberate placeholders reserved in [provisionalIdFloor, provisionalIdFloor+7]: above every real statId (1..9, 99) yet still byte-sized so the standard statVariant encoding (variant = (id&255)<<8 | flat) works unchanged for UI plumbing. Variants are derived percent-shaped (flat suffix 0 — judged; the boons read as percentages). Placeholder ids/variants may flow through app-internal state and SFC documents (a migration map keyed by the stable substat keys will translate them once real ids land) but must NEVER be emitted into HSF sellfile payloads — RSL Helper cannot parse them. Labels mirror the announcement wording verbatim; final in-game display strings may differ. eligibleSets is announced and final (keys reference the artifactSet catalog above). eligibleSlots is a judgment call — the announcement only says 'Accessories'/'Jewelry', so Banner inclusion is provisional. These substats deliberately stay OUT of allowedSubsBySlot: that table feeds the Rust engine's substat-gap anticipation, and enumerating 8 impossible-in-data variants there would inflate placeholder combinatorics. Full known/unknown ledger + replacement checklist: docs/technical/anomalous-accessories.md.",
+  "anomalousAccessories": {
+    "provisionalIdFloor": 200,
+    "substats": {
+      "pveDmgPlus": {
+        "id": 200,
+        "label": "PvE DMG +"
+      },
+      "pvpDmgPlus": {
+        "id": 201,
+        "label": "PvP DMG +"
+      },
+      "bossDmgPlus": {
+        "id": 202,
+        "label": "Boss DMG +"
+      },
+      "dungeonDmgPlus": {
+        "id": 203,
+        "label": "DNG DMG +"
+      },
+      "pveDmgMinus": {
+        "id": 204,
+        "label": "PvE DMG -"
+      },
+      "pvpDmgMinus": {
+        "id": 205,
+        "label": "PvP DMG -"
+      },
+      "bossDmgMinus": {
+        "id": 206,
+        "label": "Boss DMG -"
+      },
+      "dungeonDmgMinus": {
+        "id": 207,
+        "label": "DNG DMG -"
+      }
+    },
+    "eligibleSets": [
+      "stoneskin",
+      "protection",
+      "supersonic",
+      "merciless",
+      "bloodshield",
+      "reaction",
+      "revenge",
+      "refresh",
+      "cleansing"
+    ],
+    "eligibleSlots": [
+      "ring",
+      "amulet",
+      "banner"
+    ]
+  },
   "artifactTypeNames": {
     "weapon": "Weapon",
     "helmet": "Helmet",

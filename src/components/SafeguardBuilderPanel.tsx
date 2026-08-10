@@ -144,6 +144,13 @@ import { parseSeparatorLabel } from '../lib/separators'
 import { SeparatorToggleButton } from './SeparatorToggleButton'
 import { separatorDisabledSectionSx } from './builderPanel/constants'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
+// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+import {
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  isAnomalousSubstatVariant,
+} from '../lib/anomalousAccessories'
+import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
@@ -2836,72 +2843,57 @@ export default function SafeguardBuilderPanel({
               )}
               {/* substatGroupProps and substatGroupSx are pre-computed before the return statement. */}
               <>
-                {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-                <ToggleButtonGroup size="small" {...substatGroupProps} sx={substatGroupSx}>
-                  {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
-                    const presence = getSubstatPresence(variant)
-                    const isMixed = presence === 'partial'
-                    // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
-                    const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
-                      const target = presence === 'all' ? 'none' : 'all'
-                      const base = deriveBaseTriState(
-                        multiSummary.substatCounts.get(variant) ?? 0,
-                        multiSummary.total,
+                {/* One shared chip renderer per row: Row 1 SPD/CR%/CDMG%/ACC/RES, Row 2 the
+                    HP/ATK/DEF flats+percents, then — PROVISIONAL(anomalous) — the accessory-only
+                    "+"/"−" mode-damage rows (Update 11.70), shown only while the slot scope can
+                    reach a jewelry slot. */}
+                {[
+                  STAT_VARIANTS_PRIORITY_ROW1,
+                  STAT_VARIANTS_PRIORITY_ROW2,
+                  ...(allowedSubstatOptions.some((variant) => isAnomalousSubstatVariant(variant))
+                    ? [ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS, ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS]
+                    : []),
+                ].map((rowVariants) => (
+                  // Each row's first variant is unique and stable — use it as the row key.
+                  <ToggleButtonGroup key={String(rowVariants[0])} size="small" {...substatGroupProps} sx={substatGroupSx}>
+                    {rowVariants.map((variant) => {
+                      const presence = getSubstatPresence(variant)
+                      const isMixed = presence === 'partial'
+                      // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
+                      const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+                        const target = presence === 'all' ? 'none' : 'all'
+                        const base = deriveBaseTriState(
+                          multiSummary.substatCounts.get(variant) ?? 0,
+                          multiSummary.total,
+                        )
+                        const nextPatch = computeSubstatPatchToggle(
+                          multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
+                          variant as StatVariant,
+                          base,
+                          target,
+                        )
+                        multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
+                      } : undefined
+                      // PROVISIONAL(anomalous): mode-damage chips explain themselves on hover.
+                      const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
+                      const toggleButtonNode = (
+                        <ToggleButton
+                          key={variant}
+                          value={String(variant)}
+                          disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
+                          {...(isMixed ? { 'data-mixed': 'true' } : {})}
+                          {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+                        >
+                          <StatLabel variant={variant} inControl />
+                        </ToggleButton>
                       )
-                      const nextPatch = computeSubstatPatchToggle(
-                        multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
-                        variant as StatVariant,
-                        base,
-                        target,
-                      )
-                      multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
-                    } : undefined
-                    return (
-                      <ToggleButton
-                        key={variant}
-                        value={String(variant)}
-                        disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
-                        {...(isMixed ? { 'data-mixed': 'true' } : {})}
-                        {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
-                      >
-                        <StatLabel variant={variant} inControl />
-                      </ToggleButton>
-                    )
-                  })}
-                </ToggleButtonGroup>
-                {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-                <ToggleButtonGroup size="small" {...substatGroupProps} sx={substatGroupSx}>
-                  {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
-                    const presence = getSubstatPresence(variant)
-                    const isMixed = presence === 'partial'
-                    // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
-                    const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
-                      const target = presence === 'all' ? 'none' : 'all'
-                      const base = deriveBaseTriState(
-                        multiSummary.substatCounts.get(variant) ?? 0,
-                        multiSummary.total,
-                      )
-                      const nextPatch = computeSubstatPatchToggle(
-                        multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
-                        variant as StatVariant,
-                        base,
-                        target,
-                      )
-                      multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
-                    } : undefined
-                    return (
-                      <ToggleButton
-                        key={variant}
-                        value={String(variant)}
-                        disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
-                        {...(isMixed ? { 'data-mixed': 'true' } : {})}
-                        {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
-                      >
-                        <StatLabel variant={variant} inControl />
-                      </ToggleButton>
-                    )
-                  })}
-                </ToggleButtonGroup>
+                      // Wrap only anomalous chips; the context-based group tolerates the wrapper.
+                      return anomalousTooltip
+                        ? <MarkdownTooltip key={variant} markdown={anomalousTooltip}>{toggleButtonNode}</MarkdownTooltip>
+                        : toggleButtonNode
+                    })}
+                  </ToggleButtonGroup>
+                ))}
               </>
             </Box>
           </Collapse>

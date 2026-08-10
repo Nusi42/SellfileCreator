@@ -76,7 +76,7 @@ import {
   formatGearInspectorNormalizedPresetButtonLabel,
   type GearInspectorNormalizedPresetId,
 } from '../lib/gearInspectorNormalizedPresets'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import { useSubstatFgAdapter, useSchemePaper } from '../lib/themeContrastHooks'
 import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorGridNormalizedOverlayPreferences } from '../state/gearInspectorGridNormalizedOverlayPreferences'
@@ -2214,6 +2214,9 @@ export default function PreviewHeaderActions(props: {
               </Box>
 	              {[
 	                ...STAT_VARIANTS_PRIORITY,
+	                // PROVISIONAL(anomalous): accessory-only substats join the sort keys
+	                // (values are absent from current gear, so they sort as ties for now).
+	                ...ANOMALOUS_SUBSTAT_VARIANTS,
 	                GEAR_INSPECTOR_SORT_KEY_LAST_USAGE as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_NEWEST as GearInspectorSortKey,
 	                GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE as GearInspectorSortKey,

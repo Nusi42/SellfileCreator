@@ -24,7 +24,7 @@ import {
   type GearInspectorSubstatSortDirection,
 } from '../lib/gearInspectorSort'
 import { GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT, type GearInspectorNormalizedPresetId } from '../lib/gearInspectorNormalizedPresets'
-import { StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { GEAR_INSPECTOR_SUBSTAT_SORT_KEY } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
@@ -85,8 +85,11 @@ export const isDefaultGearInspectorSubstatSortState = (state: GearInspectorSubst
 
 // Guardrail: only allow known, UI-visible sort keys into the persisted lists.
 // Why: prevents old/invalid localStorage values from leaking into sorting logic.
+// PROVISIONAL(anomalous): the accessory-only substats are sortable, so their
+// variants join both allowlists alongside the classic priority list.
 const SORT_KEY_SET = new Set<number>([
   ...STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),
+  ...ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => Number(variant)),
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
@@ -94,10 +97,11 @@ const SORT_KEY_SET = new Set<number>([
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
 ])
 
-const WEIGHT_KEY_SET = new Set<number>(
+const WEIGHT_KEY_SET = new Set<number>([
   // Weights are only for real substat variants (not synthetic keys like Last Used).
-  STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),
-)
+  ...STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),
+  ...ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => Number(variant)),
+])
 
 const normalizeSortKeys = (raw: unknown): GearInspectorSortKey[] => {
   // Persisted priorities are user-driven, so treat anything non-array as "no priorities".

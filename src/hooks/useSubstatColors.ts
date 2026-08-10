@@ -6,7 +6,12 @@
  */
 import { useCallback, useState } from 'react'
 import { COLORS_STORAGE_KEY_V6 } from '../lib/constants'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import {
+  ANOMALOUS_SUBSTAT_VARIANTS,
+  DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
+  DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT,
+  STAT_VARIANTS_PRIORITY,
+} from '../lib/types'
 
 type ColorMap = Record<number, { fg: string; bg: string }>
 
@@ -14,7 +19,9 @@ const DEFAULT_ALPHA_HEX = Math.round(0.25 * 255).toString(16).padStart(2, '0').t
 
 export function defaultSubstatColorMapV6(): ColorMap {
   const base: ColorMap = {}
-  for (const vk of STAT_VARIANTS_PRIORITY) {
+  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — every
+  // colorable variant gets a default entry so chips never render uncolored.
+  for (const vk of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
     base[vk] = {
       fg: DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9',
       bg: (() => {

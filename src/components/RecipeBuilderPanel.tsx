@@ -69,6 +69,12 @@ import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normaliz
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
+// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+import {
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  isAnomalousSubstatVariant,
+} from '../lib/anomalousAccessories'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
 import { Box, Button, Collapse, Divider, Slider, Stack, Typography, TextField, Chip, FormControl, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
@@ -101,7 +107,7 @@ import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
-import { substatSupportsColor } from '../lib/substatDisplay'
+import { anomalousSubstatTooltipMarkdown, substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { resolveRecipeOverridesEffectiveRecipe, type RecipeOverridesInstructions } from '../lib/noteRecipeOverrides'
@@ -3276,7 +3282,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         } as (SystemStyleObject<Theme> & Record<string, unknown>)
         return base
       }
-      return (
+      // PROVISIONAL(anomalous): the unfamiliar mode-damage chips explain themselves on
+      // hover (description + shared context note); classic chips keep no whole-chip tooltip.
+      const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
+      const toggleButtonNode = (
         <ToggleButton
           key={variant}
           value={`${variant}`}
@@ -3318,6 +3327,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
           />
         </ToggleButton>
       )
+      // Wrap only anomalous chips; MUI's context-based ToggleButtonGroup tolerates the wrapper.
+      return anomalousTooltip
+        ? <MarkdownTooltip key={variant} markdown={anomalousTooltip}>{toggleButtonNode}</MarkdownTooltip>
+        : toggleButtonNode
     }
     const effectiveMinDraft = substatMenuDraft?.min ?? activeMenuInfo?.minValue ?? null
     const effectiveMaxDraft = substatMenuDraft?.max ?? activeMenuInfo?.maxValue ?? null
@@ -4022,6 +4035,30 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         >
           {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
         </ToggleButtonGroup>
+        {/* PROVISIONAL(anomalous): accessory-only mode-scoped damage substats (Update
+            11.70). Rows appear only while the slot scope can reach a jewelry slot. */}
+        {allowedSubstatOptions.some((variant) => isAnomalousSubstatVariant(variant)) ? (
+          <>
+            {/* Row 3: PvE/PvP/Boss/DNG DMG + (damage dealt) */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatToggle(variant))}
+            </ToggleButtonGroup>
+            {/* Row 4: PvE/PvP/Boss/DNG DMG − (damage taken) */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatToggle(variant))}
+            </ToggleButtonGroup>
+          </>
+        ) : null}
       </>
     )
     return (

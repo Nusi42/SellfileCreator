@@ -14,7 +14,16 @@
     { "input": "ATK",       "expected": 513  },
     { "input": "DEF%",      "expected": 768  },
     { "input": "DEF",       "expected": 769  },
-    { "input": "Roll Count","expected": 25345}
+    { "input": "Roll Count","expected": 25345},
+    { "input": "PvE DMG +", "expected": 51200, "_comment": "PROVISIONAL(anomalous) placeholder variants (Update 11.70) — values change when real ids land" },
+    { "input": "pve dmg +", "expected": 51200},
+    { "input": "PvP DMG +", "expected": 51456},
+    { "input": "Boss DMG +","expected": 51712},
+    { "input": "DNG DMG +", "expected": 51968},
+    { "input": "PvE DMG -", "expected": 52224},
+    { "input": "PvP DMG -", "expected": 52480},
+    { "input": "Boss DMG -","expected": 52736},
+    { "input": "DNG DMG -", "expected": 52992}
   ],
   "rankCodeFromLabel": [
     { "input": "5★",   "expected": 5  },

@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Stack, Typography } from '@mui/material'
 import { useColorScheme, useTheme } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
-import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
+import { labelOfVariant, ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
 import type { SlotTints } from '../../lib/slotTints'
 import type { RarityColors } from '../../lib/rarityColors'
 import { type ColorScope, COLOR_SCOPES } from '../../lib/colorScope'
@@ -105,7 +105,8 @@ export default function ManageColorsDialog(props: {
         {/* Substat (stat-name) colouring scope. */}
         {renderScopeRow(statColorScope, setStatColorScope)}
         <Stack spacing={1.25}>
-          {STAT_VARIANTS_PRIORITY.map((vk) => {
+          {/* Classic substats plus the PROVISIONAL(anomalous) accessory-only ones. */}
+          {[...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((vk) => {
             const defaultFg = (DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9') as string
             const defaultBg = (DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[vk] ?? '#E3F2FD') as string
             const fg = (substatColors[vk]?.fg ?? defaultFg) as string

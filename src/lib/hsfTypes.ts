@@ -42,6 +42,10 @@ export interface HsfFile {
 // or when formatting for readability. Do not use them in SFC parsing.
 import type { RankValue, StatVariantLike } from './types'
 import { RANK_VALUES, StatId, StatVariant } from './types'
+// PROVISIONAL(anomalous): placeholder-substat detection + variant bit layout for the
+// honest-tuple branch in variantToSub (Update 11.70 prep).
+import { isAnomalousSubstatVariant } from './anomalousAccessories'
+import { STAT_VARIANT_ID_MASK, STAT_VARIANT_SHIFT_BITS } from './generated/domainConstants'
 
 const RANK_MASK_ALL = RANK_VALUES.reduce((mask, value) => mask | (1 << (Number(value) - 1)), 0)
 const RARITY_MASK_ALL = RANK_MASK_ALL
@@ -111,7 +115,15 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
     case StatVariant.CDMG: return { id: StatId.CDMG, isFlat: false }
     case StatVariant.RollCount: return { id: StatId.RollCount, isFlat: true }
     case StatVariant.Any:
-    default: return { id: StatId.Any, isFlat: true }
+    default:
+      // PROVISIONAL(anomalous): placeholder substats keep their placeholder id so
+      // rule conditions stay honestly unsatisfiable (no current gear carries these
+      // ids) instead of silently widening to the "Any substat" tuple. The sellfile
+      // export boundary strips them before anything reaches RSL Helper.
+      if (isAnomalousSubstatVariant(n)) {
+        return { id: (n >>> STAT_VARIANT_SHIFT_BITS) & STAT_VARIANT_ID_MASK, isFlat: false }
+      }
+      return { id: StatId.Any, isFlat: true }
   }
 }
 

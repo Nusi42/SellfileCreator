@@ -1856,7 +1856,17 @@ pub fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
         STAT_VARIANT_CR => (STAT_ID_CR, false),
         STAT_VARIANT_CDMG => (STAT_ID_CDMG, false),
         STAT_VARIANT_ROLL_COUNT => (STAT_ID_ROLL_COUNT, true),
-        _ => (STAT_ID_ANY, true),
+        _ => {
+            // PROVISIONAL(anomalous): placeholder substats keep their placeholder id so
+            // rule conditions stay honestly unsatisfiable (no gear carries these ids)
+            // instead of silently widening to the "Any substat" tuple. The sellfile
+            // export boundary strips them before anything reaches RSL Helper.
+            if let Some(&(_, id)) = ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().find(|&&(v, _)| v == variant) {
+                (id, false)
+            } else {
+                (STAT_ID_ANY, true)
+            }
+        }
     }
 }
 

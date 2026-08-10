@@ -39,6 +39,13 @@ import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrol
 import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
+// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+import {
+  ANOMALOUS_SUBSTAT_VARIANTS,
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
+  ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+} from '../lib/anomalousAccessories'
+import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import React from 'react'
 import { flushSync } from 'react-dom'
 import { useTheme } from '@mui/material/styles'
@@ -657,7 +664,9 @@ function RulesFilterPanel({
     const includeUnassessed = isDefault ? ic.includeUnassessed : false
     onChange({ ...state, gearInspectorImprovementChance: { min: nextMin, max: nextMax, includeUnassessed } })
   }, [onChange, state])
-  const rollFilterStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.slice(), [])
+  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — the Rolls
+  // flyout filters whatever gear/rules exist, so the full substat universe belongs here.
+  const rollFilterStatOptions = React.useMemo(() => [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS], [])
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = React.useState('')
@@ -1766,10 +1775,14 @@ function RulesFilterPanel({
     const label = t(statVariantI18nKey(variant))
     const isMustNot = subMustNotSet.has(Number(variant))
     const isActive = subMustHaveSet.has(Number(variant)) || isMustNot
+    // PROVISIONAL(anomalous): mode-damage chips prepend their description block so the
+    // glyph tokens (⚔/🛡) are self-explanatory; classic chips keep the plain label.
+    const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
+    const tooltipHead = anomalousTooltip ? `${label}\n\n${anomalousTooltip}` : label
     return (
       <MarkdownTooltip
         key={variant}
-        markdown={`${label}\n\n${isActive ? t('rulesFilterVariantRightClickHintRemove') : t('rulesFilterVariantRightClickHintExclude')}`}
+        markdown={`${tooltipHead}\n\n${isActive ? t('rulesFilterVariantRightClickHintRemove') : t('rulesFilterVariantRightClickHintExclude')}`}
         ellipsisTitle={label}
         ellipsisSelector="[data-ellipsis-target]"
       >
@@ -3061,6 +3074,22 @@ function RulesFilterPanel({
                     sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
+                  </ToggleButtonGroup>
+                  {/* PROVISIONAL(anomalous): accessory-only mode-damage substat rows (Update 11.70).
+                      The filter is not slot-scoped, so the rows always show here. */}
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(subActiveUnion, ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS)}
+                    sx={buildToggleGridSx(ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.length)}
+                  >
+                    {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatButton(variant))}
+                  </ToggleButtonGroup>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(subActiveUnion, ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS)}
+                    sx={buildToggleGridSx(ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.length)}
+                  >
+                    {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatButton(variant))}
                   </ToggleButtonGroup>
                 </>
               </Box>

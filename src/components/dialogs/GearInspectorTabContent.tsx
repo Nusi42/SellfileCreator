@@ -17,7 +17,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, getLocalizedGearSetName } from '../../lib/types'
+import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, getLocalizedGearSetName } from '../../lib/types'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
@@ -1506,12 +1506,14 @@ export function GearInspectorTabContent({
               const substatSelectable = (x: number): boolean =>
                 (Number(it.slot) === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !subEqualsMainVariant(x, mainValue)
               // Free (not-yet-used) options for this slot, in canonical priority order.
-              const candidates = STAT_VARIANTS_PRIORITY
+              // PROVISIONAL(anomalous): the mode-damage substats join the pool; slotSupportsSub
+              // gates them to jewelry slots, so artifact pieces never offer them.
+              const candidates = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
                 .filter(x => substatSelectable(x) && !usedOthers.has(Number(x)))
               // Already-used-elsewhere options: kept VISIBLE (not hidden) so the user can pick
               // one to SWAP the two substats — reordering by hand no longer requires clearing a
               // slot first. Selecting one below swaps both variants and their values.
-              const swapTargets = STAT_VARIANTS_PRIORITY
+              const swapTargets = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
                 .filter(x => substatSelectable(x) && usedOthers.has(Number(x)) && Number(x) !== v)
               const clampGearInspectorValue = (raw: number): number => {
                 if (!Number.isFinite(raw)) return 1

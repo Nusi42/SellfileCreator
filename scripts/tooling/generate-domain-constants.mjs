@@ -531,6 +531,58 @@ const artifactSetEntries = Object.entries(artifactSetSpec)
   .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
   .sort((a, b) => a.id - b.id)
 
+// ── Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) ─────────
+// Placeholder domain data for the new mode-scoped damage substats. TS-only
+// emission on purpose: nothing may reach the Rust rule engine tables or HSF
+// sellfile payloads until the real game/RSL-Helper ids replace these
+// placeholders (app-internal state and SFC documents may carry them).
+const anomalousSpec = spec.anomalousAccessories
+const anomalousFloor = Number(anomalousSpec.provisionalIdFloor)
+// The floor must clear every real stat id so placeholders can never collide,
+// yet stay byte-sized so the standard variant encoding (id<<8|flat) still works.
+const maxRealStatId = Math.max(...Object.values(statId).map(Number))
+const statIdByteMask = Number(encoding.statVariantIdMask)
+if (!(anomalousFloor > maxRealStatId && anomalousFloor <= statIdByteMask)) {
+  throw new Error('anomalousAccessories.provisionalIdFloor must exceed every real statId while fitting the variant id byte.')
+}
+// Substat entries keep spec order (announcement order) for stable emission.
+// Variants are derived percent-shaped (flat 0 — judged) via the shared mkVariant.
+const anomalousSubstatEntries = Object.entries(anomalousSpec.substats)
+  .map(([key, val]) => ({ key, id: Number(val.id), label: String(val.label), variant: mkVariant(Number(val.id), 0) }))
+// Validate placeholder ids: unique, inside [floor, byte mask], labels unique.
+const seenAnomalousIds = new Set()
+const seenAnomalousLabels = new Set()
+for (const { key, id, label } of anomalousSubstatEntries) {
+  if (!Number.isFinite(id) || id < anomalousFloor || id > statIdByteMask) {
+    throw new Error(`anomalousAccessories.substats.${key}.id must sit in [provisionalIdFloor, ${statIdByteMask}].`)
+  }
+  if (seenAnomalousIds.has(id)) throw new Error(`Duplicate anomalous substat id ${id} (${key}).`)
+  if (label.length === 0 || seenAnomalousLabels.has(label)) {
+    throw new Error(`anomalousAccessories.substats.${key}.label must be unique and non-empty.`)
+  }
+  seenAnomalousIds.add(id)
+  seenAnomalousLabels.add(label)
+}
+// Derived variants must never collide with a real variant (defense in depth —
+// the id-range guard above already implies this for the current catalog).
+const realVariantValues = new Set(Object.values(statVariant))
+for (const { key, variant } of anomalousSubstatEntries) {
+  if (realVariantValues.has(variant)) {
+    throw new Error(`anomalousAccessories.substats.${key} derives a variant colliding with a real StatVariant.`)
+  }
+}
+// Eligible sets/slots reference existing catalog keys; typos fail the generator.
+const anomalousEligibleSetIds = anomalousSpec.eligibleSets.map((token) => {
+  const entry = artifactSetSpec[String(token)]
+  if (!entry) throw new Error(`Unknown set token "${token}" in anomalousAccessories.eligibleSets.`)
+  return Number(entry.id)
+}).sort((a, b) => a - b)
+const anomalousEligibleSlotIds = resolveNamedOrder(
+  anomalousSpec.eligibleSlots,
+  artifactType,
+  'anomalousAccessories.eligibleSlots',
+).sort((a, b) => a - b)
+
 // ── TS: faction id type + individual constants ────────────────────────────
 // FactionId is defined HERE (the generated layer owns the faction id domain) and
 // re-exported from types.ts. Faction maps below are typed with it so faction ids are
@@ -590,6 +642,54 @@ tsLines.push('// Artifact/accessory set name → numeric id (SSOT for the Artifa
 tsLines.push(
   `export const ARTIFACT_SET_IDS = { ${artifactSetIdEntries.join(', ')} } as const`
 )
+
+// ── TS: Anomalous Accessories — PROVISIONAL(anomalous), TS-only on purpose ──
+// Consumed via src/lib/anomalousAccessories.ts; see docs/technical/anomalous-accessories.md.
+tsLines.push('')
+tsLines.push('// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous).')
+tsLines.push('// Substat ids are byte-sized placeholders (NOT game/HSF ids) reserved in the range')
+tsLines.push('// starting at the floor below; variants use the standard encoding, percent-shaped.')
+tsLines.push('// Placeholders may live in app state/SFC docs but must NEVER reach HSF payloads.')
+tsLines.push(`export const ANOMALOUS_PROVISIONAL_ID_FLOOR = ${anomalousFloor}`)
+tsLines.push(
+  `export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, id }) => `${key}: ${id}`).join(', ')} } as const`
+)
+tsLines.push('// Variant encoding of the same placeholders ((id<<8)|0 — percent-shaped, judged).')
+tsLines.push(
+  `export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, variant }) => `${key}: ${variant}`).join(', ')} } as const`
+)
+tsLines.push('// Variant → canonical display label (announcement wording; final strings may differ).')
+tsLines.push(
+  `export const ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT: Record<number, string> = { ${anomalousSubstatEntries.map(({ variant, label }) => `${variant}: ${JSON.stringify(label)}`).join(', ')} }`
+)
+tsLines.push('// Sets that can appear on anomalous accessories (announced and final).')
+tsLines.push(
+  `export const ANOMALOUS_ELIGIBLE_SET_IDS: readonly number[] = [${anomalousEligibleSetIds.join(', ')}]`
+)
+tsLines.push('// Accessory slots assumed eligible — Banner inclusion is a judgment call (PROVISIONAL).')
+tsLines.push(
+  `export const ANOMALOUS_ELIGIBLE_SLOT_IDS: readonly number[] = [${anomalousEligibleSlotIds.join(', ')}]`
+)
+
+// ── Rust: Anomalous Accessories — PROVISIONAL(anomalous) label/tuple tables ──
+// Only the minimum the engine needs: SFC label parsing (sfc_reader) and honest
+// variant→(id, isFlat) tuples (safeguard_variant_to_sub). Deliberately NOT added
+// to ALLOWED_SUBS_* / roll-range tables (see the spec comment for rationale).
+rustLines.push('')
+rustLines.push('// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) placeholders.')
+rustLines.push('// (variant, placeholder stat id) pairs; ids are NOT real game/HSF ids.')
+rustLines.push(
+  `pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[${anomalousSubstatEntries.map(({ variant, id }) => `(${variant}, ${id})`).join(', ')}];`
+)
+rustLines.push('// (variant, canonical display label) pairs for SFC label parsing.')
+rustLines.push(
+  `pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[${anomalousSubstatEntries.map(({ variant, label }) => `(${variant}, ${asRustStringLiteral(label)})`).join(', ')}];`
+)
+rustLines.push('// True when a variant encodes one of the anomalous placeholder substats.')
+rustLines.push('pub fn is_anomalous_substat_variant(variant: i64) -> bool {')
+rustLines.push('    // Linear scan — the table has eight entries.')
+rustLines.push('    ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)')
+rustLines.push('}')
 
 // ── TS: artifactTypeNames display map ────────────────────────────────────
 // Resolve token → numeric ID from artifactType then build ID → name map.
