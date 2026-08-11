@@ -1,11 +1,13 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../constants'
 import type { SubstatRollTargetEntry } from './types'
 
-// User input (SFC or Builder UI) is sanitized through this clamp to keep roll
-// target math integer-only and within the supported range.
+// User input (SFC or Builder UI) is sanitized through this clamp. Values keep
+// 2-decimal precision — the anomalous mode-damage substats carry fractional
+// targets (1.25 grid) — while classic stats stay integral because their UI
+// clamps never produce decimals (substatMenuHelpers/SubstatTargetsTabContent).
 export const clampTargetOverrideValue = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
-  const rounded = Math.round(value)
+  const rounded = Math.round(value * 100) / 100
   if (rounded < 0) return 0
   return rounded
 }
@@ -65,7 +67,11 @@ export const resolveRollTargetValue = (
   rollIndex: number,
   factoryBase: number,
 ): number => {
-  const factory = Math.round(Math.max(0, factoryBase + rollIndex * factoryBase))
+  // Mirror the engine's quantization exactly: the branch runtime FLOORS the base
+  // to i32 before multiplying (fractional anomalous bases → 1, 2, 3, … not the
+  // rounded 1, 3, 4, …), so placeholders advertise the thresholds actually applied.
+  const perRoll = Math.floor(Math.max(0, factoryBase))
+  const factory = perRoll + rollIndex * perRoll
   if (!entry) return factory
   if (rollIndex <= 0) {
     return typeof entry.base === 'number' ? entry.base : factory

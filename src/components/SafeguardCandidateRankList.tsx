@@ -34,7 +34,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
 import { safeguardFocusGroupKeyFor, safeguardFocusGroupSubstatVariant } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
-import { artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, rarityRankValueI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, rarityRankValueI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
@@ -101,7 +101,9 @@ export function measureStatCellWidths(
   const badgeWidthPx = fontSizePx
   let maxMainstat = 0
   let maxSubstat = 0
-  for (const variant of STAT_VARIANTS_PRIORITY) {
+  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — real
+  // anomalous gear reaches these rows, so their labels join the width probe.
+  for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
     const label = t(statVariantI18nKey(variant))
     maxMainstat = Math.max(maxMainstat, ctx.measureText(label).width)
     maxSubstat = Math.max(maxSubstat, ctx.measureText(label).width + badgeWidthPx)
@@ -894,10 +896,13 @@ function CandidateRow({
     .filter((s) => ruleSubstatSet.has(s.variant))
     .map((s) => buildSubstatCell(s.variant, s.value, s.rolls, s.mythValue, false))
     .sort((a, b) => b.impact - a.impact)
-  // Part 2: non-rule substats present on this artifact, in canonical STAT_VARIANTS_PRIORITY order.
+  // Part 2: non-rule substats present on this artifact, in canonical order — classic
+  // priority first, PROVISIONAL(anomalous) variants appended last (indexOf -1 would
+  // otherwise sort anomalous lines to the FRONT on real anomalous gear).
+  const dimSubstatOrder = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
   const dimSubstatCells = allArtifactSubstats
     .filter((s) => !ruleSubstatSet.has(s.variant))
-    .sort((a, b) => STAT_VARIANTS_PRIORITY.indexOf(a.variant) - STAT_VARIANTS_PRIORITY.indexOf(b.variant))
+    .sort((a, b) => dimSubstatOrder.indexOf(a.variant) - dimSubstatOrder.indexOf(b.variant))
     .map((s) => buildSubstatCell(s.variant, s.value, s.rolls, s.mythValue, true))
   const substatCells = [...ruleSubstatCells, ...dimSubstatCells]
 

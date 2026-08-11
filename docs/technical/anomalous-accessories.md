@@ -60,10 +60,10 @@ be revisited.
 | Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
 | Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous values keep 2-decimal precision; the session's random auto-fill pool stays classic on purpose |
-| Decimal targets | Substat Targets tab + recipe flyout accept 2-decimal values **for anomalous variants only** (classic stats stay integral — the engine's branch runtime quantizes to integers, and classic decimals would diverge). Engine-side, minima travel as f64 and FLOOR at the i32 boundary — matching-equivalent on the 1.25 grid, but emitted preview values display the floored number |
+| Decimal targets | Substat Targets tab + recipe flyout accept and PERSIST 2-decimal values **for anomalous variants only** — the whole clamp chain is variant-gated (`clampTargetValue`, the tab's `clampValue`, `clampTargetOverrideValue` keeps the 2-decimal grid, and Rust `normalize_target_override_value` mirrors it); classic stats stay integral. The anomalous spinner steps the 1.25 grid. Engine-side, minima travel as f64 and FLOOR at the i32 boundary — matching-equivalent on the 1.25 grid — and `resolveRollTargetValue` mirrors that floor so flyout placeholders advertise the thresholds the engine actually applies |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
 | Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
-| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing — disclosed via console warning; unavoidable until a sample sellfile shows the rule encoding |
+| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing — disclosed via a warning toast on every export/push (`toastAnomalousRulesNotExported`, fired through the `onAnomalousRulesScrubbed` callback; shown for silent auto-pushes too) plus the console line; unavoidable until a sample sellfile shows the rule encoding |
 | Guard tests | `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-export-scrub.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
 
 SFC documents persist substats as **label strings**, so the numeric id scheme
@@ -79,7 +79,9 @@ base / glyph data, safeguard score normalization (anomalous values normalize to
 0 and stay inert in ranking until the roll model is confirmed), set-eligibility
 as a combination constraint (all observed pieces carry one of the 9 sets, but
 setless anomalous accessories are unconfirmed — no false "impossible"
-verdicts), and the note-overrides DSL stat-key grammar.
+verdicts), and the note-overrides DSL: its stat-key grammar has no anomalous
+tokens and its `clampMinimaValue` (`noteRecipeOverrides.ts`) still clamps
+minima to integers, so DSL overrides cannot express fractional targets yet.
 
 ## Judged values (the PROVISIONAL(anomalous) ledger)
 
@@ -91,6 +93,7 @@ verdicts), and the note-overrides DSL stat-key grammar.
 | Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens (and the SFC label anchor). |
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
 | Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `⚔` brighter than `🛡` | Pure judgment; user-editable in Manage Colors. |
+| Glyphability | `statSupportsGlyphs` answers **no** for anomalous variants | Unknown in-game; conservative so no glyph affordance is offered. Flip from observation. |
 
 **Hard rule until a sample sellfile exists:** anomalous ids must never reach
 exported `.hsf` bytes. App state, SFC documents, and DB ingest carry them; the

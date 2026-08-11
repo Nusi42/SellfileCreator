@@ -10,7 +10,7 @@
  */
 
 import { metasetIconOptionById, type MetasetIconId } from './metasetIcons'
-import { StatVariant, STAT_VARIANTS_PRIORITY, isFlatSubstatVariant } from './types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, STAT_VARIANTS_PRIORITY, isFlatSubstatVariant } from './types'
 
 // Presets are UI-facing as [1..9], but stored internally as [0..8] to keep arrays compact.
 export const GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT = 9 as const
@@ -61,8 +61,10 @@ const DEFAULT_GEAR_INSPECTOR_NORMALIZED_PRESET_DEFINITIONS: readonly GearInspect
   },
   // [8] Flat HP/ATK/DEF only (neutral weights).
   { iconId: 'glyph.recycle', entries: [{ variant: StatVariant.HP_FLAT }, { variant: StatVariant.ATK_FLAT }, { variant: StatVariant.DEF_FLAT }] },
-  // [9] Placeholder preset: all substats, neutral weights (until finalized by the project).
-  { iconId: 'glyph.sparkles', entries: STAT_VARIANTS_PRIORITY.map((variant) => ({ variant })) },
+  // [9] Placeholder preset: ALL substats — classic plus the PROVISIONAL(anomalous)
+  // accessory-only ones (their normalized contribution is 0 until the roll model
+  // is known, so including them is forward-correct and costs nothing today).
+  { iconId: 'glyph.sparkles', entries: [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => ({ variant })) },
 ] as const
 
 export function defaultGearInspectorNormalizedPreset(
@@ -106,7 +108,9 @@ export function buildGearInspectorNormalizedPresetTooltipMarkdown(args: {
   const lines: string[] = [`**${title}**`]
   // Keep ordering stable so users can compare presets quickly (matches the main substat ordering).
   const variantSet = new Set<number>((preset.variants ?? []).map((variant) => Number(variant)))
-  const orderedVariants = STAT_VARIANTS_PRIORITY.filter((variant) => variantSet.has(Number(variant)))
+  // Classic order first, anomalous appended — matches the substat grid ordering.
+  const orderedVariants = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
+    .filter((variant) => variantSet.has(Number(variant)))
   if (orderedVariants.length === 0) {
     // Empty presets are allowed while the user is editing; present a clear empty-state instead of a blank tooltip.
     lines.push('', emptyLabel)

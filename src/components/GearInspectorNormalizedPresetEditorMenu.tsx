@@ -12,7 +12,7 @@ import ContextMenuTitle from './ContextMenuTitle'
 import { useI18n } from '../lib/i18n'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
 import { GlyphPicker } from './GlyphPicker'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import {
   GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT,
@@ -140,7 +140,8 @@ export function GearInspectorNormalizedPresetEditorMenu({
         </Box>
       </MenuItem>
       <Divider sx={{ my: 0.5 }} />
-      {STAT_VARIANTS_PRIORITY.map((variant) => {
+      {/* Classic substats plus the PROVISIONAL(anomalous) accessory-only ones. */}
+      {[...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => {
         // Selection is the SSOT: if the stat is not selected, it is not counted (no 0-weight sentinel).
         const selected = selectedSet.has(Number(variant))
         const rawWeight = Number(weights?.[variant] ?? GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT)

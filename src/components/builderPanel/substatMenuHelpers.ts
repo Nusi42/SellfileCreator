@@ -131,11 +131,13 @@ export const buildTargetEntryFromDraft = (
   return entry
 }
 
-export const clampTargetValue = (value: number | null): number | null => {
+export const clampTargetValue = (value: number | null, allowDecimals = false): number | null => {
   if (value == null) return null
-  // 2-decimal precision: anomalous mode-damage substats carry fractional
-  // bases (1.25% per line), so target values are no longer integer-only.
-  return Math.max(0, Math.round(value * 100) / 100)
+  // Classic stats stay integral (the engine's branch runtime quantizes to i32);
+  // anomalous mode-damage substats carry fractional bases (1.25% per line), so
+  // callers pass allowDecimals for those variants to keep 2-decimal precision.
+  if (allowDecimals) return Math.max(0, Math.round(value * 100) / 100)
+  return Math.max(0, Math.round(value))
 }
 
 // Numeric parser mirrors the builder inputs: whitespace tolerant, ignores NaN.

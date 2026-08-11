@@ -69,10 +69,11 @@ import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normaliz
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
-// PROVISIONAL(anomalous): accessory-only substat rows.
+// PROVISIONAL(anomalous): accessory-only substat rows + the decimal-target gate.
 import {
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
 
@@ -3498,10 +3499,13 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     const rollTargetsTooltipText = targetContext
       ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.round(targetContext.baseValue)) })
       : t('builderSubstatMenuRollTargetsHintFallback')
+    // PROVISIONAL(anomalous): mode-damage targets keep 2-decimal precision;
+    // classic stats stay integral (the engine quantizes them to i32 anyway).
+    const targetAllowsDecimals = activeMenuInfo ? isAnomalousSubstatVariant(Number(activeMenuInfo.variant)) : false
     const stepTargetBase = (delta: number) => {
       if (!activeMenuInfo) return
       const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
-      const nextValue = clampTargetValue((seedValue ?? 0) + delta)
+      const nextValue = clampTargetValue((seedValue ?? 0) + delta, targetAllowsDecimals)
       applyTargetSelection(nextValue, targetDraftRolls)
     }
     const stepTargetRoll = (index: number, delta: number) => {
@@ -3509,7 +3513,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       const nextRolls = cloneTargetRolls(targetDraftRolls)
       const current = nextRolls[index]
       const seedValue = current ?? resolveTargetFallbackValue(index + 1)
-      nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta)
+      nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta, targetAllowsDecimals)
       applyTargetSelection(targetDraftBase, nextRolls)
     }
     const renderRequirementChip = (mode: 'min' | 'max') => {
@@ -3719,14 +3723,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       if (!activeMenuInfo) return
       // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
       setSubstatMenuTargetText({ key: 'base', text: event.target.value })
-      const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value), targetAllowsDecimals)
       applyTargetSelection(nextValue, targetDraftRolls)
     }
     const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       if (!activeMenuInfo) return
       // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
       setSubstatMenuTargetText({ key: `roll:${index}`, text: event.target.value })
-      const nextValue = clampTargetValue(parseNumericInput(event.target.value))
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value), targetAllowsDecimals)
       const nextRolls = cloneTargetRolls(targetDraftRolls)
       nextRolls[index] = nextValue
       applyTargetSelection(targetDraftBase, nextRolls)

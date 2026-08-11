@@ -159,14 +159,15 @@ pub struct PrepareHsfBuilderTargetEntryOut {
     pub increments: Option<Vec<Option<f64>>>,
 }
 
-// Clamp and sanitize roll-target values to the same non-negative integer domain
-// used by TS normalizeRollTargetEntry before builder runtime consumption.
+// Clamp and sanitize roll-target values to the same non-negative 2-decimal grid
+// used by TS clampTargetOverrideValue (anomalous targets are fractional, 1.25).
+// The branch runtime still floors at its i32 boundary, so emitted values match.
 fn normalize_target_override_value(value: Option<f64>) -> Option<f64> {
     let numeric = value?;
     if !numeric.is_finite() {
         return None;
     }
-    let rounded = numeric.round().max(0.0);
+    let rounded = ((numeric * 100.0).round() / 100.0).max(0.0);
     Some(rounded)
 }
 

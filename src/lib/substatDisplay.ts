@@ -1,5 +1,9 @@
 import type { HsfRule } from './hsfTypes'
-import { ANOMALOUS_SUBSTAT_IDS } from './anomalousAccessories'
+import {
+  ANOMALOUS_SUBSTAT_IDS,
+  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_VARIANTS,
+} from './anomalousAccessories'
 import { NBSP } from './constants'
 import {
   anomalousSubstatTooltipI18nKey,
@@ -111,6 +115,16 @@ const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
     const maxValue = base * 6
     const digits = maxValue > 0 ? String(Math.round(maxValue)).length : 1
     result[variant] = Math.max(digits, 1)
+  }
+  // PROVISIONAL(anomalous): fractional 1.25-grid values need decimal-aware widths
+  // ("6.25" is four characters); probe the six possible per-line gridpoints.
+  for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) {
+    let digits = 1
+    for (let lines = 1; lines <= 6; lines += 1) {
+      const value = Math.round(lines * ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE * 100) / 100
+      digits = Math.max(digits, String(value).length)
+    }
+    result[variant] = digits
   }
   return result
 })()

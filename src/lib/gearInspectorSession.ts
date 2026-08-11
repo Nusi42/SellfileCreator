@@ -22,6 +22,8 @@ import {
   artifactTypeNames,
 } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
+// PROVISIONAL(anomalous): fractional-grid step/floor handling for mode-damage lines.
+import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from './anomalousAccessories'
 import type { NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem, GearInspectorItemPreviewExtras } from './ruleEval'
 
@@ -213,6 +215,21 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
     return substatTargets.one[variant] ?? 0
   }
 
+  // PROVISIONAL(anomalous): mode-damage lines live on a fractional grid — their
+  // roll step falls back to the observed 1.25 when the targets table has no entry
+  // (only rank 5 is seeded), and their value floor keeps 2-decimal precision.
+  // Classic lines keep the historical ≥1 integer behavior.
+  const stepFor = (variant: number, star: 1|2|3|4|5|6): number => {
+    const base = baseStepForRank(variant, star)
+    if (isAnomalousSubstatVariant(variant)) return base > 0 ? base : ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE
+    return Math.max(1, base)
+  }
+  const floorValueFor = (variant: number, value: number): number => (
+    isAnomalousSubstatVariant(variant)
+      ? Math.max(0.01, Math.round(value * 100) / 100)
+      : Math.max(1, value)
+  )
+
   const adjustSubValuesFor = (it: GearInspectorItem): GearInspectorItem => {
     const slotValue = Number(it.slot)
     const normalizedMain = normalizeMainVariantForSlot(it.slot, Number(it.main ?? -1))
@@ -223,9 +240,8 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
       (slotValue === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, variant)) && !subEqualsMainVariant(variant, normalizedMain)
     ))
     const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-    const baseFor = (variant: number): number => baseStepForRank(variant, star)
 
-    let kept = allowedFiltered.map(([variant, value]) => [Number(variant), Math.max(1, Number(value))] as [number, number])
+    let kept = allowedFiltered.map(([variant, value]) => [Number(variant), floorValueFor(Number(variant), Number(value))] as [number, number])
     if (kept.length > need) {
       kept = kept.slice(0, need)
     }
@@ -251,7 +267,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
       while (kept.length < need && candidates.length > 0) {
         const idx = Math.floor(Math.random() * candidates.length)
         const variant = candidates.splice(idx, 1)[0]!
-        kept.push([variant, Math.max(1, baseFor(variant))])
+        kept.push([variant, stepFor(variant, star)])
       }
     }
     const next: Record<number, number> = {}
@@ -299,7 +315,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
     const available = new Set<number>()
     for (const variant of initialVariants) {
       available.add(variant)
-      const step = Math.max(1, baseStepForRank(variant, star))
+      const step = stepFor(variant, star)
       const current = Number(values[variant] ?? 0)
       values[variant] = Math.max(step, current)
     }
@@ -307,7 +323,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
     if (rarity === 6 && available.size > 0) {
       const variants = Array.from(available)
       const chosen = variants[Math.floor(Math.random() * variants.length)]!
-      const step = Math.max(1, baseStepForRank(chosen, star))
+      const step = stepFor(chosen, star)
       const current = Math.max(step, Number(values[chosen] ?? step))
       values[chosen] = current + step
     }
@@ -316,7 +332,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
       if (milestone > level) break
       const additionVariant = additionByLevel.get(milestone)
       if (additionVariant != null) {
-        const step = Math.max(1, baseStepForRank(additionVariant, star))
+        const step = stepFor(additionVariant, star)
         const current = Number(values[additionVariant] ?? 0)
         values[additionVariant] = Math.max(step, current)
         available.add(additionVariant)
@@ -329,7 +345,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
       const pool = Array.from(available)
       const idx = Math.floor(Math.random() * pool.length)
       const variant = pool[idx]!
-      const step = Math.max(1, baseStepForRank(variant, star))
+      const step = stepFor(variant, star)
       const current = Math.max(step, Number(values[variant] ?? step))
       values[variant] = current + step
     }

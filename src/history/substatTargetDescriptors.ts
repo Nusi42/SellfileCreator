@@ -4,7 +4,7 @@ import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { GLYPH_ARROW_RIGHT } from '../lib/constants'
 // starRankValueI18nKey is the shared star-rank → catalog-key SSOT (no local map).
-import { statVariantI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, statVariantI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import type { SubstatTargetsDescriptorMode } from './historyDescriptorTypes'
 import { snapshotSubstatTargets } from './historySnapshotUtils'
@@ -20,7 +20,9 @@ type DescribeSubstatTargetsChangeParams = {
 
 const DEFAULT_SUBSTAT_TARGETS = defaultSubstatTargets()
 
-const SUBSTAT_TARGET_VARIANTS = STAT_VARIANTS_PRIORITY
+// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — history
+// lines must label every editable target row, not just the classic priority list.
+const SUBSTAT_TARGET_VARIANTS = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
 
 const VARIANT_LABEL_KEYS: Record<number, ReturnType<typeof statVariantI18nKey>> = SUBSTAT_TARGET_VARIANTS
   .reduce<Record<number, ReturnType<typeof statVariantI18nKey>>>((acc, variant) => {

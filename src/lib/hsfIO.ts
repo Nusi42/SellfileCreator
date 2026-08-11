@@ -118,7 +118,13 @@ export async function readHsfFile(file: File): Promise<HsfFile> {
 // Fixed label written into the exported HSF for Final Sell rules so RSL Helper can display them correctly.
 const FINAL_SELL_EXPORT_NAME = 'Final Sell' as const
 
-type ExportMetadataOptions = { recipeNames?: RecipeNameList }
+type ExportMetadataOptions = {
+  recipeNames?: RecipeNameList
+  // PROVISIONAL(anomalous): invoked when the export scrub dropped whole rules
+  // (unexpressible anomalous requirements) so the UI can disclose the
+  // preview-vs-export divergence to the user. Vacuous ¬-line drops don't fire it.
+  onAnomalousRulesScrubbed?: (droppedRules: number) => void
+}
 
 function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMetadataOptions): ExportableRule[] {
   const names = options?.recipeNames
@@ -191,6 +197,10 @@ function scrubAnomalousSubstatsForExport(rules: ExportableRule[]): ExportableRul
 export function buildHsfFileFromMerged(rules: ExportableRule[], options?: ExportMetadataOptions): HsfFile {
   // Scrub before name application so the fingerprint helper below hashes the same bytes.
   const scrubbed = scrubAnomalousSubstatsForExport(rules)
+  // Disclose dropped rules to the caller (export UI toast); the fingerprint path
+  // passes no callback and stays silent — its bytes match the export either way.
+  const droppedRules = rules.length - scrubbed.length
+  if (droppedRules > 0) options?.onAnomalousRulesScrubbed?.(droppedRules)
   const prepared = applyRecipeNamesForExport(scrubbed, options)
   return cleanHsfForExport(prepared)
 }

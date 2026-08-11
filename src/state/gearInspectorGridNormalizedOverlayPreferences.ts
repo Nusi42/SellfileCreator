@@ -38,7 +38,7 @@ import {
 } from '../lib/gearInspectorSort'
 import { defaultGearInspectorNormalizedPreset, GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT, type GearInspectorNormalizedPresetId } from '../lib/gearInspectorNormalizedPresets'
 import { normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
-import { StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { createLocalStorageStore } from './localStorageStore'
 
 export type GearInspectorGridNormalizedPresetId = GearInspectorNormalizedPresetId
@@ -82,7 +82,12 @@ type GearInspectorGridNormalizedOverlayLibraryState = {
 export type GearInspectorGridNormalizedOverlayState =
   GearInspectorGridNormalizedOverlayAppliedState & GearInspectorGridNormalizedOverlayLibraryState
 
-const VARIANT_SET = new Set<number>(STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)))
+// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — hydration
+// must not strip weights a user set on anomalous variants (parity with SORT_KEY_SET
+// in gearInspectorSubstatSortPreferences.ts).
+const VARIANT_SET = new Set<number>(
+  [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => Number(variant)),
+)
 
 const normalizePresetId = (raw: unknown): GearInspectorGridNormalizedPresetId | null => {
   // Preset ids are always array indexes; reject floats/strings that cannot be a safe index.

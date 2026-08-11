@@ -62,6 +62,10 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
     : normalizedMainStats.filter((variant) => variant !== Number(StatVariantEnum.Any))
   // Build a union of allowed substats across all feasible slot + main pairs.
   const allowed = new Set<number>()
+  // PROVISIONAL(anomalous): jewelry slots that SURVIVE the main-stat viability
+  // gate below — the anomalous append must not resurrect a slot the classic
+  // loop skipped (e.g. Ring selected but the main selection excludes rings).
+  let viableAnomalousSlot = false
   // Iterate every slot so we can apply slot-level constraints.
   for (const slotId of slotPool) {
     // Look up the slot's base substat set.
@@ -78,6 +82,8 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
       : explicitMainStats.filter((variant) => mainSet.has(Number(variant)))
     // Skip this slot if no main stats are possible.
     if (candidateMains.length === 0) continue
+    // This slot is viable under the current main selection.
+    if (isAnomalousEligibleSlotId(Number(slotId))) viableAnomalousSlot = true
     // Add substats that are valid for at least one main stat in this slot.
     for (const subVariant of substatSet) {
       // Keep the substat if it doesn't clash with any allowed main.
@@ -88,10 +94,10 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
       allowed.add(Number(subVariant))
     }
   }
-  // PROVISIONAL(anomalous): anomalous substats are feasible on accessory slots only.
-  // They cannot be mains, so no main-stat clash filtering applies; kept out of the
-  // classic slot tables on purpose (see shared/domain-constants.json rationale).
-  const includeAnomalous = slotPool.some((slotId) => isAnomalousEligibleSlotId(Number(slotId)))
+  // PROVISIONAL(anomalous): anomalous substats are feasible on VIABLE jewelry slots
+  // only. They cannot be mains, so no per-substat clash filtering applies; kept out
+  // of the classic slot tables on purpose (see shared/domain-constants.json).
+  const includeAnomalous = viableAnomalousSlot
   // Preserve the app's preferred ordering, appending anomalous in announcement order.
   return [
     ...STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant))),

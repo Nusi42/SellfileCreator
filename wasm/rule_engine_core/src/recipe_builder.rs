@@ -132,6 +132,9 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
     };
 
     let mut allowed = std::collections::HashSet::<i64>::new();
+    // PROVISIONAL(anomalous): jewelry slots surviving the main-viability gate — the
+    // anomalous append must not resurrect a slot the classic loop skipped.
+    let mut viable_anomalous_slot = false;
     for &slot in &slot_pool {
         let sub_set = allowed_subs_for_slot(slot);
         if sub_set.is_empty() { continue; }
@@ -145,6 +148,7 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
             explicit_mains.iter().copied().filter(|v| main_set.contains(v)).collect()
         };
         if candidate_mains.is_empty() { continue; }
+        if ANOMALOUS_ELIGIBLE_SLOT_IDS.contains(&slot) { viable_anomalous_slot = true; }
 
         // Add any substat that doesn't conflict with all candidate mains.
         for &sub in sub_set {
@@ -154,10 +158,10 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
     }
     // Return in STAT_VARIANTS_PRIORITY order (matches the TS output order).
     let mut resolved: Vec<i64> = STAT_VARIANTS_PRIORITY.iter().copied().filter(|v| allowed.contains(v)).collect();
-    // PROVISIONAL(anomalous): anomalous substats are feasible on jewelry slots only —
-    // mirrors the TS resolver's append (statCompatibility.ts); they cannot be mains,
-    // so no main-stat clash filtering applies, and they stay out of the classic tables.
-    if slot_pool.iter().any(|s| ANOMALOUS_ELIGIBLE_SLOT_IDS.contains(s)) {
+    // PROVISIONAL(anomalous): anomalous substats are feasible on VIABLE jewelry slots
+    // only — mirrors the TS resolver (statCompatibility.ts); they cannot be mains, so
+    // no per-substat clash filtering applies, and they stay out of the classic tables.
+    if viable_anomalous_slot {
         resolved.extend(ANOMALOUS_SUBSTAT_VARIANTS.iter().copied());
     }
     resolved

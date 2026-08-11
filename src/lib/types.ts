@@ -785,6 +785,9 @@ export function statSupportsGlyphs(variant: StatVariantLike): boolean {
   const numeric = Number(variant)
   if (!Number.isFinite(numeric)) return true
   if (numeric === StatVariant.Any) return true
+  // PROVISIONAL(anomalous): glyphability of the mode-damage substats is unknown —
+  // answer "no" conservatively so no glyph affordance is offered until observed.
+  if (localIsAnomalousSubstatVariant(numeric)) return false
   return !NON_GLYPHABLE_VARIANTS.has(numeric)
 }
 

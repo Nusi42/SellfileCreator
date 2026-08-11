@@ -2838,9 +2838,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
-  const [toastSeverity, setToastSeverity] = useState<'success' | 'error'>('success')
+  // 'warning' joined for disclosures that are neither success nor failure (e.g. the
+  // anomalous export scrub) — MUI Alert renders all three natively.
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error' | 'warning'>('success')
   const [toastIcon, setToastIcon] = useState<ReactNode>(<SaveIcon fontSize="inherit" />)
-  const showToast = useCallback((message: string, options?: { severity?: 'success' | 'error'; icon?: ReactNode }) => {
+  const showToast = useCallback((message: string, options?: { severity?: 'success' | 'error' | 'warning'; icon?: ReactNode }) => {
     setToastMsg(message)
     setToastSeverity(options?.severity ?? 'success')
     setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
@@ -4294,8 +4296,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const buildExportPayload = useCallback(() => (
     // Use exportRecipeNames (override-applied, via the recipeNamesForExport SSOT) — NOT the raw
     // display recipeNames — so these exported bytes match the worker's export-dirty fingerprint.
-    buildHsfFileFromMerged(mergedRules, { recipeNames: exportRecipeNames })
-  ), [mergedRules, exportRecipeNames])
+    buildHsfFileFromMerged(mergedRules, {
+      recipeNames: exportRecipeNames,
+      // PROVISIONAL(anomalous): rules requiring anomalous substats cannot be expressed
+      // in the sellfile yet (no sample shows the encoding) — they match in preview but
+      // export as nothing, so that divergence must be visible, never console-only.
+      // Shown for silent auto-pushes too: suppressing a data-divergence warning is
+      // exactly the "silently discard user data" failure the project forbids.
+      onAnomalousRulesScrubbed: (droppedRules) => {
+        showToast(t('toastAnomalousRulesNotExported', { count: droppedRules }), {
+          severity: 'warning',
+        })
+      },
+    })
+  ), [mergedRules, exportRecipeNames, showToast, t])
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so

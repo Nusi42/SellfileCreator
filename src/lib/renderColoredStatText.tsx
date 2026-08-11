@@ -1,11 +1,14 @@
 import React from 'react'
 import Box from '@mui/material/Box'
 import type { SxProps } from '@mui/material/styles'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, StatVariant, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from './types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, StatVariant, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from './types'
 
 export type HighlightSpec = { token: string; sx?: SxProps }
 
-const COLORIZED_VARIANTS: readonly StatVariant[] = STAT_VARIANTS_PRIORITY
+// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — this
+// gate must agree with COLORIZED_SUBSTAT_IDS (substatDisplay.ts): one colorize
+// decision, two id domains (variants here, stat ids there).
+const COLORIZED_VARIANTS: readonly StatVariant[] = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
 
 export type SubstatColorMap = Record<number, { fg: string; bg: string }>
 
