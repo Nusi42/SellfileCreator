@@ -2,7 +2,7 @@
 
 Update `docs/HISTORY.md` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
 
-The script that invokes you is `scripts/release/run-release-notes-catchup.sh`. It calls you in one of two modes:
+The script that invokes you is `scripts/release/run-release-notes-catchup.sh` (or its PowerShell twin `run-release-notes-catchup.ps1` on Windows — the two are equivalent). It calls you in one of two modes:
 - **Single-pass** — one Claude run handles a release whose changed-line total fits the budget. `BULLETS_DIR` is empty; you read commits directly.
 - **Reducer** — workers have already distilled the commits into bullet files. `BULLETS_DIR` points at them; you skip git and consolidate.
 
@@ -18,6 +18,8 @@ The script that invokes you is `scripts/release/run-release-notes-catchup.sh`. I
 | `CHECKLIST_FILE` | Empty in reducer mode (workers already populated it). In single-pass, the file you APPEND maintainer-facing review items to. |
 
 The script also prints a "Context for this run" block with the current values so you do not need `printenv` for the common ones.
+
+If an **"Additional instruction from the maintainer for this run"** section follows the context block, treat it as steering for this run only — emphasis, ordering, length, or which changes matter most. It never overrides the rules below: no easter eggs, no developer-only features, plain language, and the bilingual structure still apply.
 
 ## Workflow
 

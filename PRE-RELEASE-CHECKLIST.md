@@ -5,7 +5,8 @@
 - Investigate and optimize autosave restore memory usage in multi-account scenarios — restoring previous session state shows 1.75 GB heap spike right after restore, before any endpoint frame; flagged as a secondary contributor to the OOM issue and needs follow-up investigation (b50e50e1)
 
 
-This file is generated and maintained by `scripts/release/run-release-notes-catchup.sh`,
+This file is generated and maintained by `scripts/release/run-release-notes-catchup.sh`
+(or its PowerShell twin `run-release-notes-catchup.ps1` on Windows),
 which runs Claude worker/reducer agents during a release-notes pass and mechanically
 prepends a `## v<version> — <date>` section of maintainer review items (prompts:
 `docs/CREATE-RELEASE-NOTES.md`, `docs/CREATE-RELEASE-NOTES-WORKER.md`). It is a working

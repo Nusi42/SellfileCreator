@@ -38,6 +38,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
 - `npm run release-notes:catchup` — back-fill `docs/HISTORY.md` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
+- `npm run release-notes:catchup:win` — PowerShell equivalent of the above for Windows, with named parameters (`-All`, `-Note`, `-Branch`, `-Date`). `-Note "<text>"` injects a maintainer instruction into every prompt of the run.
 
 ### Scripts Layout
 
@@ -536,7 +537,16 @@ Localization status
 
 ## Release Notes Workflow
 
-Release history lives in `docs/HISTORY.md` (UTF-8 with BOM). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). The script is `scripts/release/run-release-notes-catchup.sh`. Only `docs/HISTORY.md` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
+Release history lives in `docs/HISTORY.md` (UTF-8 with BOM). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). Only `docs/HISTORY.md` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
+
+Two equivalent drivers exist, so either shell works — keep them in sync when changing behaviour:
+
+| Script | Entry point | Use on |
+| --- | --- | --- |
+| `scripts/release/run-release-notes-catchup.sh` | `npm run release-notes:catchup` | Bash (WSL/Linux clones) |
+| `scripts/release/run-release-notes-catchup.ps1` | `npm run release-notes:catchup:win` | Windows PowerShell 7+ |
+
+Both accept the same environment overrides and drive Claude identically. The PowerShell port takes named parameters instead of bash flags (`-All`, `-Note`, `-Branch`, `-Date`) and documents them via `Get-Help ./scripts/release/run-release-notes-catchup.ps1`.
 
 ### Modes
 
@@ -549,8 +559,16 @@ Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on s
 
 ### Workflow
 
-1. **Sync history** — `npm run release-notes:catchup`  
-   Default behaviour updates only the newest missing release entry plus the in-progress version derived from `package.json`. Pass `-- --all` (or set `RELEASE_NOTES_CATCHUP_ALL=1`) to back-fill every gap. Override the heading date for the in-progress entry with `RELEASE_NOTES_DATE=yyyy-mm-dd`; pin the scanned branch with `RELEASE_NOTES_BRANCH=<ref>`.
+1. **Sync history** — `npm run release-notes:catchup` (bash) or `npm run release-notes:catchup:win` (PowerShell)  
+   Default behaviour updates only the newest missing release entry plus the in-progress version derived from `package.json`. Pass `-- --all` (bash) / `-- -All` (PowerShell), or set `RELEASE_NOTES_CATCHUP_ALL=1`, to back-fill every gap. Override the heading date for the in-progress entry with `RELEASE_NOTES_DATE=yyyy-mm-dd` (PowerShell: `-Date`); pin the scanned branch with `RELEASE_NOTES_BRANCH=<ref>` (PowerShell: `-Branch`).
+
+   **Steering one run** — the PowerShell driver accepts `-Note "<text>"` (alias `-Prompt`, env `RELEASE_NOTES_EXTRA_NOTE`), appended verbatim to every prompt in the run as an "Additional instruction from the maintainer" section. It reaches workers, reducer, and single-pass alike, so use it for release-specific emphasis:
+
+   ```powershell
+   npm run release-notes:catchup:win -- -Note "Hotfix; lead with the export crash fix and keep it short."
+   ```
+
+   The note supplements the prompt documents rather than overriding them — the rules in `docs/CREATE-RELEASE-NOTES.md` (no easter eggs, no dev-only features, plain language) still apply. Omitting `-Note` produces byte-identical prompt input to the bash driver.
 2. **Review the checklist** — Skim `PRE-RELEASE-CHECKLIST.md` for items the run flagged (unfinished cleanups, drifted docs, suspect regressions, schema concerns). Act on them or delete them; the file is intentionally a working document, not an archive.
 3. **Gate the release** — Before packaging, confirm `docs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
 

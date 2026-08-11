@@ -18,6 +18,8 @@ This is a non-interactive automation run; do not ask for confirmation.
 | `BULLETS_FILE` | Absolute path you write player-facing bullets to. Overwrite (do not append). |
 | `CHECKLIST_FILE` | Absolute path you APPEND maintainer review items to. Other workers also append here — never overwrite. |
 
+If an **"Additional instruction from the maintainer for this run"** section follows the context block, treat it as steering for this chunk only — which changes to emphasise or how much detail to give. It never overrides the rules below: no easter eggs, no developer-only features, plain language, and stay inside `$COMMIT_RANGE`.
+
 ## Workflow
 
 ### 1. Survey the chunk
