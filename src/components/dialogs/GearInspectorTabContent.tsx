@@ -18,6 +18,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousSubstatVariant, getLocalizedGearSetName } from '../../lib/types'
+// PROVISIONAL(anomalous): grid step + shared quantizer for mode-damage line values.
+import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE } from '../../lib/anomalousAccessories'
+import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder/targets'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
@@ -1517,9 +1520,14 @@ export function GearInspectorTabContent({
                 .filter(x => substatSelectable(x) && usedOthers.has(Number(x)) && Number(x) !== v)
               const clampGearInspectorValue = (raw: number): number => {
                 if (!Number.isFinite(raw)) return 1
-                // PROVISIONAL(anomalous): mode-damage lines carry fractional percents
-                // (1.25 per line at rank 5), so they keep 2-decimal precision.
-                if (isAnomalousSubstatVariant(Number(v))) return Math.max(0.01, Math.round(raw * 100) / 100)
+                // PROVISIONAL(anomalous): mode-damage lines SNAP to the 1.25 grid
+                // (real gear values are grid multiples), floored at one grid step.
+                if (isAnomalousSubstatVariant(Number(v))) {
+                  return Math.max(
+                    ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+                    quantizeTargetValueForVariant(Number(v), raw),
+                  )
+                }
                 return Math.max(1, Math.round(raw))
               }
               const commitSubstatValue = (nextValue: number) => {

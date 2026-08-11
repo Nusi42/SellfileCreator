@@ -1,4 +1,5 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../../lib/constants'
+import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder/targets'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { StatVariant } from '../../lib/types'
 
@@ -131,12 +132,13 @@ export const buildTargetEntryFromDraft = (
   return entry
 }
 
-export const clampTargetValue = (value: number | null, allowDecimals = false): number | null => {
+export const clampTargetValue = (value: number | null, variant?: number): number | null => {
   if (value == null) return null
-  // Classic stats stay integral (the engine's branch runtime quantizes to i32);
-  // anomalous mode-damage substats carry fractional bases (1.25% per line), so
-  // callers pass allowDecimals for those variants to keep 2-decimal precision.
-  if (allowDecimals) return Math.max(0, Math.round(value * 100) / 100)
+  // Delegate to the shared target quantizer: classic stats round to integers,
+  // anomalous mode-damage substats SNAP to the 1.25 grid (off-grid decimals would
+  // silently widen at the engine's floor boundary). Variant-less callers keep the
+  // legacy integer clamp.
+  if (variant != null) return quantizeTargetValueForVariant(variant, value)
   return Math.max(0, Math.round(value))
 }
 

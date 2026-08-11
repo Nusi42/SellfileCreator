@@ -216,7 +216,7 @@ function toFiniteNumberOrNull(value: unknown): number | null {
   return parsed
 }
 
-function parseReadableTargetEntry(value: unknown): SubstatRollTargetEntry | null {
+function parseReadableTargetEntry(value: unknown, variant: number): SubstatRollTargetEntry | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
   const baseCandidate = toFiniteNumberOrNull(rec.base)
@@ -228,7 +228,9 @@ function parseReadableTargetEntry(value: unknown): SubstatRollTargetEntry | null
       return toFiniteNumberOrNull(val)
     }) as Array<number | null>
   }
-  return normalizeRollTargetEntry(entry)
+  // Variant-aware ingress quantization: classic values round to integers, anomalous
+  // snap to the 1.25 grid — an SFC carrying "SPD": 4.5 must not persist fractional.
+  return normalizeRollTargetEntry(entry, variant)
 }
 
 function parseReadableRollTargetsMap(value: unknown): SubstatRollTargets | undefined {
@@ -238,7 +240,7 @@ function parseReadableRollTargetsMap(value: unknown): SubstatRollTargets | undef
   for (const [label, entry] of Object.entries(entries)) {
     const variant = variantFromLabel(label)
     if (variant === null) continue
-    const normalized = parseReadableTargetEntry(entry)
+    const normalized = parseReadableTargetEntry(entry, variant)
     if (!normalized) continue
     out[variant] = normalized
   }
@@ -322,7 +324,7 @@ function rollTargetsToReadable(
   if (!targets) return undefined
   const out: Record<string, SubstatRollTargetEntry> = {}
   for (const [variantKey, entry] of Object.entries(targets)) {
-    const normalized = normalizeRollTargetEntry(entry)
+    const normalized = normalizeRollTargetEntry(entry, Number(variantKey))
     if (!normalized) continue
     const label = labelOfVariant(Number(variantKey))
     out[label] = normalized

@@ -60,10 +60,10 @@ be revisited.
 | Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
 | Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous values keep 2-decimal precision; the session's random auto-fill pool stays classic on purpose |
-| Decimal targets | Substat Targets tab + recipe flyout accept and PERSIST 2-decimal values **for anomalous variants only** — the whole clamp chain is variant-gated (`clampTargetValue`, the tab's `clampValue`, `clampTargetOverrideValue` keeps the 2-decimal grid, and Rust `normalize_target_override_value` mirrors it); classic stats stay integral. The anomalous spinner steps the 1.25 grid. Engine-side, minima travel as f64 and FLOOR at the i32 boundary — matching-equivalent on the 1.25 grid — and `resolveRollTargetValue` mirrors that floor so flyout placeholders advertise the thresholds the engine actually applies |
+| Decimal targets | Substat Targets tab + recipe flyout accept and PERSIST values **for anomalous variants only**, SNAPPED to the 1.25 grid by the shared `quantizeTargetValueForVariant` (`targets.ts`) — off-grid input like 2.6 would silently widen at the engine's floor boundary. Classic stats stay integral through the same quantizer, including SFC ingress (`sfcIO` passes the variant) and Rust's `normalize_target_override_value` mirror. Spinners walk the grid; decimal input affordances (`inputMode`/`step`) are gated per variant. Engine-side, minima travel as f64 and FLOOR at the i32 boundary — exact for on-grid values — and `resolveRollTargetValue` applies the same floor to factory fallbacks AND explicit overrides, so placeholders, hints, and the "target decreases" comparison all reason about engine-applied thresholds |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
 | Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
-| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing — disclosed via a warning toast on every export/push (`toastAnomalousRulesNotExported`, fired through the `onAnomalousRulesScrubbed` callback; shown for silent auto-pushes too) plus the console line; unavoidable until a sample sellfile shows the rule encoding |
+| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing. Disclosure: the `onAnomalousRulesScrubbed` count is captured by `buildExportPayload` and the warning toast **replaces** the success toast (the snackbar is single-slot; two same-tick `showToast` calls batch into one render), shown for silent auto-pushes too; `backgroundAccountPush` carries the count on its `pushed` outcome so non-active-account uploads disclose with the account label prefixed. Console line retained. Unavoidable until a sample sellfile shows the rule encoding |
 | Guard tests | `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-export-scrub.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
 
 SFC documents persist substats as **label strings**, so the numeric id scheme
@@ -79,9 +79,13 @@ base / glyph data, safeguard score normalization (anomalous values normalize to
 0 and stay inert in ranking until the roll model is confirmed), set-eligibility
 as a combination constraint (all observed pieces carry one of the 9 sets, but
 setless anomalous accessories are unconfirmed — no false "impossible"
-verdicts), and the note-overrides DSL: its stat-key grammar has no anomalous
-tokens and its `clampMinimaValue` (`noteRecipeOverrides.ts`) still clamps
-minima to integers, so DSL overrides cannot express fractional targets yet.
+verdicts), and the note-overrides DSL: its EBNF *reference text*
+(`overridesEbnf.ts`) omits anomalous stat keys, but the parser resolves keys
+via `variantFromLabel` and therefore ACCEPTS them (including the space-free /
+`DMG`-less aliases) — and then `parseIntegerValue` / `clampMinimaValue`
+(`noteRecipeOverrides.ts`) silently truncate fractional values to integers.
+DSL-side grid support is future work; until then anomalous overrides written
+by hand apply floored.
 
 ## Judged values (the PROVISIONAL(anomalous) ledger)
 

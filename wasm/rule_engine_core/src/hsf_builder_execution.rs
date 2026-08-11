@@ -8,6 +8,8 @@ use ts_rs::TS;
 
 
 
+// PROVISIONAL(anomalous): per-variant target quantization (grid snap for anomalous).
+use crate::generated_domain_constants::{is_anomalous_substat_variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE};
 use crate::build_hsf_preflight_flags_core;
 use crate::build_hsf_presence_only_rules_core;
 use crate::build_hsf_rarity_branches_core;
@@ -159,16 +161,21 @@ pub struct PrepareHsfBuilderTargetEntryOut {
     pub increments: Option<Vec<Option<f64>>>,
 }
 
-// Clamp and sanitize roll-target values to the same non-negative 2-decimal grid
-// used by TS clampTargetOverrideValue (anomalous targets are fractional, 1.25).
-// The branch runtime still floors at its i32 boundary, so emitted values match.
-fn normalize_target_override_value(value: Option<f64>) -> Option<f64> {
+// Clamp and sanitize roll-target values to the same per-variant grids as TS
+// quantizeTargetValueForVariant: classic stats round to integers; anomalous
+// substats SNAP to the 1.25 grid (an off-grid value would silently widen at
+// the i32 floor boundary below).
+fn normalize_target_override_value(value: Option<f64>, variant: i64) -> Option<f64> {
     let numeric = value?;
     if !numeric.is_finite() {
         return None;
     }
-    let rounded = ((numeric * 100.0).round() / 100.0).max(0.0);
-    Some(rounded)
+    if is_anomalous_substat_variant(variant) {
+        let step = ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE;
+        let snapped = (numeric / step).round() * step;
+        return Some(((snapped * 100.0).round() / 100.0).max(0.0));
+    }
+    Some(numeric.round().max(0.0))
 }
 
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
@@ -274,14 +281,14 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
             target_base_override_by_variant.insert(*variant, None);
             continue;
         };
-        let normalized_base = normalize_target_override_value(target_entry.base);
+        let normalized_base = normalize_target_override_value(target_entry.base, *variant);
         let normalized_base_i32 = normalized_base.map(|value| value as i32);
         target_base_override_by_variant.insert(*variant, normalized_base_i32);
         let mut normalized_increments = target_entry
             .increments
             .unwrap_or_default()
             .into_iter()
-            .map(normalize_target_override_value)
+            .map(|entry| normalize_target_override_value(entry, *variant))
             .collect::<Vec<_>>();
         while normalized_increments.last().map(|entry| entry.is_none()).unwrap_or(false) {
             normalized_increments.pop();

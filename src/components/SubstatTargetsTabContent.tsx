@@ -16,9 +16,10 @@ import { StatLabel } from './StatLabel'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
-// PROVISIONAL(anomalous): shared hover copy + decimal gating for the mode-damage rows.
+// PROVISIONAL(anomalous): shared hover copy + grid gating for the mode-damage rows.
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from '../lib/anomalousAccessories'
+import { quantizeTargetValueForVariant } from '../lib/hsfBuilder/targets'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -144,16 +145,12 @@ export function SubstatTargetsTabContent({
     // Show the override badge when a recipe override has shifted this cell's value.
     const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
-    // PROVISIONAL(anomalous): mode-damage cells keep 2-decimal precision (1.25 grid)
-    // and their spinner steps by the observed per-line value; classic stats stay
-    // integral — the engine's branch runtime quantizes them to i32.
+    // PROVISIONAL(anomalous): mode-damage cells SNAP to the 1.25 grid (off-grid
+    // decimals would silently widen at the engine's floor boundary) and their
+    // spinner walks the grid; classic stats stay integral. One shared quantizer.
     const cellAllowsDecimals = isAnomalousSubstatVariant(variantKey)
     const spinnerStep = cellAllowsDecimals ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
-    const clampValue = (raw: number): number => {
-      if (!Number.isFinite(raw)) return 0
-      if (cellAllowsDecimals) return Math.max(0, Math.round(raw * 100) / 100)
-      return Math.max(0, Math.round(raw))
-    }
+    const clampValue = (raw: number): number => quantizeTargetValueForVariant(variantKey, raw)
     const commitValue = (next: number) => updateSubstatTargetValue(starKey, variantKey, next)
     // While a cell has focus its raw text lives in draft state, so intermediate
     // decimal input ("1.", "1.2") survives the controlled re-render instead of
@@ -178,8 +175,10 @@ export function SubstatTargetsTabContent({
         }}
         slotProps={{
           htmlInput: {
-            inputMode: 'decimal',
-            step: 'any',
+            // Decimal affordances only where decimals are legal (anomalous grid).
+            ...(cellAllowsDecimals
+              ? { inputMode: 'decimal' as const, step: 'any' }
+              : { inputMode: 'numeric' as const, pattern: '[0-9]*' }),
             min: 0,
             [SUBSTAT_TARGET_INPUT_ATTR]: 'true',
             [SUBSTAT_TARGET_INPUT_STAR_ATTR]: starKey,

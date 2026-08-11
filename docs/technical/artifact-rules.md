@@ -126,18 +126,22 @@ Glyphs add a bonus to an existing substat (never `CR%`/`CDMG%` — those are non
 - Lower ranks have their own `GLYPH_RANGES_BY_RANK` entries (1–5); only 6★ is reproduced here since it is the relevant tier for sell decisions. The generated constant is the SSOT.
 - The app scores glyph potential rank-capped in the safeguard/normalized-sort math; the mechanics live in [Application Behavior → Safeguards State](app-behavior.md#safeguards-state).
 
-## Anomalous Accessories (Update 11.70 — provisional)
+## Anomalous Accessories (provisional)
 
 - A new accessory type from the Champion Proving Grounds whose substats can be
   mode-scoped damage boons (PvE/PvP/Boss/Dungeon, damage dealt or taken)
   instead of the classic flat stats, while keeping the parent set bonus.
 - Announced set scope: Stone Skin, Protection, Supersonic, Merciless,
-  Bloodshield, Reaction, Revenge, Refresh, Cleansing.
-- The stat tables in this document do **not** cover these substats yet — real
-  ids, ranges, and serialization are unknown. The placeholder data layer and
-  the full known/unknown ledger live in
-  [Anomalous Accessories](anomalous-accessories.md) (grep marker:
-  `PROVISIONAL(anomalous)`).
+  Bloodshield, Reaction, Revenge, Refresh, Cleansing. All three jewelry slots
+  qualify (a set-bearing Banner has been observed in an RSL Helper dump).
+- RSL Helper DB stat ids are reverse-engineered and live in the app's ingest:
+  `11`–`14` damage dealt, `15`–`18` damage taken (stored as negative percents;
+  ids 14/15/17/18 inferred from mode order). Rank-5 lines carry a 1.25% base.
+- The stat tables in this document still exclude them: non-rank-5 values, roll
+  behavior, and — critically — the sellfile RULE serialization remain unknown,
+  so exports scrub these stats. The data layer and the full known/unknown
+  ledger live in [Anomalous Accessories](anomalous-accessories.md) (grep
+  marker: `PROVISIONAL(anomalous)`).
 
 ## Gear and its sources
 

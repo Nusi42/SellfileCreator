@@ -116,10 +116,11 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
     case StatVariant.RollCount: return { id: StatId.RollCount, isFlat: true }
     case StatVariant.Any:
     default:
-      // PROVISIONAL(anomalous): placeholder substats keep their placeholder id so
-      // rule conditions stay honestly unsatisfiable (no current gear carries these
-      // ids) instead of silently widening to the "Any substat" tuple. The sellfile
-      // export boundary strips them before anything reaches RSL Helper.
+      // PROVISIONAL(anomalous): anomalous substats keep their REAL DB stat id so
+      // rule conditions match exactly the gear that carries them, instead of
+      // silently widening to the "Any substat" tuple. Only their sellfile RULE
+      // encoding is unconfirmed — the export boundary (hsfIO scrub) strips them
+      // before anything reaches RSL Helper.
       if (isAnomalousSubstatVariant(n)) {
         return { id: (n >>> STAT_VARIANT_SHIFT_BITS) & STAT_VARIANT_ID_MASK, isFlat: false }
       }

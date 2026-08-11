@@ -187,7 +187,7 @@ export const ARTIFACT_SET_IDS = { Life: 1, Offense: 2, Defense: 3, Speed: 4, Cri
 export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { pveDmgPlus: 11, pvpDmgPlus: 12, bossDmgPlus: 13, dungeonDmgPlus: 14, pveDmgMinus: 15, pvpDmgMinus: 16, bossDmgMinus: 17, dungeonDmgMinus: 18 } as const
 // Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.
 export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = 1.25
-// Variant encoding of the same placeholders ((id<<8)|0 — percent-shaped, judged).
+// Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).
 export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { pveDmgPlus: 2816, pvpDmgPlus: 3072, bossDmgPlus: 3328, dungeonDmgPlus: 3584, pveDmgMinus: 3840, pvpDmgMinus: 4096, bossDmgMinus: 4352, dungeonDmgMinus: 4608 } as const
 // Variant → canonical display label (announcement wording; final strings may differ).
 export const ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT: Record<number, string> = { 2816: "PvE DMG +", 3072: "PvP DMG +", 3328: "Boss DMG +", 3584: "DNG DMG +", 3840: "PvE DMG -", 4096: "PvP DMG -", 4352: "Boss DMG -", 4608: "DNG DMG -" }

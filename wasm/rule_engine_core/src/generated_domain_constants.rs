@@ -143,12 +143,13 @@ pub const STAT_VARIANTS_PRIORITY: [i64; 11] = [1025, 1792, 2048, 1537, 1281, 257
 pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345];
 
 
-// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) placeholders.
-// (variant, placeholder stat id) pairs; ids are NOT real game/HSF ids.
+// Anomalous Accessories — PROVISIONAL(anomalous).
+// (variant, stat id) pairs — the REAL RSL Helper DB ids (11..14 dealt, 15..18
+// taken); only the sellfile RULE encoding is still unconfirmed.
 pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[(2816, 11), (3072, 12), (3328, 13), (3584, 14), (3840, 15), (4096, 16), (4352, 17), (4608, 18)];
 // (variant, canonical display label) pairs for SFC label parsing.
 pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(2816, "PvE DMG +"), (3072, "PvP DMG +"), (3328, "Boss DMG +"), (3584, "DNG DMG +"), (3840, "PvE DMG -"), (4096, "PvP DMG -"), (4352, "Boss DMG -"), (4608, "DNG DMG -")];
-// True when a variant encodes one of the anomalous placeholder substats.
+// True when a variant encodes one of the anomalous mode-damage substats.
 pub fn is_anomalous_substat_variant(variant: i64) -> bool {
     // Linear scan — the table has eight entries.
     ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)

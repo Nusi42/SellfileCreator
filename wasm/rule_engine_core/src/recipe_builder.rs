@@ -607,4 +607,23 @@ mod tests {
         assert_eq!(star_for_rank_code(RANK_CODE_ANY, 0), 1);
         assert_eq!(star_for_rank_code(RANK_CODE_ANY, 99), 6);
     }
+
+    // PROVISIONAL(anomalous): the anomalous append must mirror the TS resolver —
+    // only jewelry slots that SURVIVE the main-stat viability gate qualify.
+    #[test]
+    fn anomalous_append_requires_viable_jewelry_slot() {
+        // Ring selected but the SPD main excludes rings: the ring is not viable,
+        // so no anomalous variants despite the jewelry slot in the pool.
+        let dead_ring = resolve_allowed_substats_for_slots_and_mains(
+            &[ARTIFACT_TYPE_RING, ARTIFACT_TYPE_BOOTS],
+            &[STAT_VARIANT_SPD],
+        );
+        assert!(dead_ring.iter().all(|v| !ANOMALOUS_SUBSTAT_VARIANTS.contains(v)));
+        // A viable ring (wildcard mains) appends all eight after the classic list.
+        let viable_ring = resolve_allowed_substats_for_slots_and_mains(&[ARTIFACT_TYPE_RING], &[]);
+        assert!(ANOMALOUS_SUBSTAT_VARIANTS.iter().all(|v| viable_ring.contains(v)));
+        // Artifact-only scopes never include them.
+        let boots_only = resolve_allowed_substats_for_slots_and_mains(&[ARTIFACT_TYPE_BOOTS], &[]);
+        assert!(boots_only.iter().all(|v| !ANOMALOUS_SUBSTAT_VARIANTS.contains(v)));
+    }
 }

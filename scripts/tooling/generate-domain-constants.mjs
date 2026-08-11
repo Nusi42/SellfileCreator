@@ -658,7 +658,7 @@ tsLines.push(
 )
 tsLines.push('// Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.')
 tsLines.push(`export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = ${anomalousStar5RollValue}`)
-tsLines.push('// Variant encoding of the same placeholders ((id<<8)|0 — percent-shaped, judged).')
+tsLines.push('// Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, variant }) => `${key}: ${variant}`).join(', ')} } as const`
 )
@@ -680,8 +680,9 @@ tsLines.push(
 // variant→(id, isFlat) tuples (safeguard_variant_to_sub). Deliberately NOT added
 // to ALLOWED_SUBS_* / roll-range tables (see the spec comment for rationale).
 rustLines.push('')
-rustLines.push('// Anomalous Accessories (Update 11.70) — PROVISIONAL(anomalous) placeholders.')
-rustLines.push('// (variant, placeholder stat id) pairs; ids are NOT real game/HSF ids.')
+rustLines.push('// Anomalous Accessories — PROVISIONAL(anomalous).')
+rustLines.push('// (variant, stat id) pairs — the REAL RSL Helper DB ids (11..14 dealt, 15..18')
+rustLines.push('// taken); only the sellfile RULE encoding is still unconfirmed.')
 rustLines.push(
   `pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[${anomalousSubstatEntries.map(({ variant, id }) => `(${variant}, ${id})`).join(', ')}];`
 )
@@ -689,7 +690,7 @@ rustLines.push('// (variant, canonical display label) pairs for SFC label parsin
 rustLines.push(
   `pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[${anomalousSubstatEntries.map(({ variant, label }) => `(${variant}, ${asRustStringLiteral(label)})`).join(', ')}];`
 )
-rustLines.push('// True when a variant encodes one of the anomalous placeholder substats.')
+rustLines.push('// True when a variant encodes one of the anomalous mode-damage substats.')
 rustLines.push('pub fn is_anomalous_substat_variant(variant: i64) -> bool {')
 rustLines.push('    // Linear scan — the table has eight entries.')
 rustLines.push('    ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)')

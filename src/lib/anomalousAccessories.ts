@@ -41,7 +41,7 @@ export {
 // Stable internal token for each new substat (key union of the generated map).
 export type AnomalousSubstatKey = keyof typeof ANOMALOUS_SUBSTAT_IDS_BY_KEY
 
-// Placeholder id/variant unions derived from the generated maps (literal values).
+// Id/variant unions derived from the generated maps (literal values).
 export type AnomalousSubstatId = (typeof ANOMALOUS_SUBSTAT_IDS_BY_KEY)[AnomalousSubstatKey]
 export type AnomalousSubstatVariant = (typeof ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY)[AnomalousSubstatKey]
 
@@ -77,7 +77,7 @@ const eligibleSlotIdSet = new Set<number>(ANOMALOUS_ELIGIBLE_SLOT_IDS)
 // until a sample sellfile confirms the rule encoding.
 export const isAnomalousStatId = (id: number): boolean => anomalousIdSet.has(id)
 
-// True when a StatVariant value encodes one of the anomalous placeholder substats.
+// True when a StatVariant value encodes one of the anomalous mode-damage substats.
 export const isAnomalousSubstatVariant = (variant: number): boolean =>
   anomalousVariantSet.has(variant)
 

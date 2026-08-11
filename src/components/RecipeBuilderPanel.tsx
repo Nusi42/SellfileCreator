@@ -69,8 +69,9 @@ import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normaliz
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
-// PROVISIONAL(anomalous): accessory-only substat rows + the decimal-target gate.
+// PROVISIONAL(anomalous): accessory-only substat rows + the grid-target gating.
 import {
+  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
   isAnomalousSubstatVariant,
@@ -934,14 +935,17 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     return `${Math.round(fallbackValue)}`
   }, [resolveTargetFallbackValue])
   const resolveComparableTargetValue = React.useCallback((rollIndex: number): number | null => {
+    // Compare ENGINE-APPLIED values on both sides: explicit drafts floor exactly like
+    // resolveRollTargetValue's fallbacks (the i32 emit boundary), so an on-grid 2.5
+    // draft never false-positives the "target decreases" warning against a floored 2.
     if (rollIndex === 0) {
       if (typeof targetDraftBase === 'number' && Number.isFinite(targetDraftBase)) {
-        return targetDraftBase
+        return Math.floor(targetDraftBase)
       }
       return resolveTargetFallbackValue(0)
     }
     const entry = targetDraftRolls[rollIndex - 1]
-    if (typeof entry === 'number' && Number.isFinite(entry)) return entry
+    if (typeof entry === 'number' && Number.isFinite(entry)) return Math.floor(entry)
     return resolveTargetFallbackValue(rollIndex)
   }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
   // Close the substat menu on outside clicks to prevent stuck overlays.
@@ -3497,15 +3501,17 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
     const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
     const rollTargetsTooltipText = targetContext
-      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.round(targetContext.baseValue)) })
+      // Floor like the engine's i32 emit boundary so the hint advertises the applied value.
+      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.floor(targetContext.baseValue)) })
       : t('builderSubstatMenuRollTargetsHintFallback')
-    // PROVISIONAL(anomalous): mode-damage targets keep 2-decimal precision;
-    // classic stats stay integral (the engine quantizes them to i32 anyway).
+    // PROVISIONAL(anomalous): mode-damage targets live on the 1.25 grid (snap +
+    // grid-sized spinner steps); classic stats stay integral.
     const targetAllowsDecimals = activeMenuInfo ? isAnomalousSubstatVariant(Number(activeMenuInfo.variant)) : false
+    const targetStepSize = targetAllowsDecimals ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
     const stepTargetBase = (delta: number) => {
       if (!activeMenuInfo) return
       const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
-      const nextValue = clampTargetValue((seedValue ?? 0) + delta, targetAllowsDecimals)
+      const nextValue = clampTargetValue((seedValue ?? 0) + delta * targetStepSize, Number(activeMenuInfo.variant))
       applyTargetSelection(nextValue, targetDraftRolls)
     }
     const stepTargetRoll = (index: number, delta: number) => {
@@ -3513,7 +3519,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       const nextRolls = cloneTargetRolls(targetDraftRolls)
       const current = nextRolls[index]
       const seedValue = current ?? resolveTargetFallbackValue(index + 1)
-      nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta, targetAllowsDecimals)
+      nextRolls[index] = clampTargetValue((seedValue ?? 0) + delta * targetStepSize, Number(activeMenuInfo.variant))
       applyTargetSelection(targetDraftBase, nextRolls)
     }
     const renderRequirementChip = (mode: 'min' | 'max') => {
@@ -3723,14 +3729,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       if (!activeMenuInfo) return
       // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
       setSubstatMenuTargetText({ key: 'base', text: event.target.value })
-      const nextValue = clampTargetValue(parseNumericInput(event.target.value), targetAllowsDecimals)
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value), Number(activeMenuInfo.variant))
       applyTargetSelection(nextValue, targetDraftRolls)
     }
     const handleTargetRollChange = (index: number) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       if (!activeMenuInfo) return
       // Keep the raw text so partially-typed decimals ("1.") are not eaten mid-keystroke.
       setSubstatMenuTargetText({ key: `roll:${index}`, text: event.target.value })
-      const nextValue = clampTargetValue(parseNumericInput(event.target.value), targetAllowsDecimals)
+      const nextValue = clampTargetValue(parseNumericInput(event.target.value), Number(activeMenuInfo.variant))
       const nextRolls = cloneTargetRolls(targetDraftRolls)
       nextRolls[index] = nextValue
       applyTargetSelection(targetDraftBase, nextRolls)
@@ -4289,8 +4295,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       })}
                       slotProps={{
                         htmlInput: {
-                          inputMode: 'decimal',
-                          step: 'any',
+                          // Decimal affordances only where decimals are legal (anomalous grid).
+                          ...(targetAllowsDecimals
+                            ? { inputMode: 'decimal' as const, step: 'any' }
+                            : { inputMode: 'numeric' as const, pattern: '[0-9]*' }),
                           min: 0,
                           // Focus-cycling hook: keep Tab within the Roll Targets inputs.
                           [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
@@ -4378,8 +4386,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           })}
                           slotProps={{
                             htmlInput: {
-                              inputMode: 'decimal',
-                              step: 'any',
+                              // Decimal affordances only where decimals are legal (anomalous grid).
+                              ...(targetAllowsDecimals
+                                ? { inputMode: 'decimal' as const, step: 'any' }
+                                : { inputMode: 'numeric' as const, pattern: '[0-9]*' }),
                               min: 0,
                               // Focus-cycling hook: keep Tab within the Roll Targets inputs.
                               [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',

@@ -714,7 +714,8 @@ export function summaryParts(
         const rawTargetEntry = (recipe as BuilderRecipe).substatRollTargetsV?.[vk]
         let targetsEntry = null
         try {
-          targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry)
+          // Variant-aware: anomalous entries keep their on-grid decimals for display.
+          targetsEntry = normalizeLooseRollTargetEntry(rawTargetEntry, Number(vk))
         } catch {
           targetsEntry = null
         }
@@ -722,7 +723,8 @@ export function summaryParts(
           if (!targetsEntry) return null
           try {
             const values: string[] = []
-            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.round(val)) : '—')
+            // Values are pre-quantized (integers / 1.25 grid) — show them verbatim.
+            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(val) : '—')
             values.push(formatValue(targetsEntry.base))
             const increments = targetsEntry.increments ?? []
             for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {

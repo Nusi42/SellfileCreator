@@ -73,8 +73,11 @@ import { getPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 const BACKGROUND_PUSH_COALESCE_MS = 1500
 
 // What happened to a coalesced burst — the app surfaces these as toasts.
+// PROVISIONAL(anomalous): scrubbedAnomalousRules counts rules the export scrub
+// dropped from THIS account's uploaded sellfile so the app can disclose the
+// preview-vs-export divergence for background pushes too.
 export type BackgroundAccountPushOutcome =
-  | { kind: 'pushed'; account: SfcAccount; itemCount: number }
+  | { kind: 'pushed'; account: SfcAccount; itemCount: number; scrubbedAnomalousRules: number }
   | { kind: 'autoPushOff'; account: SfcAccount }
   | { kind: 'noDocument'; account: SfcAccount }
   | { kind: 'failed'; account: SfcAccount; message: string }
@@ -210,7 +213,13 @@ export const createBackgroundAccountPushService = (
         computeImprovementChance: false,
       })
       // 5. Serialize with the shared writer and upload stamped with X's identity.
-      const payload = buildHsfFileFromMerged(result.mergedRules, { recipeNames: view.exportRecipeNames })
+      // PROVISIONAL(anomalous): capture scrubbed-rule count for the outcome so this
+      // otherwise-silent path still discloses the preview-vs-export divergence.
+      let scrubbedAnomalousRules = 0
+      const payload = buildHsfFileFromMerged(result.mergedRules, {
+        recipeNames: view.exportRecipeNames,
+        onAnomalousRulesScrubbed: (droppedRules) => { scrubbedAnomalousRules = droppedRules },
+      })
       const response = await deps.sendRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
         ...(account.helperAccountId ? { playerId: account.helperAccountId } : {}),
         // displayName IS the in-game player name (kept fresh from helper-sent names);
@@ -232,7 +241,7 @@ export const createBackgroundAccountPushService = (
           buildGearInspectorAutosavePayload(items),
         )
       }
-      deps.onOutcome({ kind: 'pushed', account, itemCount: items.length })
+      deps.onOutcome({ kind: 'pushed', account, itemCount: items.length, scrubbedAnomalousRules })
     } catch (error) {
       deps.onOutcome({ kind: 'failed', account, message: error instanceof Error ? error.message : String(error) })
     }
