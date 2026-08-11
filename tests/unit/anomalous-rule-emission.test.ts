@@ -15,16 +15,19 @@ import {
   ANOMALOUS_SUBSTAT_VARIANTS,
 } from '../../src/lib/anomalousAccessories.js'
 import type { SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
+import { findObsoleteRules } from '../../src/lib/hsfObsolete.js'
+import { countRulesForRecipeEntry } from '../../src/lib/ruleCacheHelpers.js'
+import { StatVariant } from '../../src/lib/types.js'
 
 // "Any rolls" on every anomalous substat, min 1 of them, across the full level
 // window — the recipe form that exercises one rule per substat per milestone.
-const anomalousAnyRecipe = (): BuilderRecipe => {
+const anomalousAnyRecipe = (variants: readonly number[] = ANOMALOUS_SUBSTAT_VARIANTS): BuilderRecipe => {
   const substatRollBoundsV: Record<number, { any: boolean }> = {}
-  for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) substatRollBoundsV[variant] = { any: true }
+  for (const variant of variants) substatRollBoundsV[variant] = { any: true }
   return {
     keep: true, exportMode: 'active', rankCode: 0, rarityCode: 0, rarityMode: 'auto',
     factionCode: 0, mainStatsV: [], earlyKeepMode: 'early',
-    substatsV: [...ANOMALOUS_SUBSTAT_VARIANTS], fixedSubstatsV: [],
+    substatsV: [...variants], fixedSubstatsV: [],
     minCount: 1, autoMinCount: false, autoSubstatFlex: false,
     minRequiredRolls: 0, autoMinRequiredRolls: true,
     minLevel: 0, maxLevel: 16, substatRollBoundsV,
@@ -35,6 +38,31 @@ const anomalousAnyRecipe = (): BuilderRecipe => {
 // The one anomalous line of a rule (the other three slots are ID -1 padding).
 const anomalousLinesOf = (rules: ReturnType<typeof buildHsfRules>) =>
   rules.flatMap((rule) => (rule.Substats ?? []).filter((s) => Number(s.ID) !== -1))
+
+test('distinct anomalous substats are not mistaken for each other after building', async () => {
+  await warmupWasmRuleEngine()
+  // The obsolete detector keys on the DECODED variant, and Rust's sub_to_variant
+  // only knew the classic id ranges — so every anomalous id decoded to the Any
+  // fallback and two different mode-damage rules looked like the same stat. A
+  // recipe with N of them emitted one rule per level instead of N, silently.
+  // This is the app's real post-build path; buildHsfRules alone never saw it.
+  const targets = defaultSubstatTargets()
+  const twoAnomalous = anomalousAnyRecipe([
+    ANOMALOUS_SUBSTAT_VARIANTS[0]!,
+    ANOMALOUS_SUBSTAT_VARIANTS[1]!,
+  ])
+  const built = buildHsfRules(twoAnomalous, targets)
+  assert.equal(findObsoleteRules(built).obsolete.length, 0, 'no anomalous rule covers a DIFFERENT anomalous stat')
+  assert.equal(countRulesForRecipeEntry(twoAnomalous, targets), built.length)
+
+  // Same shape as the classic pair it must behave like (SPD + CR%).
+  const twoClassic = anomalousAnyRecipe([StatVariant.SPD, StatVariant.CR])
+  assert.equal(
+    countRulesForRecipeEntry(twoAnomalous, targets),
+    countRulesForRecipeEntry(twoClassic, targets),
+    'two anomalous substats must survive pruning exactly like two classic ones',
+  )
+})
 
 test('every selected anomalous substat reaches the emitted rules', async () => {
   await warmupWasmRuleEngine()

@@ -767,6 +767,17 @@ pub fn sub_to_variant(id: i64, is_flat_flag: i64) -> i64 {
     if id == STAT_ID_ROLL_COUNT {
         return (STAT_ID_ROLL_COUNT << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
     }
+    // Anomalous mode-damage ids carry the standard percent-shaped encoding, but the
+    // ranges above only cover the classic ids, so without this branch they all fell
+    // through to the Any fallback below — decoding EVERY anomalous substat to the
+    // same variant. Callers that key on the decoded variant then saw two different
+    // mode-damage rules as the same stat: the obsolete detector pruned all but the
+    // first as "covered by looser/equal thresholds", so a recipe selecting several
+    // of them emitted one rule per level instead of one per substat.
+    // Mirrors the anomalous branch of subToVariant in src/lib/types.ts.
+    if let Some(variant) = anomalous_variant_for_stat_id(id) {
+        return variant;
+    }
     STAT_ID_ANY
 }
 

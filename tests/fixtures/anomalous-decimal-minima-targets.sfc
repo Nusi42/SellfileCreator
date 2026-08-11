@@ -1,0 +1,46 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Minima": {
+    "six": {
+      "PvE DMG +": 2.5,
+      "Boss DMG -": 0.25
+    },
+    "anyRankDefaultsTo": "six"
+  },
+  "Configs": [
+    {
+      "name": "Anomalous decimals",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6",
+      "Rarity": "Any",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 16,
+      "maxLevel": 16,
+      "substats": [
+        "PvE DMG +",
+        "Boss DMG -"
+      ],
+      "fixedSubstats": [],
+      "substatRollBounds": {
+        "PvE DMG +": {
+          "any": true
+        },
+        "Boss DMG -": {
+          "any": true
+        }
+      },
+      "minCount": 1,
+      "autoMinCount": false,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "artifactTypeNames": [
+        "Ring"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "Version": "0.9.8-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "name": "Anomalous",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "PvE DMG +",
+        "PvP DMG +"
+      ],
+      "fixedSubstats": [],
+      "substatRollBounds": {
+        "PvE DMG +": {
+          "any": true
+        },
+        "PvP DMG +": {
+          "any": true
+        }
+      },
+      "minCount": 1,
+      "autoMinCount": false,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}
