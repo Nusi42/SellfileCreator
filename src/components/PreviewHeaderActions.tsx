@@ -15,6 +15,7 @@ import {
 	  MENU_CONTROL_HEIGHT_PX,
 	  MENU_CONTROL_MIN_WIDTH_PX,
 	  STATUS_CHIP_BORDER_RADIUS_PX,
+	  STATUS_BADGE_OVERHANG_PX,
 	  SPLIT_BUTTON_MAIN_SX,
 	  SPLIT_BUTTON_CHEVRON_SX,
 	} from '../lib/constants'
@@ -838,8 +839,10 @@ export default function PreviewHeaderActions(props: {
 
   const statusBadgeSx = React.useCallback((paletteKey: 'warning' | 'success') => (theme: Theme) => ({
     position: 'absolute',
-    top: -4,
-    right: -4,
+    // Overhang is shared with the scroll region's headroom reservation (see the header's
+    // overflowY:hidden box) so the badge can never be clipped by it again.
+    top: -STATUS_BADGE_OVERHANG_PX,
+    right: -STATUS_BADGE_OVERHANG_PX,
     minWidth: 18,
     height: 18,
     borderRadius: '50%',
@@ -1329,7 +1332,18 @@ export default function PreviewHeaderActions(props: {
           bar; it grows vertically with the filter panel instead. */}
       <Box
         ref={exportOuterHeaderRef}
-        sx={{ mb: 1, minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}
+        sx={{
+          mb: 1,
+          minWidth: 0,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          // The history button's corner status badge overhangs its button by
+          // STATUS_BADGE_OVERHANG_PX, which overflowY:hidden would otherwise clip. Reserve
+          // exactly that much headroom and pull it back off with a matching negative margin,
+          // so the badge renders in full without shifting the row or growing the header.
+          pt: `${STATUS_BADGE_OVERHANG_PX}px`,
+          mt: `-${STATUS_BADGE_OVERHANG_PX}px`,
+        }}
       >
         {/* Inner column sized to its widest row (control row OR filter panel) so BOTH rows
             stretch to that width. That lets the control row be as wide as the filter grid,

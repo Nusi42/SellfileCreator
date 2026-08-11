@@ -107,6 +107,10 @@ export const EXPORT_SCROLL_MIN_WIDTH_PX = 160
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
+// How far the corner status badge (endpoint success "✓" / warning "!") sticks out past its
+// button on each axis. The header's scroll region clips overflowY, so it reserves exactly
+// this much headroom — SSOT so the badge offset and that reservation can never drift apart.
+export const STATUS_BADGE_OVERHANG_PX = 4
 
 // Autosave storage key for SFC sessions. Account-scoped: resolved once at module init
 // through lib/accounts.ts (the active account is fixed for the session — switching
