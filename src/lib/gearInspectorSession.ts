@@ -22,8 +22,8 @@ import {
   artifactTypeNames,
 } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
-// PROVISIONAL(anomalous): fractional-grid step/floor handling for mode-damage lines.
-import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from './anomalousAccessories'
+// Per-variant value grid (PROVISIONAL(anomalous): 1.25 for mode-damage lines).
+import { quantizeTargetValueForVariant, targetValueStepForVariant } from './hsfBuilder/targets'
 import type { NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem, GearInspectorItemPreviewExtras } from './ruleEval'
 
@@ -205,6 +205,18 @@ export function buildGearInspectorAutosavePayload(
   }
 }
 
+/**
+ * The value a present gear substat line may hold: snapped to the stat's grid
+ * (integers for classic stats, the PROVISIONAL(anomalous) 1.25 step for
+ * mode-damage lines) and never below one step — a line that exists always
+ * carries at least its minimum. Single definition shared by the custom-gear
+ * editor's input clamp and the session's re-normalization (adjustSubValuesFor),
+ * which previously disagreed on both the grid and the floor.
+ */
+export const clampGearLineValue = (variant: number, value: number): number => (
+  Math.max(targetValueStepForVariant(variant), quantizeTargetValueForVariant(variant, value))
+)
+
 export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
   const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
     if (star === 6) return substatTargets.six[variant] ?? 0
@@ -215,20 +227,13 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
     return substatTargets.one[variant] ?? 0
   }
 
-  // PROVISIONAL(anomalous): mode-damage lines live on a fractional grid — their
-  // roll step falls back to the observed 1.25 when the targets table has no entry
-  // (only rank 5 is seeded), and their value floor keeps 2-decimal precision.
-  // Classic lines keep the historical ≥1 integer behavior.
+  // The per-roll step for a stat at a given rank: the seeded target when the table
+  // has one, else the stat's own grid step (PROVISIONAL(anomalous): only rank 5 is
+  // seeded for mode-damage lines, so other ranks fall back to the 1.25 grid).
   const stepFor = (variant: number, star: 1|2|3|4|5|6): number => {
     const base = baseStepForRank(variant, star)
-    if (isAnomalousSubstatVariant(variant)) return base > 0 ? base : ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE
-    return Math.max(1, base)
+    return base > 0 ? base : targetValueStepForVariant(variant)
   }
-  const floorValueFor = (variant: number, value: number): number => (
-    isAnomalousSubstatVariant(variant)
-      ? Math.max(0.01, Math.round(value * 100) / 100)
-      : Math.max(1, value)
-  )
 
   const adjustSubValuesFor = (it: GearInspectorItem): GearInspectorItem => {
     const slotValue = Number(it.slot)
@@ -241,7 +246,7 @@ export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
     ))
     const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
 
-    let kept = allowedFiltered.map(([variant, value]) => [Number(variant), floorValueFor(Number(variant), Number(value))] as [number, number])
+    let kept = allowedFiltered.map(([variant, value]) => [Number(variant), clampGearLineValue(Number(variant), Number(value))] as [number, number])
     if (kept.length > need) {
       kept = kept.slice(0, need)
     }

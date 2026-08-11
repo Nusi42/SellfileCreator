@@ -8,11 +8,13 @@ import assert from 'node:assert/strict'
 // viability gate, and the export-scrub disclosure callback.
 import {
   clampTargetOverrideValue,
+  engineAppliedTargetValue,
   normalizeLooseRollTargetEntry,
   normalizeRollTargetEntry,
   quantizeTargetValueForVariant,
   resolveRollTargetValue,
 } from '../../src/lib/hsfBuilder/targets.js'
+import { clampGearLineValue } from '../../src/lib/gearInspectorSession.js'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../../src/lib/statCompatibility.js'
 import { buildHsfFileFromMerged } from '../../src/lib/hsfIO.js'
 import {
@@ -55,8 +57,10 @@ test('normalize chain persists on-grid decimals for anomalous, integers for clas
   assert.deepEqual(normalizeRollTargetEntry({ base: 4.5 }, StatVariant.SPD), { base: 5 })
   assert.deepEqual(normalizeLooseRollTargetEntry(4.5, StatVariant.SPD), { base: 5 })
   assert.deepEqual(normalizeLooseRollTargetEntry('1.25', PVE_PLUS), { base: 1.25 })
-  // Variant-less internal callers keep 2-decimal precision (post-ingress data).
-  assert.equal(clampTargetOverrideValue(1.25), 1.25)
+  // The variant is REQUIRED throughout the chain — there is no permissive
+  // bypass branch left for a caller to land on.
+  assert.equal(clampTargetOverrideValue(1.25, PVE_PLUS), 1.25)
+  assert.equal(clampTargetOverrideValue(1.25, StatVariant.SPD), 1)
 })
 
 test('resolveRollTargetValue returns ENGINE-APPLIED thresholds (i32 floor on both sides)', () => {
@@ -68,6 +72,38 @@ test('resolveRollTargetValue returns ENGINE-APPLIED thresholds (i32 floor on bot
   // comparable values never mix floored and unfloored numbers.
   assert.equal(resolveRollTargetValue({ base: 2.5 }, 0, 1.25), 2)
   assert.equal(resolveRollTargetValue({ base: 2.5, increments: [3.75] }, 1, 1.25), 3)
+})
+
+test('engineAppliedTargetValue is the one floor every advertising surface uses', () => {
+  // Stored on-grid decimals apply floored at the i32 emit boundary.
+  assert.equal(engineAppliedTargetValue(2.5), 2)
+  assert.equal(engineAppliedTargetValue(1.25), 1)
+  assert.equal(engineAppliedTargetValue(4), 4)
+  // Never negative — mirrors the max(0, …) the engine's base values carry.
+  assert.equal(engineAppliedTargetValue(-3), 0)
+  // Threshold resolution agrees with it on both the fallback and override sides,
+  // so no surface can advertise a different number than another (the bug that
+  // let round-then-multiply and floor-then-multiply coexist in one popover).
+  for (const rolls of [0, 1, 2, 3]) {
+    assert.equal(
+      resolveRollTargetValue(null, rolls, 1.25),
+      engineAppliedTargetValue(1.25) * (rolls + 1),
+    )
+  }
+  assert.equal(resolveRollTargetValue({ base: 2.5 }, 0, 1.25), engineAppliedTargetValue(2.5))
+})
+
+test('gear line values use one grid+floor rule for editor input and session re-normalization', () => {
+  // Anomalous lines snap to the 1.25 grid and never fall below one step.
+  assert.equal(clampGearLineValue(PVE_PLUS, 2.6), 2.5)
+  assert.equal(clampGearLineValue(PVE_PLUS, 0.1), 1.25)
+  assert.equal(clampGearLineValue(PVE_PLUS, 0), 1.25)
+  // Classic lines stay integral with the historical ≥1 floor.
+  assert.equal(clampGearLineValue(StatVariant.SPD, 4.4), 4)
+  assert.equal(clampGearLineValue(StatVariant.SPD, 0.2), 1)
+  // Idempotent: re-normalizing a stored value never drifts it.
+  const stored = clampGearLineValue(PVE_PLUS, 3.75)
+  assert.equal(clampGearLineValue(PVE_PLUS, stored), stored)
 })
 
 test('anomalous feasibility requires a jewelry slot that SURVIVES the main-stat gate', () => {

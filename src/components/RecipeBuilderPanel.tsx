@@ -35,6 +35,7 @@ import {
   starForRankCode,
   rollLevelsForRarityCode,
   rarityIncludesMythical,
+  engineAppliedTargetValue,
   resolveRollTargetValue,
   type BuilderRecipe,
   type SubstatTargetTable,
@@ -101,7 +102,7 @@ import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import { ColorField } from './ColorField'
-import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
@@ -420,7 +421,7 @@ const applySingleSubstatTargets = React.useCallback((variant: number, builder: (
     ...(typeof prevRaw.base === 'number' ? { base: prevRaw.base } : {}),
     ...(Array.isArray(prevRaw.increments) ? { increments: [...prevRaw.increments] } : {}),
   } : undefined)
-  const nextNormalized = normalizeRollTargetEntry(nextRaw)
+  const nextNormalized = normalizeRollTargetEntry(nextRaw, Number(variant))
   if (targetEntriesEqual(prevRaw, nextNormalized)) return
   let nextMap: SubstatRollTargets | undefined
   if (!nextNormalized) {
@@ -841,7 +842,7 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceRecipes)
 const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): SubstatRollTargetEntry | null => {
     if (!multiEditActive) {
       const raw = (recipe.substatRollTargetsV ?? {})[variant]
-      return normalizeRollTargetEntry(raw)
+      return normalizeRollTargetEntry(raw, Number(variant))
     }
     const recipes = (() => {
       if (multiProjectedRecipes && multiProjectedRecipes.length > 0) return multiProjectedRecipes
@@ -851,7 +852,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (recipes.length === 0) return null
     let baseline: SubstatRollTargetEntry | null | undefined
     for (const recipe of recipes) {
-      const entry = normalizeRollTargetEntry((recipe.substatRollTargetsV ?? {})[variant])
+      const entry = normalizeRollTargetEntry((recipe.substatRollTargetsV ?? {})[variant], Number(variant))
       if (baseline === undefined) {
         baseline = entry ?? null
         continue
@@ -932,20 +933,20 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const formatTargetFallback = React.useCallback((rollIndex: number): string => {
     const fallbackValue = resolveTargetFallbackValue(rollIndex)
     if (fallbackValue == null) return ''
-    return `${Math.round(fallbackValue)}`
+    // Already engine-applied by resolveRollTargetValue — render as-is.
+    return `${fallbackValue}`
   }, [resolveTargetFallbackValue])
   const resolveComparableTargetValue = React.useCallback((rollIndex: number): number | null => {
-    // Compare ENGINE-APPLIED values on both sides: explicit drafts floor exactly like
-    // resolveRollTargetValue's fallbacks (the i32 emit boundary), so an on-grid 2.5
-    // draft never false-positives the "target decreases" warning against a floored 2.
+    // Compare ENGINE-APPLIED values on both sides so an on-grid 2.5 draft never
+    // false-positives the "target decreases" warning against a floored 2.
     if (rollIndex === 0) {
       if (typeof targetDraftBase === 'number' && Number.isFinite(targetDraftBase)) {
-        return Math.floor(targetDraftBase)
+        return engineAppliedTargetValue(targetDraftBase)
       }
       return resolveTargetFallbackValue(0)
     }
     const entry = targetDraftRolls[rollIndex - 1]
-    if (typeof entry === 'number' && Number.isFinite(entry)) return Math.floor(entry)
+    if (typeof entry === 'number' && Number.isFinite(entry)) return engineAppliedTargetValue(entry)
     return resolveTargetFallbackValue(rollIndex)
   }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
   // Close the substat menu on outside clicks to prevent stuck overlays.
@@ -3412,20 +3413,17 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         }
       })
       if (metrics.length === 0) return null
-      const computeThreshold = (base: number, rolls: number): number => (
-        isRollCount ? rolls : Math.max(0, base + (rolls * base))
+      // Draft overrides as an entry so the shared resolver — not a local copy of its
+      // math — answers "threshold at roll N". It handles the factory fallback, the
+      // explicit overrides, the omitted-position clamp, AND the engine-applied floor,
+      // so these chips agree with the roll-target placeholders and the engine.
+      const draftTargetEntry = buildTargetEntryFromDraft(targetDraftBase, targetDraftRolls)
+      const targetValueForRoll = (base: number, rolls: number): number => (
+        // Roll Count is a literal count, not a stat threshold — no target math applies.
+        isRollCount ? rolls : resolveRollTargetValue(draftTargetEntry, rolls, base)
       )
-      const targetValueForRoll = (base: number, rolls: number): number => {
-        if (rolls <= 0) {
-          if (targetDraftBase != null) return targetDraftBase
-          return computeThreshold(base, 0)
-        }
-        const idx = Math.min(SUBSTAT_TARGET_MAX_ROLLS - 1, Math.max(0, rolls - 1))
-        const override = targetDraftRolls[idx]
-        if (override != null) return override
-        return computeThreshold(base, rolls)
-      }
-      const formatValue = (value: number) => numberFormatter.format(Math.round(value))
+      // Values are already engine-applied integers; format without re-rounding.
+      const formatValue = (value: number) => numberFormatter.format(value)
       const formatRange = (minVal: number, maxVal: number) => {
         const low = Math.min(minVal, maxVal)
         const high = Math.max(minVal, maxVal)
@@ -3501,8 +3499,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     const minRollTooltipText = t('builderSubstatMenuMinRollsTooltip')
     const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
     const rollTargetsTooltipText = targetContext
-      // Floor like the engine's i32 emit boundary so the hint advertises the applied value.
-      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(Math.floor(targetContext.baseValue)) })
+      // Advertise the applied threshold, like every other non-editable surface.
+      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(engineAppliedTargetValue(targetContext.baseValue)) })
       : t('builderSubstatMenuRollTargetsHintFallback')
     // PROVISIONAL(anomalous): mode-damage targets live on the 1.25 grid (snap +
     // grid-sized spinner steps); classic stats stay integral.
@@ -4343,9 +4341,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       && comparableValue != null
                       && comparableValue < previousComparableValue
                     const warningTooltip = showWarning
+                      // Both sides are already engine-applied — format without re-rounding.
                       ? t('builderSubstatMenuRollTargetsWarning', {
-                        current: numberFormatter.format(Math.round(comparableValue)),
-                        previous: numberFormatter.format(Math.round(previousComparableValue)),
+                        current: numberFormatter.format(comparableValue),
+                        previous: numberFormatter.format(previousComparableValue),
                       })
                       : null
                     return (

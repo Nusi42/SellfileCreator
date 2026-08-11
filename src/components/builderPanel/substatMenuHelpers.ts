@@ -66,17 +66,21 @@ export const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRoll
 
 export const normalizeRollTargetEntry = (
   entry: SubstatRollTargetEntry | null | undefined,
+  variant: number,
 ): SubstatRollTargetEntry | null => {
   // Builder stores overrides as variant keyed objects. UI accepts partial drafts,
   // so we sanitize them before comparing or persisting to avoid false positives.
+  // Values run through the shared quantizer (same grid as every other ingress),
+  // so a draft can never persist off-grid — and drafts compare against stored
+  // entries on identical terms.
   if (!entry) return null
   const next: SubstatRollTargetEntry = {}
   const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
-  if (hasBase) next.base = entry.base!
+  if (hasBase) next.base = quantizeTargetValueForVariant(variant, entry.base!)
   if (Array.isArray(entry.increments)) {
     const trimmed = entry.increments
       .slice(0, SUBSTAT_TARGET_MAX_ROLLS)
-      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
+      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? quantizeTargetValueForVariant(variant, value) : null))
     while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
       trimmed.pop()
     }

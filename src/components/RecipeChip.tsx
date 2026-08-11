@@ -25,7 +25,7 @@ import {
 } from '../lib/types'
 import { GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { CircledDigitBadge } from './CircledDigitBadge'
-import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
+import { engineAppliedTargetValue, normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useI18n } from '../lib/i18n'
@@ -723,10 +723,8 @@ export function summaryParts(
           if (!targetsEntry) return null
           try {
             const values: string[] = []
-            // ENGINE-APPLIED convention (matches the flyout hint/placeholders): stored
-            // on-grid decimals floor at the i32 emit boundary, so the summary advertises
-            // the threshold that actually applies. Drop with the f64-emission rework.
-            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.floor(val)) : '—')
+            // Advertise the applied threshold, like the flyout hint/placeholders.
+            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(engineAppliedTargetValue(val)) : '—')
             values.push(formatValue(targetsEntry.base))
             const increments = targetsEntry.increments ?? []
             for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {

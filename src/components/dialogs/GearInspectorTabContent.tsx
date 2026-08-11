@@ -17,10 +17,10 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderRecipe } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousSubstatVariant, getLocalizedGearSetName } from '../../lib/types'
-// PROVISIONAL(anomalous): grid step + shared quantizer for mode-damage line values.
-import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE } from '../../lib/anomalousAccessories'
-import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder'
+import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, getLocalizedGearSetName } from '../../lib/types'
+// Shared gear-line value rule + the per-variant grid step it floors at.
+import { clampGearLineValue } from '../../lib/gearInspectorSession'
+import { targetValueStepForVariant } from '../../lib/hsfBuilder'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
@@ -1518,18 +1518,11 @@ export function GearInspectorTabContent({
               // slot first. Selecting one below swaps both variants and their values.
               const swapTargets = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
                 .filter(x => substatSelectable(x) && usedOthers.has(Number(x)) && Number(x) !== v)
-              const clampGearInspectorValue = (raw: number): number => {
-                if (!Number.isFinite(raw)) return 1
-                // PROVISIONAL(anomalous): mode-damage lines SNAP to the 1.25 grid
-                // (real gear values are grid multiples), floored at one grid step.
-                if (isAnomalousSubstatVariant(Number(v))) {
-                  return Math.max(
-                    ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
-                    quantizeTargetValueForVariant(Number(v), raw),
-                  )
-                }
-                return Math.max(1, Math.round(raw))
-              }
+              // Shared gear-line rule (grid snap + one-step floor) so typing a value
+              // here and letting the session re-normalize agree exactly.
+              const clampGearInspectorValue = (raw: number): number => (
+                Number.isFinite(raw) ? clampGearLineValue(Number(v), raw) : targetValueStepForVariant(Number(v))
+              )
               const commitSubstatValue = (nextValue: number) => {
                 updateItemAt(idx, (it2) => {
                   const base = { ...it2, subValues: { ...(it2.subValues || {}), [v]: nextValue } }

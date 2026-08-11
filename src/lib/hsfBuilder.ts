@@ -24,10 +24,12 @@ export type {
 } from './hsfBuilder/types'
 export {
   clampTargetOverrideValue,
+  engineAppliedTargetValue,
   normalizeLooseRollTargetEntry,
   normalizeRollTargetEntry,
   quantizeTargetValueForVariant,
   resolveRollTargetValue,
+  targetValueStepForVariant,
 } from './hsfBuilder/targets'
 import {
   compareVariants,
