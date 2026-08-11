@@ -3184,7 +3184,9 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   if (appliedRollTargets) {
     const nextTargets = { ...(next.substatRollTargetsV ?? {}) }
     for (const [variant, entry] of rollTargetsByVariant) {
-      const norm = normalizeRollTargetEntry(entry)
+      // Variant-aware ingress quantization — DSL-authored targets store the same
+      // grid values as flyout/SFC-authored ones for the same variant.
+      const norm = normalizeRollTargetEntry(entry, Number(variant))
       if (norm) nextTargets[variant as number] = norm
       else delete nextTargets[variant as number]
     }

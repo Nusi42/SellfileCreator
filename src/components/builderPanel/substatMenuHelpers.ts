@@ -1,5 +1,5 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../../lib/constants'
-import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder/targets'
+import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
 import type { StatVariant } from '../../lib/types'
 

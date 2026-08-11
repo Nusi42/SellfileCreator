@@ -723,8 +723,10 @@ export function summaryParts(
           if (!targetsEntry) return null
           try {
             const values: string[] = []
-            // Values are pre-quantized (integers / 1.25 grid) — show them verbatim.
-            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(val) : '—')
+            // ENGINE-APPLIED convention (matches the flyout hint/placeholders): stored
+            // on-grid decimals floor at the i32 emit boundary, so the summary advertises
+            // the threshold that actually applies. Drop with the f64-emission rework.
+            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(Math.floor(val)) : '—')
             values.push(formatValue(targetsEntry.base))
             const increments = targetsEntry.increments ?? []
             for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {

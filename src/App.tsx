@@ -7004,10 +7004,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     requestSfcSyncRef.current = requestSfcSync
   }, [requestSfcSync])
+  // Toast/translator bridge for the background-push service: read through a ref so
+  // the service's effect does NOT depend on `t` — dispose() discards pending
+  // coalesced bursts without flushing, so a locale switch mid-stream must not
+  // recreate the service and drop an account's queued push. (Same ref pattern as
+  // exportRulesCountRef.)
+  const backgroundPushFeedbackRef = useRef({ showToast, t })
+  useEffect(() => { backgroundPushFeedbackRef.current = { showToast, t } }, [showToast, t])
   // (Re)create the background account-push service whenever its transport changes.
   // Outcomes are deliberately TOAST-FREE: push attempts (success or failure) pulse the
   // account switcher button instead, and failures additionally persist a per-account
   // error marker the switcher list renders ("Push failed <date>") until a push succeeds.
+  // The one exception is the anomalous scrub disclosure below — a data-divergence
+  // warning that must surface even for background uploads.
   useEffect(() => {
     const service = createBackgroundAccountPushService({
       sendRequest: sendExternalRequest,
@@ -7025,8 +7034,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // like foreground exports do — prefixed with the account so the warning
         // is attributable when it concerns a non-active account's sellfile.
         if (outcome.kind === 'pushed' && outcome.scrubbedAnomalousRules > 0) {
-          showToast(
-            `${accountDisplayLabel(outcome.account)}: ${t('toastAnomalousRulesNotExported', { count: outcome.scrubbedAnomalousRules })}`,
+          const feedback = backgroundPushFeedbackRef.current
+          feedback.showToast(
+            `${accountDisplayLabel(outcome.account)}: ${feedback.t('toastAnomalousRulesNotExported', { count: outcome.scrubbedAnomalousRules })}`,
             { severity: 'warning' },
           )
         }
@@ -7039,9 +7049,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       service.dispose()
       if (backgroundAccountPushRef.current === service) backgroundAccountPushRef.current = null
     }
-    // showToast is a stable setter; t changes only on locale switch — the rare
-    // service recreate that causes is harmless (dispose cancels pending timers).
-  }, [sendExternalRequest, showToast, t])
+  }, [sendExternalRequest])
   // Optimistically apply gear selection and notify the endpoint; fire-and-forget.
   // Selection is the source of truth in the app — the endpoint can push a correction
   // event if it needs to override, but we do not revert on a bare error response

@@ -20,7 +20,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '.
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousSubstatVariant, getLocalizedGearSetName } from '../../lib/types'
 // PROVISIONAL(anomalous): grid step + shared quantizer for mode-damage line values.
 import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE } from '../../lib/anomalousAccessories'
-import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder/targets'
+import { quantizeTargetValueForVariant } from '../../lib/hsfBuilder'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'

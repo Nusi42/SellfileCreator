@@ -11,8 +11,11 @@ export const quantizeTargetValueForVariant = (variant: number, value: number): n
   if (!Number.isFinite(value)) return 0
   if (isAnomalousSubstatVariant(Number(variant))) {
     const step = ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE
-    const snapped = Math.round(value / step) * step
-    return Math.max(0, Math.round(snapped * 100) / 100)
+    const snapped = Math.max(0, Math.round(Math.round(value / step) * step * 100) / 100)
+    // Non-zero input never snaps to "no threshold": a typed 0.5 means the user
+    // wants SOME floor, so it lands on the first grid step. Only 0 clears.
+    if (snapped === 0 && value > 0) return step
+    return snapped
   }
   return Math.max(0, Math.round(value))
 }
@@ -79,7 +82,7 @@ export const normalizeRollTargetEntry = (
 // When entry is null, returns the pure factory value.
 // For omitted increment positions, clamps at max(factory, lastSpecified) so
 // the threshold never silently drops below the last explicitly set value.
-// Rust mirror: wasm/rule_engine_core/src/lib.rs (resolve_target_threshold).
+// Rust mirror: wasm/rule_engine_core/src/lib.rs (emit_hsf_target_value).
 export const resolveRollTargetValue = (
   entry: SubstatRollTargetEntry | null | undefined,
   rollIndex: number,

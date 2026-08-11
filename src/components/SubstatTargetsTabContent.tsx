@@ -19,7 +19,7 @@ import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_V
 // PROVISIONAL(anomalous): shared hover copy + grid gating for the mode-damage rows.
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from '../lib/anomalousAccessories'
-import { quantizeTargetValueForVariant } from '../lib/hsfBuilder/targets'
+import { quantizeTargetValueForVariant } from '../lib/hsfBuilder'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'

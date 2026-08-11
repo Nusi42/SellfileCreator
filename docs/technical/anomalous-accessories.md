@@ -59,7 +59,7 @@ be revisited.
 | Builder UIs | `RecipeBuilderPanel.tsx` + `SafeguardBuilderPanel.tsx` always render two extra rows (`⚔` damage dealt, `🛡` damage taken) — like every other stat row, individual chips grey out via the shared `allowedSubstatOptions` disabled state when the slot scope has no jewelry slot; safeguard multi-edit selection scan includes them |
 | Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
-| Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous values keep 2-decimal precision; the session's random auto-fill pool stays classic on purpose |
+| Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous line values SNAP to the 1.25 grid and floor at one grid step; the session's random auto-fill pool stays classic on purpose |
 | Decimal targets | Substat Targets tab + recipe flyout accept and PERSIST values **for anomalous variants only**, SNAPPED to the 1.25 grid by the shared `quantizeTargetValueForVariant` (`targets.ts`) — off-grid input like 2.6 would silently widen at the engine's floor boundary. Classic stats stay integral through the same quantizer, including SFC ingress (`sfcIO` passes the variant) and Rust's `normalize_target_override_value` mirror. Spinners walk the grid; decimal input affordances (`inputMode`/`step`) are gated per variant. Engine-side, minima travel as f64 and FLOOR at the i32 boundary — exact for on-grid values — and `resolveRollTargetValue` applies the same floor to factory fallbacks AND explicit overrides, so placeholders, hints, and the "target decreases" comparison all reason about engine-applied thresholds |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
 | Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
@@ -82,10 +82,12 @@ setless anomalous accessories are unconfirmed — no false "impossible"
 verdicts), and the note-overrides DSL: its EBNF *reference text*
 (`overridesEbnf.ts`) omits anomalous stat keys, but the parser resolves keys
 via `variantFromLabel` and therefore ACCEPTS them (including the space-free /
-`DMG`-less aliases) — and then `parseIntegerValue` / `clampMinimaValue`
-(`noteRecipeOverrides.ts`) silently truncate fractional values to integers.
-DSL-side grid support is future work; until then anomalous overrides written
-by hand apply floored.
+`DMG`-less aliases) — `parseIntegerValue` / `clampMinimaValue`
+(`noteRecipeOverrides.ts`) truncate fractional values to integers first, and
+the apply path then re-snaps roll targets to the grid per variant (so a DSL
+`1.25` lands as 1 → 1.25, but `3.75` lands as 3 → 2.5). DSL-side grid support
+is future work; until then hand-written anomalous overrides are lossy above
+the first grid step.
 
 ## Judged values (the PROVISIONAL(anomalous) ledger)
 
@@ -98,6 +100,7 @@ by hand apply floored.
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
 | Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `⚔` brighter than `🛡` | Pure judgment; user-editable in Manage Colors. |
 | Glyphability | `statSupportsGlyphs` answers **no** for anomalous variants | Unknown in-game; conservative so no glyph affordance is offered. Flip from observation. |
+| Target grid snapping | `quantizeTargetValueForVariant` snaps anomalous targets to the NEAREST 1.25 multiple (1 → 1.25, 2 → 2.5), never clears a non-zero input (0.5 → 1.25; only a typed 0 clears), and applies the rank-5 grid at EVERY rank | Nearest-multiple is stricter than typed for keep thresholds and looser for sell thresholds — a judged tie-break; and non-rank-5 grids are unknown (see "Per-roll step"), so the observed grid is assumed universal. Revisit both with real roll data. |
 
 **Hard rule until a sample sellfile exists:** anomalous ids must never reach
 exported `.hsf` bytes. App state, SFC documents, and DB ingest carry them; the

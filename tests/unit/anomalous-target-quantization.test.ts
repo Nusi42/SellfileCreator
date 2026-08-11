@@ -34,6 +34,13 @@ test('quantizer: classic stats round to integers, anomalous snap to the 1.25 gri
   assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 1.25), 1.25)
   assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 2.6), 2.5)
   assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 3.2), 3.75)
+  // Nearest-multiple snapping is a judged tie-break: whole numbers land on the
+  // next grid point above (1 → 1.25, 2 → 2.5) — see the ledger entry.
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 1), 1.25)
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 2), 2.5)
+  // Non-zero input never snaps to "no threshold"; only a typed 0 clears.
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0.5), 1.25)
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0), 0)
   // Negative and non-finite input floors at zero.
   assert.equal(quantizeTargetValueForVariant(PVE_PLUS, -1), 0)
   assert.equal(quantizeTargetValueForVariant(StatVariant.SPD, Number.NaN), 0)
