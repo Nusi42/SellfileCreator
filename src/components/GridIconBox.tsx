@@ -21,6 +21,13 @@ import { TINT, ALPHA } from '../lib/colorTints'
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
 const GRID_ICON_BORDER_WIDTH_PX = 2
+// Anomalous accessories get a dashed outer border plus an inset companion ring, so a
+// mode-damage piece is identifiable at a glance without spending the border COLOUR —
+// that channel already encodes rarity and must stay readable on both item kinds.
+const ANOMALOUS_INNER_RING_WIDTH_PX = 1
+// Gap between the rarity border and the inset ring; keeps the two strokes from merging
+// into one thick line at the 43px ultra-dense size.
+const ANOMALOUS_INNER_RING_GAP_PX = 1
 // 2-chip stacked overlay positions (improvement chance + substat rating).
 const STACKED_OVERLAY_TOP_Y_PERCENT = 23
 const STACKED_OVERLAY_CENTER_Y_PERCENT = 53
@@ -103,6 +110,9 @@ type GridIconBoxProps = {
   // When true, replaces the star row with a compact numeric badge: "N★" (not ascended) or "A/N" (ascended).
   // Intended for ultra-dense small-mode cards where individual stars become illegible.
   compactRankDisplay?: boolean
+  // When true, the icon frame is drawn dashed with an inset companion ring, marking a piece
+  // that carries an anomalous mode-damage substat. Callers derive this via hasAnomalousSubstat.
+  anomalous?: boolean
 }
 
 /**
@@ -141,6 +151,7 @@ export default function GridIconBox({
   bottomOverlay,
   overlaySlotCount = 1,
   compactRankDisplay = false,
+  anomalous = false,
 }: GridIconBoxProps) {
   const theme = useTheme()
   // Rank/ascension star glyphs keep their vivid game colours over bare icon art — the star-icon
@@ -173,7 +184,14 @@ export default function GridIconBox({
   const normalizedSetLabel = typeof setLabel === 'string' && setLabel.trim().length > 0 ? setLabel : undefined
   const normalizedSetTooltipName = typeof setTooltipName === 'string' && setTooltipName.trim().length > 0 ? setTooltipName : undefined
   const setIconLabel = normalizedSetLabel ?? normalizedSetTooltipName ?? null
-  const borderColor = useRarityAccentColor(rarity) ?? theme.palette.divider
+  const rarityAccent = useRarityAccentColor(rarity)
+  const borderColor = rarityAccent ?? theme.palette.divider
+  // Inset ring colour for anomalous pieces. rarityAccent is a real hex, so alpha() is safe;
+  // without a rarity the divider is already an rgba() string and must not be re-alpha'd, so
+  // fall back to the neutral divider tint (same guard as the champion-icon bg).
+  const anomalousRingColor = rarityAccent
+    ? alpha(rarityAccent, ALPHA.a55)
+    : TINT.neutralBorderStrong
   const numericRank = Math.max(0, Math.min(6, Math.round(Number(rank) || 0)))
   const ascensionStars = Math.max(0, Math.min(numericRank, Math.round(Number(ascensionRolls) || 0)))
   const hasRealSet = Number.isFinite(Number(setId)) && Number(setId) > 0
@@ -531,8 +549,23 @@ export default function GridIconBox({
         width: size,
         height: size,
         borderRadius: `${GRID_ICON_BORDER_RADIUS_PX}px`,
-        border: `${GRID_ICON_BORDER_WIDTH_PX}px solid`,
+        // Anomalous pieces swap the stroke STYLE, never the colour — borderColor stays
+        // rarity-driven so both markers remain independently readable.
+        border: `${GRID_ICON_BORDER_WIDTH_PX}px ${anomalous ? 'dashed' : 'solid'}`,
         borderColor,
+        // Inset companion ring. box-shadow draws inside the existing box, so the frame's
+        // size, the -10px badge offsets and the calc(100% + border) art wrapper are all
+        // untouched — the marker is purely additive. Two stacked shadows: a transparent
+        // spacer opens the gap, then the ring is drawn just inside it (a single shadow
+        // would sit flush against the border and read as one thick stroke).
+        ...(anomalous
+          ? {
+              boxShadow: [
+                `inset 0 0 0 ${ANOMALOUS_INNER_RING_GAP_PX}px transparent`,
+                `inset 0 0 0 ${ANOMALOUS_INNER_RING_GAP_PX + ANOMALOUS_INNER_RING_WIDTH_PX}px ${anomalousRingColor}`,
+              ].join(', '),
+            }
+          : {}),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

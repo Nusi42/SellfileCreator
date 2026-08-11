@@ -76,6 +76,7 @@ import type { GearInspectorGridColumnMode } from '../state/gearInspectorGridPref
 import type { GearInspectorRuleTemplateIntent } from '../lib/gearInspectorRuleTemplates'
 import { useChangePulse } from '../hooks/useChangePulse'
 import { TINT, ALPHA } from '../lib/colorTints'
+import { hasAnomalousSubstat } from '../lib/anomalousAccessories'
 
 // TranslateFn is a locally-defined alias; both files define it identically without duplicating a domain literal.
 type TranslateFn = ReturnType<typeof useI18n>['t']
@@ -1295,6 +1296,8 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
           rank={artifact.rank}
           rarity={artifact.rarity}
           ascensionRolls={artifact.ascension?.rolls}
+          // Dashed frame + inset ring when the piece carries a mode-damage substat.
+          anomalous={hasAnomalousSubstat(artifact)}
           {...(setLabel ? { setLabel } : {})}
           setTooltipName={setTooltipName}
           slotLabel={artifactTypeName(artifact.slot as ArtifactTypeId)}

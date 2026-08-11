@@ -82,6 +82,20 @@ export const isAnomalousSubstatVariant = (variant: number): boolean =>
   anomalousVariantSet.has(variant)
 
 /**
+ * ITEM-level predicate: does this piece actually CARRY a mode-damage substat?
+ *
+ * The SSOT for "is this an anomalous accessory" as the UI means it — deliberately
+ * distinct from isAnomalousEligibleSetId/SlotId, which answer the weaker "could it
+ * ever roll one". Structural param (not NormalizedGearArtifact) keeps this module
+ * free of runtime imports, per the header contract.
+ */
+export const hasAnomalousSubstat = (
+  item: { substats?: readonly { variant: number }[] | undefined } | null | undefined,
+): boolean =>
+  // Optional chaining covers preview/manual artifacts built without a substat list.
+  item?.substats?.some((stat) => isAnomalousSubstatVariant(Number(stat.variant))) ?? false
+
+/**
  * Display → HSF wire scale for ANY substat variant. The anomalous stats are
  * stored in hundredths of a percent (docs/orig/anomalous.hsf: 0.25% -> 25,
  * 2.25% -> 225); every classic stat stores its plain value (docs/orig/rules.hsf:

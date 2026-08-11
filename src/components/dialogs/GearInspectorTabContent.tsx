@@ -52,6 +52,7 @@ import {
   type GearInspectorItem,
   type GearInspectorSourceCategory,
 } from '../../lib/gearInspectorSession'
+import { hasAnomalousSubstat } from '../../lib/anomalousAccessories'
 import type { GearInspectorPreviewMatch } from '../../types/gearInspectorPreview'
 import { GearInspectorSummaryLabel } from '../GearInspectorSummaryLabel'
 import { RarityLabel } from '../RarityLabel'
@@ -798,6 +799,10 @@ export function GearInspectorTabContent({
         slotLabel={slotLabel}
         levelLabel={levelChipLabel}
         showRankStarsBackground={false}
+        // Same dashed-frame marker as the grid card. This item stores its substats as
+        // [variant, value] pairs rather than a NormalizedStat[], so feed the shared
+        // item-level predicate an equivalent shape instead of forking the condition.
+        anomalous={hasAnomalousSubstat({ substats: subEntries.map(([variant]) => ({ variant })) })}
       />
     )
     const substatSummaries = subEntries.map(([variant, rawValue]) => {
