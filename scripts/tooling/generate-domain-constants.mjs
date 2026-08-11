@@ -531,16 +531,28 @@ const artifactSetEntries = Object.entries(artifactSetSpec)
   .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
   .sort((a, b) => a.id - b.id)
 
-// ── Anomalous Accessories — PROVISIONAL(anomalous) ────────────────────────
-// Mode-scoped damage substats with the REAL RSL Helper DB stat ids (see the
-// spec comment for the observation basis). Minimal Rust emission (labels +
-// variant->id tuples); nothing may reach HSF sellfile payloads until a sample
-// sellfile demonstrates the rule encoding (app state/SFC/DB ingest carry them).
+// ── Anomalous Accessories ─────────────────────────────────────────────────
+// Mode-scoped damage substats with the REAL RSL Helper stat ids, all eight now
+// confirmed against docs/orig/anomalous.hsf (see the spec comment). That sample
+// also fixes the wire format, so these DO reach HSF payloads — scaled by
+// hsfValueScale at the one display→wire boundary.
 const anomalousSpec = spec.anomalousAccessories
 // Observed rank-5 per-line base value (percent); judged to equal the per-roll step.
 const anomalousStar5RollValue = Number(anomalousSpec.star5RollValue)
 if (!(Number.isFinite(anomalousStar5RollValue) && anomalousStar5RollValue > 0)) {
   throw new Error('anomalousAccessories.star5RollValue must be a positive number.')
+}
+// HSF stores these values in hundredths of a percent (0.25% -> 25). Must be a
+// positive integer: the scale multiplies a display value into the integer wire
+// unit, so a fractional scale could not round-trip.
+const anomalousHsfValueScale = Number(anomalousSpec.hsfValueScale)
+if (!(Number.isInteger(anomalousHsfValueScale) && anomalousHsfValueScale > 0)) {
+  throw new Error('anomalousAccessories.hsfValueScale must be a positive integer.')
+}
+// The star-5 base must land exactly on the wire grid, or the value we seed every
+// factory target with could not be emitted losslessly.
+if (!Number.isInteger(Math.round(anomalousStar5RollValue * anomalousHsfValueScale * 1e6) / 1e6)) {
+  throw new Error('anomalousAccessories.star5RollValue must be representable at hsfValueScale.')
 }
 // Substat entries keep spec order (announcement order) for stable emission.
 // Variants are derived percent-shaped (flat 0 — matches the DB fl=0 encoding).
@@ -645,19 +657,22 @@ tsLines.push(
   `export const ARTIFACT_SET_IDS = { ${artifactSetIdEntries.join(', ')} } as const`
 )
 
-// ── TS: Anomalous Accessories — PROVISIONAL(anomalous), TS-only on purpose ──
+// ── TS: Anomalous Accessories ──────────────────────────────────────────────
 // Consumed via src/lib/anomalousAccessories.ts; see docs/technical/anomalous-accessories.md.
 tsLines.push('')
-tsLines.push('// Anomalous Accessories — PROVISIONAL(anomalous).')
-tsLines.push('// Substat ids are the REAL RSL Helper DB ids (11..14 dealt, 15..18 taken; see')
-tsLines.push('// shared/domain-constants.json for the observation basis). Variants use the')
-tsLines.push('// standard percent-shaped encoding. The ids flow through app state, SFC docs,')
-tsLines.push('// and DB ingest — but must NOT reach HSF payloads (rule encoding unconfirmed).')
+tsLines.push('// Anomalous Accessories.')
+tsLines.push('// Substat ids are the REAL RSL Helper ids (11..14 dealt, 15..18 taken), all eight')
+tsLines.push('// confirmed against docs/orig/anomalous.hsf. Variants use the standard')
+tsLines.push('// percent-shaped encoding, so they flow through app state, SFC docs, DB ingest')
+tsLines.push('// and HSF payloads alike — the latter scaled by ANOMALOUS_HSF_VALUE_SCALE.')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, id }) => `${key}: ${id}`).join(', ')} } as const`
 )
 tsLines.push('// Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.')
 tsLines.push(`export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = ${anomalousStar5RollValue}`)
+tsLines.push('// HSF wire unit: displayed percent x this = the integer stored in a rule\'s')
+tsLines.push('// substat Value (0.25% -> 25). Classic percent stats store the plain number.')
+tsLines.push(`export const ANOMALOUS_HSF_VALUE_SCALE = ${anomalousHsfValueScale}`)
 tsLines.push('// Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, variant }) => `${key}: ${variant}`).join(', ')} } as const`
@@ -675,14 +690,15 @@ tsLines.push(
   `export const ANOMALOUS_ELIGIBLE_SLOT_IDS: readonly number[] = [${anomalousEligibleSlotIds.join(', ')}]`
 )
 
-// ── Rust: Anomalous Accessories — PROVISIONAL(anomalous) label/tuple tables ──
-// Only the minimum the engine needs: SFC label parsing (sfc_reader) and honest
-// variant→(id, isFlat) tuples (safeguard_variant_to_sub). Deliberately NOT added
-// to ALLOWED_SUBS_* / roll-range tables (see the spec comment for rationale).
+// ── Rust: Anomalous Accessories label/tuple tables ─────────────────────────
+// What the engine needs: SFC label parsing (sfc_reader), honest variant→(id,
+// isFlat) tuples (safeguard_variant_to_sub), and the HSF wire scale applied at
+// the display→i32 boundary. Deliberately NOT added to ALLOWED_SUBS_* /
+// roll-range tables (see the spec comment for rationale).
 rustLines.push('')
-rustLines.push('// Anomalous Accessories — PROVISIONAL(anomalous).')
-rustLines.push('// (variant, stat id) pairs — the REAL RSL Helper DB ids (11..14 dealt, 15..18')
-rustLines.push('// taken); only the sellfile RULE encoding is still unconfirmed.')
+rustLines.push('// Anomalous Accessories.')
+rustLines.push('// (variant, stat id) pairs — the REAL RSL Helper ids (11..14 dealt, 15..18')
+rustLines.push('// taken), all confirmed against docs/orig/anomalous.hsf.')
 rustLines.push(
   `pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[${anomalousSubstatEntries.map(({ variant, id }) => `(${variant}, ${id})`).join(', ')}];`
 )
@@ -694,6 +710,14 @@ rustLines.push('// True when a variant encodes one of the anomalous mode-damage 
 rustLines.push('pub fn is_anomalous_substat_variant(variant: i64) -> bool {')
 rustLines.push('    // Linear scan — the table has eight entries.')
 rustLines.push('    ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)')
+rustLines.push('}')
+rustLines.push('// HSF wire unit for the anomalous substats: displayed percent x this = the')
+rustLines.push('// integer stored in a rule substat Value (0.25% -> 25). Mirrors the TS constant.')
+rustLines.push(`pub const ANOMALOUS_HSF_VALUE_SCALE: f64 = ${anomalousHsfValueScale}.0;`)
+rustLines.push('// Display -> wire scale for ANY substat variant. Classic stats store their')
+rustLines.push('// plain value (docs/orig/rules.hsf: 5 = 5%), so their scale is 1.')
+rustLines.push('pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {')
+rustLines.push('    if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }')
 rustLines.push('}')
 rustLines.push('// Anomalous variants in announcement order (mirrors the TS list).')
 rustLines.push(

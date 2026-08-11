@@ -1,0 +1,340 @@
+﻿{
+    "Rules": [
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 11,
+                    "Value": 25,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 12,
+                    "Value": 50,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 13,
+                    "Value": 75,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 14,
+                    "Value": 100,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 15,
+                    "Value": 125,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 16,
+                    "Value": 150,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 17,
+                    "Value": 200,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        },
+        {
+            "RecipeName": "",
+            "Keep": true,
+            "IsRuleTypeAND": false,
+            "Use": true,
+            "Rank": 0,
+            "Rarity": 0,
+            "MainStatID": -1,
+            "MainStatF": 1,
+            "LVLForCheck": 99,
+            "Faction": 0,
+            "Substats": [
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": 18,
+                    "Value": 225,
+                    "IsFlat": false,
+                    "NotAvailable": false,
+                    "Condition": ">="
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                },
+                {
+                    "ID": -1,
+                    "Value": 0,
+                    "IsFlat": true,
+                    "NotAvailable": false,
+                    "Condition": ""
+                }
+            ]
+        }
+    ]
+}

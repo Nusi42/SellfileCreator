@@ -85,7 +85,7 @@ export const isDefaultGearInspectorSubstatSortState = (state: GearInspectorSubst
 
 // Guardrail: only allow known, UI-visible sort keys into the persisted lists.
 // Why: prevents old/invalid localStorage values from leaking into sorting logic.
-// PROVISIONAL(anomalous): the accessory-only substats are sortable, so their
+// the accessory-only substats are sortable, so their
 // variants join both allowlists alongside the classic priority list.
 const SORT_KEY_SET = new Set<number>([
   ...STAT_VARIANTS_PRIORITY.map((variant) => Number(variant)),

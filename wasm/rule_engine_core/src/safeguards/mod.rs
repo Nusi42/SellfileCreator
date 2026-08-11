@@ -1857,7 +1857,7 @@ pub fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
         STAT_VARIANT_CDMG => (STAT_ID_CDMG, false),
         STAT_VARIANT_ROLL_COUNT => (STAT_ID_ROLL_COUNT, true),
         _ => {
-            // PROVISIONAL(anomalous): anomalous substats keep their REAL DB stat id so
+            // Anomalous substats keep their REAL DB stat id so
             // rule conditions match exactly the gear that carries them, instead of
             // silently widening to the "Any substat" tuple. Only their sellfile RULE
             // encoding is unconfirmed — the TS export boundary (hsfIO scrub) strips

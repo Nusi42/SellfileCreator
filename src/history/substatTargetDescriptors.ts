@@ -20,7 +20,7 @@ type DescribeSubstatTargetsChangeParams = {
 
 const DEFAULT_SUBSTAT_TARGETS = defaultSubstatTargets()
 
-// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — history
+// Classic substats plus the accessory-only ones — history
 // lines must label every editable target row, not just the classic priority list.
 const SUBSTAT_TARGET_VARIANTS = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
 

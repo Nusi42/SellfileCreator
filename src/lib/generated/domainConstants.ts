@@ -179,14 +179,17 @@ export const ARTIFACT_SET_NAMES: Record<number, string> = { 1: "Life", 2: "Offen
 // Artifact/accessory set name → numeric id (SSOT for the ArtifactSet enum).
 export const ARTIFACT_SET_IDS = { Life: 1, Offense: 2, Defense: 3, Speed: 4, CriticalRate: 5, CritDamage: 6, Accuracy: 7, Resistance: 8, Lifesteal: 9, Fury: 10, Daze: 11, Cursed: 12, Frost: 13, Frenzy: 14, Regeneration: 15, Immunity: 16, Shield: 17, Relentless: 18, Savage: 19, Destroy: 20, Stun: 21, Toxic: 22, Provoke: 23, Retaliation: 24, Avenging: 25, Stalwart: 26, Reflex: 27, Curing: 28, Cruel: 29, Immortal: 30, DivineOffense: 31, DivineCriticalRate: 32, DivineLife: 33, DivineSpeed: 34, SwiftParry: 35, Deflection: 36, Resilience: 37, Perception: 38, Affinitybreaker: 39, Untouchable: 40, Fatal: 41, Frostbite: 42, Bloodthirst: 43, Guardian: 44, Fortitude: 45, Lethal: 46, Protection: 47, Stoneskin: 48, Killstroke: 49, Instinct: 50, Bolster: 51, Defiant: 52, Impulse: 53, Zeal: 54, Righteous: 57, Supersonic: 58, Merciless: 59, Slayer: 60, Feral: 61, Pinpoint: 62, Stonecleaver: 63, Rebirth: 64, Chronophage: 65, Mercurial: 66, Refresh: 1000, Cleansing: 1001, Bloodshield: 1002, Reaction: 1003, Revenge: 1004 } as const
 
-// Anomalous Accessories — PROVISIONAL(anomalous).
-// Substat ids are the REAL RSL Helper DB ids (11..14 dealt, 15..18 taken; see
-// shared/domain-constants.json for the observation basis). Variants use the
-// standard percent-shaped encoding. The ids flow through app state, SFC docs,
-// and DB ingest — but must NOT reach HSF payloads (rule encoding unconfirmed).
+// Anomalous Accessories.
+// Substat ids are the REAL RSL Helper ids (11..14 dealt, 15..18 taken), all eight
+// confirmed against docs/orig/anomalous.hsf. Variants use the standard
+// percent-shaped encoding, so they flow through app state, SFC docs, DB ingest
+// and HSF payloads alike — the latter scaled by ANOMALOUS_HSF_VALUE_SCALE.
 export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { pveDmgPlus: 11, pvpDmgPlus: 12, bossDmgPlus: 13, dungeonDmgPlus: 14, pveDmgMinus: 15, pvpDmgMinus: 16, bossDmgMinus: 17, dungeonDmgMinus: 18 } as const
 // Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.
 export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = 1.25
+// HSF wire unit: displayed percent x this = the integer stored in a rule's
+// substat Value (0.25% -> 25). Classic percent stats store the plain number.
+export const ANOMALOUS_HSF_VALUE_SCALE = 100
 // Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).
 export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { pveDmgPlus: 2816, pvpDmgPlus: 3072, bossDmgPlus: 3328, dungeonDmgPlus: 3584, pveDmgMinus: 3840, pvpDmgMinus: 4096, bossDmgMinus: 4352, dungeonDmgMinus: 4608 } as const
 // Variant → canonical display label (announcement wording; final strings may differ).

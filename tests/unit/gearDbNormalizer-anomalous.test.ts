@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
-// PROVISIONAL(anomalous): ingest of the mode-scoped damage substats, pinned by the
+// Ingest of the mode-scoped damage substats, pinned by the
 // REAL rows from examples/um109288203_RSLHelper.db (artifacts 264537/264539, verified
 // against in-game screenshots). Facts under test: ids 11/13 (damage dealt) arrive as
 // positive percents, id 16 (PvP damage taken) arrives NEGATIVE and folds to its

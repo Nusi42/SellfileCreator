@@ -1538,7 +1538,7 @@ const overrides: Catalog = {
   statCR: "CR%",
   statCDMG: "CDMG%",
   statRollCount: "Кількість ролів",
-  // PROVISIONAL(anomalous): Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
+  // Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
   statPveDmgPlus: "PvE ⚔",
   statPvpDmgPlus: "PvP ⚔",
   statBossDmgPlus: "Boss ⚔",
@@ -1556,7 +1556,6 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Зменшує отримувану шкоду від босів.",
   statDungeonDmgMinusTooltip: "Зменшує отримувану шкоду в підземеллях.",
   statAnomalousTooltipNote: "Додаткова характеристика Аномальних аксесуарів, трапляється лише на аксесуарах із Champion Proving Grounds. Однотипні бонуси додаються (наприклад, шкода в PvE та по босах діють разом).",
-  toastAnomalousRulesNotExported: "{count} правил(о) з аномальними характеристиками пропущено під час експорту селл-файлу — RSL Helper поки не може їх виразити.",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Рецепти збережено. Перевірте папку «Завантаження».",

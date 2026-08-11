@@ -20,7 +20,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '.
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, getLocalizedGearSetName } from '../../lib/types'
 // Shared gear-line value rule + the per-variant grid step it floors at.
 import { clampGearLineValue } from '../../lib/gearInspectorSession'
-import { targetValueStepForVariant } from '../../lib/hsfBuilder'
+import { minGearLineValueForVariant } from '../../lib/hsfBuilder'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
@@ -1509,7 +1509,7 @@ export function GearInspectorTabContent({
               const substatSelectable = (x: number): boolean =>
                 (Number(it.slot) === GEAR_INSPECTOR_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !subEqualsMainVariant(x, mainValue)
               // Free (not-yet-used) options for this slot, in canonical priority order.
-              // PROVISIONAL(anomalous): the mode-damage substats join the pool; slotSupportsSub
+              // the mode-damage substats join the pool; slotSupportsSub
               // gates them to jewelry slots, so artifact pieces never offer them.
               const candidates = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
                 .filter(x => substatSelectable(x) && !usedOthers.has(Number(x)))
@@ -1518,10 +1518,10 @@ export function GearInspectorTabContent({
               // slot first. Selecting one below swaps both variants and their values.
               const swapTargets = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
                 .filter(x => substatSelectable(x) && usedOthers.has(Number(x)) && Number(x) !== v)
-              // Shared gear-line rule (grid snap + one-step floor) so typing a value
-              // here and letting the session re-normalize agree exactly.
+              // Shared gear-line rule (resolution snap + minimum-roll floor) so typing
+              // a value here and letting the session re-normalize agree exactly.
               const clampGearInspectorValue = (raw: number): number => (
-                Number.isFinite(raw) ? clampGearLineValue(Number(v), raw) : targetValueStepForVariant(Number(v))
+                Number.isFinite(raw) ? clampGearLineValue(Number(v), raw) : minGearLineValueForVariant(Number(v))
               )
               const commitSubstatValue = (nextValue: number) => {
                 updateItemAt(idx, (it2) => {

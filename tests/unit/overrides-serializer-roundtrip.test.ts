@@ -191,7 +191,7 @@ test('recipe operation table: every kind emits parse-exact DSL', () => {
   }
 })
 
-// PROVISIONAL(anomalous): stat TARGET values carry decimals (mode-damage substats
+// Stat TARGET values carry decimals (mode-damage substats
 // sit on a 1.25 grid). The parser must keep the fraction — truncating here would
 // degrade a written 3.75 to 3 before the per-variant quantizer ever sees it — and
 // the serializer must re-emit it verbatim so the DSL round-trips.

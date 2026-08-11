@@ -2214,7 +2214,7 @@ export default function PreviewHeaderActions(props: {
               </Box>
 	              {[
 	                ...STAT_VARIANTS_PRIORITY,
-	                // PROVISIONAL(anomalous): accessory-only substats join the sort keys
+	                // Accessory-only substats join the sort keys
 	                // (values are absent from current gear, so they sort as ties for now).
 	                ...ANOMALOUS_SUBSTAT_VARIANTS,
 	                GEAR_INSPECTOR_SORT_KEY_LAST_USAGE as GearInspectorSortKey,

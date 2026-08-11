@@ -4293,20 +4293,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const exportRulesCountRef = useRef(mergedRules.length)
   useEffect(() => { exportRulesCountRef.current = mergedRules.length }, [mergedRules.length])
   // Keep export payload creation lazy so large merged-rule snapshots do not run on every render.
-  const buildExportPayload = useCallback(() => {
-    // PROVISIONAL(anomalous): capture how many rules the export scrub dropped so the
-    // caller can fold the disclosure into its OUTCOME toast. Toasting from here would
-    // be swallowed: the snackbar is single-slot and React batches both showToast calls
-    // in the same synchronous export callback, so only the last one would render.
-    let scrubbedAnomalousRules = 0
+  const buildExportPayload = useCallback(() => (
     // Use exportRecipeNames (override-applied, via the recipeNamesForExport SSOT) — NOT the raw
     // display recipeNames — so these exported bytes match the worker's export-dirty fingerprint.
-    const payload = buildHsfFileFromMerged(mergedRules, {
-      recipeNames: exportRecipeNames,
-      onAnomalousRulesScrubbed: (droppedRules) => { scrubbedAnomalousRules = droppedRules },
-    })
-    return { payload, scrubbedAnomalousRules }
-  }, [mergedRules, exportRecipeNames])
+    buildHsfFileFromMerged(mergedRules, { recipeNames: exportRecipeNames })
+  ), [mergedRules, exportRecipeNames])
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so
@@ -7030,16 +7021,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (outcome.kind === 'failed' || outcome.kind === 'noDocument') {
           markSellfileLastPushErrorForAccount(outcome.account.id)
         }
-        // PROVISIONAL(anomalous): background pushes must disclose scrubbed rules
-        // like foreground exports do — prefixed with the account so the warning
-        // is attributable when it concerns a non-active account's sellfile.
-        if (outcome.kind === 'pushed' && outcome.scrubbedAnomalousRules > 0) {
-          const feedback = backgroundPushFeedbackRef.current
-          feedback.showToast(
-            `${accountDisplayLabel(outcome.account)}: ${feedback.t('toastAnomalousRulesNotExported', { count: outcome.scrubbedAnomalousRules })}`,
-            { severity: 'warning' },
-          )
-        }
         // Any attempt (success or failure), for ANY account, replays the switcher pulse.
         setAccountPushFlashSeq((s) => s + 1)
       },
@@ -9148,17 +9129,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const runSellfileExportNow = useCallback(async (forceLocal = false, silent = false) => {
     // Default export always serializes the active in-app ruleset.
     // Dedupe-by-default is already applied in the pre-safeguard pipeline.
-    const { payload, scrubbedAnomalousRules } = buildExportPayload()
+    const payload = buildExportPayload()
     const filename = sellfileFilename()
-    // PROVISIONAL(anomalous): the scrub disclosure REPLACES the success toast (the
-    // snackbar is single-slot and both calls would batch into one render) — the
-    // warning text itself confirms the export/push happened. Shown for silent
-    // auto-pushes too: a data-divergence warning must never be suppressed.
     const outcomeToast = (successKey: 'toastSellfileSaved' | 'toastSellfilePushed') => {
-      if (scrubbedAnomalousRules > 0) {
-        showToast(t('toastAnomalousRulesNotExported', { count: scrubbedAnomalousRules }), { severity: 'warning' })
-        return
-      }
       if (!silent) showToast(t(successKey))
     }
     // forceLocal bypasses the push path so the menu "Export to file" item always downloads.

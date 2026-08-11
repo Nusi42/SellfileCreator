@@ -25,11 +25,13 @@ export type {
 export {
   clampTargetOverrideValue,
   engineAppliedTargetValue,
+  minGearLineValueForVariant,
   normalizeLooseRollTargetEntry,
   normalizeRollTargetEntry,
   quantizeTargetValueForVariant,
   resolveRollTargetValue,
   targetEntriesEqual,
+  targetValueResolutionForVariant,
   targetValueStepForVariant,
 } from './hsfBuilder/targets'
 import {
@@ -46,7 +48,7 @@ import {
   SUBSTAT_ROLL_RANGES_BY_STAR as GENERATED_ROLL_RANGES,
 } from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
-// PROVISIONAL(anomalous): rank-5 factory target seed for the mode-damage substats.
+// Rank-5 factory target seed for the mode-damage substats.
 import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, ANOMALOUS_SUBSTAT_VARIANTS } from './anomalousAccessories'
 import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './recipeNormalization'
@@ -255,12 +257,27 @@ export function resolveAutoRarityCode(recipe: BuilderRecipe): RarityCode {
   return resolved as RarityCode
 }
 
+// JUDGED(anomalous per-rank values): factory targets for the mode-damage substats.
+// 1.25% is the OBSERVED rank-5 base (one line, zero rolls) and the only value we have;
+// the other five ranks have never been seen. Until they are, 1.25 floors EVERY rank
+// rather than leaving those tiers blank — a missing entry reads as "no target at all",
+// a weaker default than the one number we actually know. Replace with a per-rank table
+// when the game data lands. Mirrored by factory_minima_for_star in
+// wasm/rule_engine_core/src/recipe_builder.rs.
+const ANOMALOUS_FACTORY_MINIMA: Record<number, number> = Object.fromEntries(
+  ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => [variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE]),
+)
+
 // Derive factory-default minima from roll ranges (min per roll = factory default for a fresh substat).
-// Each star tier maps stat variant → lowest natural roll for that tier.
+// Each star tier maps stat variant → lowest natural roll for that tier, plus the flat
+// anomalous floor above (they carry no generated roll range of their own yet).
 const FACTORY_MINIMA_BY_STAR: Record<number, Record<number, number>> = Object.fromEntries(
   Object.entries(GENERATED_ROLL_RANGES).map(([star, variantMap]) => [
     star,
-    Object.fromEntries(Object.entries(variantMap).map(([variant, range]) => [variant, range.min])),
+    {
+      ...Object.fromEntries(Object.entries(variantMap).map(([variant, range]) => [variant, range.min])),
+      ...ANOMALOUS_FACTORY_MINIMA,
+    },
   ])
 )
 
@@ -271,13 +288,6 @@ export const BASE_MIN_3: Record<number, number> = FACTORY_MINIMA_BY_STAR[3]!
 export const BASE_MIN_2: Record<number, number> = FACTORY_MINIMA_BY_STAR[2]!
 export const BASE_MIN_1: Record<number, number> = FACTORY_MINIMA_BY_STAR[1]!
 
-// PROVISIONAL(anomalous): rank-5 factory targets for the mode-damage substats —
-// the only tier with an observed base value (1.25% per line at zero rolls). The
-// other tiers stay empty until real data exists; users can type their own targets.
-const ANOMALOUS_FACTORY_MINIMA_STAR5: Record<number, number> = Object.fromEntries(
-  ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => [variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE]),
-)
-
 /** Default Substat Target table initialized from generated factory minima. */
 export function defaultSubstatTargets(): SubstatTargetTable {
   // Spread-copy each tier so callers cannot mutate the shared derived table.
@@ -286,7 +296,7 @@ export function defaultSubstatTargets(): SubstatTargetTable {
     two:   { ...FACTORY_MINIMA_BY_STAR[2] },
     three: { ...FACTORY_MINIMA_BY_STAR[3] },
     four:  { ...FACTORY_MINIMA_BY_STAR[4] },
-    five:  { ...FACTORY_MINIMA_BY_STAR[5], ...ANOMALOUS_FACTORY_MINIMA_STAR5 },
+    five:  { ...FACTORY_MINIMA_BY_STAR[5] },
     six:   { ...FACTORY_MINIMA_BY_STAR[6] },
     anyRankDefaultsTo: 6,
   }

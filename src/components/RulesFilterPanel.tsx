@@ -39,7 +39,7 @@ import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrol
 import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
 import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { isAccessorySlot, slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
-// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+// Accessory-only substat rows (Update 11.70 Anomalous Accessories).
 import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
@@ -664,7 +664,7 @@ function RulesFilterPanel({
     const includeUnassessed = isDefault ? ic.includeUnassessed : false
     onChange({ ...state, gearInspectorImprovementChance: { min: nextMin, max: nextMax, includeUnassessed } })
   }, [onChange, state])
-  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — the Rolls
+  // Classic substats plus the accessory-only ones — the Rolls
   // flyout filters whatever gear/rules exist, so the full substat universe belongs here.
   const rollFilterStatOptions = React.useMemo(() => [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS], [])
   // Persisted Sets order + local search to mirror Builder UX
@@ -1775,7 +1775,7 @@ function RulesFilterPanel({
     const label = t(statVariantI18nKey(variant))
     const isMustNot = subMustNotSet.has(Number(variant))
     const isActive = subMustHaveSet.has(Number(variant)) || isMustNot
-    // PROVISIONAL(anomalous): mode-damage chips prepend their description block so the
+    // Mode-damage chips prepend their description block so the
     // glyph tokens (⚔/🛡) are self-explanatory; classic chips keep the plain label.
     const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
     const tooltipHead = anomalousTooltip ? `${label}\n\n${anomalousTooltip}` : label
@@ -3075,7 +3075,7 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
                   </ToggleButtonGroup>
-                  {/* PROVISIONAL(anomalous): accessory-only mode-damage substat rows (Update 11.70).
+                  {/* Accessory-only mode-damage substat rows (Update 11.70).
                       The filter is not slot-scoped, so the rows always show here. */}
                   <ToggleButtonGroup
                     size="small"

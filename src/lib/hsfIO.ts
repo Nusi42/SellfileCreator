@@ -8,13 +8,10 @@
  * This module deliberately contains only HSF read/write concerns.
  * Core builder logic lives in `hsfBuilder.ts`, and HSF type definitions in `hsfTypes.ts`.
  */
-import type { HsfFile, HsfRule, HsfSubstat } from './hsfTypes'
+import type { HsfFile, HsfRule } from './hsfTypes'
 import { getRuleRecipeIndex, normalizeRecipeName } from './ruleRecipeIndex'
 import { RULE_SOURCE_FINAL_SELL } from './ruleSources'
 import { computeCrc32 } from './autosave'
-// PROVISIONAL(anomalous): anomalous-substat detection for the export scrub below.
-import { isAnomalousStatId } from './anomalousAccessories'
-import { STAT_ID_ANY } from './generated/domainConstants'
 
 type HsfRuleWithRecipe = ReturnType<(typeof import('./merge'))['computeMergedRules']>[number]
 
@@ -120,10 +117,6 @@ const FINAL_SELL_EXPORT_NAME = 'Final Sell' as const
 
 type ExportMetadataOptions = {
   recipeNames?: RecipeNameList
-  // PROVISIONAL(anomalous): invoked when the export scrub dropped whole rules
-  // (unexpressible anomalous requirements) so the UI can disclose the
-  // preview-vs-export divergence to the user. Vacuous ¬-line drops don't fire it.
-  onAnomalousRulesScrubbed?: (droppedRules: number) => void
 }
 
 function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMetadataOptions): ExportableRule[] {
@@ -151,57 +144,12 @@ function applyRecipeNamesForExport(rules: ExportableRule[], options?: ExportMeta
   })
 }
 
-// Neutral "Any" substat pad entry — mirrors the WASM builder's four-substat padding
-// (safeguard_clone_any_substats in wasm/rule_engine_core) so scrubbed rules keep shape.
-const anySubstatPadEntry = (): HsfSubstat => (
-  { ID: STAT_ID_ANY, Value: 0, IsFlat: true, Condition: '', NotAvailable: false }
-)
-
-// PROVISIONAL(anomalous): anomalous-substat ids must never reach exported sellfiles —
-// no sample .hsf demonstrates how RSL Helper RULES encode them, and we never guess at
-// schema. NOTE the semantics gap this opens now that real gear carries these substats:
-// a rule REQUIRING one can match pieces in the preview yet exports as NOTHING (the whole
-// rule is dropped — exporting it minus the condition would broaden it, which is worse);
-// a negated ("¬") line only drops that line, re-padded with a neutral Any entry. The
-// console warning below discloses every divergence. Revisit as soon as a sample sellfile
-// with these stats exists (docs/technical/anomalous-accessories.md checklist).
-function scrubAnomalousSubstatsForExport(rules: ExportableRule[]): ExportableRule[] {
-  const kept: ExportableRule[] = []
-  let droppedRules = 0
-  let droppedLines = 0
-  for (const rule of rules) {
-    const subs = rule.Substats
-    // Fast path: rules without anomalous lines pass through untouched.
-    const hasAnomalous = subs?.some((sub) => sub && isAnomalousStatId(Number(sub.ID)))
-    if (!subs || !hasAnomalous) { kept.push(rule); continue }
-    // Any REQUIRED anomalous line cannot be expressed in the export → drop the rule.
-    if (subs.some((sub) => sub && isAnomalousStatId(Number(sub.ID)) && sub.Condition !== '¬')) {
-      droppedRules += 1
-      continue
-    }
-    // Only negated anomalous lines remain → drop those lines and restore the pad count.
-    const remaining = subs.filter((sub) => !(sub && isAnomalousStatId(Number(sub.ID))))
-    droppedLines += subs.length - remaining.length
-    const pads = Array.from({ length: subs.length - remaining.length }, anySubstatPadEntry)
-    kept.push({ ...rule, Substats: [...remaining, ...pads] })
-  }
-  if (droppedRules > 0 || droppedLines > 0) {
-    // Permanent disclosure (not debug scaffolding): exports must never silently diverge
-    // from the preview without a trace. See docs/technical/anomalous-accessories.md.
-    console.warn(`[export] anomalous scrub: dropped ${droppedRules} unsatisfiable rule(s), ${droppedLines} vacuous not-line(s)`)
-  }
-  return kept
-}
-
 /** Build an HSF file object from merged rules (strips UI-only fields). */
 export function buildHsfFileFromMerged(rules: ExportableRule[], options?: ExportMetadataOptions): HsfFile {
-  // Scrub before name application so the fingerprint helper below hashes the same bytes.
-  const scrubbed = scrubAnomalousSubstatsForExport(rules)
-  // Disclose dropped rules to the caller (export UI toast); the fingerprint path
-  // passes no callback and stays silent — its bytes match the export either way.
-  const droppedRules = rules.length - scrubbed.length
-  if (droppedRules > 0) options?.onAnomalousRulesScrubbed?.(droppedRules)
-  const prepared = applyRecipeNamesForExport(scrubbed, options)
+  // Anomalous substats export like any other stat: docs/orig/anomalous.hsf shows an
+  // ordinary rule carrying one (IsFlat false, Condition ">="), differing only in the
+  // value's wire scale, which the emitter applies. No scrub, no divergence.
+  const prepared = applyRecipeNamesForExport(rules, options)
   return cleanHsfForExport(prepared)
 }
 

@@ -47,7 +47,7 @@ export function StatColorProvider({
     if (!controls && !text) return { control: {}, text: {} }
     const textColours: ColorByVariant = {}
     const controlColours: ColorByVariant = {}
-    // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones.
+    // Classic substats plus the accessory-only ones.
     for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
       const fg = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
       if (text) textColours[variant] = adaptText(fg)

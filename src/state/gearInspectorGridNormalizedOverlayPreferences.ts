@@ -82,7 +82,7 @@ type GearInspectorGridNormalizedOverlayLibraryState = {
 export type GearInspectorGridNormalizedOverlayState =
   GearInspectorGridNormalizedOverlayAppliedState & GearInspectorGridNormalizedOverlayLibraryState
 
-// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — hydration
+// Classic substats plus the accessory-only ones — hydration
 // must not strip weights a user set on anomalous variants (parity with SORT_KEY_SET
 // in gearInspectorSubstatSortPreferences.ts).
 const VARIANT_SET = new Set<number>(

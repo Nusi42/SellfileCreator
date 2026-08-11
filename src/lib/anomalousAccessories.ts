@@ -1,19 +1,17 @@
 /**
  * anomalousAccessories.ts
  *
- * PROVISIONAL(anomalous) — domain layer for the "Anomalous Accessories"
- * (Champion Proving Grounds jewelry whose substats can be mode-scoped damage
- * boons instead of classic flat stats).
+ * Domain layer for the "Anomalous Accessories" (Champion Proving Grounds
+ * jewelry whose substats can be mode-scoped damage boons instead of classic
+ * flat stats).
  *
- * Single source of truth for everything the app knows about the feature today.
- * The data itself is generated from shared/domain-constants.json; this module
- * only adds the typed helpers around it. The substat ids are the REAL RSL
- * Helper DB ids (11..14 damage dealt, 15..18 damage taken — 14/15/17/18 still
- * inferred, see the spec comment), riding the standard StatVariant encoding
- * ((id<<8)|flat, percent-shaped) through UI state, SFC documents, and DB
- * ingest. They must still NOT be emitted into HSF sellfile payloads: no sample
- * sellfile demonstrates how RSL Helper rules encode them, and we never guess
- * at schema. Ledger: docs/technical/anomalous-accessories.md.
+ * Single source of truth for everything the app knows about the feature. The
+ * data itself is generated from shared/domain-constants.json; this module only
+ * adds the typed helpers around it. The substat ids are the REAL RSL Helper ids
+ * (11..14 damage dealt, 15..18 damage taken), all eight confirmed against
+ * docs/orig/anomalous.hsf, riding the standard StatVariant encoding
+ * ((id<<8)|flat, percent-shaped) through UI state, SFC documents, DB ingest and
+ * HSF payloads. Ledger: docs/technical/anomalous-accessories.md.
  *
  * Like artifactSets.ts, this module stays free of runtime imports beyond the
  * pure generated-constants module so it can never join an init cycle.
@@ -22,6 +20,7 @@
 import {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
+  ANOMALOUS_HSF_VALUE_SCALE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
   ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
@@ -32,6 +31,7 @@ import {
 export {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
+  ANOMALOUS_HSF_VALUE_SCALE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
   ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
@@ -72,14 +72,23 @@ const anomalousVariantSet = new Set<number>(ANOMALOUS_SUBSTAT_VARIANTS)
 const eligibleSetIdSet = new Set<number>(ANOMALOUS_ELIGIBLE_SET_IDS)
 const eligibleSlotIdSet = new Set<number>(ANOMALOUS_ELIGIBLE_SLOT_IDS)
 
-// True when a raw stat id is one of the anomalous DB ids (exact membership).
-// Gates the HSF export scrub: these ids never reach exported sellfile bytes
-// until a sample sellfile confirms the rule encoding.
+// True when a raw stat id is one of the anomalous ids (exact membership).
 export const isAnomalousStatId = (id: number): boolean => anomalousIdSet.has(id)
 
 // True when a StatVariant value encodes one of the anomalous mode-damage substats.
 export const isAnomalousSubstatVariant = (variant: number): boolean =>
   anomalousVariantSet.has(variant)
+
+/**
+ * Display → HSF wire scale for ANY substat variant. The anomalous stats are
+ * stored in hundredths of a percent (docs/orig/anomalous.hsf: 0.25% -> 25,
+ * 2.25% -> 225); every classic stat stores its plain value (docs/orig/rules.hsf:
+ * 5 = 5%). SSOT for the one place display units become wire units — mirrored by
+ * hsf_value_scale_for_variant in the generated Rust constants.
+ */
+export const hsfValueScaleForVariant = (variant: number): number => (
+  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_HSF_VALUE_SCALE : 1
+)
 
 // True when a set can appear on anomalous accessories (announced 9-set list).
 export const isAnomalousEligibleSetId = (setId: number): boolean => eligibleSetIdSet.has(setId)

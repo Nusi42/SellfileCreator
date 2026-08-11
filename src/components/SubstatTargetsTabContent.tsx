@@ -16,10 +16,10 @@ import { StatLabel } from './StatLabel'
 import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
-// PROVISIONAL(anomalous): shared hover copy + grid gating for the mode-damage rows.
+// Shared hover copy + grid gating for the mode-damage rows.
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
-import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from '../lib/anomalousAccessories'
-import { quantizeTargetValueForVariant } from '../lib/hsfBuilder'
+import { isAnomalousSubstatVariant } from '../lib/anomalousAccessories'
+import { quantizeTargetValueForVariant, targetValueStepForVariant } from '../lib/hsfBuilder'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -128,7 +128,7 @@ export function SubstatTargetsTabContent({
     // Walk columns then rows to produce the desired Tab sequence.
     const ordered: HTMLInputElement[] = []
     for (const { key: starKey } of substatTargetsStarColumns) {
-      // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones.
+      // Classic substats plus the accessory-only ones.
       for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
         const match = byKey.get(`${starKey}:${Number(variant)}`)
         if (match) ordered.push(match)
@@ -145,11 +145,11 @@ export function SubstatTargetsTabContent({
     // Show the override badge when a recipe override has shifted this cell's value.
     const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
-    // PROVISIONAL(anomalous): mode-damage cells SNAP to the 1.25 grid (off-grid
-    // decimals would silently widen at the engine's floor boundary) and their
-    // spinner walks the grid; classic stats stay integral. One shared quantizer.
+    // Mode-damage cells accept decimals down to the hundredths HSF can store;
+    // their spinner walks the coarser step RSL Helper itself displays. Classic
+    // stats stay integral. One shared quantizer, one shared step SSOT.
     const cellAllowsDecimals = isAnomalousSubstatVariant(variantKey)
-    const spinnerStep = cellAllowsDecimals ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
+    const spinnerStep = targetValueStepForVariant(variantKey)
     const clampValue = (raw: number): number => quantizeTargetValueForVariant(variantKey, raw)
     const commitValue = (next: number) => updateSubstatTargetValue(starKey, variantKey, next)
     // While a cell has focus its raw text lives in draft state, so intermediate
@@ -348,13 +348,13 @@ export function SubstatTargetsTabContent({
             {starHeaderCell({ label, star })}
           </React.Fragment>
         ))}
-        {/* Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — the
+        {/* Classic substats plus the accessory-only ones — the
             anomalous rows start empty (no known roll values); users may enter judged
             targets once the game update lands. */}
         {[...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => {
           const label = t(statVariantI18nKey(variant))
           const vKey = Number(variant)
-          // PROVISIONAL(anomalous): glyph-token rows explain themselves on hover.
+          // Glyph-token rows explain themselves on hover.
           const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
           const rowLabel = <Typography sx={{ pr: 1 }}><StatLabel variant={variant} /></Typography>
           return (

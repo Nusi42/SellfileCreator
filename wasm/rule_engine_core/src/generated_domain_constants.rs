@@ -143,9 +143,9 @@ pub const STAT_VARIANTS_PRIORITY: [i64; 11] = [1025, 1792, 2048, 1537, 1281, 257
 pub const PREFERRED_STAT_ORDER: [i64; 12] = [1025, 1792, 2048, 1537, 1281, 256, 257, 512, 513, 768, 769, 25345];
 
 
-// Anomalous Accessories — PROVISIONAL(anomalous).
-// (variant, stat id) pairs — the REAL RSL Helper DB ids (11..14 dealt, 15..18
-// taken); only the sellfile RULE encoding is still unconfirmed.
+// Anomalous Accessories.
+// (variant, stat id) pairs — the REAL RSL Helper ids (11..14 dealt, 15..18
+// taken), all confirmed against docs/orig/anomalous.hsf.
 pub const ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS: &[(i64, i64)] = &[(2816, 11), (3072, 12), (3328, 13), (3584, 14), (3840, 15), (4096, 16), (4352, 17), (4608, 18)];
 // (variant, canonical display label) pairs for SFC label parsing.
 pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(2816, "PvE DMG +"), (3072, "PvP DMG +"), (3328, "Boss DMG +"), (3584, "DNG DMG +"), (3840, "PvE DMG -"), (4096, "PvP DMG -"), (4352, "Boss DMG -"), (4608, "DNG DMG -")];
@@ -153,6 +153,14 @@ pub const ANOMALOUS_SUBSTAT_LABELS: &[(i64, &str)] = &[(2816, "PvE DMG +"), (307
 pub fn is_anomalous_substat_variant(variant: i64) -> bool {
     // Linear scan — the table has eight entries.
     ANOMALOUS_SUBSTAT_VARIANT_ID_PAIRS.iter().any(|&(v, _)| v == variant)
+}
+// HSF wire unit for the anomalous substats: displayed percent x this = the
+// integer stored in a rule substat Value (0.25% -> 25). Mirrors the TS constant.
+pub const ANOMALOUS_HSF_VALUE_SCALE: f64 = 100.0;
+// Display -> wire scale for ANY substat variant. Classic stats store their
+// plain value (docs/orig/rules.hsf: 5 = 5%), so their scale is 1.
+pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {
+    if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }
 }
 // Anomalous variants in announcement order (mirrors the TS list).
 pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[2816, 3072, 3328, 3584, 3840, 4096, 4352, 4608];

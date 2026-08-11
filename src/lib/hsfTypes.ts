@@ -42,8 +42,8 @@ export interface HsfFile {
 // or when formatting for readability. Do not use them in SFC parsing.
 import type { RankValue, StatVariantLike } from './types'
 import { RANK_VALUES, StatId, StatVariant } from './types'
-// PROVISIONAL(anomalous): placeholder-substat detection + variant bit layout for the
-// honest-tuple branch in variantToSub (Update 11.70 prep).
+// placeholder-substat detection + variant bit layout for the
+// honest-tuple branch in variantToSub (Update 11.70 Anomalous Accessories).
 import { isAnomalousSubstatVariant } from './anomalousAccessories'
 import { STAT_VARIANT_ID_MASK, STAT_VARIANT_SHIFT_BITS } from './generated/domainConstants'
 
@@ -116,7 +116,7 @@ export function variantToSub(v: StatVariantLike): { id: number; isFlat?: boolean
     case StatVariant.RollCount: return { id: StatId.RollCount, isFlat: true }
     case StatVariant.Any:
     default:
-      // PROVISIONAL(anomalous): anomalous substats keep their REAL DB stat id so
+      // Anomalous substats keep their REAL DB stat id so
       // rule conditions match exactly the gear that carries them, instead of
       // silently widening to the "Any substat" tuple. Only their sellfile RULE
       // encoding is unconfirmed — the export boundary (hsfIO scrub) strips them

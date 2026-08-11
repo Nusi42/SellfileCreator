@@ -61,8 +61,8 @@ const DEFAULT_GEAR_INSPECTOR_NORMALIZED_PRESET_DEFINITIONS: readonly GearInspect
   },
   // [8] Flat HP/ATK/DEF only (neutral weights).
   { iconId: 'glyph.recycle', entries: [{ variant: StatVariant.HP_FLAT }, { variant: StatVariant.ATK_FLAT }, { variant: StatVariant.DEF_FLAT }] },
-  // [9] Placeholder preset: ALL substats — classic plus the PROVISIONAL(anomalous)
-  // accessory-only ones (their normalized contribution is 0 until the roll model
+  // [9] Placeholder preset: ALL substats — classic plus the accessory-only
+  // anomalous ones (their normalized contribution is 0 until the roll model
   // is known, so including them is forward-correct and costs nothing today).
   { iconId: 'glyph.sparkles', entries: [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => ({ variant })) },
 ] as const

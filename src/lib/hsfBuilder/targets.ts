@@ -1,39 +1,69 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../constants'
-import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, isAnomalousSubstatVariant } from '../anomalousAccessories'
+import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, hsfValueScaleForVariant, isAnomalousSubstatVariant } from '../anomalousAccessories'
 import type { SubstatRollTargetEntry } from './types'
 
-// The value grid a stat's targets live on: 1 for classic stats (the engine's
-// branch runtime floors to i32, so integral targets keep UI and engine in
-// agreement) and the observed 1.25 step for PROVISIONAL(anomalous) mode-damage
-// substats. One definition — both the quantizer and per-variant spinner steps
-// read it, so "what is one step for this stat" is never re-derived.
+// The RESOLUTION a stat's targets can express: the smallest change that survives
+// the trip to HSF. The engine emits integers in the stat's wire unit, so this is
+// exactly 1/scale — 1 for classic stats, 0.01 for the anomalous stats HSF stores
+// in hundredths of a percent. Anything finer would be lost on export.
+export const targetValueResolutionForVariant = (variant: number): number => (
+  1 / hsfValueScaleForVariant(Number(variant))
+)
+
+// The SPINNER step: how far one arrow press moves. Deliberately coarser than the
+// resolution for the anomalous stats — 0.25 is the granularity RSL Helper itself
+// shows (docs/orig/anomalous.hsf: 0,25 / 0,5 / 0,75 / 1 …), so stepping matches
+// what users see in-app while typing keeps the full 0.01 resolution.
+export const ANOMALOUS_TARGET_SPINNER_STEP = 0.25
 export const targetValueStepForVariant = (variant: number): number => (
+  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_TARGET_SPINNER_STEP : 1
+)
+
+// The smallest value a PRESENT gear substat line can carry — a line that exists
+// is never worth less than one minimum roll. 1 for classic stats; the observed
+// rank-5 base for anomalous ones (no real gear has shown a smaller line). This
+// is deliberately NOT the spinner step or the wire resolution: a user may want a
+// 0.25 THRESHOLD, but no piece of gear carries a 0.25 line.
+export const minGearLineValueForVariant = (variant: number): number => (
   isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
 )
 
-// The one target-value quantizer: snap to the stat's grid (nearest multiple).
-// Anomalous targets must stay on-grid because the engine floor below is only
-// matching-equivalent there — an off-grid 2.6 would display as 2.6 yet apply as
-// ≥ 2, silently widening the rule.
+// Multiplying into the wire unit is not exact in binary floating point — 0.29 *
+// 100 is 28.999999999999996, which would floor a whole wire unit down. Every
+// scale-then-truncate step first rounds away representation noise at a precision
+// far finer than any real target. One definition; the Rust mirror uses the same
+// epsilon so the two floors can never disagree on a boundary value.
+const WIRE_NOISE_PRECISION = 1e6
+const scaleToWireUnits = (value: number, variant: number): number => {
+  const scale = hsfValueScaleForVariant(Number(variant))
+  return Math.round(Math.max(0, value) * scale * WIRE_NOISE_PRECISION) / WIRE_NOISE_PRECISION
+}
+
+// The one target-value quantizer: snap to the stat's expressible resolution.
+// Values off the resolution grid cannot survive export, so they are rounded here
+// rather than silently truncated at the wire boundary.
 export const quantizeTargetValueForVariant = (variant: number, value: number): number => {
   if (!Number.isFinite(value)) return 0
-  const step = targetValueStepForVariant(variant)
-  const snapped = Math.max(0, Math.round(Math.round(value / step) * step * 100) / 100)
-  // A non-zero input never becomes "no threshold": typing 0.4 on SPD or 0.5 on an
-  // anomalous stat means the user wants SOME floor, so it lands on the first grid
-  // step. Only a typed 0 (or negative) clears the target.
-  if (snapped === 0 && value > 0) return step
+  const scale = hsfValueScaleForVariant(Number(variant))
+  const snapped = Math.round(scaleToWireUnits(value, variant)) / scale
+  // A non-zero input never becomes "no threshold": typing 0.4 on SPD (or 0.004 on
+  // an anomalous stat) means the user wants SOME floor, so it lands on the first
+  // expressible value. Only a typed 0 (or negative) clears the target.
+  if (snapped === 0 && value > 0) return targetValueResolutionForVariant(variant)
   return snapped
 }
 
-// The threshold the ENGINE actually applies for a stored target value: the branch
-// runtime emits substat values as i32, so any stored fraction floors on the way
-// out (a stored 2.5 applies as ≥ 2). Every surface that ADVERTISES or COMPARES a
-// threshold routes through here so no two of them disagree; editable inputs keep
-// showing the stored value. Named after its Rust counterpart, emit_hsf_target_value
-// (wasm/rule_engine_core/src/lib.rs) — delete both together when the runtime
-// learns f64 emission, and the whole floor concept goes with them.
-export const engineAppliedTargetValue = (value: number): number => Math.floor(Math.max(0, value))
+// The threshold the ENGINE actually applies for a stored target value. The branch
+// runtime emits substat values as integers IN THE STAT'S WIRE UNIT, so a value
+// floors only to that unit's resolution: classic stats floor to whole numbers
+// (a stored 2.5 applies as ≥ 2) while an anomalous 1.25 is exact (125 hundredths).
+// Every surface that ADVERTISES or COMPARES a threshold routes through here so no
+// two of them disagree; editable inputs keep showing the stored value. Mirrors
+// to_hsf_wire_value (wasm/rule_engine_core/src/hsf_builder_core.rs), which floors
+// the same way to produce the integer the emitter writes.
+export const engineAppliedTargetValue = (value: number, variant: number): number => (
+  Math.floor(scaleToWireUnits(value, variant)) / hsfValueScaleForVariant(Number(variant))
+)
 
 // User input is sanitized through this clamp. `variant` is REQUIRED so there is no
 // bypass around the quantizer: every ingress (SFC, builder UI, note-overrides DSL)
@@ -122,22 +152,23 @@ export const resolveRollTargetValue = (
   entry: SubstatRollTargetEntry | null | undefined,
   rollIndex: number,
   factoryBase: number,
+  variant: number,
 ): number => {
   // Engine-applied on BOTH sides — the factory fallback (floor the per-roll base
   // before multiplying, matching emit_hsf_target_value's already-floored base_vals)
   // and explicit overrides. Never mix engine-applied and stored numbers.
-  const perRoll = engineAppliedTargetValue(factoryBase)
+  const perRoll = engineAppliedTargetValue(factoryBase, variant)
   const factory = perRoll + rollIndex * perRoll
   if (!entry) return factory
   if (rollIndex <= 0) {
-    return typeof entry.base === 'number' ? engineAppliedTargetValue(entry.base) : factory
+    return typeof entry.base === 'number' ? engineAppliedTargetValue(entry.base, variant) : factory
   }
   const inc = entry.increments?.[rollIndex - 1]
-  if (typeof inc === 'number') return engineAppliedTargetValue(inc)
+  if (typeof inc === 'number') return engineAppliedTargetValue(inc, variant)
   // Omitted position: floor at max(factory, last explicitly specified value).
   const lastSpecified = [...(entry.increments ?? [])].reverse().find((v): v is number => typeof v === 'number')
     ?? (typeof entry.base === 'number' ? entry.base : null)
-  return lastSpecified != null ? Math.max(factory, engineAppliedTargetValue(lastSpecified)) : factory
+  return lastSpecified != null ? Math.max(factory, engineAppliedTargetValue(lastSpecified, variant)) : factory
 }
 
 // Loose parser accepts SFC legacy shapes (numbers, strings, plain objects) and

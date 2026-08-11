@@ -1538,7 +1538,7 @@ const overrides: Catalog = {
   statCR: "CR%",
   statCDMG: "CDMG%",
   statRollCount: "Rulo sayısı",
-  // PROVISIONAL(anomalous): Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
+  // Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
   statPveDmgPlus: "PvE ⚔",
   statPvpDmgPlus: "PvP ⚔",
   statBossDmgPlus: "Boss ⚔",
@@ -1556,7 +1556,6 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Boss'lardan alınan hasarı azaltır.",
   statDungeonDmgMinusTooltip: "Zindanlarda alınan hasarı azaltır.",
   statAnomalousTooltipNote: "Anormal Aksesuar alt değeri; yalnızca Champion Proving Grounds aksesuarlarında bulunur. Aynı türdeki bonuslar birikir (örn. PvE ve Boss hasarı birlikte uygulanır).",
-  toastAnomalousRulesNotExported: "{count} kural, Anormal alt değerler içerdiği için dışa aktarılan sellfile'da atlandı — RSL Helper bunları henüz ifade edemiyor.",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Reçeteler kaydedildi. İndirilenler'i kontrol edin.",

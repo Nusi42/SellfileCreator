@@ -5,7 +5,7 @@ import { ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, StatV
 
 export type HighlightSpec = { token: string; sx?: SxProps }
 
-// Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — this
+// Classic substats plus the accessory-only ones — this
 // gate must agree with COLORIZED_SUBSTAT_IDS (substatDisplay.ts): one colorize
 // decision, two id domains (variants here, stat ids there).
 const COLORIZED_VARIANTS: readonly StatVariant[] = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]

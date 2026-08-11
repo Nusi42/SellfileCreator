@@ -140,7 +140,7 @@ export function GearInspectorNormalizedPresetEditorMenu({
         </Box>
       </MenuItem>
       <Divider sx={{ my: 0.5 }} />
-      {/* Classic substats plus the PROVISIONAL(anomalous) accessory-only ones. */}
+      {/* Classic substats plus the accessory-only ones. */}
       {[...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS].map((variant) => {
         // Selection is the SSOT: if the stat is not selected, it is not counted (no 0-weight sentinel).
         const selected = selectedSet.has(Number(variant))

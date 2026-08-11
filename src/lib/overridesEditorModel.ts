@@ -25,7 +25,6 @@ import {
   dslMainStatKeys,
   dslSubstatKeys,
   factionNames,
-  labelOfVariant,
   rarityCodeFromRankValue,
   rarityCodeToName,
   rarityRankValueI18nKey,
@@ -348,8 +347,11 @@ export const gearsetNameToId = (name: string): number | null => GEARSET_ID_BY_NA
 export const gearsetIdToName = (id: number): string | null => artifactSetNames[Number(id)] ?? null
 
 /** DSL stat key ⇄ StatVariant — re-exported from the stat-domain SSOT (types.ts),
- *  which owns the asymmetry between how a stat DISPLAYS and how it is SPELLED. */
-export { statKeyToVariant, statVariantToKey } from './types'
+ *  which owns the asymmetry between how a stat DISPLAYS and how it is SPELLED.
+ *  Imported (not `export … from`) because selectorLeafToView below calls the
+ *  speller: a bare re-export forwards the name without binding it locally. */
+import { statKeyToVariant, statVariantToKey } from './types'
+export { statKeyToVariant, statVariantToKey }
 
 // Rarity rank value (1–6) ⇄ lowercase DSL rarity name (the serializer's spelling).
 const RARITY_NAME_BY_RANK = new Map<number, string>(
@@ -733,9 +735,13 @@ export function selectorLeafToView(leaf: AnyOverridesSelector): SelectorTermView
     case 'lockedMinRolls': return { kind: 'compare', field: 'lockedminrolls', op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'minSubstats': return { kind: 'compare', field: 'minsubstats', op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'substatMin': return { kind: 'compare', field: 'substatmin', op: OP_VIEW[leaf.op], value: String(leaf.value) }
-    case 'substatMinField': return { kind: 'compare', field: `substatmin.${labelOfVariant(leaf.variant)}`, op: OP_VIEW[leaf.op], value: String(leaf.value) }
+    // Dotted stat fields spell through statVariantToKey, never labelOfVariant: `field`
+    // is not display text — selectorTermText concatenates it back into DSL that
+    // parseSelectorLeafText re-parses, and an anomalous label ("PvE DMG +") tokenizes
+    // apart on its space and `+`. Same spelling defaultViewForOption seeds rows with.
+    case 'substatMinField': return { kind: 'compare', field: `substatmin.${statVariantToKey(leaf.variant)}`, op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'minimaAny': return { kind: 'compare', field: 'minima.any', op: OP_VIEW[leaf.op], value: String(leaf.value) }
-    case 'minimaField': return { kind: 'compare', field: `minima.${leaf.star}.${labelOfVariant(leaf.variant)}`, op: OP_VIEW[leaf.op], value: String(leaf.value) }
+    case 'minimaField': return { kind: 'compare', field: `minima.${leaf.star}.${statVariantToKey(leaf.variant)}`, op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'flex': return { kind: 'flex', value: leaf.value ? 'on' : 'off' }
     default: return null
   }

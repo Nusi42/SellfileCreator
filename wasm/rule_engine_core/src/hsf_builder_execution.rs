@@ -8,8 +8,10 @@ use ts_rs::TS;
 
 
 
-// PROVISIONAL(anomalous): per-variant target quantization (grid snap for anomalous).
-use crate::generated_domain_constants::{is_anomalous_substat_variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE};
+// Per-variant target quantization + the display -> HSF wire conversion, both of
+// which key off the stat's wire scale (1 classic, 100 anomalous).
+use crate::generated_domain_constants::hsf_value_scale_for_variant;
+use crate::hsf_builder_core::{scale_to_wire_units, to_hsf_wire_value};
 use crate::build_hsf_preflight_flags_core;
 use crate::build_hsf_presence_only_rules_core;
 use crate::build_hsf_rarity_branches_core;
@@ -161,21 +163,19 @@ pub struct PrepareHsfBuilderTargetEntryOut {
     pub increments: Option<Vec<Option<f64>>>,
 }
 
-// Clamp and sanitize roll-target values to the same per-variant grids as TS
-// quantizeTargetValueForVariant: classic stats round to integers; anomalous
-// substats SNAP to the 1.25 grid (an off-grid value would silently widen at
-// the i32 floor boundary below).
+// Snap a target override to the stat's expressible resolution, in DISPLAY units.
+// The resolution is 1/scale — whole numbers for classic stats, hundredths for the
+// anomalous ones HSF stores in hundredths of a percent — so anything finer could
+// not survive export. Mirrors quantizeTargetValueForVariant in
+// src/lib/hsfBuilder/targets.ts. Values stay in display units here; the single
+// conversion to wire units happens later, in to_hsf_wire_value.
 fn normalize_target_override_value(value: Option<f64>, variant: i64) -> Option<f64> {
     let numeric = value?;
     if !numeric.is_finite() {
         return None;
     }
-    if is_anomalous_substat_variant(variant) {
-        let step = ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE;
-        let snapped = (numeric / step).round() * step;
-        return Some(((snapped * 100.0).round() / 100.0).max(0.0));
-    }
-    Some(numeric.round().max(0.0))
+    let scale = hsf_value_scale_for_variant(variant);
+    Some(scale_to_wire_units(numeric, variant).round() / scale)
 }
 
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
@@ -256,17 +256,14 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
     let mut target_base_override_by_variant = BTreeMap::<i64, Option<i32>>::new();
     let mut target_entries_by_variant = BTreeMap::<i64, PrepareHsfBuilderTargetEntryOut>::new();
     for variant in &selected_pool_v {
-        // Fractional targets (anomalous 1.25 grid) FLOOR at this i32 boundary: the
-        // branch runtime quantizes base values, and on a k*1.25 value grid floored
-        // thresholds are matching-equivalent to the exact decimals. Emitted preview
-        // values show the floored number until the runtime learns f64 emission.
-        let current_base = input
-            .substat_target_by_variant
-            .get(variant)
-            .copied()
-            .unwrap_or(0.0)
-            .max(0.0)
-            .min(i32::MAX as f64) as i32;
+        // Display -> WIRE units at this i32 boundary: everything downstream (base_vals,
+        // target overrides, emit_hsf_target_value's factory arithmetic) works in the
+        // stat's wire unit, so an anomalous 1.25 rides through as 125 and lands in the
+        // emitted rule exactly. Classic stats scale by 1, so their values are unchanged.
+        let current_base = to_hsf_wire_value(
+            input.substat_target_by_variant.get(variant).copied().unwrap_or(0.0),
+            *variant,
+        );
         current_base_by_variant.insert(*variant, current_base);
         factory_base_by_variant.insert(
             *variant,
@@ -274,7 +271,7 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
                 .factory_base_by_variant_for_star
                 .get(variant)
                 .copied()
-                .map(|value| value.max(0.0).min(i32::MAX as f64) as i32),
+                .map(|value| to_hsf_wire_value(value, *variant)),
         );
         let maybe_target = input.substat_roll_targets_v.get(variant).cloned();
         let Some(target_entry) = maybe_target else {
@@ -282,8 +279,9 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
             continue;
         };
         let normalized_base = normalize_target_override_value(target_entry.base, *variant);
-        let normalized_base_i32 = normalized_base.map(|value| value as i32);
-        target_base_override_by_variant.insert(*variant, normalized_base_i32);
+        // The override map feeds the emitter directly, so it carries wire units too.
+        let normalized_base_wire = normalized_base.map(|value| to_hsf_wire_value(value, *variant));
+        target_base_override_by_variant.insert(*variant, normalized_base_wire);
         let mut normalized_increments = target_entry
             .increments
             .unwrap_or_default()

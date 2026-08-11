@@ -9,6 +9,7 @@
  * stay in their own modules; only truly shared logic lives here.
  */
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
+import { statVariantToKey, type StatVariantLike } from './types'
 
 // ── Token types ───────────────────────────────────────────────────────────────
 
@@ -401,6 +402,49 @@ export const localizeDslDisplay = (raw: string, lang: string): string => {
   if (byPrefix !== undefined) return byPrefix
   return base
 }
+
+// ── Option-info display text (the one contract, both domains) ─────────────────
+
+/**
+ * THE CONTRACT for the note-editor option-info text built by
+ * `formatRecipeOverridesOpValue` / `formatSafeguardOverridesOpValue` and their
+ * selector twins. Both domains render into the same tooltip panel through the
+ * same Prism grammar, so they must answer this question identically:
+ *
+ *   READABLE DSL, not byte-exact DSL.
+ *   • VALUES may use display sugar the parser never sees — `≥3` for `rank>=3`,
+ *     `5★` for star 5, `SPD 300 +[600,900]` for a roll-target ladder.
+ *   • IDENTIFIERS — stat keys, field tokens, set/faction/slot names — use the
+ *     DSL vocabulary verbatim, because they are the fragments a user lifts out
+ *     of the tooltip and back into a marker, and because an anomalous
+ *     display label ("PvE DMG +") is unwritable: `+` and spaces are separators.
+ *
+ * Byte-exact reconstruction is a different job with a different owner —
+ * `overridesSerializer.ts`, pinned by the round-trip tests. Nothing here feeds it.
+ *
+ * The helpers below exist so the two domains cannot answer differently: one
+ * spelling pass, one mutate-list shape, shared by both formatters.
+ */
+
+/** Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax. */
+export const formatOverridesMutateList = (add: string[], remove: string[]): string =>
+  [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
+
+/** Spell one stat for option-info text (identifier rule above). Empty/Any → ''. */
+export const overridesStatKey = (variant: StatVariantLike): string => statVariantToKey(variant)
+
+/** Spell a stat list as `KEY,KEY,…`; Empty/Any variants drop out. */
+export const formatOverridesStatKeyList = (variants: readonly StatVariantLike[]): string =>
+  variants.map(overridesStatKey).filter(Boolean).join(',')
+
+/** Spell a stat mutate pair as `+KEY -KEY`; Empty/Any variants drop out. */
+export const formatOverridesStatKeyMutateList = (
+  add: readonly StatVariantLike[],
+  remove: readonly StatVariantLike[],
+): string => formatOverridesMutateList(
+  add.map(overridesStatKey).filter(Boolean),
+  remove.map(overridesStatKey).filter(Boolean),
+)
 
 /**
  * Resolve one locale from a map of `code → text`, honoring the same precedence the

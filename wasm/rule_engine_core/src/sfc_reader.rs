@@ -47,7 +47,7 @@ pub fn stat_variant_from_label(label: &str) -> Option<i64> {
             for &(variant, label) in STAT_VARIANT_DISPLAY_LABELS {
                 if label.eq_ignore_ascii_case(&norm) { return Some(variant); }
             }
-            // PROVISIONAL(anomalous): accept the anomalous-substat labels
+            // Accept the anomalous-substat labels
             // ("PvE DMG +", ...) so SFC documents containing them keep parsing here
             // exactly like in the TS reader (Update 11.70 prep).
             for &(variant, label) in ANOMALOUS_SUBSTAT_LABELS {

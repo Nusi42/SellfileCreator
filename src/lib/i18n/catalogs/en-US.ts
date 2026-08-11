@@ -1538,7 +1538,7 @@ const enUS: Catalog = {
   statCR: "CR%",
   statCDMG: "CDMG%",
   statRollCount: "Roll Count",
-  // PROVISIONAL(anomalous): Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
+  // Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
   statPveDmgPlus: "PvE ⚔",
   statPvpDmgPlus: "PvP ⚔",
   statBossDmgPlus: "Boss ⚔",
@@ -1556,7 +1556,6 @@ const enUS: Catalog = {
   statBossDmgMinusTooltip: "Decreases damage taken from Bosses.",
   statDungeonDmgMinusTooltip: "Decreases damage taken in Dungeons.",
   statAnomalousTooltipNote: "Anomalous Accessory substat, found only on accessories from the Champion Proving Grounds. Bonuses of the same kind stack (e.g. PvE and Boss damage both apply).",
-  toastAnomalousRulesNotExported: "{count} rule(s) with Anomalous substats were skipped in the exported sellfile — RSL Helper cannot express them yet.",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Recipes saved. Check your Downloads folder.",

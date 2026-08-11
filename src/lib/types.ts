@@ -1,6 +1,6 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
 import { ACCESSORY_NO_SET_ID, NBSP } from './constants'
-// PROVISIONAL(anomalous): placeholder anomalous-accessory substat helpers (Update 11.70 prep).
+// Anomalous-accessory substat helpers (Update 11.70 mode-scoped damage stats).
 // The membership check gets a local alias because this module also re-exports it by name.
 import {
   ANOMALOUS_SUBSTAT_VARIANTS as LOCAL_ANOMALOUS_SUBSTAT_VARIANTS,
@@ -648,7 +648,7 @@ export const STAT_VARIANTS_PRIORITY: readonly StatVariant[] = (
   GENERATED_STAT_VARIANTS_PRIORITY as readonly StatVariant[]
 )
 
-// PROVISIONAL(anomalous): re-export the anomalous substat variants (announcement order)
+// Re-export the anomalous substat variants (announcement order)
 // so UI surfaces can append them to the classic rows for accessory slots without a
 // second definition. Deliberately NOT merged into STAT_VARIANTS_PRIORITY — that list
 // mirrors a shared TS/Rust ordering table and drives artifact-slot surfaces too.
@@ -677,7 +677,7 @@ export function labelOfVariant(v: StatVariantLike): string {
     case StatVariant.CDMG: return 'CDMG%'
     case StatVariant.RollCount: return 'Roll Count'
   }
-  // PROVISIONAL(anomalous): the new mode-scoped damage substats resolve via
+  // The new mode-scoped damage substats resolve via
   // their own generated label catalog before the raw-number fallback.
   const anomalousLabel = anomalousSubstatLabel(n)
   if (anomalousLabel !== undefined) return anomalousLabel
@@ -701,7 +701,7 @@ export function variantFromLabel(input: string): StatVariant | null {
     case 'CDMG%': return StatVariant.CDMG
     case 'ROLL COUNT': return StatVariant.RollCount
   }
-  // PROVISIONAL(anomalous): accept the announcement labels ("PvE DMG +", ...).
+  // accept the announcement labels ("PvE DMG +", ...).
   return anomalousVariantFromLabel(s)
 }
 
@@ -709,7 +709,7 @@ export function variantFromLabel(input: string): StatVariant | null {
  * DSL stat key ⇄ StatVariant — the SSOT for how a stat is SPELLED in override
  * text (dotted fields, value lists, the EBNF listing, every emitter).
  *
- * Emission is asymmetric with display on purpose: PROVISIONAL(anomalous)
+ * Emission is asymmetric with display on purpose: the anomalous
  * mode-damage substats spell as their internal key (`pveDmgPlus`), never as
  * their display label, because `+` and spaces are token separators in DSL field
  * positions. Parsing stays permissive — `variantFromLabel` accepts the label,
@@ -718,8 +718,22 @@ export function variantFromLabel(input: string): StatVariant | null {
 export function statVariantToKey(variant: StatVariantLike): string {
   return anomalousSubstatDslKey(Number(variant)) ?? labelOfVariant(variant)
 }
+/** Resolve a stat key written in a SUBSTAT position (dotted fields, `substats=`). */
 export function statKeyToVariant(key: string): StatVariant | null {
   return variantFromLabel(key)
+}
+
+/**
+ * Resolve a stat key written in a MAIN-STAT position (`mainstats=`). Spelling stays
+ * as permissive as the substat resolver — labels, aliases, the key — but the result
+ * must be a stat some slot can actually carry as a main. This is the parser-side half
+ * of the dslSubstatKeys/dslMainStatKeys split: without it, hand-written
+ * `mainstats=pveDmgPlus` would build a mainStats op for a variant no gear can have.
+ */
+export function mainStatKeyToVariant(key: string): StatVariant | null {
+  const variant = variantFromLabel(key)
+  if (variant == null) return null
+  return isEverMainStatVariant(variant) ? variant : null
 }
 
 /**
@@ -794,7 +808,7 @@ export function subToVariant(id?: number, isFlat?: boolean | number | string): S
   if (id >= 4 && id <= 6) return (((id & 0xFF) << 8) | 1) as StatVariant
   if (id >= 7 && id <= 8) return (((id & 0xFF) << 8) | 0) as StatVariant
   if (id === StatId.RollCount) return StatVariant.RollCount
-  // PROVISIONAL(anomalous): anomalous substat ids ride the standard percent-shaped
+  // Anomalous substat ids ride the standard percent-shaped
   // encoding so app state and DB ingest can carry them (never exported HSF).
   if (isAnomalousStatId(id)) return (((id & 0xFF) << 8) | 0) as StatVariant
   return StatVariant.Any
@@ -829,8 +843,9 @@ export function statSupportsGlyphs(variant: StatVariantLike): boolean {
   const numeric = Number(variant)
   if (!Number.isFinite(numeric)) return true
   if (numeric === StatVariant.Any) return true
-  // PROVISIONAL(anomalous): glyphability of the mode-damage substats is unknown —
-  // answer "no" conservatively so no glyph affordance is offered until observed.
+  // JUDGED(anomalous glyphability): whether the mode-damage substats can carry a
+  // glyph is still unobserved — answer "no" conservatively so no glyph affordance
+  // is offered for something that may not exist.
   if (localIsAnomalousSubstatVariant(numeric)) return false
   return !NON_GLYPHABLE_VARIANTS.has(numeric)
 }
@@ -899,12 +914,23 @@ export function slotSupportsMain(slot: ArtifactTypeId, main: StatVariantLike): b
   return set.has(Number(main))
 }
 
+/**
+ * True when SOME slot can carry this variant as its main stat — the slot-independent
+ * half of slotSupportsMain, i.e. the main-stat vocabulary itself. Any is the wildcard
+ * and always qualifies. Sub-only stats (today: the mode-damage
+ * substats, which live outside ALLOWED_MAIN_BY_SLOT entirely) are the exclusions.
+ */
+export function isEverMainStatVariant(main: StatVariantLike): boolean {
+  if (Number(main) === StatVariant.Any) return true
+  return Object.values(ALLOWED_MAIN_BY_SLOT).some((set) => set.has(Number(main)))
+}
+
 /** True if a slot supports a given sub StatVariant. */
 export function slotSupportsSub(slot: ArtifactTypeId, sub: StatVariantLike): boolean {
   const set = ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType]
   if (!set) return false
   if (Number(sub) === StatVariant.Any) return true
-  // PROVISIONAL(anomalous): the mode-damage substats are legal on jewelry slots only
+  // The mode-damage substats are legal on jewelry slots only
   // (kept out of the shared ALLOWED_SUB_BY_SLOT table — see anomalousAccessories.ts).
   if (localIsAnomalousSubstatVariant(Number(sub))) return isAnomalousEligibleSlotId(Number(slot))
   return set.has(Number(sub))
@@ -1165,7 +1191,7 @@ export function statVariantI18nKey(v: StatVariantLike):
     case StatVariant.CR: return 'statCR'
     case StatVariant.CDMG: return 'statCDMG'
     case StatVariant.RollCount: return 'statRollCount'
-    // PROVISIONAL(anomalous): Update 11.70 mode-scoped damage substats.
+    // Update 11.70 mode-scoped damage substats.
     case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus: return 'statPveDmgPlus'
     case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus: return 'statPvpDmgPlus'
     case ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus: return 'statBossDmgPlus'
@@ -1178,7 +1204,7 @@ export function statVariantI18nKey(v: StatVariantLike):
   return 'statHP'
 }
 
-// PROVISIONAL(anomalous): tooltip i18n key for an anomalous substat variant, null for
+// Tooltip i18n key for an anomalous substat variant, null for
 // every other variant. Surfaces compose it with statAnomalousTooltipNote via the
 // anomalousSubstatTooltipMarkdown helper in substatDisplay.ts (one copy everywhere).
 export function anomalousSubstatTooltipI18nKey(v: StatVariantLike):
@@ -1344,7 +1370,7 @@ export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#2979FF',
   [StatVariant.CR]: '#00E5FF',
   [StatVariant.CDMG]: '#FF80AB',
-  // PROVISIONAL(anomalous): judged defaults — one hue per game mode (PvE teal,
+  // judged defaults — one hue per game mode (PvE teal,
   // PvP red, Boss violet, DNG umber), "+" brighter than "−". User-editable.
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#26A69A',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#EF5350',
@@ -1368,7 +1394,7 @@ export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#0A1E40',
   [StatVariant.CR]: '#062833',
   [StatVariant.CDMG]: '#2A0F1E',
-  // PROVISIONAL(anomalous): dark tints matching the judged FG hues above.
+  // dark tints matching the judged FG hues above.
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#0E2B27',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#2F1414',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#221A33',

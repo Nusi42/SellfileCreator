@@ -51,6 +51,11 @@ import {
   parsePrefixedToken,
   classifyListMode,
   consumeCommaSeparatedRemainder,
+  // Option-info display helpers — the shared contract both domains render through.
+  overridesStatKey,
+  formatOverridesMutateList,
+  formatOverridesStatKeyList,
+  formatOverridesStatKeyMutateList,
 } from './noteOverridesParser'
 // Case-insensitive set display name → ArtifactSetId (SSOT defined next to the tuple parser).
 import { artifactSetIdByName } from './safeguards'
@@ -71,9 +76,11 @@ import {
   artifactSetNames,
   artifactTypeNames,
   isLevelMilestone,
-  labelOfVariant,
   rarityCodeToName,
-  variantFromLabel,
+  // Stat-key resolvers, one per DSL position: substat fields/lists accept the full
+  // substat vocabulary, `mainstats=` only what a slot can actually carry as a main.
+  statKeyToVariant,
+  mainStatKeyToVariant,
 } from './types'
 import { retainAllowedMainStats, retainAllowedSubstats } from './statCompatibility'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
@@ -288,21 +295,16 @@ const RECIPE_RANK_CODE_DISPLAY: Record<number, string> = {
   [RankCodeEnum.LTE_Five]: '≤5', [RankCodeEnum.LTE_Six]: '≤6',
 }
 
-// Render a comma list of stat variants as note stat-keys (SPD, CR%, …), reusing the
-// SSOT labelOfVariant. Empty/Any variants are dropped.
-const formatVariantList = (variants: StatVariant[]): string =>
-  variants.map((v) => labelOfVariant(v)).filter(Boolean).join(',')
-
-// Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax.
-const formatMutateList = (add: string[], remove: string[]): string =>
-  [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
-
 /**
  * Format a recipe-overrides operation's VALUE as compact display text (the right-hand
- * side of its `field=…` assignment). SSOT for DSL-reconstruction consumers (note-editor
- * option-info tooltip). Exhaustive `switch` over the operation union — a new op kind
- * fails to compile until handled here. Values are readable, not byte-identical DSL
- * (e.g. `≥3` rather than `rank>=3`); the field token comes from RECIPE_OVERRIDES_OP_FIELD.
+ * side of its `field=…` assignment) for the note-editor option-info tooltip. Exhaustive
+ * `switch` over the operation union — a new op kind fails to compile until handled here.
+ * The field token comes from RECIPE_OVERRIDES_OP_FIELD.
+ *
+ * Values are readable, not byte-identical DSL (`≥3`, `5★`, `+[600,900]`) while stat
+ * IDENTIFIERS spell through the DSL vocabulary — see the option-info display contract
+ * in noteOverridesParser.ts, which this and its safeguard twin both answer to.
+ *
  * Returns null when the op has no meaningful scalar value (slider-AST blocks).
  */
 export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): string | null {
@@ -319,26 +321,26 @@ export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): stri
     case 'minSubstats': return op.value != null ? String(op.value) : '$count'
     case 'flex': return String(op.value)
     case 'substatMinAll': return String(op.value)
-    case 'substatMinVariant': return `${labelOfVariant(op.variant)}=${op.value}`
+    case 'substatMinVariant': return `${overridesStatKey(op.variant)}=${op.value}`
     case 'minimaAnyRank': return String(op.value)
-    case 'minimaTarget': return `${op.star}★ ${labelOfVariant(op.variant)}=${op.value}`
+    case 'minimaTarget': return `${op.star}★ ${overridesStatKey(op.variant)}=${op.value}`
     case 'rollTarget': {
       const incs = op.increments.map((n) => (n == null ? '·' : String(n))).join(',')
-      return `${labelOfVariant(op.variant)} ${op.base}${incs ? ` +[${incs}]` : ''}`
+      return `${overridesStatKey(op.variant)} ${op.base}${incs ? ` +[${incs}]` : ''}`
     }
     case 'artifactTypes': return op.mode === 'replace'
       ? op.values.map((id) => artifactTypeNames[id] ?? String(id)).join(',')
-      : formatMutateList(op.add.map((id) => artifactTypeNames[id] ?? String(id)), op.remove.map((id) => artifactTypeNames[id] ?? String(id)))
+      : formatOverridesMutateList(op.add.map((id) => artifactTypeNames[id] ?? String(id)), op.remove.map((id) => artifactTypeNames[id] ?? String(id)))
     case 'substats':
     case 'mainStats': return op.mode === 'replace'
-      ? formatVariantList(op.variants)
-      : formatMutateList(op.add.map((v) => labelOfVariant(v)).filter(Boolean), op.remove.map((v) => labelOfVariant(v)).filter(Boolean))
+      ? formatOverridesStatKeyList(op.variants)
+      : formatOverridesStatKeyMutateList(op.add, op.remove)
     case 'artifactSets': return op.mode === 'replace'
       ? op.ids.map((id) => artifactSetNames[id] ?? String(id)).join(',')
-      : formatMutateList(op.add.map((e) => artifactSetNames[e.id] ?? String(e.id)), op.remove.map((id) => artifactSetNames[id] ?? String(id)))
+      : formatOverridesMutateList(op.add.map((e) => artifactSetNames[e.id] ?? String(e.id)), op.remove.map((id) => artifactSetNames[id] ?? String(id)))
     case 'artifactMetaSets': return op.mode === 'replace'
       ? op.names.join(',')
-      : formatMutateList(op.add, op.remove)
+      : formatOverridesMutateList(op.add, op.remove)
   }
 }
 
@@ -346,10 +348,11 @@ export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): stri
 const SELECTOR_OP_SYMBOL: Record<'eq' | 'gte' | 'lte', string> = { eq: '=', gte: '≥', lte: '≤' }
 
 /**
- * Format a recipe-overrides SELECTOR as its DSL condition text (e.g. `lockedminrolls=4`,
- * `rank≥3`, `rarity=epic`, `all`). SSOT for DSL-reconstruction consumers (note-editor
- * option-info tooltip). Exhaustive `switch` over the selector union — a new selector kind
- * fails to compile until handled here. Logical combinators recurse.
+ * Format a recipe-overrides SELECTOR as its condition text (e.g. `lockedminrolls=4`,
+ * `rank≥3`, `rarity=epic`, `all`) for the note-editor option-info tooltip. Exhaustive
+ * `switch` over the selector union — a new selector kind fails to compile until handled
+ * here. Logical combinators recurse. Same display contract as the op formatter above:
+ * sugared values (`≥`, `★`), DSL-vocabulary identifiers (the dotted stat keys).
  */
 export function formatRecipeOverridesSelector(sel: RecipeOverridesSelector): string {
   switch (sel.kind) {
@@ -370,9 +373,9 @@ export function formatRecipeOverridesSelector(sel: RecipeOverridesSelector): str
     case 'minSubstats':     return `minsubstats${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'flex':            return `flex=${sel.value}`
     case 'substatMin':      return `substatmin${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
-    case 'substatMinField': return `substatmin.${labelOfVariant(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'substatMinField': return `substatmin.${overridesStatKey(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'minimaAny':       return `minima${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
-    case 'minimaField':     return `minima.${sel.star}★.${labelOfVariant(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
+    case 'minimaField':     return `minima.${sel.star}★.${overridesStatKey(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'not':             return `not ${formatRecipeOverridesSelector(sel.inner)}`
     case 'and':             return `${formatRecipeOverridesSelector(sel.left)} and ${formatRecipeOverridesSelector(sel.right)}`
     case 'or':              return `${formatRecipeOverridesSelector(sel.left)} or ${formatRecipeOverridesSelector(sel.right)}`
@@ -1231,7 +1234,7 @@ const parseSelectorTokens = (
     }
     if (keyword.startsWith('substatmin.')) {
       // Dotted form: substatmin.STAT op N — whole keyword is one token, e.g. "substatmin.spd".
-      const variant = variantFromLabel(keyword.slice('substatmin.'.length))
+      const variant = statKeyToVariant(keyword.slice('substatmin.'.length))
       if (variant == null) return null
       cursor.next()
       const opToken = cursor.peek()
@@ -1269,7 +1272,7 @@ const parseSelectorTokens = (
       }
       const numeric = parseTargetValue(valToken.value)
       if (numeric == null) return null
-      const variant = variantFromLabel(parsed.statKey)
+      const variant = statKeyToVariant(parsed.statKey)
       if (variant == null) return null
       return { kind: 'minimaField', op, star: parsed.star, variant, value: numeric }
     }
@@ -1613,7 +1616,7 @@ const parseOperations = (
       } else {
         const numeric = parseTargetValue(valueRaw)
         if (numeric == null) continue
-        const variant = variantFromLabel(minimaField.statKey)
+        const variant = statKeyToVariant(minimaField.statKey)
         if (variant == null) continue
         operations.push({
           kind: 'minimaTarget',
@@ -1628,7 +1631,7 @@ const parseOperations = (
       if (op !== 'eq') continue
       const statKey = field.slice('substatmin.'.length).trim()
       if (!statKey) continue
-      const variant = variantFromLabel(statKey)
+      const variant = statKeyToVariant(statKey)
       if (variant == null) continue
       const numeric = parseIntegerValue(valueRaw)
       if (numeric == null) continue
@@ -1646,7 +1649,7 @@ const parseOperations = (
       if (op !== 'eq') continue
       const rtStatKey = field.slice('rolltarget.'.length).trim()
       if (!rtStatKey) continue
-      const variant = variantFromLabel(rtStatKey)
+      const variant = statKeyToVariant(rtStatKey)
       if (variant == null) continue
       // First value is the Base (0-roll) threshold — a target value, so decimals
       // are accepted (quantized to the stat's grid when applied).
@@ -1712,7 +1715,8 @@ const parseOperations = (
       const parsed = raw.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
-      const resolve = (name: string): StatVariant | undefined => variantFromLabel(name) ?? undefined
+      // Substat position: the full substat vocabulary (dslSubstatKeys), anomalous included.
+      const resolve = (name: string): StatVariant | undefined => statKeyToVariant(name) ?? undefined
       if (listMode === 'replace') {
         const variants = parsed.map((t) => resolve(t.value)).filter((v): v is StatVariant => v != null)
         if (variants.length > 0) operations.push({ kind: 'substats', mode: 'replace', variants })
@@ -1736,7 +1740,10 @@ const parseOperations = (
       const parsed = raw.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
-      const resolve = (name: string): StatVariant | undefined => variantFromLabel(name) ?? undefined
+      // Main-stat position: the narrower vocabulary (dslMainStatKeys). Spelling stays
+      // permissive (labels + aliases), but a stat no slot can carry as a main — the
+      // substats — resolves to nothing instead of an unusable op.
+      const resolve = (name: string): StatVariant | undefined => mainStatKeyToVariant(name) ?? undefined
       if (listMode === 'replace') {
         const variants = parsed.map((t) => resolve(t.value)).filter((v): v is StatVariant => v != null)
         if (variants.length > 0) operations.push({ kind: 'mainStats', mode: 'replace', variants })

@@ -257,7 +257,7 @@ ${SHARED_VALUE_LINES}`
 // Every `statKey` position in this grammar is a SUBSTAT position (substatmin.,
 // minima.STAR., rolltarget., weight.), and the list is spelled through
 // statVariantToKey — so the reference shows the tokens that are actually typable
-// (PROVISIONAL(anomalous) stats appear as `pveDmgPlus`, not "PvE DMG +", whose
+// (stats appear as `pveDmgPlus`, not "PvE DMG +", whose
 // `+` and spaces are token separators here).
 const buildStatKeyLine = (): string => wrapAltRule('statKey', dslSubstatKeys().map(quoteTok))
 

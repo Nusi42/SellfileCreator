@@ -724,7 +724,7 @@ export function summaryParts(
           try {
             const values: string[] = []
             // Advertise the applied threshold, like the flyout hint/placeholders.
-            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(engineAppliedTargetValue(val)) : '—')
+            const formatValue = (val: unknown) => (typeof val === 'number' && Number.isFinite(val) ? String(engineAppliedTargetValue(val, Number(vk))) : '—')
             values.push(formatValue(targetsEntry.base))
             const increments = targetsEntry.increments ?? []
             for (let idx = 0; idx < SUBSTAT_TARGET_MAX_ROLLS; idx += 1) {

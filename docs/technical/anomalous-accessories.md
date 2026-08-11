@@ -1,28 +1,68 @@
-# Anomalous Accessories — Provisional Preparation
+# Anomalous Accessories
 
-**Status: PROVISIONAL(anomalous), now grounded in real DB data.** RSL Helper
-dumps Anomalous Accessories into its gear database, and the substat ids have
-been reverse-engineered from `examples/um109288203_RSLHelper.db` (artifacts
-264537–264539, verified against in-game screenshots). What is still missing is
-a **sample sellfile** demonstrating how RSL Helper *rules* encode these stats —
-so exports keep scrubbing them — plus the roll model beyond rank 5. Every
-judged value in code, spec, and docs carries the greppable marker
-`PROVISIONAL(anomalous)` — search for that token to find every site that must
-be revisited.
+**Status: exporting.** RSL Helper dumps Anomalous Accessories into its gear
+database *and* writes them into sellfiles, and we now have both sides:
+`examples/um109288203_RSLHelper.db` (artifacts 264537–264539) for the gear
+model, and **`docs/orig/anomalous.hsf`** for the rule encoding. That sample —
+eight rules matching a screenshot one-for-one — confirmed all eight stat ids
+(including the four that had been inferred) and fixed the wire format, which
+retired the export scrub.
 
-## Observed DB facts (the id/value model)
+What remains judged is the **value model beyond rank 5**: one observed base
+(1.25% per line at zero rolls) and no data on per-roll increments or the other
+five ranks. Those sites carry the greppable marker `JUDGED(anomalous …)` —
+search for it to find every assumption still standing.
+
+## Confirmed facts
+
+### From the sample sellfile (`docs/orig/anomalous.hsf`)
+
+Eight rules, each with one anomalous substat line, matching the captured
+screenshot in order:
+
+| Rule | Screenshot | `ID` | `IsFlat` | `Value` |
+| --- | --- | --- | --- | --- |
+| 1 | PvE DMG+ 0,25% | 11 | `false` | 25 |
+| 2 | PvP DMG+ 0,5% | 12 | `false` | 50 |
+| 3 | Boss DMG+ 0,75% | 13 | `false` | 75 |
+| 4 | DNG DMG+ 1% | 14 | `false` | 100 |
+| 5 | PvE DMG− 1,25% | 15 | `false` | 125 |
+| 6 | PvP DMG− 1,5% | 16 | `false` | 150 |
+| 7 | Boss DMG− 2% | 17 | `false` | 200 |
+| 8 | DNG DMG− 2,25% | 18 | `false` | 225 |
+
+Three things follow, and all three are load-bearing:
+
+1. **All eight ids are confirmed.** `14/15/17/18` had been *inferred* from
+   mode-order contiguity against the DB; the sample proved the inference right,
+   so no renumbering was needed.
+2. **Values are stored in hundredths of a percent** (`0.25%` → `25`). This is
+   anomalous-specific: `docs/orig/rules.hsf` stores classic percent stats plain
+   (`5` = 5%). The scale lives in the spec as `hsfValueScale`.
+3. **The rules are otherwise ordinary** — `IsFlat: false` (percent-shaped,
+   matching the DB's `fl = 0`), `Condition: ">="`, the other three substat slots
+   `ID: -1` padding, `Rank`/`Rarity` 0, `MainStatID` −1. No new rule grammar.
+
+The sample also demonstrates **0.25 granularity** (0,25 / 0,5 / 0,75 are all
+expressible), which is why targets quantize to the wire resolution rather than
+to a coarse roll grid.
+
+All of the above is asserted, not paraphrased, by
+`tests/unit/anomalous-hsf-sample.test.ts` — it reads the sample file directly,
+so a change in RSL Helper's format fails a test instead of silently corrupting
+exports.
+
+### From the gear database
 
 | Fact | Basis |
 | --- | --- |
-| Stat ids: `11` PvE DMG, `12` PvP DMG, `13` Boss DMG — damage **dealt** ("+") with positive values | Observed (artifacts 264537–264539) |
-| Stat id `16` = PvP DMG **taken** ("−"), stored as a **negative** percent (−1.25% renders "PvP DMG-") | Observed |
-| Dealt family `11..14`, taken family `15..18`, mode order PvE/PvP/Boss/DNG (so `14` DNG+, `15` PvE−, `17` Boss−, `18` DNG−) | **Inferred** from contiguity + the observed `16` |
+| Stat ids `11` PvE, `12` PvP, `13` Boss, `14` DNG — damage **dealt** ("+"), positive values | Observed (artifacts 264537–264539) + sample sellfile |
+| Stat ids `15..18` — damage **taken** ("−"), stored as **negative** percents (−1.25% renders "PvP DMG-") | Observed (`16`) + sample sellfile |
 | All lines `fl = 0` (percent), values scale by 2³² with ×100 display conversion (±53687091 → 1.25%) | Observed |
-| Rank-5 base per line = **1.25%** at zero rolls; one roll believed to add another 1.25 | Observed base; per-roll step judged |
+| Rank-5 base per line = **1.25%** at zero rolls | Observed |
 | A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
-| Rank-6 values, glyphability, mixing rules, roll milestones | Unknown |
 
-## What the announcement establishes (known facts)
+### From the announcement
 
 - **Source:** Champion Proving Grounds, a new permanent rotation-based dungeon
   (player level 60+, 27 stages, 28-day rotations). Anomalous Accessories come
@@ -47,81 +87,135 @@ be revisited.
 - **Out of app scope:** the same update's Coalescence Relic group (Faction
   Bonus relics). Relics are not sellfile gear, so this app ignores them.
 
-## What is implemented today (SSOT map)
+## The value model (display units vs wire units)
+
+Everything the user sees and everything we persist is in **display units**
+(percent: `1.25`). HSF stores **wire units** (hundredths: `125`). The conversion
+happens in exactly one place per side, and four named helpers in
+`src/lib/hsfBuilder/targets.ts` own the whole model:
+
+| Helper | Answers |
+| --- | --- |
+| `hsfValueScaleForVariant` (`anomalousAccessories.ts`) | display → wire multiplier: 1 classic, 100 anomalous. The SSOT both sides read. |
+| `targetValueResolutionForVariant` | the finest expressible value (`1/scale`): 1 classic, 0.01 anomalous. Anything finer cannot survive export. |
+| `targetValueStepForVariant` | the **spinner** step — deliberately coarser than the resolution (0.25 anomalous), matching the granularity RSL Helper itself displays. Typing keeps full resolution. |
+| `minGearLineValueForVariant` | the smallest value a **present gear line** can hold (1.25 anomalous). Distinct from both above: a 0.25 *threshold* is meaningful, but no real piece carries a 0.25 *line*. |
+| `quantizeTargetValueForVariant` | snap to the resolution; a non-zero input never becomes "no threshold". |
+| `engineAppliedTargetValue` | the threshold the engine actually applies — floor **in wire units**. Classic stats floor to whole numbers (a stored 2.5 applies as ≥ 2); an anomalous 1.25 is exact. |
+
+Scaling is not exact in binary floating point (`0.29 * 100` is
+`28.999999999999996`), so both sides round away representation noise at `1e6`
+before truncating — `WIRE_NOISE_PRECISION` in `targets.ts`, mirrored in
+`hsf_builder_core.rs`. Without it a value could floor a whole wire unit down.
+
+On the Rust side the display→wire conversion is `to_hsf_wire_value`
+(`hsf_builder_core.rs`), applied at the single `f64 → i32` boundary in
+`prepare_hsf_builder_recipe` (`hsf_builder_execution.rs`) and in
+`build_hsf_combo_vectors_core`. Everything downstream — `base_vals`,
+`target_bases`, `target_increments`, and `emit_hsf_target_value`'s factory
+arithmetic — therefore works in wire units, and the emitted `Value` is already
+correct with no f64 plumbing anywhere.
+
+The variant is a **REQUIRED** argument through `clampTargetOverrideValue` /
+`normalizeRollTargetEntry` / `normalizeLooseRollTargetEntry` /
+`targetEntriesEqual` / `resolveRollTargetValue` / `engineAppliedTargetValue`, so
+no ingress can bypass quantization — enforced by the signature, not by
+convention. Each has exactly one definition; `substatMenuHelpers` re-exports
+rather than re-implements, and `recipeMultiEditDraft`'s private integer-rounding
+copies are gone (they persisted an anomalous 2.5 as 3 — *above* what the user
+typed). **Both** target tables quantize at every write: roll targets
+(`sfcIO.parseReadableTargetEntry`, the multi-edit apply path, the DSL apply
+path) and the Minima table (`sfcIO.normalizeSubstatTargets`, the DSL's
+`clampMinimaValue`, the tab's own clamp).
+
+Every surface that ADVERTISES or COMPARES a threshold (flyout placeholders +
+hint, min/max roll chips via the shared `resolveRollTargetValue`, the "target
+decreases" warning, recipe-chip summaries) shows the engine-applied value; only
+editable inputs show the stored one.
+
+## SSOT map
 
 | Piece | Location |
 | --- | --- |
-| Spec block (ids, labels, set/slot scope) | `shared/domain-constants.json` → `anomalousAccessories` |
-| Generated TS constants (`ANOMALOUS_*`) + Rust label/tuple tables | `scripts/tooling/generate-domain-constants.mjs` → `src/lib/generated/domainConstants.ts`, `wasm/rule_engine_core/src/generated_domain_constants.rs` |
-| Typed domain helpers (incl. the `+`/`−` UI row split) | `src/lib/anomalousAccessories.ts` |
+| Spec block (ids, labels, wire scale, set/slot scope) | `shared/domain-constants.json` → `anomalousAccessories` |
+| Generated TS constants (`ANOMALOUS_*`) + Rust label/tuple tables and `hsf_value_scale_for_variant` | `scripts/tooling/generate-domain-constants.mjs` → `src/lib/generated/domainConstants.ts`, `wasm/rule_engine_core/src/generated_domain_constants.rs` |
+| Typed domain helpers (incl. the `+`/`−` UI row split and the wire scale) | `src/lib/anomalousAccessories.ts` |
 | Variant/label/i18n-key resolution | `src/lib/types.ts` (`subToVariant`, `labelOfVariant`, `variantFromLabel`, `statVariantI18nKey`), i18n keys `statPveDmgPlus` … `statDungeonDmgMinus` in every `src/lib/i18n/catalogs/*.ts` |
-| Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a jewelry slot; mirrored in Rust `recipe_builder.rs::resolve_allowed_substats_for_slots_and_mains` (the native-DLL rule-build path) |
+| Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a **viable** jewelry slot; mirrored in Rust `recipe_builder.rs::resolve_allowed_substats_for_slots_and_mains` |
 | Builder UIs | `RecipeBuilderPanel.tsx` + `SafeguardBuilderPanel.tsx` always render two extra rows (`⚔` damage dealt, `🛡` damage taken) — like every other stat row, individual chips grey out via the shared `allowedSubstatOptions` disabled state when the slot scope has no jewelry slot; safeguard multi-edit selection scan includes them |
-| Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
+| Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows, `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
-| Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous line values SNAP to the 1.25 grid and floor at one grid step; the session's random auto-fill pool stays classic on purpose |
-| Decimal targets | Three named helpers in `targets.ts` own the whole model, and everything else calls them: **`targetValueStepForVariant`** (the stat's grid — 1 classic, 1.25 anomalous), **`quantizeTargetValueForVariant`** (snap to that grid; a non-zero input never becomes "no threshold"), and **`engineAppliedTargetValue`** (the i32 emit floor, named after its Rust counterpart `emit_hsf_target_value`). The variant is a REQUIRED argument through `clampTargetOverrideValue` / `normalizeRollTargetEntry` / `normalizeLooseRollTargetEntry` / `targetEntriesEqual`, so no ingress can bypass quantization — enforced by the signature, not by convention. Those four have exactly one definition each (`targets.ts`); `substatMenuHelpers` re-exports rather than re-implements, and `recipeMultiEditDraft`'s private integer-rounding copies are gone (they persisted an anomalous 2.5 as 3 — *above* what the user typed). **Both** target tables quantize at every write: roll targets (`sfcIO.parseReadableTargetEntry`, the multi-edit apply path, the DSL apply path) and the Minima table (`sfcIO.normalizeSubstatTargets`, the DSL's `clampMinimaValue`, the tab's own clamp). Rust's `normalize_target_override_value` mirrors the snap. Every surface that ADVERTISES or COMPARES a threshold (flyout placeholders + hint, min/max roll chips via the shared `resolveRollTargetValue`, the "target decreases" warning, recipe-chip summaries) shows the engine-applied value; only editable inputs show the stored one. Spinners and `inputMode`/`step` affordances are gated per variant |
-| Gear line values | `clampGearLineValue` (`gearInspectorSession.ts`) is the one rule — grid snap + one-step floor — shared by the custom-gear editor's input clamp and the session's `adjustSubValuesFor` re-normalization, which previously disagreed on both grid and floor |
+| Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); line values snap to the wire resolution and floor at `minGearLineValueForVariant`; the session's random auto-fill pool stays classic on purpose |
+| Gear line values | `clampGearLineValue` (`gearInspectorSession.ts`) is the one rule — resolution snap + minimum-roll floor — shared by the custom-gear editor's input clamp and the session's `adjustSubValuesFor` re-normalization, which previously disagreed on both |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
-| Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
-| Export scrub | `hsfIO.ts::buildHsfFileFromMerged` — drops rules requiring anomalous substats / vacuous `¬` lines before any `.hsf` bytes are built (download, push, and dirty-fingerprint all share this choke point). **Known divergence:** such rules can match real gear in the preview yet export as nothing. Disclosure: the `onAnomalousRulesScrubbed` count is captured by `buildExportPayload` and the warning toast **replaces** the success toast (the snackbar is single-slot; two same-tick `showToast` calls batch into one render), shown for silent auto-pushes too; `backgroundAccountPush` carries the count on its `pushed` outcome so non-active-account uploads disclose with the account label prefixed. Console line retained. Unavoidable until a sample sellfile shows the rule encoding |
-| Guard tests | `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-export-scrub.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
+| Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it — and now export as that same rule |
+| HSF export | No special-casing left. `hsfIO.ts::buildHsfFileFromMerged` passes anomalous rules through like any other; the value scale is applied by the emitter (see above). The old export scrub, its disclosure toast (`toastAnomalousRulesNotExported`), and the `scrubbedAnomalousRules` plumbing through `buildExportPayload` / `backgroundAccountPush` are all deleted |
+| Guard tests | `tests/unit/anomalous-hsf-sample.test.ts` (the sample file itself), `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-target-quantization.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
 
 SFC documents persist substats as **label strings**, so the numeric id scheme
 never leaks into saved files — the placeholder→real id swap needed no SFC
 migration, and future churn wouldn't either.
 
-**Deliberately NOT wired** (revisit as data firms up): the shared
+**Deliberately NOT wired** (revisit as the roll model firms up): the shared
 `allowedSubsBySlot` / `STAT_VARIANTS_PRIORITY` tables (they feed the Rust
-engine's substat-gap anticipation — anticipation must not invent anomalous
-lines while the roll/addition model is unknown; a selected anomalous substat is
+engine's substat-gap anticipation — anticipation must not invent anomalous lines
+while the roll/addition model is unknown; a selected anomalous substat is
 conservatively treated as never-appearing-later), roll ranges beyond the rank-5
 base / glyph data, safeguard score normalization (anomalous values normalize to
-0 and stay inert in ranking until the roll model is confirmed), set-eligibility
-as a combination constraint (all observed pieces carry one of the 9 sets, but
-setless anomalous accessories are unconfirmed — no false "impossible"
-verdicts). The note-overrides DSL is fully wired: stat TARGET values parse as
-decimals (`parseTargetValue` — counts like `minrolls` still truncate), the apply
-paths quantize per variant, and the EBNF reference lists the anomalous keys plus
-a `targetNum` terminal marking where decimals are legal.
+0 and stay inert in ranking), set-eligibility as a combination constraint (all
+observed pieces carry one of the 9 sets, but setless anomalous accessories are
+unconfirmed — no false "impossible" verdicts).
 
-**Anomalous stats spell as their internal key in DSL text** (`rolltarget.pveDmgPlus=1.25`),
-never as their display label: `+` and spaces are token separators, so "PvE DMG +"
-cannot occupy a field position. Both the spelling and the vocabulary have one
-definition in `types.ts` — `statVariantToKey` plus `dslSubstatKeys()` /
-`dslMainStatKeys()` — consumed by every DSL-text surface: the two serializers
-(`overridesSerializer`, `noteSafeguardOverrides`' option-info reconstruction), the
-structured editor's selects and pickers, and the EBNF `statKey` row. The two stat
-vocabularies are deliberately separate: anomalous substats appear in substat
-positions only, never in `mainstats=` (they cannot be main stats). `variantFromLabel`
-still accepts every alias (label, space-free, `DMG`-less, key), so hand-written text
-keeps parsing whichever form it uses.
+## The DSL spelling
 
-## Judged values (the PROVISIONAL(anomalous) ledger)
+**Anomalous stats spell as their internal key in DSL text**
+(`rolltarget.pveDmgPlus=1.25`), never as their display label: `+` and spaces are
+token separators, so "PvE DMG +" cannot occupy a field position. Both the
+spelling and the vocabulary have one definition in `types.ts` —
+`statVariantToKey` plus `dslSubstatKeys()` / `dslMainStatKeys()` — consumed by
+every DSL-text surface: the two serializers (`overridesSerializer`,
+`noteSafeguardOverrides`' option-info reconstruction), the structured editor's
+selects, pickers and `selectorLeafToView`, and the EBNF `statKey` row.
+
+The two stat vocabularies are deliberately separate: anomalous substats appear
+in substat positions only, never in `mainstats=`. That split is enforced on both
+sides — `dslMainStatKeys()` for what the editor offers, and
+`mainStatKeyToVariant` (`types.ts`, gating on `isEverMainStatVariant` /
+`ALLOWED_MAIN_BY_SLOT`) for what the parser accepts, so hand-written
+`mainstats=pveDmgPlus` resolves to nothing instead of building an op for a stat
+no gear can carry. `variantFromLabel` still accepts every alias (label,
+space-free, `DMG`-less, key), so hand-written text keeps parsing whichever form
+it uses.
+
+Stat TARGET values parse as decimals (`parseTargetValue` — counts like
+`minrolls` still truncate), the apply paths quantize per variant, and the EBNF
+reference lists the anomalous keys plus a `targetNum` terminal marking where
+decimals are legal.
+
+Option-info tooltip text (`formatRecipeOverridesOpValue` /
+`formatSafeguardOverridesOpValue`) answers one shared contract, stated once in
+`noteOverridesParser.ts`: readable DSL, where *values* may use display sugar
+(`≥3`, `5★`, `+[600,900]`) but *identifiers* use the DSL vocabulary verbatim —
+because those are the fragments a user lifts back into a marker. Byte-exact
+reconstruction is a different job with a different owner (`overridesSerializer`).
+
+## Judged values (the `JUDGED(anomalous …)` ledger)
 
 | Judged value | Current choice | Why / replacement source |
 | --- | --- | --- |
-| Inferred stat ids `14`, `15`, `17`, `18` | DNG+, PvE−, Boss−, DNG− by mode-order contiguity | Only `11/12/13/16` are directly observed. Confirm from a DB dump containing the other four kinds; the generator + `tests/unit/anomalous-accessories.test.ts` pin the table. |
-| Per-roll step | Equal to the rank-5 base (1.25) | Base observed at zero rolls; the roll increment is the user's judgment. Rank 6 (and 1–4) values entirely unknown. |
-| Variant shape | Percent-shaped (`flat` suffix 0) | Matches the DB `fl = 0` lines. |
+| Per-rank base values (`JUDGED(anomalous per-rank values)`) | 1.25 floors **every** rank, not just rank 5 | Rank 5 is the only observed base. A missing entry reads as "no target at all" — a weaker default than the one number we know. Replace with a per-rank table from richer DB dumps. Sites: `ANOMALOUS_FACTORY_MINIMA` (`hsfBuilder.ts`), `factory_minima_for_star` (`recipe_builder.rs`). |
+| Per-roll step (`JUDGED(anomalous per-roll step)`) | Each further line assumed to add another 1.25 | Base observed at zero rolls; the increment is unconfirmed. Only used to size a display column (`substatDisplay.ts`), so an error costs alignment, not correctness. |
+| Glyphability (`JUDGED(anomalous glyphability)`) | `statSupportsGlyphs` answers **no** | Unobserved in-game; conservative so no glyph affordance is offered for something that may not exist. Flip from observation. |
+| Spinner step | 0.25 | The granularity RSL Helper displays in the sample. Typing keeps the full 0.01 resolution, so this only affects arrow keys. |
 | Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens (and the SFC label anchor). |
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
 | Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `⚔` brighter than `🛡` | Pure judgment; user-editable in Manage Colors. |
-| Glyphability | `statSupportsGlyphs` answers **no** for anomalous variants | Unknown in-game; conservative so no glyph affordance is offered. Flip from observation. |
-| Target grid snapping | `quantizeTargetValueForVariant` snaps to the NEAREST grid multiple (anomalous: 1 → 1.25, 2 → 2.5), never clears a non-zero input (anomalous 0.5 → 1.25, classic 0.4 → 1; only a typed 0 clears), and applies the rank-5 grid at EVERY rank | Nearest-multiple is stricter than typed for keep thresholds and looser for sell thresholds — a judged tie-break; and non-rank-5 grids are unknown (see "Per-roll step"), so the observed grid is assumed universal. Revisit both with real roll data. |
-
-**Hard rule until a sample sellfile exists:** anomalous ids must never reach
-exported `.hsf` bytes. App state, SFC documents, and DB ingest carry them; the
-export scrub in `hsfIO.ts` plus `isAnomalousStatId()` enforce the boundary.
 
 ## Open unknowns
 
-- How RSL Helper **rules** encode these stats in `.hsf` sellfiles — the sole
-  blocker for exporting them; per the project safety rule, serialization is
-  only extended against sample files under `docs/orig/`, never guessed.
-- The remaining four stat ids (`14/15/17/18`) — inferred, not observed.
-- Rank-6 (and 1–4) values, per-roll increments, roll milestones, glyphability,
-  and rarity distribution.
+- Rank-6 (and 1–4) base values, per-roll increments, and roll milestones — the
+  one remaining data gap that matters.
+- Glyphability and rarity distribution.
 - Whether "anomalous" is a piece-level flag anywhere in the DB or purely
   inferred from the substat lines; whether setless anomalous accessories exist.
 - WebSocket `gearDbRaw*` payload parity for these rows (same normalizer runs,
@@ -129,19 +223,14 @@ export scrub in `hsfIO.ts` plus `isAnomalousStatId()` enforce the boundary.
 
 ## Replacement checklist (as the rest firms up)
 
-1. Grep `PROVISIONAL(anomalous)` — every hit is a site to revisit.
-2. Confirm ids `14/15/17/18` and non-rank-5 values from richer DB dumps; update
-   `shared/domain-constants.json` (the id table + `star5RollValue` siblings)
-   and the pinned tests.
+1. Grep `JUDGED(anomalous` — every hit is an assumption to revisit.
+2. Confirm non-rank-5 base values and the per-roll increment from richer DB
+   dumps; update `shared/domain-constants.json` (`star5RollValue` grows into a
+   per-rank table) plus the two mirrored factory-minima tables and their tests.
 3. Once the roll model is known, extend the shared roll-range tables + Rust
    scoring normalization so safeguard ranking values anomalous lines, and
-   teach the branch runtime f64 emission so preview values stop flooring.
-4. Extend HSF serialization only against sample files in `docs/orig/`, then
-   retire the export scrub in `hsfIO.ts` (and its test) once RSL Helper
-   understands the real ids. Update the SFC label tables/read-side aliases if
-   the final display strings differ from the announcement wording.
-5. Localize the i18n catalog values (`statPveDmgPlus` …) once official
-   translations exist; revisit the deliberately-unwired list above (roll
-   targets, overrides DSL, gear-inspector substat editor, gap anticipation).
-6. Update this document and [Artifact Rules](artifact-rules.md); delete the
-   provisional wording once the data is confirmed.
+   revisit the deliberately-unwired list above (gap anticipation).
+4. Localize the i18n catalog values (`statPveDmgPlus` …) once official
+   translations exist; update the SFC label tables/read-side aliases if the
+   final display strings differ from the announcement wording.
+5. Update this document and [Artifact Rules](artifact-rules.md).

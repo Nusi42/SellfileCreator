@@ -15,7 +15,7 @@
     { "input": "DEF%",      "expected": 768  },
     { "input": "DEF",       "expected": 769  },
     { "input": "Roll Count","expected": 25345},
-    { "input": "PvE DMG +", "expected": 2816, "_comment": "PROVISIONAL(anomalous) variants from the real DB stat ids (id<<8): dealt 11..14, taken 15..18" },
+    { "input": "PvE DMG +", "expected": 2816, "_comment": "Anomalous variants from the real stat ids (id<<8): dealt 11..14, taken 15..18" },
     { "input": "pve dmg +", "expected": 2816},
     { "input": "PvP DMG +", "expected": 3072},
     { "input": "Boss DMG +","expected": 3328},

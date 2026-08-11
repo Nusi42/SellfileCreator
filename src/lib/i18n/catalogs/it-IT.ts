@@ -1538,7 +1538,7 @@ const overrides: Catalog = {
   statCR: "CR%",
   statCDMG: "CDMG%",
   statRollCount: "Numero di roll",
-  // PROVISIONAL(anomalous): Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
+  // Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
   statPveDmgPlus: "PvE ⚔",
   statPvpDmgPlus: "PvP ⚔",
   statBossDmgPlus: "Boss ⚔",
@@ -1556,7 +1556,6 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Riduce i danni subiti dai Boss.",
   statDungeonDmgMinusTooltip: "Riduce i danni subiti nei Dungeon.",
   statAnomalousTooltipNote: "Sottostatistica di Accessorio Anomalo, presente solo sugli accessori dei Champion Proving Grounds. I bonus dello stesso tipo si sommano (ad es. i danni PvE e contro i Boss si applicano insieme).",
-  toastAnomalousRulesNotExported: "{count} regola/e con sottostatistiche Anomale sono state omesse dal sellfile esportato — RSL Helper non può ancora esprimerle.",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Ricette salvate. Controlla la cartella Download.",

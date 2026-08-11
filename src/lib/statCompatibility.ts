@@ -8,7 +8,7 @@ import {
   StatId,
   StatVariant as StatVariantEnum,
 } from './types'
-// PROVISIONAL(anomalous): accessory-only substats join the feasible pool for jewelry slots.
+// Accessory-only substats join the feasible pool for jewelry slots.
 import { ANOMALOUS_SUBSTAT_VARIANTS, isAnomalousEligibleSlotId } from './anomalousAccessories'
 import { variantToMain, variantToSub } from './hsfTypes'
 
@@ -62,7 +62,7 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
     : normalizedMainStats.filter((variant) => variant !== Number(StatVariantEnum.Any))
   // Build a union of allowed substats across all feasible slot + main pairs.
   const allowed = new Set<number>()
-  // PROVISIONAL(anomalous): jewelry slots that SURVIVE the main-stat viability
+  // jewelry slots that SURVIVE the main-stat viability
   // gate below — the anomalous append must not resurrect a slot the classic
   // loop skipped (e.g. Ring selected but the main selection excludes rings).
   let viableAnomalousSlot = false
@@ -94,7 +94,7 @@ export const resolveAllowedSubstatsForSlotsAndMains = ({
       allowed.add(Number(subVariant))
     }
   }
-  // PROVISIONAL(anomalous): anomalous substats are feasible on VIABLE jewelry slots
+  // Anomalous substats are feasible on VIABLE jewelry slots
   // only. They cannot be mains, so no per-substat clash filtering applies; kept out
   // of the classic slot tables on purpose (see shared/domain-constants.json).
   const includeAnomalous = viableAnomalousSlot

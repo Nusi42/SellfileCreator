@@ -206,7 +206,7 @@ const mapDefined = <T, R>(values: readonly T[], convert: (value: T) => R | null)
 )
 
 // The DSL stat keys as StatVariants. Substat and mainstat positions draw from
-// DIFFERENT vocabularies: PROVISIONAL(anomalous) mode-damage substats are valid
+// DIFFERENT vocabularies: mode-damage substats are valid
 // substats but can never be a main stat, so offering them in a mainstat select
 // would let the user author an unselectable value.
 const dslSubstatVariants = (): StatVariant[] => mapDefined(dslSubstatKeys(), statKeyToVariant)

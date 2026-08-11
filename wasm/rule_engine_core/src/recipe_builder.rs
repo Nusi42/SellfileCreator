@@ -132,7 +132,7 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
     };
 
     let mut allowed = std::collections::HashSet::<i64>::new();
-    // PROVISIONAL(anomalous): jewelry slots surviving the main-viability gate — the
+    // jewelry slots surviving the main-viability gate — the
     // anomalous append must not resurrect a slot the classic loop skipped.
     let mut viable_anomalous_slot = false;
     for &slot in &slot_pool {
@@ -158,7 +158,7 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
     }
     // Return in STAT_VARIANTS_PRIORITY order (matches the TS output order).
     let mut resolved: Vec<i64> = STAT_VARIANTS_PRIORITY.iter().copied().filter(|v| allowed.contains(v)).collect();
-    // PROVISIONAL(anomalous): anomalous substats are feasible on VIABLE jewelry slots
+    // Anomalous substats are feasible on VIABLE jewelry slots
     // only — mirrors the TS resolver (statCompatibility.ts); they cannot be mains, so
     // no per-substat clash filtering applies, and they stay out of the classic tables.
     if viable_anomalous_slot {
@@ -195,19 +195,19 @@ pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
 
 /// Return the factory-default substat minimum map for the given star (1..6).
 /// Derived from SUBSTAT_ROLL_RANGES_BY_STAR — the min per-roll value is the factory default.
-/// Values are f64: the anomalous substats carry a fractional rank-5 base (1.25).
+/// Values are f64: the anomalous substats carry a fractional base (1.25).
 pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, f64> {
     // SUBSTAT_ROLL_RANGES_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
     for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
             // Each triple is (variant, min, max); extract (variant, min) pairs.
             let mut minima: BTreeMap<i64, f64> = triples.iter().map(|&(variant, min, _max)| (variant, min as f64)).collect();
-            // PROVISIONAL(anomalous): rank 5 is the only tier with an observed base
-            // for the mode-damage substats — mirror the TS defaultSubstatTargets seed.
-            if s == 5 {
-                for &variant in ANOMALOUS_SUBSTAT_VARIANTS {
-                    minima.insert(variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE);
-                }
+            // JUDGED(anomalous per-rank values): 1.25 is the OBSERVED rank-5 base and
+            // the only value we have, so it floors EVERY rank rather than leaving the
+            // other tiers without a target at all. Mirrors ANOMALOUS_FACTORY_MINIMA in
+            // src/lib/hsfBuilder.ts — replace both when per-rank data lands.
+            for &variant in ANOMALOUS_SUBSTAT_VARIANTS {
+                minima.insert(variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE);
             }
             return minima;
         }
@@ -608,7 +608,7 @@ mod tests {
         assert_eq!(star_for_rank_code(RANK_CODE_ANY, 99), 6);
     }
 
-    // PROVISIONAL(anomalous): the anomalous append must mirror the TS resolver —
+    // The anomalous append must mirror the TS resolver —
     // only jewelry slots that SURVIVE the main-stat viability gate qualify.
     #[test]
     fn anomalous_append_requires_viable_jewelry_slot() {

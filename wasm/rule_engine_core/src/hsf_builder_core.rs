@@ -21,6 +21,37 @@ use crate::{
     FILTER_OPTION_NONE_I32,
 };
 
+// ---------------------------------------------------------------------------
+// Display -> HSF wire unit (the single conversion boundary)
+// ---------------------------------------------------------------------------
+
+// Multiplying a display value into its wire unit is not exact in binary floating
+// point — 0.29 * 100 is 28.999999999999996, which would floor a whole wire unit
+// down. Round away representation noise at a precision far finer than any real
+// target before truncating. Mirrors WIRE_NOISE_PRECISION in
+// src/lib/hsfBuilder/targets.ts; the two floors must agree on boundary values.
+const WIRE_NOISE_PRECISION: f64 = 1e6;
+
+/// Scale a display-unit value into its HSF wire unit, noise-rounded but not yet
+/// truncated. Classic stats scale by 1 (docs/orig/rules.hsf: 5 = 5%); anomalous
+/// stats by 100 (docs/orig/anomalous.hsf: 0.25% -> 25).
+pub(crate) fn scale_to_wire_units(value: f64, variant: i64) -> f64 {
+    let scaled = value.max(0.0) * hsf_value_scale_for_variant(variant);
+    (scaled * WIRE_NOISE_PRECISION).round() / WIRE_NOISE_PRECISION
+}
+
+/// THE display -> wire converter: every display-unit f64 that becomes an emitted
+/// integer passes through here, so the scale is applied exactly once per value.
+/// Floors, matching engineAppliedTargetValue in src/lib/hsfBuilder/targets.ts —
+/// a classic 2.5 target applies as >= 2, while an anomalous 1.25 is exact (125).
+/// Non-finite input yields 0 (no threshold), as it does on the TS side.
+pub(crate) fn to_hsf_wire_value(value: f64, variant: i64) -> i32 {
+    if !value.is_finite() {
+        return 0;
+    }
+    scale_to_wire_units(value, variant).floor().min(i32::MAX as f64) as i32
+}
+
 // Input for builder rarity-branch expansion (Late+Auto supplement tiers).
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -780,12 +811,13 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
             id: sub_id,
             is_flat: sub_is_flat,
         });
-        // Normalize target overrides to integer payloads consumed by emit helpers.
+        // Normalize target overrides to WIRE-unit integer payloads consumed by emit
+        // helpers — the one scale application for these values (anomalous 1.25 -> 125).
         let target_entry = input.target_entries.get(idx).and_then(|entry| entry.as_ref());
         let target_base = target_entry
             .and_then(|entry| entry.base)
             .filter(|value| value.is_finite())
-            .map(|value| value.floor() as i32);
+            .map(|value| to_hsf_wire_value(value, *variant as i64));
         let target_increments_vec = target_entry
             .and_then(|entry| entry.increments.clone())
             .unwrap_or_default()
@@ -793,7 +825,7 @@ pub(crate) fn build_hsf_combo_vectors_core(input: &BuildHsfComboVectorsIn) -> Bu
             .map(|value| {
                 value
                     .filter(|inner| inner.is_finite())
-                    .map(|inner| inner.floor() as i32)
+                    .map(|inner| to_hsf_wire_value(inner, *variant as i64))
             })
             .collect::<Vec<_>>();
         target_bases.push(target_base);

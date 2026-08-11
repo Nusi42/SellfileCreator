@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-// PROVISIONAL(anomalous): these tests pin the Anomalous Accessories domain data.
+// These tests pin the Anomalous Accessories domain data.
 // The substat ids are the REAL RSL Helper DB ids reverse-engineered from
 // examples/um109288203_RSLHelper.db (11/12/13/16 observed against screenshots;
 // 14/15/17/18 inferred from mode order — see shared/domain-constants.json).

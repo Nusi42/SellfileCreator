@@ -1538,7 +1538,7 @@ const catalog: Catalog = {
   statCR: "CR%",
   statCDMG: "CDMG%",
   statRollCount: "Contagem de rolagens",
-  // PROVISIONAL(anomalous): Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
+  // Update 11.70 anomalous-accessory substats — compact chip tokens; replace with final in-game strings when known.
   statPveDmgPlus: "PvE ⚔",
   statPvpDmgPlus: "PvP ⚔",
   statBossDmgPlus: "Boss ⚔",
@@ -1556,7 +1556,6 @@ const catalog: Catalog = {
   statBossDmgMinusTooltip: "Reduz o dano recebido de Chefes.",
   statDungeonDmgMinusTooltip: "Reduz o dano recebido em Masmorras.",
   statAnomalousTooltipNote: "Substatus de Acessório Anômalo, encontrado apenas em acessórios dos Champion Proving Grounds. Bônus do mesmo tipo se acumulam (ex.: dano PvE e contra Chefes se aplicam juntos).",
-  toastAnomalousRulesNotExported: "{count} regra(s) com substatus Anômalos foram ignoradas no sellfile exportado — o RSL Helper ainda não consegue expressá-las.",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Receitas salvas. Confira sua pasta Downloads.",

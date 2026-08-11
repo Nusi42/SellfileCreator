@@ -135,13 +135,16 @@ Glyphs add a bonus to an existing substat (never `CR%`/`CDMG%` — those are non
   Bloodshield, Reaction, Revenge, Refresh, Cleansing. All three jewelry slots
   qualify (a set-bearing Banner has been observed in an RSL Helper dump).
 - RSL Helper DB stat ids are reverse-engineered and live in the app's ingest:
-  `11`–`14` damage dealt, `15`–`18` damage taken (stored as negative percents;
-  ids 14/15/17/18 inferred from mode order). Rank-5 lines carry a 1.25% base.
-- The stat tables in this document still exclude them: non-rank-5 values, roll
-  behavior, and — critically — the sellfile RULE serialization remain unknown,
-  so exports scrub these stats. The data layer and the full known/unknown
-  ledger live in [Anomalous Accessories](anomalous-accessories.md) (grep
-  marker: `PROVISIONAL(anomalous)`).
+  `11`–`14` damage dealt, `15`–`18` damage taken (stored as negative percents in
+  the gear DB). All eight ids are confirmed against `docs/orig/anomalous.hsf`.
+  Rank-5 lines carry a 1.25% base.
+- Sellfile rules carry them like any other substat (`IsFlat` false, `>=`), with
+  one twist: the **value is stored in hundredths of a percent** (`0.25%` → `25`),
+  where classic percent stats store the plain number.
+- The stat tables in this document still exclude them: non-rank-5 base values and
+  roll behavior remain unknown. The data layer and the full known/judged ledger
+  live in [Anomalous Accessories](anomalous-accessories.md) (grep marker for the
+  remaining assumptions: `JUDGED(anomalous`).
 
 ## Gear and its sources
 

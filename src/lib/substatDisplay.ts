@@ -40,8 +40,8 @@ const COLORIZED_SUBSTAT_IDS = new Set<number>([
   StatId.ACC,
   StatId.CR,
   StatId.CDMG,
-  // PROVISIONAL(anomalous): the accessory-only mode-scoped damage substats are
-  // colorized like every real substat (placeholder ids, Update 11.70 prep).
+  // The accessory-only mode-scoped damage substats are
+  // colorized like every real substat, their ids being as real as any other.
   ...ANOMALOUS_SUBSTAT_IDS,
 ])
 
@@ -49,7 +49,7 @@ export function substatSupportsColor(statId: number): boolean {
   return COLORIZED_SUBSTAT_IDS.has(statId)
 }
 
-// PROVISIONAL(anomalous): shared hover copy for the mode-damage substats — the
+// Shared hover copy for the mode-damage substats — the
 // per-variant description plus the shared context note. Single composer so every
 // surface (builder chips, filter chips, targets rows) shows identical copy;
 // null for non-anomalous variants, which keep their surface's regular tooltip.
@@ -116,8 +116,10 @@ const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
     const digits = maxValue > 0 ? String(Math.round(maxValue)).length : 1
     result[variant] = Math.max(digits, 1)
   }
-  // PROVISIONAL(anomalous): fractional 1.25-grid values need decimal-aware widths
-  // ("6.25" is four characters); probe the six possible per-line gridpoints.
+  // Fractional values need decimal-aware widths ("6.25" is four characters).
+  // JUDGED(anomalous per-roll step): probes six multiples of the observed rank-5
+  // base, assuming each further line adds another 1.25 — unconfirmed, but it only
+  // sizes a column, so an over- or under-estimate costs alignment, not correctness.
   for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) {
     let digits = 1
     for (let lines = 1; lines <= 6; lines += 1) {

@@ -27,7 +27,9 @@ import type {
 // parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
 // clampRankCode is the SSOT for [1,6] integer rank clamping used at AST resolve time.
 import { parseRecipeSelectorBlockCross, clampRankCode } from './noteRecipeOverrides'
-import { variantFromLabel, statVariantToKey, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
+// statKeyToVariant: safeguard stat fields (`substats=`, `weight.`) are all SUBSTAT
+// positions, so they take the full substat vocabulary — anomalous keys included.
+import { statKeyToVariant, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
 import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
 import {
   SafeguardRuleActivation,
@@ -70,6 +72,11 @@ import {
   parsePrefixedToken,
   classifyListMode,
   consumeCommaSeparatedRemainder,
+  // Option-info display helpers — the shared contract both domains render through.
+  overridesStatKey,
+  formatOverridesMutateList,
+  formatOverridesStatKeyList,
+  formatOverridesStatKeyMutateList,
 } from './noteOverridesParser'
 
 // Backward-compatible alias for external callers.
@@ -195,19 +202,19 @@ export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['k
 }
 
 /** A resolved selector + operations pair, ready for application. */
-// Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax.
-const formatSgMutateList = (add: string[], remove: string[]): string =>
-  [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
-
 // RankValue (1-6) → rarity name for the `rarities` field display.
 const rankValueRarityName = (rv: RankValue): string =>
   rarityCodeToName(rarityCodeFromRankValue(rv)).replace(/\s/g, '') || String(rv)
 
 /**
  * Format a safeguard-overrides operation's VALUE as compact display text (the right-hand
- * side of its `field=…` assignment). SSOT for DSL-reconstruction consumers (note-editor
- * option-info tooltip). Exhaustive `switch` over the operation union — a new op kind fails
- * to compile until handled here. The field token comes from SAFEGUARD_OVERRIDES_OP_FIELD.
+ * side of its `field=…` assignment) for the note-editor option-info tooltip. Exhaustive
+ * `switch` over the operation union — a new op kind fails to compile until handled here.
+ * The field token comes from SAFEGUARD_OVERRIDES_OP_FIELD.
+ *
+ * Answers the same option-info display contract as its recipe twin — see
+ * noteOverridesParser.ts, which owns the contract and the shared spelling helpers.
+ *
  * Returns null when the op carries no meaningful scalar (slider-AST count blocks).
  */
 export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation): string | null {
@@ -224,23 +231,20 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'perSet':
     case 'perRule': return String(op.value)
     case 'substatMatch': return String(op.value)
-    // Stats SPELL through statVariantToKey, never labelOfVariant: this text is
-    // DSL-reconstruction (the option-info tooltip), so it must re-parse — and an
-    // anomalous label ("PvE DMG +") cannot be tokenized in these positions.
-    case 'substatWeight': return `${statVariantToKey(op.stat)}=${op.value}`
+    case 'substatWeight': return `${overridesStatKey(op.stat)}=${op.value}`
     case 'improvementChance': return op.dynamic ? 'on' : (op.value == null ? 'off' : 'on')
     case 'substats': return op.mode === 'replace'
-      ? op.stats.map((v) => statVariantToKey(v)).filter(Boolean).join(',')
-      : formatSgMutateList(op.add.map((v) => statVariantToKey(v)).filter(Boolean), op.remove.map((v) => statVariantToKey(v)).filter(Boolean))
+      ? formatOverridesStatKeyList(op.stats)
+      : formatOverridesStatKeyMutateList(op.add, op.remove)
     case 'ranks': return op.mode === 'replace'
       ? op.values.map(String).join(',')
-      : formatSgMutateList(op.add.map(String), op.remove.map(String))
+      : formatOverridesMutateList(op.add.map(String), op.remove.map(String))
     case 'rarities': return op.mode === 'replace'
       ? op.values.map(rankValueRarityName).join(',')
-      : formatSgMutateList(op.add.map(rankValueRarityName), op.remove.map(rankValueRarityName))
+      : formatOverridesMutateList(op.add.map(rankValueRarityName), op.remove.map(rankValueRarityName))
     case 'factions': return op.mode === 'replace'
       ? op.values.map((f) => factionCodeToName(f)).join(',')
-      : formatSgMutateList(op.add.map((f) => factionCodeToName(f)), op.remove.map((f) => factionCodeToName(f)))
+      : formatOverridesMutateList(op.add.map((f) => factionCodeToName(f)), op.remove.map((f) => factionCodeToName(f)))
     case 'sets': {
       // Excluded adds surface as `+-Name` (the extra `-` sits inside the add prefix).
       const setName = (id: ArtifactSetId): string => artifactSetNames[id] ?? String(id)
@@ -253,7 +257,7 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     }
     case 'metaSetNames': return op.mode === 'replace'
       ? op.values.join(',')
-      : formatSgMutateList(op.add, op.remove)
+      : formatOverridesMutateList(op.add, op.remove)
   }
 }
 
@@ -433,7 +437,7 @@ const parseOperations = (
       const parsed = rawTokens.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
-      const resolve = (name: string): StatVariant | undefined => variantFromLabel(name) ?? undefined
+      const resolve = (name: string): StatVariant | undefined => statKeyToVariant(name) ?? undefined
       if (listMode === 'replace') {
         const stats = parsed.map((t) => resolve(t.value)).filter((v): v is StatVariant => v != null)
         if (stats.length > 0) operations.push({ kind: 'substats', mode: 'replace', stats })
@@ -575,7 +579,7 @@ const parseOperations = (
     if (field.startsWith('weight.')) {
       const statKey = field.slice('weight.'.length).trim()
       if (!statKey) continue
-      const variant = variantFromLabel(statKey)
+      const variant = statKeyToVariant(statKey)
       if (variant == null) continue
       const numeric = Number.parseFloat(valueLc)
       if (!Number.isFinite(numeric)) continue

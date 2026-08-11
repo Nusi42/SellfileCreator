@@ -19,7 +19,7 @@ const DEFAULT_ALPHA_HEX = Math.round(0.25 * 255).toString(16).padStart(2, '0').t
 
 export function defaultSubstatColorMapV6(): ColorMap {
   const base: ColorMap = {}
-  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — every
+  // Classic substats plus the accessory-only ones — every
   // colorable variant gets a default entry so chips never render uncolored.
   for (const vk of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
     base[vk] = {

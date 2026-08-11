@@ -144,7 +144,7 @@ import { parseSeparatorLabel } from '../lib/separators'
 import { SeparatorToggleButton } from './SeparatorToggleButton'
 import { separatorDisabledSectionSx } from './builderPanel/constants'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../lib/statCompatibility'
-// PROVISIONAL(anomalous): accessory-only substat rows for the Update 11.70 prep.
+// Accessory-only substat rows (Update 11.70 Anomalous Accessories).
 import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
@@ -1544,7 +1544,7 @@ export default function SafeguardBuilderPanel({
   }
   // Group value lists only 'all' variants — MUI uses it to compute each button's
   // selected state; 'partial' variants stay unselected and get data-mixed CSS instead.
-  // PROVISIONAL(anomalous): the anomalous rows join the scan so their chips highlight too.
+  // the anomalous rows join the scan so their chips highlight too.
   const substatGroupProps = multiEditActive
     ? {
         value: [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2, ...ANOMALOUS_SUBSTAT_VARIANTS]
@@ -2845,7 +2845,7 @@ export default function SafeguardBuilderPanel({
               {/* substatGroupProps and substatGroupSx are pre-computed before the return statement. */}
               <>
                 {/* One shared chip renderer per row: Row 1 SPD/CR%/CDMG%/ACC/RES, Row 2 the
-                    HP/ATK/DEF flats+percents, then — PROVISIONAL(anomalous) — the accessory-only
+                    HP/ATK/DEF flats+percents, then the accessory-only
                     ⚔/🛡 mode-damage rows. All rows render unconditionally like every other stat;
                     the per-chip disabled state greys anomalous chips out on non-jewelry scopes. */}
                 {[
@@ -2874,7 +2874,7 @@ export default function SafeguardBuilderPanel({
                         )
                         multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
                       } : undefined
-                      // PROVISIONAL(anomalous): mode-damage chips explain themselves on hover.
+                      // Mode-damage chips explain themselves on hover.
                       const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
                       const toggleButtonNode = (
                         <ToggleButton

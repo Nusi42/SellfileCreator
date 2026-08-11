@@ -101,7 +101,7 @@ export function measureStatCellWidths(
   const badgeWidthPx = fontSizePx
   let maxMainstat = 0
   let maxSubstat = 0
-  // Classic substats plus the PROVISIONAL(anomalous) accessory-only ones — real
+  // Classic substats plus the accessory-only ones — real
   // anomalous gear reaches these rows, so their labels join the width probe.
   for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
     const label = t(statVariantI18nKey(variant))
@@ -897,7 +897,7 @@ function CandidateRow({
     .map((s) => buildSubstatCell(s.variant, s.value, s.rolls, s.mythValue, false))
     .sort((a, b) => b.impact - a.impact)
   // Part 2: non-rule substats present on this artifact, in canonical order — classic
-  // priority first, PROVISIONAL(anomalous) variants appended last (indexOf -1 would
+  // priority first, variants appended last (indexOf -1 would
   // otherwise sort anomalous lines to the FRONT on real anomalous gear).
   const dimSubstatOrder = [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]
   const dimSubstatCells = allArtifactSubstats

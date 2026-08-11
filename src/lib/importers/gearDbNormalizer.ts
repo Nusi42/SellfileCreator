@@ -22,7 +22,7 @@ import {
   normalizeGearInspectorFaction,
   normalizeGearInspectorSetForSlot,
 } from '../gearInspectorDomain'
-// PROVISIONAL(anomalous): the mode-damage substat ids need percent scaling and
+// The mode-damage substat ids need percent scaling and
 // magnitude folding (the damage-taken family is stored negative in the DB).
 import { ANOMALOUS_SUBSTAT_IDS, isAnomalousStatId } from '../anomalousAccessories'
 import type { TestItem } from '../ruleEval'
@@ -54,7 +54,7 @@ const PERCENT_STATS = new Set<number>([
   StatId.CDMG,
 ])
 
-// PROVISIONAL(anomalous): the mode-damage substats arrive with fl=0 and percent
+// The mode-damage substats arrive with fl=0 and percent
 // scaling, exactly like the HP/ATK/DEF percent forms (observed in the example DB).
 const PERCENT_WHEN_FLAT_FLAG_ZERO = new Set<number>([
   StatId.HP,
@@ -316,7 +316,7 @@ const finalizeStat = (statId: number, isFlat: boolean, base: number, glyph: numb
   const convertedBase = convertStatUnits(statId, isFlat, base)
   const convertedGlyph = convertStatUnits(statId, isFlat, glyph)
   const convertedMyth = convertStatUnits(statId, isFlat, myth ?? 0)
-  // PROVISIONAL(anomalous): the damage-taken family (ids 15..18) is stored as a
+  // the damage-taken family (ids 15..18) is stored as a
   // NEGATIVE percent in the DB ("PvP DMG -1.25%"). The stat identity already
   // carries the direction, so fold to magnitude — thresholds, sorting, and
   // display all reason about the positive size of the line.

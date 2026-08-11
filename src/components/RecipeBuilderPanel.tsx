@@ -37,6 +37,7 @@ import {
   rarityIncludesMythical,
   engineAppliedTargetValue,
   resolveRollTargetValue,
+  targetValueStepForVariant,
   type BuilderRecipe,
   type SubstatTargetTable,
   type SellfileExportMode,
@@ -70,9 +71,8 @@ import { buildArtifactSetSelectionKey, formatArtifactSetSelectionLabel, normaliz
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
 import { getMainStatOptionsForSlots } from './keepOverrides/keepOverrideRuleUtils'
 import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '../lib/statCompatibility'
-// PROVISIONAL(anomalous): accessory-only substat rows + the grid-target gating.
+// Accessory-only substat rows + the decimal-target gating.
 import {
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
   isAnomalousSubstatVariant,
@@ -922,13 +922,16 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       baseValue,
       rollBudget,
       star,
+      // The stat being edited — the engine-applied floor is per-variant (an
+      // anomalous target floors to hundredths, a classic one to whole numbers).
+      variant: Number(activeMenuInfo.variant),
     }
   }, [activeMenuInfo, recipe, substatTargets, multiEditActive])
   // Shared fallback when a specific roll override is blank. Keeps the UX honest
   // by previewing the same value that will be used when exporting the recipe.
   const resolveTargetFallbackValue = React.useCallback((rollIndex: number): number | null => {
     if (!targetContext) return null
-    return resolveRollTargetValue(null, rollIndex, targetContext.baseValue)
+    return resolveRollTargetValue(null, rollIndex, targetContext.baseValue, targetContext.variant)
   }, [targetContext])
   const formatTargetFallback = React.useCallback((rollIndex: number): string => {
     const fallbackValue = resolveTargetFallbackValue(rollIndex)
@@ -937,18 +940,20 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     return `${fallbackValue}`
   }, [resolveTargetFallbackValue])
   const resolveComparableTargetValue = React.useCallback((rollIndex: number): number | null => {
-    // Compare ENGINE-APPLIED values on both sides so an on-grid 2.5 draft never
+    // Compare ENGINE-APPLIED values on both sides so a 2.5 draft never
     // false-positives the "target decreases" warning against a floored 2.
+    if (!targetContext) return null
+    const { variant } = targetContext
     if (rollIndex === 0) {
       if (typeof targetDraftBase === 'number' && Number.isFinite(targetDraftBase)) {
-        return engineAppliedTargetValue(targetDraftBase)
+        return engineAppliedTargetValue(targetDraftBase, variant)
       }
       return resolveTargetFallbackValue(0)
     }
     const entry = targetDraftRolls[rollIndex - 1]
-    if (typeof entry === 'number' && Number.isFinite(entry)) return engineAppliedTargetValue(entry)
+    if (typeof entry === 'number' && Number.isFinite(entry)) return engineAppliedTargetValue(entry, variant)
     return resolveTargetFallbackValue(rollIndex)
-  }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
+  }, [targetContext, targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
   // Close the substat menu on outside clicks to prevent stuck overlays.
   const { contextMenuGuard: substatMenuGuard } = useContextMenuPaperGuard({
     open: menuOpen,
@@ -3294,7 +3299,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         } as (SystemStyleObject<Theme> & Record<string, unknown>)
         return base
       }
-      // PROVISIONAL(anomalous): the unfamiliar mode-damage chips explain themselves on
+      // The unfamiliar mode-damage chips explain themselves on
       // hover (description + shared context note); classic chips keep no whole-chip tooltip.
       const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
       const toggleButtonNode = (
@@ -3420,7 +3425,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       const draftTargetEntry = buildTargetEntryFromDraft(targetDraftBase, targetDraftRolls)
       const targetValueForRoll = (base: number, rolls: number): number => (
         // Roll Count is a literal count, not a stat threshold — no target math applies.
-        isRollCount ? rolls : resolveRollTargetValue(draftTargetEntry, rolls, base)
+        isRollCount ? rolls : resolveRollTargetValue(draftTargetEntry, rolls, base, Number(variantId))
       )
       // Values are already engine-applied integers; format without re-rounding.
       const formatValue = (value: number) => numberFormatter.format(value)
@@ -3500,12 +3505,13 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     const maxRollTooltipText = t('builderSubstatMenuMaxRollsTooltip')
     const rollTargetsTooltipText = targetContext
       // Advertise the applied threshold, like every other non-editable surface.
-      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(engineAppliedTargetValue(targetContext.baseValue)) })
+      ? t('builderSubstatMenuRollTargetsHint', { value: numberFormatter.format(engineAppliedTargetValue(targetContext.baseValue, targetContext.variant)) })
       : t('builderSubstatMenuRollTargetsHintFallback')
-    // PROVISIONAL(anomalous): mode-damage targets live on the 1.25 grid (snap +
-    // grid-sized spinner steps); classic stats stay integral.
+    // Anomalous mode-damage targets are decimal (HSF stores hundredths of a
+    // percent); classic stats stay integral. Step size comes from the shared
+    // spinner-step SSOT so the arrows move by the granularity RSL Helper shows.
     const targetAllowsDecimals = activeMenuInfo ? isAnomalousSubstatVariant(Number(activeMenuInfo.variant)) : false
-    const targetStepSize = targetAllowsDecimals ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
+    const targetStepSize = activeMenuInfo ? targetValueStepForVariant(Number(activeMenuInfo.variant)) : 1
     const stepTargetBase = (delta: number) => {
       if (!activeMenuInfo) return
       const seedValue = targetDraftBase ?? resolveTargetFallbackValue(0)
@@ -4057,7 +4063,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         >
           {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
         </ToggleButtonGroup>
-        {/* PROVISIONAL(anomalous): accessory-only mode-scoped damage substats. Rows render
+        {/* Accessory-only mode-scoped damage substats. Rows render
             unconditionally like every other stat row; the per-chip disabled state (via
             allowedSubstatOptions) greys them out when the slot scope has no jewelry slot. */}
         {/* Row 3: PvE/PvP/Boss/DNG ⚔ (damage dealt) */}
