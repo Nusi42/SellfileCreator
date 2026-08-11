@@ -190,6 +190,9 @@ export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = 1.25
 // HSF wire unit: displayed percent x this = the integer stored in a rule's
 // substat Value (0.25% -> 25). Classic percent stats store the plain number.
 export const ANOMALOUS_HSF_VALUE_SCALE = 100
+// Smallest supported target value for these stats — zero is not a target;
+// "no threshold" is expressed by not selecting the substat at all.
+export const ANOMALOUS_MIN_TARGET_VALUE = 0.25
 // Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).
 export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { pveDmgPlus: 2816, pvpDmgPlus: 3072, bossDmgPlus: 3328, dungeonDmgPlus: 3584, pveDmgMinus: 3840, pvpDmgMinus: 4096, bossDmgMinus: 4352, dungeonDmgMinus: 4608 } as const
 // Variant → canonical display label (announcement wording; final strings may differ).

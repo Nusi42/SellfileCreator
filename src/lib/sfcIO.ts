@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
-import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, quantizeTargetValueForVariant, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
+import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, quantizeTargetValueForVariant, defaultSubstatTargets, isFactoryDefaultTargetValue, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
 import { normalizeRecipeKeepState, isMilestoneThresholdsActive, canEnableSubstatFlex, countPositiveSubstats } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -703,6 +703,19 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
     }
     return out
   }
+  // A document stores only the targets that DEVIATE from the app's factory
+  // defaults (see substatTargetsToReadable), so loading seeds each rank with the
+  // current defaults and overlays what the file carries. Two consequences, both
+  // intended: an entry the file omits tracks the app — so a default we later
+  // correct reaches existing documents instead of staying frozen at the value
+  // that was current when they were saved — and the in-memory table stays DENSE,
+  // exactly as before, so every reader, equality check and history diff is
+  // unaffected by the sparser file format. A target the user cleared is written
+  // as 0 (0 differs from the factory value) and overlays the seed as 0.
+  const seeded = defaultSubstatTargets()
+  const withDefaults = (bucket: Record<number, number>, base: Record<number, number>): Record<number, number> => (
+    { ...base, ...bucket }
+  )
   const s = (src && typeof src === 'object') ? (src as Record<string, unknown>) : {}
   const fallbackRaw = s['anyRankDefaultsTo']
   const coerceFallback = (): Star => {
@@ -719,12 +732,12 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
     return 6
   }
   return {
-    one: coerceStar(s['one']),
-    two: coerceStar(s['two']),
-    three: coerceStar(s['three']),
-    four: coerceStar(s['four']),
-    five: coerceStar(s['five']),
-    six: coerceStar(s['six']),
+    one: withDefaults(coerceStar(s['one']), seeded.one),
+    two: withDefaults(coerceStar(s['two']), seeded.two),
+    three: withDefaults(coerceStar(s['three']), seeded.three),
+    four: withDefaults(coerceStar(s['four']), seeded.four),
+    five: withDefaults(coerceStar(s['five']), seeded.five),
+    six: withDefaults(coerceStar(s['six']), seeded.six),
     anyRankDefaultsTo: coerceFallback(),
   }
 }
@@ -832,9 +845,18 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
 
 /** Convert variant-keyed Substat Target tables to label-keyed maps for SFC export (SFC field remains "Minima"). */
 export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
-  const conv = (rec: Record<number, number>) => {
+  // Write DEVIATIONS only: a value equal to the app's factory default is omitted,
+  // so the document keeps tracking that default as it improves rather than
+  // freezing today's number. normalizeSubstatTargets re-seeds the omitted entries
+  // on load, so this round-trips losslessly. See isFactoryDefaultTargetValue.
+  const conv = (rec: Record<number, number>, star: Star) => {
     const out: Record<string, number> = {}
-    for (const [vk, val] of Object.entries(rec)) { out[labelOfVariant(Number(vk))] = val as number }
+    for (const [vk, val] of Object.entries(rec)) {
+      const variant = Number(vk)
+      const value = val as number
+      if (isFactoryDefaultTargetValue(variant, star, value)) continue
+      out[labelOfVariant(variant)] = value
+    }
     return out
   }
   const fallbackLabel = (() => {
@@ -849,12 +871,12 @@ export function substatTargetsToReadable(substatTargets: SubstatTargetTable) {
     }
   })()
   return {
-    one: conv(substatTargets.one as Record<number, number>),
-    two: conv(substatTargets.two as Record<number, number>),
-    three: conv(substatTargets.three as Record<number, number>),
-    four: conv(substatTargets.four as Record<number, number>),
-    five: conv(substatTargets.five as Record<number, number>),
-    six: conv(substatTargets.six as Record<number, number>),
+    one: conv(substatTargets.one as Record<number, number>, 1),
+    two: conv(substatTargets.two as Record<number, number>, 2),
+    three: conv(substatTargets.three as Record<number, number>, 3),
+    four: conv(substatTargets.four as Record<number, number>, 4),
+    five: conv(substatTargets.five as Record<number, number>, 5),
+    six: conv(substatTargets.six as Record<number, number>, 6),
     anyRankDefaultsTo: fallbackLabel,
   }
 }

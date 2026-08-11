@@ -10,7 +10,9 @@ use ts_rs::TS;
 
 // Per-variant target quantization + the display -> HSF wire conversion, both of
 // which key off the stat's wire scale (1 classic, 100 anomalous).
-use crate::generated_domain_constants::hsf_value_scale_for_variant;
+use crate::generated_domain_constants::{
+    hsf_value_scale_for_variant, is_anomalous_substat_variant, ANOMALOUS_MIN_TARGET_VALUE,
+};
 use crate::hsf_builder_core::{scale_to_wire_units, to_hsf_wire_value};
 use crate::build_hsf_preflight_flags_core;
 use crate::build_hsf_presence_only_rules_core;
@@ -163,11 +165,12 @@ pub struct PrepareHsfBuilderTargetEntryOut {
     pub increments: Option<Vec<Option<f64>>>,
 }
 
-// Snap a target override to the stat's expressible resolution, in DISPLAY units.
-// The resolution is 1/scale — whole numbers for classic stats, hundredths for the
-// anomalous ones HSF stores in hundredths of a percent — so anything finer could
-// not survive export. Mirrors quantizeTargetValueForVariant in
-// src/lib/hsfBuilder/targets.ts. Values stay in display units here; the single
+// Snap a target override to the stat's expressible resolution, in DISPLAY units,
+// then clamp to the stat's supported minimum (1 classic, 0.25 anomalous — zero is
+// not a target). The resolution is 1/scale: whole numbers for classic stats,
+// hundredths for the anomalous ones HSF stores in hundredths of a percent, so
+// anything finer could not survive export. Mirrors quantizeTargetValueForVariant
+// in src/lib/hsfBuilder/targets.ts. Values stay in display units here; the single
 // conversion to wire units happens later, in to_hsf_wire_value.
 fn normalize_target_override_value(value: Option<f64>, variant: i64) -> Option<f64> {
     let numeric = value?;
@@ -175,7 +178,14 @@ fn normalize_target_override_value(value: Option<f64>, variant: i64) -> Option<f
         return None;
     }
     let scale = hsf_value_scale_for_variant(variant);
-    Some(scale_to_wire_units(numeric, variant).round() / scale)
+    let snapped = scale_to_wire_units(numeric, variant).round() / scale;
+    Some(snapped.max(min_target_value_for_variant(variant)))
+}
+
+/// The smallest target the app supports for a stat, in display units. Mirrors
+/// minTargetValueForVariant in src/lib/hsfBuilder/targets.ts.
+pub(crate) fn min_target_value_for_variant(variant: i64) -> f64 {
+    if is_anomalous_substat_variant(variant) { ANOMALOUS_MIN_TARGET_VALUE } else { 1.0 }
 }
 
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
@@ -261,7 +271,19 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
         // stat's wire unit, so an anomalous 1.25 rides through as 125 and lands in the
         // emitted rule exactly. Classic stats scale by 1, so their values are unchanged.
         let current_base = to_hsf_wire_value(
-            input.substat_target_by_variant.get(variant).copied().unwrap_or(0.0),
+            input
+                .substat_target_by_variant
+                .get(variant)
+                .copied()
+                // A variant the user's table has NO entry for falls back to the factory
+                // minimum — an SFC saved before a stat existed carries no key for it, and
+                // 0 would emit a vacuous ">= 0" matching any gear that has the line at all.
+                .or_else(|| input.factory_base_by_variant_for_star.get(variant).copied())
+                .unwrap_or(0.0)
+                // Belt and braces: zero is not a supported target, and the ingress
+                // quantizer already guarantees that for every authoring route. A table
+                // built some other way still cannot ship a vacuous threshold.
+                .max(min_target_value_for_variant(*variant)),
             *variant,
         );
         current_base_by_variant.insert(*variant, current_base);

@@ -303,13 +303,53 @@ export function defaultSubstatTargets(): SubstatTargetTable {
 }
 
 /** Lookup base Substat Target for a StatVariant at a given star bucket. */
+/**
+ * THE resolver for "what target applies to this stat at this rank" — the single
+ * definition of what a MISSING table entry means.
+ *
+ * A missing key is not a zero: SFC documents store only the ranks/stats they
+ * knew about, so a document saved before a stat existed simply has no entry for
+ * it, and answering 0 would emit a vacuous `>= 0` matching any gear that carries
+ * the line at all. Missing therefore resolves to the factory minimum, the same
+ * value a freshly-created table would hold. A target the user deliberately
+ * CLEARED is present with value 0 and stays 0 — the fallback never overrides an
+ * explicit choice. Mirrored by the `or_else` on `factory_base_by_variant_for_star`
+ * in prepare_hsf_builder_recipe (wasm/rule_engine_core/src/hsf_builder_execution.rs).
+ */
 export function baseMinForStarV(variant: number, star: Star, substatTargets: SubstatTargetTable): number {
-  if (star === 6) return substatTargets.six[variant] ?? 0
-  if (star === 5) return substatTargets.five[variant] ?? 0
-  if (star === 4) return substatTargets.four[variant] ?? 0
-  if (star === 3) return substatTargets.three[variant] ?? 0
-  if (star === 2) return substatTargets.two[variant] ?? 0
-  return substatTargets.one[variant] ?? 0
+  const bucket = (
+    star === 6 ? substatTargets.six
+    : star === 5 ? substatTargets.five
+    : star === 4 ? substatTargets.four
+    : star === 3 ? substatTargets.three
+    : star === 2 ? substatTargets.two
+    : substatTargets.one
+  )
+  const stored = bucket[variant]
+  if (typeof stored === 'number' && Number.isFinite(stored)) return stored
+  return FACTORY_MINIMA_BY_STAR[star]?.[variant] ?? 0
+}
+
+/**
+ * True when a stored target equals the app's factory default for that stat and
+ * rank — i.e. the user never moved it off our own value.
+ *
+ * SFC export omits these entries (substatTargetsToReadable), so a document
+ * records DEVIATIONS only. That keeps saved files tracking the app's defaults as
+ * they improve, which matters while some of them are judged rather than observed
+ * — a rank we later learn the real value for reaches existing documents instead
+ * of staying frozen. Loading re-seeds from the current defaults
+ * (normalizeSubstatTargets), so the round-trip is lossless and the in-memory
+ * table stays dense.
+ *
+ * Note the deliberate approximation: "equals the default" stands in for "the
+ * user never touched it", so a target typed to exactly the default value is
+ * re-interpreted if that default later changes. That is the intended behaviour
+ * — it is the same mechanism that delivers the correction.
+ */
+export function isFactoryDefaultTargetValue(variant: number, star: Star, value: number): boolean {
+  const factory = FACTORY_MINIMA_BY_STAR[star]?.[variant]
+  return factory != null && factory === value
 }
 
 /** Map a rank code (0..16) to an effective star bucket used for Substat Targets. */

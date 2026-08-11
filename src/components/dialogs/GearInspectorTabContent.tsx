@@ -20,7 +20,7 @@ import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '.
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, ANOMALOUS_SUBSTAT_VARIANTS, getLocalizedGearSetName } from '../../lib/types'
 // Shared gear-line value rule + the per-variant grid step it floors at.
 import { clampGearLineValue } from '../../lib/gearInspectorSession'
-import { minGearLineValueForVariant } from '../../lib/hsfBuilder'
+import { baseMinForStarV, minGearLineValueForVariant } from '../../lib/hsfBuilder'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
@@ -1498,9 +1498,9 @@ export function GearInspectorTabContent({
           <Box sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: `repeat(2, ${GEAR_INSPECTOR_SUBSTAT_EDITOR_WIDTH_PX}px)`, columnGap: 1, rowGap: 0.5, mt: 0.5 }}>
             {subEntries.map(([v, value]) => {
               const star = Math.max(1, Math.min(6, Number(it.rank || 6))) as 1|2|3|4|5|6
-              const baseStep = (
-                star === 6 ? (substatTargets.six[v] || 0) : star === 5 ? (substatTargets.five[v] || 0) : star === 4 ? (substatTargets.four[v] || 0) : star === 3 ? (substatTargets.three[v] || 0) : star === 2 ? (substatTargets.two[v] || 0) : (substatTargets.one[v] || 0)
-              )
+              // Through the shared resolver, so a stat this table has no entry for
+              // steps by its factory minimum rather than collapsing to the 1 below.
+              const baseStep = baseMinForStarV(v, star, substatTargets)
               const step = Math.max(1, baseStep)
               const parsedValue = Number(value)
               const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0

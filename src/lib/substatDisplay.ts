@@ -3,6 +3,8 @@ import {
   ANOMALOUS_SUBSTAT_IDS,
   ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
   ANOMALOUS_SUBSTAT_VARIANTS,
+  hsfValueScaleForVariant,
+  hsfValueToDisplay,
 } from './anomalousAccessories'
 import { NBSP } from './constants'
 import {
@@ -80,9 +82,30 @@ export function normalizeRuleSubstats(substats: HsfRule['Substats']): RuleSubsta
       negated,
       threshold,
       condition: !negated && condition ? condition : undefined,
-      value: typeof sub.Value === 'number' ? sub.Value : undefined,
+      // Rules carry HSF WIRE units (an anomalous 1.25% is stored as 125), so convert
+      // back to display units HERE — this is the one place rule substats are
+      // normalized for display, so every consumer of `value` gets the user-facing
+      // number without repeating the conversion.
+      value: typeof sub.Value === 'number' ? hsfValueToDisplay(variant, sub.Value) : undefined,
     }
   })
+}
+
+/**
+ * THE renderer for a substat threshold value.
+ *
+ * Anomalous thresholds are decimal, and a column of "0.25 / 0.5 / 1 / 2.25" reads
+ * as ragged because the decimal points land in different places. Padding to the
+ * wire resolution's decimal count gives every value the same shape and width, so
+ * a right-aligned tabular-nums column lines up on the decimal point. Classic
+ * stats are integral and render as-is.
+ */
+export function formatSubstatValueForDisplay(variant: number, value: number): string {
+  const scale = hsfValueScaleForVariant(variant)
+  if (scale === 1) return String(value)
+  // Decimal places implied by the scale: 100 → 2, so 0.5 renders as "0.50".
+  const decimals = Math.max(0, Math.round(Math.log10(scale)))
+  return value.toFixed(decimals)
 }
 
 const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
@@ -116,17 +139,19 @@ const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
     const digits = maxValue > 0 ? String(Math.round(maxValue)).length : 1
     result[variant] = Math.max(digits, 1)
   }
-  // Fractional values need decimal-aware widths ("6.25" is four characters).
+  // Fractional values need decimal-aware widths ("6.25" is four CHARACTERS, not
+  // four digits) — measured through the same formatter that renders them, so the
+  // reserved lane can never disagree with the text placed in it.
   // JUDGED(anomalous per-roll step): probes six multiples of the observed rank-5
   // base, assuming each further line adds another 1.25 — unconfirmed, but it only
   // sizes a column, so an over- or under-estimate costs alignment, not correctness.
   for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) {
-    let digits = 1
+    let width = 1
     for (let lines = 1; lines <= 6; lines += 1) {
       const value = Math.round(lines * ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE * 100) / 100
-      digits = Math.max(digits, String(value).length)
+      width = Math.max(width, formatSubstatValueForDisplay(variant, value).length)
     }
-    result[variant] = digits
+    result[variant] = width
   }
   return result
 })()

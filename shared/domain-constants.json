@@ -601,6 +601,7 @@
   "anomalousAccessories": {
     "star5RollValue": 1.25,
     "hsfValueScale": 100,
+    "minTargetValue": 0.25,
     "substats": {
       "pveDmgPlus": {
         "id": 11,

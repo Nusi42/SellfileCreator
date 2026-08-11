@@ -16,6 +16,7 @@ import {
   isAnomalousStatId,
 } from '../../src/lib/anomalousAccessories.js'
 import { subToVariant, labelOfVariant } from '../../src/lib/types.js'
+import { normalizeRuleSubstats } from '../../src/lib/substatDisplay.js'
 import type { HsfSubstat } from '../../src/lib/hsfTypes.js'
 
 // Repo-root relative (like the other fixture-reading unit tests) — the compiled
@@ -87,6 +88,17 @@ test('the sample decodes into the variants and labels the app uses', () => {
     const variant = subToVariant(Number(line.ID), line.IsFlat)
     assert.equal(variant, ANOMALOUS_SUBSTAT_IDS_BY_KEY[expected.key] << 8)
     assert.ok(labelOfVariant(variant).length > 0, 'decoded variant has a display label')
+  })
+})
+
+test('rule substats render in DISPLAY units, not the wire units they are stored in', () => {
+  // The chips read normalizeRuleSubstats, so the wire→display conversion lives
+  // there once. Without it the preview showed "PvE ⚔ 125" for a 1.25% threshold.
+  EXPECTED_RULES.forEach((expected, idx) => {
+    const details = normalizeRuleSubstats(sample.Rules[idx]!.Substats)
+    const anomalous = details.filter((d) => isAnomalousStatId(d.statId))
+    assert.equal(anomalous.length, 1)
+    assert.equal(anomalous[0]!.value, expected.percent, `rule ${idx + 1} display value`)
   })
 })
 

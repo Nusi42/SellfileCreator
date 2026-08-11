@@ -1370,16 +1370,20 @@ export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#2979FF',
   [StatVariant.CR]: '#00E5FF',
   [StatVariant.CDMG]: '#FF80AB',
-  // judged defaults — one hue per game mode (PvE teal,
-  // PvP red, Boss violet, DNG umber), "+" brighter than "−". User-editable.
+  // Judged defaults — one hue per game mode (PvE teal, PvP red, Boss violet,
+  // DNG umber), so the mode reads at a glance. The ⚔/🛡 pair is separated by
+  // LIGHTNESS, with "🛡" the LIGHTER tint: the app's default surface is dark, so
+  // darkening the second member (as this table first did) cost contrast exactly
+  // where it was needed — Boss 🛡 and DNG 🛡 were barely legible. Light-scheme
+  // legibility is handled downstream by useSubstatFgAdapter. User-editable.
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#26A69A',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#EF5350',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#7E57C2',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#A1887F',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#00897B',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#C62828',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#5E35B1',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#795548',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#80CBC4',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#EF9A9A',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#B39DDB',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#D7CCC8',
 }
 
 export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {

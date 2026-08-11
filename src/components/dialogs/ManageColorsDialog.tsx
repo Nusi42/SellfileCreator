@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Stack, Typography } from '@mui/material'
 import { useColorScheme, useTheme } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
-import { labelOfVariant, ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
+import { statVariantI18nKey, ANOMALOUS_SUBSTAT_VARIANTS, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY, rarityRankValueI18nKey } from '../../lib/types'
 import type { SlotTints } from '../../lib/slotTints'
 import type { RarityColors } from '../../lib/rarityColors'
 import { type ColorScope, COLOR_SCOPES } from '../../lib/colorScope'
@@ -195,7 +195,10 @@ export default function ManageColorsDialog(props: {
 
             return (
               <Box key={`row-${vk}`} sx={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 1.25 }}>
-                <Typography sx={{ minWidth: 136 }}>{labelOfVariant(vk)}</Typography>
+                {/* The localized display name, same token every other surface shows —
+                    NOT labelOfVariant, whose canonical spelling ("PvE DMG +") is the
+                    SFC/DSL anchor rather than a user-facing name. */}
+                <Typography sx={{ minWidth: 136 }}>{t(statVariantI18nKey(vk))}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
                   <ColorField
                     value={liveFg}
@@ -237,7 +240,7 @@ export default function ManageColorsDialog(props: {
                       fontSize: '0.85rem',
                     }}
                   >
-                    {labelOfVariant(vk)}
+                    {t(statVariantI18nKey(vk))}
                   </Box>
                 </Box>
               </Box>

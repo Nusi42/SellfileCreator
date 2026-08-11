@@ -11,6 +11,7 @@ import {
   clampTargetOverrideValue,
   engineAppliedTargetValue,
   minGearLineValueForVariant,
+  minTargetValueForVariant,
   normalizeLooseRollTargetEntry,
   normalizeRollTargetEntry,
   quantizeTargetValueForVariant,
@@ -54,16 +55,18 @@ test('quantizer: classic rounds to integers, anomalous keeps hundredths', () => 
   }
   // Finer than the wire resolution rounds to it rather than silently truncating.
   assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 1.238), 1.24)
-  // Values whose scaling is inexact in binary floating point (0.29 * 100 =
-  // 28.999999999999996) must not drift a whole wire unit down.
-  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0.29), 0.29)
-  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0.07), 0.07)
-  // Non-zero input never quantizes to "no threshold"; only a typed 0 clears.
-  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0.001), 0.01)
-  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0), 0)
-  // Negative and non-finite input floors at zero.
-  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, -1), 0)
-  assert.equal(quantizeTargetValueForVariant(StatVariant.SPD, Number.NaN), 0)
+  // Values whose scaling is inexact in binary floating point (1.15 * 100 =
+  // 114.99999999999999) must not drift a whole wire unit down.
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 1.15), 1.15)
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 2.35), 2.35)
+  // Zero is not a target — "no threshold" means not selecting the substat — so
+  // anything below the minimum lands ON the minimum rather than clearing.
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0.001), 0.25)
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, 0), 0.25)
+  assert.equal(quantizeTargetValueForVariant(PVE_PLUS, -1), 0.25)
+  assert.equal(quantizeTargetValueForVariant(StatVariant.SPD, 0), 1)
+  assert.equal(quantizeTargetValueForVariant(StatVariant.SPD, 0.4), 1)
+  assert.equal(quantizeTargetValueForVariant(StatVariant.SPD, Number.NaN), 1)
 })
 
 test('normalize chain persists decimals for anomalous, integers for classic', () => {
@@ -89,7 +92,7 @@ test('engineAppliedTargetValue floors in WIRE units, so anomalous decimals are e
   // reason the old 1.25 snap existed is gone.
   assert.equal(engineAppliedTargetValue(1.25, PVE_PLUS), 1.25)
   assert.equal(engineAppliedTargetValue(2.6, PVE_PLUS), 2.6)
-  assert.equal(engineAppliedTargetValue(0.29, PVE_PLUS), 0.29)
+  assert.equal(engineAppliedTargetValue(1.15, PVE_PLUS), 1.15)
   // Never negative — mirrors the max(0, …) the engine's base values carry.
   assert.equal(engineAppliedTargetValue(-3, PVE_PLUS), 0)
 })
@@ -116,9 +119,12 @@ test('resolveRollTargetValue mirrors the engine on both the fallback and overrid
 })
 
 test('spinner step and gear-line minimum are distinct from the wire resolution', () => {
-  // Arrows walk the granularity RSL Helper shows, not the 0.01 the wire allows.
+  // The spinner steps by the supported minimum, so arrows always land on legal
+  // values — not by the 0.01 the wire could technically carry.
   assert.equal(targetValueStepForVariant(PVE_PLUS), 0.25)
   assert.equal(targetValueStepForVariant(StatVariant.SPD), 1)
+  assert.equal(minTargetValueForVariant(PVE_PLUS), 0.25)
+  assert.equal(minTargetValueForVariant(StatVariant.SPD), 1)
   // A PRESENT gear line is never worth less than one minimum roll — a 0.25
   // threshold is meaningful, but no real piece carries a 0.25 line.
   assert.equal(minGearLineValueForVariant(PVE_PLUS), ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE)

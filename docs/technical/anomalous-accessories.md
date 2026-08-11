@@ -98,9 +98,10 @@ happens in exactly one place per side, and four named helpers in
 | --- | --- |
 | `hsfValueScaleForVariant` (`anomalousAccessories.ts`) | display → wire multiplier: 1 classic, 100 anomalous. The SSOT both sides read. |
 | `targetValueResolutionForVariant` | the finest expressible value (`1/scale`): 1 classic, 0.01 anomalous. Anything finer cannot survive export. |
-| `targetValueStepForVariant` | the **spinner** step — deliberately coarser than the resolution (0.25 anomalous), matching the granularity RSL Helper itself displays. Typing keeps full resolution. |
-| `minGearLineValueForVariant` | the smallest value a **present gear line** can hold (1.25 anomalous). Distinct from both above: a 0.25 *threshold* is meaningful, but no real piece carries a 0.25 *line*. |
-| `quantizeTargetValueForVariant` | snap to the resolution; a non-zero input never becomes "no threshold". |
+| `minTargetValueForVariant` | the smallest **supported** target: 1 classic, `ANOMALOUS_MIN_TARGET_VALUE` (0.25) anomalous. **Zero is not a target** — "no threshold" is expressed by not selecting the substat at all — so everything below the floor (including 0, negatives, non-finite) clamps up to it. Spec-defined, generated into both languages. |
+| `targetValueStepForVariant` | the **spinner** step, which is the same quantity: stepping by the minimum keeps every arrow press on a legal value. Typing keeps full resolution. |
+| `minGearLineValueForVariant` | the smallest value a **present gear line** can hold (1.25 anomalous). Distinct from the target minimum: a 0.25 *threshold* is meaningful, but no real piece carries a 0.25 *line*. |
+| `quantizeTargetValueForVariant` | the single ingress gate (UI input, SFC load, DSL): snap to the resolution, then clamp to the minimum. |
 | `engineAppliedTargetValue` | the threshold the engine actually applies — floor **in wire units**. Classic stats floor to whole numbers (a stored 2.5 applies as ≥ 2); an anomalous 1.25 is exact. |
 
 Scaling is not exact in binary floating point (`0.29 * 100` is
@@ -133,6 +134,42 @@ hint, min/max roll chips via the shared `resolveRollTargetValue`, the "target
 decreases" warning, recipe-chip summaries) shows the engine-applied value; only
 editable inputs show the stored one.
 
+**Missing Minima keys fall back to the factory minimum, not to 0.** An SFC stores
+only the targets that DEVIATE from the app's factory defaults (see below), and a
+document saved before a stat existed has no key for it at all — a 0 base would
+emit a vacuous `>= 0` matching any gear carrying the line. `baseMinForStarV`
+(`hsfBuilder.ts`) is the ONE resolver for what a missing entry means and answers
+the factory minimum; `prepare_hsf_builder_recipe` mirrors it via `or_else` on
+`factory_base_by_variant_for_star`, then clamps to `min_target_value_for_variant`
+so no table built by any other route can ship a vacuous threshold either.
+
+That resolver replaced four independent answers — `baseMinForStarV`, the gear
+inspector's own `baseStepForRank`, the Substat Targets tab, and an open-coded
+ternary in the gear-inspector editor — three of which said 0, so an older
+document displayed 0 in the grid while the builder emitted a real threshold.
+
+### SFC stores deviations only
+
+`substatTargetsToReadable` omits any value equal to the app's factory default for
+that stat and rank (`isFactoryDefaultTargetValue`), and `normalizeSubstatTargets`
+re-seeds from the current defaults on load. A document therefore tracks the app's
+defaults as they improve rather than freezing whichever numbers were current when
+it was saved — which is what makes the judged anomalous values below correctable
+in place. The in-memory table stays DENSE, so every reader, equality check and
+history "is default" badge is unaffected by the sparser file.
+
+Two consequences, both accepted deliberately: an older app build reading a new
+file resolves missing keys to 0 (its own readers predate the fallback above), and
+"equals the default" stands in for "the user never touched it", so a target typed
+to exactly the default is re-interpreted if that default later changes — the same
+mechanism that delivers the correction.
+
+Pinned by `tests/unit/substat-targets-sparse-sfc.test.ts` (round-trip losslessness,
+deviations, 0-correction, forward adoption) and
+`tests/unit/anomalous-rule-emission.test.ts`, which asserts the whole emission path
+end-to-end: eight substats × five level milestones, each rule carrying its own id
+at `>= 125`.
+
 ## SSOT map
 
 | Piece | Location |
@@ -144,6 +181,8 @@ editable inputs show the stored one.
 | Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a **viable** jewelry slot; mirrored in Rust `recipe_builder.rs::resolve_allowed_substats_for_slots_and_mains` |
 | Builder UIs | `RecipeBuilderPanel.tsx` + `SafeguardBuilderPanel.tsx` always render two extra rows (`⚔` damage dealt, `🛡` damage taken) — like every other stat row, individual chips grey out via the shared `allowedSubstatOptions` disabled state when the slot scope has no jewelry slot; safeguard multi-edit selection scan includes them |
 | Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows, `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
+| Gear analytics | `gearAnalytics.ts` exports TWO variant lists on purpose: `HEATMAP_VARIANTS` (MAIN stats — the slot × main heatmap, which anomalous can never appear in) and `RADAR_SUBSTAT_VARIANTS` (substats, anomalous included) for the substat-frequency radar. `countSubstatFrequency` always tallied them off the rows; reusing the main-stat list as the radar's axes was what hid them |
+| Display naming | Every user-facing surface shows the localized glyph token via `statVariantI18nKey` (`StatLabel` is the shared node renderer). `labelOfVariant` is the CANONICAL spelling — the SFC anchor and DSL fallback — never display text; `aria-label`s use the same token as the visible text, which is what classic stats already did |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
 | Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); line values snap to the wire resolution and floor at `minGearLineValueForVariant`; the session's random auto-fill pool stays classic on purpose |
 | Gear line values | `clampGearLineValue` (`gearInspectorSession.ts`) is the one rule — resolution snap + minimum-roll floor — shared by the custom-gear editor's input clamp and the session's `adjustSubValuesFor` re-normalization, which previously disagreed on both |
@@ -209,7 +248,7 @@ reconstruction is a different job with a different owner (`overridesSerializer`)
 | Spinner step | 0.25 | The granularity RSL Helper displays in the sample. Typing keeps the full 0.01 resolution, so this only affects arrow keys. |
 | Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens (and the SFC label anchor). |
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
-| Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber), `⚔` brighter than `🛡` | Pure judgment; user-editable in Manage Colors. |
+| Default chip colors | One hue per mode (PvE teal, PvP red, Boss violet, DNG umber); the pair is separated by LIGHTNESS with `🛡` the **lighter** tint | Pure judgment; user-editable in Manage Colors. The first version darkened `🛡`, which cost contrast on the app's dark default surface exactly where it was needed (Boss 🛡 and DNG 🛡 were barely legible). Light-scheme legibility is handled downstream by `useSubstatFgAdapter`. |
 
 ## Open unknowns
 

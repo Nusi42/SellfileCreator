@@ -1,7 +1,7 @@
 import { loadAutosave } from './autosave'
 import { compressToBase64, decompressFromBase64 } from './compression'
 import { AUTOSAVE_GEAR_INSPECTOR_KEY, AUTOSAVE_CUSTOM_GEAR_KEY, ACCESSORY_NO_SET_ID, GEAR_INSPECTOR_ANY_SLOT_ID } from './constants'
-import { additionLevelsForRarityCode, type SubstatTargetTable } from './hsfBuilder'
+import { additionLevelsForRarityCode, baseMinForStarV, type SubstatTargetTable } from './hsfBuilder'
 import { allowedGearInspectorSetIds, normalizeGearInspectorSetForSlot } from './gearInspectorDomain'
 import { isGearInspectorCustomItemId } from './itemIdentity'
 import {
@@ -219,21 +219,12 @@ export const clampGearLineValue = (variant: number, value: number): number => (
 )
 
 export function createGearInspectorMath(substatTargets: SubstatTargetTable) {
-  const baseStepForRank = (variant: number, star: 1|2|3|4|5|6): number => {
-    if (star === 6) return substatTargets.six[variant] ?? 0
-    if (star === 5) return substatTargets.five[variant] ?? 0
-    if (star === 4) return substatTargets.four[variant] ?? 0
-    if (star === 3) return substatTargets.three[variant] ?? 0
-    if (star === 2) return substatTargets.two[variant] ?? 0
-    return substatTargets.one[variant] ?? 0
-  }
-
-  // The per-roll step for a stat at a given rank: the seeded target when the table
-  // has one, else the stat's minimum line value. Anomalous stats are seeded on
-  // every rank now (one observed base, applied across the board), so the fallback
-  // only catches a stat the table has no entry for at all.
+  // The per-roll step for a stat at a given rank. baseMinForStarV is the SSOT for
+  // reading the target table — including what a MISSING entry means (the factory
+  // minimum, not 0), so an older SFC steps identically to a fresh one. Only a
+  // deliberately-cleared target (stored 0) reaches the line-minimum fallback.
   const stepFor = (variant: number, star: 1|2|3|4|5|6): number => {
-    const base = baseStepForRank(variant, star)
+    const base = baseMinForStarV(variant, star, substatTargets)
     return base > 0 ? base : minGearLineValueForVariant(variant)
   }
 

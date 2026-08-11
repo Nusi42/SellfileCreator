@@ -19,6 +19,7 @@ import {
   getLocalizedGearSetName,
   PREFERRED_ARTIFACT_TYPE_ORDER,
   STAT_VARIANTS_PRIORITY,
+  ANOMALOUS_SUBSTAT_VARIANTS,
   StatVariant,
   labelOfVariant,
   rarityCodeFromRankValue,
@@ -558,6 +559,21 @@ export const HEATMAP_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER as
 
 /** Main stat variants shown as heatmap rows, in the canonical preferred stat order. */
 export const HEATMAP_VARIANTS: readonly number[] = STAT_VARIANTS_PRIORITY as readonly number[]
+
+/**
+ * Substat variants shown as radar axes — the SUBSTAT vocabulary, which includes
+ * the accessory-only anomalous mode-damage stats.
+ *
+ * Deliberately not the same list as HEATMAP_VARIANTS: that one is MAIN stats, and
+ * anomalous stats can never be a main, so reusing it there would draw eight
+ * permanently-empty rows. The reverse reuse is what hid them from the radar —
+ * countSubstatFrequency already tallies them off the rows, so only this axis list
+ * kept them off the chart.
+ */
+export const RADAR_SUBSTAT_VARIANTS: readonly number[] = [
+  ...STAT_VARIANTS_PRIORITY,
+  ...ANOMALOUS_SUBSTAT_VARIANTS,
+] as readonly number[]
 
 /**
  * Build the slot × main stat count matrix.

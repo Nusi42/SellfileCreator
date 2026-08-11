@@ -554,6 +554,15 @@ if (!(Number.isInteger(anomalousHsfValueScale) && anomalousHsfValueScale > 0)) {
 if (!Number.isInteger(Math.round(anomalousStar5RollValue * anomalousHsfValueScale * 1e6) / 1e6)) {
   throw new Error('anomalousAccessories.star5RollValue must be representable at hsfValueScale.')
 }
+// Smallest supported target value for these stats (zero is not a target). Must be
+// positive and, like the base, exactly representable in the integer wire unit.
+const anomalousMinTargetValue = Number(anomalousSpec.minTargetValue)
+if (!(Number.isFinite(anomalousMinTargetValue) && anomalousMinTargetValue > 0)) {
+  throw new Error('anomalousAccessories.minTargetValue must be a positive number.')
+}
+if (!Number.isInteger(Math.round(anomalousMinTargetValue * anomalousHsfValueScale * 1e6) / 1e6)) {
+  throw new Error('anomalousAccessories.minTargetValue must be representable at hsfValueScale.')
+}
 // Substat entries keep spec order (announcement order) for stable emission.
 // Variants are derived percent-shaped (flat 0 — matches the DB fl=0 encoding).
 const anomalousSubstatEntries = Object.entries(anomalousSpec.substats)
@@ -673,6 +682,9 @@ tsLines.push(`export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = ${anomalousStar5
 tsLines.push('// HSF wire unit: displayed percent x this = the integer stored in a rule\'s')
 tsLines.push('// substat Value (0.25% -> 25). Classic percent stats store the plain number.')
 tsLines.push(`export const ANOMALOUS_HSF_VALUE_SCALE = ${anomalousHsfValueScale}`)
+tsLines.push('// Smallest supported target value for these stats — zero is not a target;')
+tsLines.push('// "no threshold" is expressed by not selecting the substat at all.')
+tsLines.push(`export const ANOMALOUS_MIN_TARGET_VALUE = ${anomalousMinTargetValue}`)
 tsLines.push('// Variant encoding of the same ids ((id<<8)|0 — percent-shaped, matching the DB fl=0 lines).')
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, variant }) => `${key}: ${variant}`).join(', ')} } as const`
@@ -716,6 +728,10 @@ rustLines.push('// integer stored in a rule substat Value (0.25% -> 25). Mirrors
 rustLines.push(`pub const ANOMALOUS_HSF_VALUE_SCALE: f64 = ${anomalousHsfValueScale}.0;`)
 rustLines.push('// Display -> wire scale for ANY substat variant. Classic stats store their')
 rustLines.push('// plain value (docs/orig/rules.hsf: 5 = 5%), so their scale is 1.')
+rustLines.push('// Smallest supported target value for these stats (zero is not a target).')
+rustLines.push()
+rustLines.push('// Smallest supported target value for these stats (zero is not a target).')
+rustLines.push(`pub const ANOMALOUS_MIN_TARGET_VALUE: f64 = ${anomalousMinTargetValue};`)
 rustLines.push('pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {')
 rustLines.push('    if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }')
 rustLines.push('}')

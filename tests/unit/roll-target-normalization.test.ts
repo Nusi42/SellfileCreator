@@ -17,9 +17,11 @@ test('normalizeLooseRollTargetEntry parses numeric strings', () => {
   assert.deepEqual(entry, { base: 42 })
 })
 
-test('normalizeLooseRollTargetEntry clamps negatives to zero', () => {
+test('normalizeLooseRollTargetEntry clamps negatives to the stat minimum', () => {
+  // Zero is not a supported target, so a negative lands on the floor (1 for a
+  // classic stat) rather than becoming a vacuous '>= 0' threshold.
   const entry = normalizeLooseRollTargetEntry(-5, SPD)
-  assert.deepEqual(entry, { base: 0 })
+  assert.deepEqual(entry, { base: 1 })
 })
 
 test('normalizeLooseRollTargetEntry ignores unsupported payloads', () => {

@@ -19,7 +19,7 @@ import { ANOMALOUS_SUBSTAT_VARIANTS, StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_V
 // Shared hover copy + grid gating for the mode-damage rows.
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { isAnomalousSubstatVariant } from '../lib/anomalousAccessories'
-import { quantizeTargetValueForVariant, targetValueStepForVariant } from '../lib/hsfBuilder'
+import { baseMinForStarV, quantizeTargetValueForVariant, targetValueStepForVariant } from '../lib/hsfBuilder'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
@@ -138,10 +138,13 @@ export function SubstatTargetsTabContent({
     return ordered.length > 0 ? ordered : elements
   }, [substatTargetsStarColumns])
 
-  const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
+  const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, star: Star, variantKey: number, statLabel: string, starLabel: string) => {
     // Read both stored and effective values so the override badge can compare them.
-    const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
-    const effectiveValue = Number(resolvedEffectiveSubstatTargets[starKey]?.[variantKey] ?? 0)
+    // Through baseMinForStarV, so a cell with NO stored entry shows the factory
+    // minimum the builder will actually apply — an SFC saved before a stat existed
+    // has no key for it, and showing 0 here would contradict the emitted rule.
+    const currentValue = baseMinForStarV(variantKey, star, substatTargets)
+    const effectiveValue = baseMinForStarV(variantKey, star, resolvedEffectiveSubstatTargets)
     // Show the override badge when a recipe override has shifted this cell's value.
     const valueOverrideActive = recipeOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
@@ -363,8 +366,8 @@ export function SubstatTargetsTabContent({
               {anomalousTooltip
                 ? <MarkdownTooltip markdown={anomalousTooltip}>{rowLabel}</MarkdownTooltip>
                 : rowLabel}
-              {substatTargetsStarColumns.map(({ key, label: starLabel }) => (
-                renderSubstatTargetInput(key, vKey, label, starLabel)
+              {substatTargetsStarColumns.map(({ key, label: starLabel, star }) => (
+                renderSubstatTargetInput(key, star, vKey, label, starLabel)
               ))}
             </React.Fragment>
           )

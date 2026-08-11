@@ -1,5 +1,10 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../constants'
-import { ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, hsfValueScaleForVariant, isAnomalousSubstatVariant } from '../anomalousAccessories'
+import {
+  ANOMALOUS_MIN_TARGET_VALUE,
+  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  hsfValueScaleForVariant,
+  isAnomalousSubstatVariant,
+} from '../anomalousAccessories'
 import type { SubstatRollTargetEntry } from './types'
 
 // The RESOLUTION a stat's targets can express: the smallest change that survives
@@ -10,14 +15,19 @@ export const targetValueResolutionForVariant = (variant: number): number => (
   1 / hsfValueScaleForVariant(Number(variant))
 )
 
-// The SPINNER step: how far one arrow press moves. Deliberately coarser than the
-// resolution for the anomalous stats — 0.25 is the granularity RSL Helper itself
-// shows (docs/orig/anomalous.hsf: 0,25 / 0,5 / 0,75 / 1 …), so stepping matches
-// what users see in-app while typing keeps the full 0.01 resolution.
-export const ANOMALOUS_TARGET_SPINNER_STEP = 0.25
-export const targetValueStepForVariant = (variant: number): number => (
-  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_TARGET_SPINNER_STEP : 1
+// The SMALLEST target the app supports for a stat. Zero is not a target — "no
+// threshold" is expressed by not selecting the substat at all — so every stored
+// value sits at or above this floor. 0.25 for the anomalous stats is the
+// granularity RSL Helper itself shows (docs/orig/anomalous.hsf: 0,25 / 0,5 /
+// 0,75 / 1 …); 1 is the classic minimum.
+export const minTargetValueForVariant = (variant: number): number => (
+  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_MIN_TARGET_VALUE : 1
 )
+
+// The SPINNER step is the same quantity: stepping by the minimum means the arrows
+// always land on legal values, and the first press up from the floor stays legal.
+// Typing still accepts the finer resolution above.
+export const targetValueStepForVariant = (variant: number): number => minTargetValueForVariant(variant)
 
 // The smallest value a PRESENT gear substat line can carry — a line that exists
 // is never worth less than one minimum roll. 1 for classic stats; the observed
@@ -39,18 +49,19 @@ const scaleToWireUnits = (value: number, variant: number): number => {
   return Math.round(Math.max(0, value) * scale * WIRE_NOISE_PRECISION) / WIRE_NOISE_PRECISION
 }
 
-// The one target-value quantizer: snap to the stat's expressible resolution.
-// Values off the resolution grid cannot survive export, so they are rounded here
-// rather than silently truncated at the wire boundary.
+// The one target-value quantizer: snap to the stat's expressible resolution, then
+// clamp to its supported minimum. Values off the resolution grid cannot survive
+// export, so they are rounded here rather than silently truncated at the wire
+// boundary; values below the minimum (including 0, negatives and non-finite
+// input) land on the minimum, because a selected substat always carries a real
+// threshold. This is the single ingress gate — UI input, SFC load and the
+// note-overrides DSL all pass through it.
 export const quantizeTargetValueForVariant = (variant: number, value: number): number => {
-  if (!Number.isFinite(value)) return 0
+  const minimum = minTargetValueForVariant(variant)
+  if (!Number.isFinite(value)) return minimum
   const scale = hsfValueScaleForVariant(Number(variant))
   const snapped = Math.round(scaleToWireUnits(value, variant)) / scale
-  // A non-zero input never becomes "no threshold": typing 0.4 on SPD (or 0.004 on
-  // an anomalous stat) means the user wants SOME floor, so it lands on the first
-  // expressible value. Only a typed 0 (or negative) clears the target.
-  if (snapped === 0 && value > 0) return targetValueResolutionForVariant(variant)
-  return snapped
+  return Math.max(minimum, snapped)
 }
 
 // The threshold the ENGINE actually applies for a stored target value. The branch

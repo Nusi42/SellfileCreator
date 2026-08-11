@@ -11,7 +11,7 @@ import {
 } from '../lib/types'
 import { useI18n } from '../lib/i18n'
 import { compositeOnBase, ensureContrastOnBg, parseHexWithAlpha } from '../lib/colorUtils'
-import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant, type RuleSubstatDetail } from '../lib/substatDisplay'
+import { formatRuleSubstatPlain, normalizeRuleSubstats, substatSupportsColor, maxDigitsForVariant, formatSubstatValueForDisplay, type RuleSubstatDetail } from '../lib/substatDisplay'
 
 export const SUBSTAT_CHIP_BORDER_RADIUS_PX = 8
 
@@ -133,10 +133,13 @@ export default function RuleSubstatChips({
     const conditionSymbol = showThreshold ? '' : (detail.condition ?? '')
     const value =
       showThreshold || detail.condition
-        ? (detail.value !== undefined ? String(detail.value) : '')
+        ? (detail.value !== undefined ? formatSubstatValueForDisplay(detail.variant, detail.value) : '')
         : ''
     const reserveDigits = maxDigitsForVariant(detail.variant)
-    const valueDigits = value ? value.replace(/[^0-9]/g, '').length : 0
+    // Measure RENDERED characters, not digits: a decimal point occupies a column
+    // too, so counting digits alone under-reserved the lane and left decimal
+    // values ragged against the integer ones beside them.
+    const valueDigits = value.length
     const laneDigits = Math.max(reserveDigits, valueDigits || (showCondition ? 1 : 0))
 
     segments.push(

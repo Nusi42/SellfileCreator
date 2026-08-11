@@ -4,7 +4,7 @@
  * Radar (spider) chart showing substat frequency distribution in the Gear Analytics.
  * Each axis corresponds to one stat variant; the polygon area shows how often that
  * substat appears across the currently filtered gear set.
- * The canonical HEATMAP_VARIANTS order is used so axes are always consistent.
+ * The canonical RADAR_SUBSTAT_VARIANTS order is used so axes are always consistent.
  *
  * Reference net: when `referenceData` is provided (full unfiltered substat counts) and any
  * filter is active (filtered ≠ reference), a second dimmed polygon is drawn behind the
@@ -19,7 +19,7 @@ import { scopeColorsText } from '../../lib/colorScope'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Collapse, Typography, useTheme } from '@mui/material'
 import { RadarChart } from '@mui/x-charts/RadarChart'
-import { HEATMAP_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
+import { RADAR_SUBSTAT_VARIANTS, statVariantI18nKey } from '../../lib/gearAnalytics'
 import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
 import { useDisplayPreferences } from '../../state/preferencesState'
@@ -181,7 +181,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   // Translated label text → configured fg color; rebuilt when substat palette or language changes.
   // Keys match the text rendered by labelFormatter so the MutationObserver can color SVG text nodes.
   const labelColorMap = useMemo(
-    () => new Map(HEATMAP_VARIANTS.map((v) => [t(statVariantI18nKey(v)), adaptStatFg(substatColors[v]?.fg)])),
+    () => new Map(RADAR_SUBSTAT_VARIANTS.map((v) => [t(statVariantI18nKey(v)), adaptStatFg(substatColors[v]?.fg)])),
     [substatColors, t, adaptStatFg],
   )
 
@@ -220,7 +220,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   // Stable target counts array — same reference between renders when data hasn't changed,
   // so the animation effect below only fires on genuine data changes (not on every setState).
   const targetCounts = useMemo(
-    () => HEATMAP_VARIANTS.map((v) => countByVariant.get(v) ?? 0),
+    () => RADAR_SUBSTAT_VARIANTS.map((v) => countByVariant.get(v) ?? 0),
     [countByVariant],
   )
 
@@ -232,7 +232,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
     [referenceData],
   )
   const refTargetCounts = useMemo(
-    () => refCountByVariant ? HEATMAP_VARIANTS.map((v) => refCountByVariant.get(v) ?? 0) : null,
+    () => refCountByVariant ? RADAR_SUBSTAT_VARIANTS.map((v) => refCountByVariant.get(v) ?? 0) : null,
     [refCountByVariant],
   )
   // Precomputed sqrt display values for the reference polygon — stable, no rAF loop required.
@@ -259,7 +259,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
   // max is supplied per-metric and kept in sync with displayMax (see below) so the scale never
   // jumps out of phase with the animated data values.
   const metrics = useMemo(
-    () => HEATMAP_VARIANTS.map((v) => ({ name: String(v) })),
+    () => RADAR_SUBSTAT_VARIANTS.map((v) => ({ name: String(v) })),
     [],
   )
 
@@ -459,7 +459,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
         skipAnimation
         onMarkClick={onToggleSubstat ? (_e, item) => {
           // Both the active and reference series marks are clickable — either toggles the pivot.
-          const v = HEATMAP_VARIANTS[item.dataIndex ?? -1]
+          const v = RADAR_SUBSTAT_VARIANTS[item.dataIndex ?? -1]
           if (v === undefined) return
           // Easter egg: 10 rapid clicks on the same mark triggers a dance.  Only start a new
           // dance if none is running (recordClick resets the counter after firing).

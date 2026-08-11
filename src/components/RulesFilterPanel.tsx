@@ -16,7 +16,6 @@ import {
   artifactSetName,
   PREFERRED_ARTIFACT_TYPE_ORDER,
   StatVariant,
-  labelOfVariant,
   Faction,
   type FactionId,
   type ArtifactSetId,
@@ -1788,7 +1787,7 @@ function RulesFilterPanel({
       >
         <ToggleButton
           value={String(variant)}
-          aria-label={labelOfVariant(variant)}
+          aria-label={t(statVariantI18nKey(variant))}
           onClick={() => { setSubTriStateVariant(variant, isActive ? 'off' : 'include') }}
           onContextMenu={(e) => { e.preventDefault(); setSubTriStateVariant(variant, isActive ? 'off' : 'exclude') }}
         >
@@ -2962,7 +2961,7 @@ function RulesFilterPanel({
                   sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
                 >
                   {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                    <ToggleButton key={variant} value={String(variant)} aria-label={t(statVariantI18nKey(variant))}>
                       {/* EllipsisTooltip shows OS tooltip only when text is actually truncated. */}
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
@@ -2982,7 +2981,7 @@ function RulesFilterPanel({
                   sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
                 >
                   {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                    <ToggleButton key={variant} value={String(variant)} aria-label={t(statVariantI18nKey(variant))}>
                       <EllipsisTooltip title={t(statVariantI18nKey(variant))} wrap="block">
                         <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                           <StatLabel variant={variant} inControl />
@@ -3696,7 +3695,7 @@ function RulesFilterPanel({
                     sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
                   >
                     {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                      <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      <ToggleButton key={variant} value={String(variant)} aria-label={t(statVariantI18nKey(variant))}>
                         <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     ))}
@@ -3712,7 +3711,7 @@ function RulesFilterPanel({
                     sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                      <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      <ToggleButton key={variant} value={String(variant)} aria-label={t(statVariantI18nKey(variant))}>
                         <StatLabel variant={variant} inControl />
                       </ToggleButton>
                     ))}

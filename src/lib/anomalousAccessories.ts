@@ -21,6 +21,7 @@ import {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
   ANOMALOUS_HSF_VALUE_SCALE,
+  ANOMALOUS_MIN_TARGET_VALUE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
   ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
@@ -32,6 +33,7 @@ export {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
   ANOMALOUS_HSF_VALUE_SCALE,
+  ANOMALOUS_MIN_TARGET_VALUE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
   ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
@@ -89,6 +91,19 @@ export const isAnomalousSubstatVariant = (variant: number): boolean =>
 export const hsfValueScaleForVariant = (variant: number): number => (
   isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_HSF_VALUE_SCALE : 1
 )
+
+/**
+ * The inverse: an HSF wire value back to the number a user should SEE (125 → 1.25).
+ * Emitted rules carry wire units, so every surface that renders a rule's substat
+ * value must come back through here. Classic stats scale by 1, which is why the
+ * omission was invisible until these stats existed.
+ */
+export const hsfValueToDisplay = (variant: number, wireValue: number): number => {
+  const scale = hsfValueScaleForVariant(Number(variant))
+  if (scale === 1) return wireValue
+  // Round at the wire resolution so the division cannot reintroduce float noise.
+  return Math.round(wireValue) / scale
+}
 
 // True when a set can appear on anomalous accessories (announced 9-set list).
 export const isAnomalousEligibleSetId = (setId: number): boolean => eligibleSetIdSet.has(setId)

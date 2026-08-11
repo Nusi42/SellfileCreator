@@ -159,6 +159,9 @@ pub fn is_anomalous_substat_variant(variant: i64) -> bool {
 pub const ANOMALOUS_HSF_VALUE_SCALE: f64 = 100.0;
 // Display -> wire scale for ANY substat variant. Classic stats store their
 // plain value (docs/orig/rules.hsf: 5 = 5%), so their scale is 1.
+// Smallest supported target value for these stats (zero is not a target).
+// Smallest supported target value for these stats (zero is not a target).
+pub const ANOMALOUS_MIN_TARGET_VALUE: f64 = 0.25;
 pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {
     if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }
 }
