@@ -22,6 +22,16 @@ import {
   composeLocalizedText,
 } from '../../src/lib/overridesSerializer.js'
 import {
+  StatVariant,
+  dslMainStatKeys,
+  dslSubstatKeys,
+  statKeyToVariant,
+  statVariantToKey,
+} from '../../src/lib/types.js'
+import { ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY, anomalousSubstatDslKey } from '../../src/lib/anomalousAccessories.js'
+import { buildRecipeOverridesEbnfText } from '../../src/lib/overridesEbnf.js'
+import { formatSafeguardOverridesOpValue } from '../../src/lib/noteSafeguardOverrides.js'
+import {
   buildNoteRecipeOverridesSignature,
   resolveRecipeOverridesTags,
 } from '../../src/lib/noteRecipeOverrides.js'
@@ -212,6 +222,40 @@ test('recipe target values keep decimals through parse and re-emit', () => {
     const reOps = (back.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
     assert.deepEqual(reOps, [op], `op '${emitted}' must round-trip`)
   }
+})
+
+// One vocabulary + one spelling, consumed by every DSL-text surface. These pins
+// exist because the lists and the emitters drifted independently before: the EBNF
+// listed a form that could not be typed, the structured editor could not author
+// anomalous stats at all, and a second emitter still spelled display labels.
+test('DSL stat vocabulary and spelling come from one definition', () => {
+  const anomalousKey = anomalousSubstatDslKey(ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus)!
+  // Spelling: anomalous stats emit their typable key, never the display label.
+  assert.equal(statVariantToKey(ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus), anomalousKey)
+  assert.ok(!anomalousKey.includes('+') && !anomalousKey.includes(' '))
+  assert.equal(statVariantToKey(StatVariant.SPD), 'SPD')
+  // Every emitted spelling must parse back to the same variant.
+  for (const key of dslSubstatKeys()) {
+    assert.equal(statVariantToKey(statKeyToVariant(key)!), key, `key '${key}' must round-trip`)
+  }
+  // Vocabulary: substats include anomalous, mainstats never do (they cannot be mains).
+  assert.ok(dslSubstatKeys().includes(anomalousKey))
+  assert.ok(!dslMainStatKeys().includes(anomalousKey))
+  // The EBNF statKey row lists the substat vocabulary — the typable tokens.
+  const ebnf = buildRecipeOverridesEbnfText()
+  assert.ok(ebnf.includes(`"${anomalousKey}"`), 'EBNF must list the typable anomalous key')
+  assert.ok(!ebnf.includes('"PvE DMG +"'), 'EBNF must not advertise the untypable label')
+})
+
+test('safeguard option-info text re-parses (it is DSL reconstruction, not display)', () => {
+  const stat = ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus
+  // weight.<stat>=<value> and substats lists both reconstruct through the same SSOT.
+  const weightText = formatSafeguardOverridesOpValue({ kind: 'substatWeight', stat, value: 1.2 })
+  assert.equal(weightText, `${anomalousSubstatDslKey(stat)}=1.2`)
+  const substatsText = formatSafeguardOverridesOpValue({ kind: 'substats', mode: 'replace', stats: [stat] })
+  assert.equal(substatsText, anomalousSubstatDslKey(stat))
+  // The reconstructed stat token parses back to the same variant.
+  assert.equal(statKeyToVariant(anomalousSubstatDslKey(stat)!), stat)
 })
 
 test('safeguard operation table: every kind emits parse-exact DSL', () => {

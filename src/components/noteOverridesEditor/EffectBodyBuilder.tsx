@@ -51,7 +51,8 @@ import {
   buildSelectorFromFlat,
   composeOperationText,
   defaultViewForOption,
-  dslStatKeys,
+  dslSubstatKeys,
+  dslMainStatKeys,
   flattenSelector,
   levelRangeText,
   matchOperationTerm,
@@ -204,8 +205,12 @@ const mapDefined = <T, R>(values: readonly T[], convert: (value: T) => R | null)
   values.map(convert).filter((entry): entry is R => entry !== null)
 )
 
-// The DSL stat keys as StatVariants — options for the substat/mainstat selects.
-const dslStatVariants = (): StatVariant[] => mapDefined(dslStatKeys(), statKeyToVariant)
+// The DSL stat keys as StatVariants. Substat and mainstat positions draw from
+// DIFFERENT vocabularies: PROVISIONAL(anomalous) mode-damage substats are valid
+// substats but can never be a main stat, so offering them in a mainstat select
+// would let the user author an unselectable value.
+const dslSubstatVariants = (): StatVariant[] => mapDefined(dslSubstatKeys(), statKeyToVariant)
+const dslMainStatVariants = (): StatVariant[] => mapDefined(dslMainStatKeys(), statKeyToVariant)
 
 /** Single-value control: rank (with Any), star rank, or rarity (with Any/Auto). */
 function SingleValueControl({ control, choices, valueLabelKeys, value, onChange, t }: {
@@ -404,7 +409,7 @@ function ListValueControl({ control, tokens, onTokens, metasets, colorStatContro
       return (
         <GearSubstatSelect
           multiple
-          options={dslStatVariants()}
+          options={dslSubstatVariants()}
           value={mapDefined(tokens, statKeyToVariant)}
           onChange={(variants) => onTokens(variants.map(statVariantToKey))}
           colorOverrides={substatColors}
@@ -416,7 +421,7 @@ function ListValueControl({ control, tokens, onTokens, metasets, colorStatContro
       return (
         <GearMainStatSelect
           multiple
-          options={dslStatVariants()}
+          options={dslMainStatVariants()}
           value={mapDefined(tokens, statKeyToVariant)}
           onChange={(variants) => onTokens(variants.map(statVariantToKey))}
           colorOverrides={substatColors}
@@ -473,7 +478,8 @@ function StatKeyPicker({ value, onChange, colorStatControls, substatColors }: {
   colorStatControls: boolean
   substatColors: Record<number, { fg: string; bg: string }>
 }): JSX.Element {
-  const options = dslStatVariants()
+  // Dotted stat fields are substat positions.
+  const options = dslSubstatVariants()
   const variant = statKeyToVariant(value)
   return (
     <GearSubstatSelect
@@ -562,7 +568,7 @@ function SelectorTermRow({ hostDomain, blockDomain, negated, leaf, knownTags, su
   const [view, setView] = useState<SelectorTermView>(() => selectorLeafToView(leaf) ?? { kind: 'all' })
   const [invalid, setInvalid] = useState(false)
   const options = useMemo(() => selectorTermOptionsFor(blockDomain), [blockDomain])
-  const statKeys = useMemo(() => dslStatKeys(), [])
+  const statKeys = useMemo(() => dslSubstatKeys(), [])
   const optionId = selectorViewOptionId(view)
   const option = options.find((entry) => entry.id === optionId)
 
@@ -760,7 +766,7 @@ function BlockRowEditor({ hostDomain, block, knownTags, metasets, substatColors,
   // Add/edit-operation row state (option + star/stat/op pickers + value text);
   // editIndex ≥ 0 replaces that op on commit.
   const opOptions = useMemo(() => operationTermOptionsFor(block.domain), [block.domain])
-  const opStatKeys = useMemo(() => dslStatKeys(), [])
+  const opStatKeys = useMemo(() => dslSubstatKeys(), [])
   const [opRow, setOpRow] = useState<OpRowState>(() => ({
     option: opOptions[0]!, star: '5', stat: opStatKeys[0] ?? 'SPD', op: '=', value: '',
   }))

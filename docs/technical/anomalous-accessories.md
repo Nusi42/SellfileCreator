@@ -87,10 +87,15 @@ a `targetNum` terminal marking where decimals are legal.
 
 **Anomalous stats spell as their internal key in DSL text** (`rolltarget.pveDmgPlus=1.25`),
 never as their display label: `+` and spaces are token separators, so "PvE DMG +"
-cannot occupy a field position. `statVariantToKey` (`overridesEditorModel.ts`) is the
-SSOT for that spelling and the serializer emits through it; `variantFromLabel` still
-accepts every alias (label, space-free, `DMG`-less, key) so hand-written text keeps
-parsing.
+cannot occupy a field position. Both the spelling and the vocabulary have one
+definition in `types.ts` — `statVariantToKey` plus `dslSubstatKeys()` /
+`dslMainStatKeys()` — consumed by every DSL-text surface: the two serializers
+(`overridesSerializer`, `noteSafeguardOverrides`' option-info reconstruction), the
+structured editor's selects and pickers, and the EBNF `statKey` row. The two stat
+vocabularies are deliberately separate: anomalous substats appear in substat
+positions only, never in `mainstats=` (they cannot be main stats). `variantFromLabel`
+still accepts every alias (label, space-free, `DMG`-less, key), so hand-written text
+keeps parsing whichever form it uses.
 
 ## Judged values (the PROVISIONAL(anomalous) ledger)
 

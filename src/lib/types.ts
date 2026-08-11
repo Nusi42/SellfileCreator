@@ -3,7 +3,9 @@ import { ACCESSORY_NO_SET_ID, NBSP } from './constants'
 // PROVISIONAL(anomalous): placeholder anomalous-accessory substat helpers (Update 11.70 prep).
 // The membership check gets a local alias because this module also re-exports it by name.
 import {
+  ANOMALOUS_SUBSTAT_VARIANTS as LOCAL_ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
+  anomalousSubstatDslKey,
   anomalousSubstatLabel,
   anomalousVariantFromLabel,
   isAnomalousEligibleSlotId,
@@ -701,6 +703,48 @@ export function variantFromLabel(input: string): StatVariant | null {
   }
   // PROVISIONAL(anomalous): accept the announcement labels ("PvE DMG +", ...).
   return anomalousVariantFromLabel(s)
+}
+
+/**
+ * DSL stat key ⇄ StatVariant — the SSOT for how a stat is SPELLED in override
+ * text (dotted fields, value lists, the EBNF listing, every emitter).
+ *
+ * Emission is asymmetric with display on purpose: PROVISIONAL(anomalous)
+ * mode-damage substats spell as their internal key (`pveDmgPlus`), never as
+ * their display label, because `+` and spaces are token separators in DSL field
+ * positions. Parsing stays permissive — `variantFromLabel` accepts the label,
+ * the space-free form, the `DMG`-less short form, and the key.
+ */
+export function statVariantToKey(variant: StatVariantLike): string {
+  return anomalousSubstatDslKey(Number(variant)) ?? labelOfVariant(variant)
+}
+export function statKeyToVariant(key: string): StatVariant | null {
+  return variantFromLabel(key)
+}
+
+/**
+ * Stat keys the DSL accepts in dotted fields and stat lists, in canonical order.
+ * Split by domain because the two are NOT the same vocabulary: anomalous
+ * substats can never be main stats, so a single shared list would offer them in
+ * `mainstats=` where they are unselectable.
+ */
+export function dslSubstatKeys(): string[] {
+  return dedupeStatKeys([...STAT_VARIANTS_PRIORITY, ...LOCAL_ANOMALOUS_SUBSTAT_VARIANTS])
+}
+export function dslMainStatKeys(): string[] {
+  return dedupeStatKeys(STAT_VARIANTS_PRIORITY)
+}
+// Shared spelling+dedupe pass so both lists order and format identically.
+function dedupeStatKeys(variants: readonly StatVariantLike[]): string[] {
+  const seen = new Set<string>()
+  const keys: string[] = []
+  for (const variant of variants) {
+    const key = statVariantToKey(variant)
+    if (!key || !key.trim() || seen.has(key)) continue
+    seen.add(key)
+    keys.push(key)
+  }
+  return keys
 }
 
 // HSF tuple helpers live in hsfTypes.ts to keep this module focused on UI-facing variants.

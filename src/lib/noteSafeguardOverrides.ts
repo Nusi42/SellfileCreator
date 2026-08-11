@@ -27,7 +27,7 @@ import type {
 // parseRecipeSelectorBlockCross enables $count/$value in numeric recipe ops inside slider questions.
 // clampRankCode is the SSOT for [1,6] integer rank clamping used at AST resolve time.
 import { parseRecipeSelectorBlockCross, clampRankCode } from './noteRecipeOverrides'
-import { variantFromLabel, labelOfVariant, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
+import { variantFromLabel, statVariantToKey, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
 import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
 import {
   SafeguardRuleActivation,
@@ -224,11 +224,14 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'perSet':
     case 'perRule': return String(op.value)
     case 'substatMatch': return String(op.value)
-    case 'substatWeight': return `${labelOfVariant(op.stat)}=${op.value}`
+    // Stats SPELL through statVariantToKey, never labelOfVariant: this text is
+    // DSL-reconstruction (the option-info tooltip), so it must re-parse — and an
+    // anomalous label ("PvE DMG +") cannot be tokenized in these positions.
+    case 'substatWeight': return `${statVariantToKey(op.stat)}=${op.value}`
     case 'improvementChance': return op.dynamic ? 'on' : (op.value == null ? 'off' : 'on')
     case 'substats': return op.mode === 'replace'
-      ? op.stats.map((v) => labelOfVariant(v)).filter(Boolean).join(',')
-      : formatSgMutateList(op.add.map((v) => labelOfVariant(v)).filter(Boolean), op.remove.map((v) => labelOfVariant(v)).filter(Boolean))
+      ? op.stats.map((v) => statVariantToKey(v)).filter(Boolean).join(',')
+      : formatSgMutateList(op.add.map((v) => statVariantToKey(v)).filter(Boolean), op.remove.map((v) => statVariantToKey(v)).filter(Boolean))
     case 'ranks': return op.mode === 'replace'
       ? op.values.map(String).join(',')
       : formatSgMutateList(op.add.map(String), op.remove.map(String))

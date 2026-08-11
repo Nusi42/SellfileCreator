@@ -56,10 +56,10 @@ import {
   rarityCodeFromRankValue,
   rarityCodeParts,
   rarityCodeToName,
+  // Stats are SPELLED through the DSL-key SSOT, not their display label: anomalous
+  // substats must emit their writable internal key (see statVariantToKey).
+  statVariantToKey,
 } from './types'
-// Stats are SPELLED through the DSL-key SSOT, not their display label: anomalous
-// substats must emit their writable internal key (see statVariantToKey).
-import { statVariantToKey } from './overridesEditorModel'
 
 /** Thrown when a draft holds a construct the DSL grammar cannot express (e.g. an
  *  `or` nested under `and` in the paren-less recipe selector grammar). Such drafts

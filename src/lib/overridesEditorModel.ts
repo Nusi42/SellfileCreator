@@ -20,21 +20,18 @@ import {
 import {
   ArtifactType,
   RANK_VALUES,
-  STAT_VARIANTS_PRIORITY,
   artifactSetNames,
   artifactTypeI18nKey,
+  dslMainStatKeys,
+  dslSubstatKeys,
   factionNames,
   labelOfVariant,
   rarityCodeFromRankValue,
   rarityCodeToName,
   rarityRankValueI18nKey,
   starRankValueI18nKey,
-  variantFromLabel,
   type RankValue,
-  type StatVariant,
 } from './types'
-// PROVISIONAL(anomalous): DSL-typable token for the mode-damage substats.
-import { anomalousSubstatDslKey } from './anomalousAccessories'
 // Type-only: catalog key union, so every labelKey below is COMPILE-checked to exist.
 import type { I18nKey } from './i18n'
 // Numeric widget bounds mirror the apply-side clamp SSOTs — never re-spelled here.
@@ -350,19 +347,9 @@ const GEARSET_ID_BY_NAME = new Map<string, number>(
 export const gearsetNameToId = (name: string): number | null => GEARSET_ID_BY_NAME.get(name) ?? null
 export const gearsetIdToName = (id: number): string | null => artifactSetNames[Number(id)] ?? null
 
-/**
- * DSL stat key ('SPD', 'HP%') ⇄ StatVariant — the parser's own mapping pair, and the
- * SSOT for how a stat is SPELLED in override text (fields, lists, the EBNF listing).
- *
- * PROVISIONAL(anomalous): mode-damage substats spell as their internal key
- * (`pveDmgPlus`), not their display label — `+` and spaces are token separators, so
- * "PvE DMG +" cannot appear in a field position. `variantFromLabel` accepts both, so
- * parsing stays permissive while emission always produces the writable form.
- */
-export const statKeyToVariant = (key: string): StatVariant | null => variantFromLabel(key)
-export const statVariantToKey = (variant: StatVariant): string => (
-  anomalousSubstatDslKey(variant) ?? labelOfVariant(variant)
-)
+/** DSL stat key ⇄ StatVariant — re-exported from the stat-domain SSOT (types.ts),
+ *  which owns the asymmetry between how a stat DISPLAYS and how it is SPELLED. */
+export { statKeyToVariant, statVariantToKey } from './types'
 
 // Rarity rank value (1–6) ⇄ lowercase DSL rarity name (the serializer's spelling).
 const RARITY_NAME_BY_RANK = new Map<number, string>(
@@ -435,8 +422,9 @@ const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOpt
   autolate: [enumOp('autolate', NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS, 'builderAutoPlusLate', { valueLabelKeys: AUTOLATE_VALUE_LABEL_KEYS })],
   rolltarget: [{ id: 'rolltarget.stat', field: 'rolltarget', ops: EQ_ONLY, widget: 'text', choices: null, stat: true, star: false, example: '300,600,900', labelKey: 'builderSubstatMenuRollTargets' }],
   slots: [listOp('slots', NOTE_RECIPE_OVERRIDES_SLOT_NAMES, 'builderSlots', SLOT_VALUE_LABEL_KEYS, 'slots')],
-  substats: [listOp('substats', dslStatKeys(), 'builderSubstats', undefined, 'substats')],
-  mainstats: [listOp('mainstats', dslStatKeys(), 'builderMain', undefined, 'mainstats')],
+  substats: [listOp('substats', dslSubstatKeys(), 'builderSubstats', undefined, 'substats')],
+  // Mainstats deliberately exclude anomalous substats — they can never be a main stat.
+  mainstats: [listOp('mainstats', dslMainStatKeys(), 'builderMain', undefined, 'mainstats')],
   gearsets: GEARSETS_TERM_META,
   metasets: METASETS_TERM_META,
 }
@@ -460,7 +448,7 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
   perslot: [boolOp('perslot', 'safeguardsCountModePerSlot')],
   perset: [boolOp('perset', 'safeguardsCountModePerSet')],
   perrule: [boolOp('perrule', 'safeguardsCountModePerRule')],
-  substats: [listOp('substats', dslStatKeys(), 'safeguardsSubstatLabel', undefined, 'substats')],
+  substats: [listOp('substats', dslSubstatKeys(), 'safeguardsSubstatLabel', undefined, 'substats')],
   substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, 'noteOverridesEditorFieldSubstatMatch', { valueLabelKeys: SUBSTAT_MATCH_VALUE_LABEL_KEYS })],
   weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5', labelKey: 'safeguardsSubstatWeightsLabel', range: WEIGHT_RANGE }],
   improvchance: [{ id: 'improvchance', field: 'improvchance', ops: EQ_ONLY, widget: 'text', choices: null, stat: false, star: false, example: '25  |  25,35,50,65  |  disabled', labelKey: 'safeguardsImprovementChanceShort' }],
@@ -874,19 +862,10 @@ export function selectorViewOptionId(view: SelectorTermView): string {
   }
 }
 
-/** Stat-key labels the DSL accepts in dotted fields (substatmin.SPD, weight.CR%…),
- *  in canonical priority order. SSOT consumed by the term rows and the EBNF text. */
-export function dslStatKeys(): string[] {
-  const seen = new Set<string>()
-  const keys: string[] = []
-  for (const variant of STAT_VARIANTS_PRIORITY) {
-    const label = labelOfVariant(variant)
-    if (!label || !label.trim() || seen.has(label)) continue
-    seen.add(label)
-    keys.push(label)
-  }
-  return keys
-}
+/** Stat-key lists the DSL accepts, re-exported from the stat-domain SSOT (types.ts)
+ *  so the term rows, the list ops, and the EBNF text all read one definition.
+ *  Substat and mainstat vocabularies are separate — see dslSubstatKeys' note. */
+export { dslSubstatKeys, dslMainStatKeys }
 
 /** Fresh parse-valid view when the user switches a row to this kind (tag kinds start
  *  empty and stay uncommitted until a value is entered). */
@@ -895,7 +874,8 @@ export function defaultViewForOption(option: SelectorTermOption): SelectorTermVi
   if (option.value === 'tag') return { kind: 'tag', value: '' }
   if (option.value === 'tags') return { kind: 'tagIn', values: [] }
   if (option.id === 'flex') return { kind: 'flex', value: 'on' }
-  const statKey = dslStatKeys()[0] ?? 'SPD'
+  // Dotted stat fields (substatmin., minima.STAR.) are substat positions.
+  const statKey = dslSubstatKeys()[0] ?? 'SPD'
   const field = option.id === 'substatmin.stat' ? `substatmin.${statKey}`
     : option.id === 'minima.star.stat' ? `minima.5.${statKey}`
     : option.token

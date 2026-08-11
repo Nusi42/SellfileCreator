@@ -50,7 +50,7 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
 } from './noteSafeguardOverrides'
-import { ANOMALOUS_SUBSTAT_VARIANTS, STAT_VARIANTS_PRIORITY, labelOfVariant } from './types'
+import { dslSubstatKeys } from './types'
 
 // Wrap limit matched to the EBNF popover width (~126 chars at its mono font size).
 const EBNF_MAX_LINE_LENGTH = 126
@@ -253,23 +253,13 @@ ${SHARED_VALUE_LINES}`
 
 // ── Runtime statKey row (labels come from the stat-variant SSOT) ──────────────
 
-// Enumerate supported stat labels in canonical order, de-duplicated. Includes the
-// PROVISIONAL(anomalous) accessory-only substats — the parser resolves them through
-// variantFromLabel, so the reference must list what it actually accepts.
-const buildStatKeys = (): string[] => {
-  const seen = new Set<string>()
-  const statKeys: string[] = []
-  for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
-    const label = labelOfVariant(variant)
-    if (!label || !label.trim() || seen.has(label)) continue
-    seen.add(label)
-    statKeys.push(label)
-  }
-  return statKeys
-}
-
-// Compose the wrapped `statKey := …` alternation row (shared wrapping helper).
-const buildStatKeyLine = (): string => wrapAltRule('statKey', buildStatKeys().map(quoteTok))
+// Compose the wrapped `statKey := …` alternation row from the DSL vocabulary SSOT.
+// Every `statKey` position in this grammar is a SUBSTAT position (substatmin.,
+// minima.STAR., rolltarget., weight.), and the list is spelled through
+// statVariantToKey — so the reference shows the tokens that are actually typable
+// (PROVISIONAL(anomalous) stats appear as `pveDmgPlus`, not "PvE DMG +", whose
+// `+` and spaces are token separators here).
+const buildStatKeyLine = (): string => wrapAltRule('statKey', dslSubstatKeys().map(quoteTok))
 
 /** Full recipe-overrides EBNF reference text (statKey row injected at call time). */
 export function buildRecipeOverridesEbnfText(): string {
