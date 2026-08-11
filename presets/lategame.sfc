@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.38-dev",
+  "Version": "1.0.39-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -229,84 +229,12 @@
     }
   ],
   "Minima": {
-    "one": {
-      "HP%": 1,
-      "HP": 43,
-      "ATK%": 1,
-      "ATK": 4,
-      "DEF%": 1,
-      "DEF": 4,
-      "SPD": 1,
-      "RES": 3,
-      "ACC": 3,
-      "CR%": 1,
-      "CDMG%": 1
-    },
-    "two": {
-      "HP%": 1,
-      "HP": 50,
-      "ATK%": 1,
-      "ATK": 4,
-      "DEF%": 1,
-      "DEF": 4,
-      "SPD": 1,
-      "RES": 4,
-      "ACC": 4,
-      "CR%": 2,
-      "CDMG%": 2
-    },
-    "three": {
-      "HP%": 2,
-      "HP": 79,
-      "ATK%": 2,
-      "ATK": 5,
-      "DEF%": 2,
-      "DEF": 5,
-      "SPD": 2,
-      "RES": 5,
-      "ACC": 5,
-      "CR%": 2,
-      "CDMG%": 2
-    },
-    "four": {
-      "HP%": 3,
-      "HP": 97,
-      "ATK%": 3,
-      "ATK": 7,
-      "DEF%": 3,
-      "DEF": 7,
-      "SPD": 3,
-      "RES": 6,
-      "ACC": 6,
-      "CR%": 3,
-      "CDMG%": 3
-    },
-    "five": {
-      "HP%": 4,
-      "HP": 135,
-      "ATK%": 4,
-      "ATK": 12,
-      "DEF%": 4,
-      "DEF": 12,
-      "SPD": 4,
-      "RES": 8,
-      "ACC": 8,
-      "CR%": 4,
-      "CDMG%": 4
-    },
-    "six": {
-      "HP%": 5,
-      "HP": 200,
-      "ATK%": 5,
-      "ATK": 15,
-      "DEF%": 5,
-      "DEF": 15,
-      "SPD": 5,
-      "RES": 9,
-      "ACC": 9,
-      "CR%": 5,
-      "CDMG%": 5
-    },
+    "one": {},
+    "two": {},
+    "three": {},
+    "four": {},
+    "five": {},
+    "six": {},
     "anyRankDefaultsTo": "six"
   },
   "Recipes": [
@@ -346,6 +274,77 @@
           "name": "Zeal"
         }
       ],
+      "artifactMetaSetNames": []
+    },
+    {
+      "appearance": {
+        "name": "Anomalous"
+      },
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        {
+          "stat": "PvE DMG +",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "PvP DMG +",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "Boss DMG +",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DNG DMG +",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "PvE DMG -",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "PvP DMG -",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "Boss DMG -",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "DNG DMG -",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "minCount": 1,
+      "autoMinCount": false,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": true,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
       "artifactMetaSetNames": []
     },
     {
