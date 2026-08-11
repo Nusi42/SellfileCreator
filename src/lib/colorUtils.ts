@@ -214,7 +214,8 @@ function lchToRgb(L: number, C: number, H: number): Rgb {
 // WCAG 3.0:1 target — AA level for UI components and large text (WCAG SC 1.4.11 / 1.4.3 large).
 // Using 3.0 rather than the normal-text 4.5 prevents extreme darkening of preset colors
 // that were designed for a different background mode; practical readability is preserved.
-const WCAG_MIN_CONTRAST = 3.0
+// Exported so tests assert the bar the adapter actually targets instead of restating one.
+export const WCAG_MIN_CONTRAST = 3.0
 // WCAG 4.5:1 — AA for NORMAL text (SC 1.4.3). Pass as ensureContrastOnBg's minContrast when
 // the adjusted color is a small text label (not a decorative tint), e.g. text on an
 // arbitrary user-picked fill where the default 3.0 reads too faint.

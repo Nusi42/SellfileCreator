@@ -30,6 +30,8 @@ import {
 import { championIconUrl } from '../../lib/iconMaps/championIconMap'
 import { useSubstatFgAdapter } from '../../lib/themeContrastHooks'
 import { CHART_EMPTY_PLACEHOLDER_OPACITY } from '../../lib/themeCustomTokens'
+import { isAnomalousSubstatVariant } from '../../lib/anomalousAccessories'
+import { formatSubstatValueForDisplay } from '../../lib/substatDisplay'
 import { useRarityAccentColor } from '../../lib/rarityColorContext'
 import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
@@ -57,8 +59,17 @@ type Props = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Format a stat value with one decimal only when it's fractional. */
-function fmtVal(v: number): string {
+/**
+ * Format a champion's summed stat value.
+ *
+ * Per-variant, because precision is a property of the stat: the anomalous
+ * mode-damage stats are measured in hundredths of a percent, so a blanket
+ * one-decimal rounding would render a 1.25 total as "1.3" — a number the stat
+ * cannot actually take. Classic totals are integral and print as-is; anything
+ * else fractional keeps the historical single decimal.
+ */
+function fmtVal(variant: number, v: number): string {
+  if (isAnomalousSubstatVariant(variant)) return formatSubstatValueForDisplay(variant, v)
   return Number.isInteger(v) ? String(v) : v.toFixed(1)
 }
 
@@ -200,11 +211,11 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
         <ChampAvatar champ={hovered.display} />
         <Box>
           <Box sx={{ fontWeight: 600 }}>{hovered.display.name}</Box>
-          <Box sx={{ color: 'text.secondary' }}>{label}: {fmtVal(hovered.total)}</Box>
+          <Box sx={{ color: 'text.secondary' }}>{label}: {fmtVal(entry.variant, hovered.total)}</Box>
         </Box>
       </Box>
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 0.25 }}>
-        {t('gearAnalyticsSeriesMin')} {fmtVal(min)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesAvg')} {fmtVal(avg)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesMax')} {fmtVal(max)}
+        {t('gearAnalyticsSeriesMin')} {fmtVal(entry.variant, min)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesAvg')} {fmtVal(entry.variant, avg)} &nbsp;·&nbsp; {t('gearAnalyticsSeriesMax')} {fmtVal(entry.variant, max)}
       </Box>
     </Box>
   ) : ''
@@ -237,7 +248,7 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
         {/* Min value */}
         <Typography sx={{ fontSize: '0.68rem', color: 'error.main', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {fmtVal(min)}
+          {fmtVal(entry.variant, min)}
         </Typography>
 
         {/* Min champion avatar — directly left of the track. */}
@@ -277,7 +288,7 @@ function SubstatRangeRow({ entry, labelColor }: RangeRowProps) {
 
         {/* Max value */}
         <Typography sx={{ fontSize: '0.68rem', color: 'success.main', fontVariantNumeric: 'tabular-nums' }}>
-          {fmtVal(max)}
+          {fmtVal(entry.variant, max)}
         </Typography>
       </Box>
   )

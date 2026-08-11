@@ -561,16 +561,20 @@ export const HEATMAP_SLOTS: readonly number[] = PREFERRED_ARTIFACT_TYPE_ORDER as
 export const HEATMAP_VARIANTS: readonly number[] = STAT_VARIANTS_PRIORITY as readonly number[]
 
 /**
- * Substat variants shown as radar axes — the SUBSTAT vocabulary, which includes
- * the accessory-only anomalous mode-damage stats.
+ * The SUBSTAT vocabulary for analytics, in canonical display order: classic
+ * priority first, then the accessory-only anomalous mode-damage stats.
  *
  * Deliberately not the same list as HEATMAP_VARIANTS: that one is MAIN stats, and
  * anomalous stats can never be a main, so reusing it there would draw eight
  * permanently-empty rows. The reverse reuse is what hid them from the radar —
- * countSubstatFrequency already tallies them off the rows, so only this axis list
+ * countSubstatFrequency already tallies them off the rows, so only the axis list
  * kept them off the chart.
+ *
+ * Consumed by every analytics surface that enumerates or ORDERS substats (the
+ * frequency radar's axes, the champion-stats row order), so a stat added to the
+ * domain appears in all of them at once and in the same position.
  */
-export const RADAR_SUBSTAT_VARIANTS: readonly number[] = [
+export const ANALYTICS_SUBSTAT_VARIANTS: readonly number[] = [
   ...STAT_VARIANTS_PRIORITY,
   ...ANOMALOUS_SUBSTAT_VARIANTS,
 ] as readonly number[]

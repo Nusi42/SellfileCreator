@@ -8,8 +8,8 @@
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type { ChampionLookupRecord } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './gearInspectorDomain'
-import { statLabel } from './gearAnalytics'
-import { ArtifactType, PREFERRED_ARTIFACT_TYPE_ORDER, STAT_VARIANTS_PRIORITY, StatVariant } from './types'
+import { statLabel, ANALYTICS_SUBSTAT_VARIANTS } from './gearAnalytics'
+import { ArtifactType, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant } from './types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -466,9 +466,12 @@ export function computeChampSubstatTotalStats(
       maxChamp: resolveChamp(entries, max),
     })
   }
-  // Sort by canonical preferred stat order; variants absent from the list sort to the end.
+  // Sort by the shared analytics substat vocabulary, so the anomalous mode-damage
+  // rows land in their canonical order after the classic ones instead of all tying
+  // at Infinity (which left them in arbitrary encounter order). Variants outside
+  // the vocabulary entirely still sort to the end.
   const priorityOf = (v: number) => {
-    const i = (STAT_VARIANTS_PRIORITY as readonly number[]).indexOf(v)
+    const i = ANALYTICS_SUBSTAT_VARIANTS.indexOf(v)
     return i >= 0 ? i : Infinity
   }
   result.sort((a, b) => priorityOf(a.variant) - priorityOf(b.variant))

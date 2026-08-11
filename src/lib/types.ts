@@ -1370,20 +1370,26 @@ export const DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#2979FF',
   [StatVariant.CR]: '#00E5FF',
   [StatVariant.CDMG]: '#FF80AB',
-  // Judged defaults — one hue per game mode (PvE teal, PvP red, Boss violet,
-  // DNG umber), so the mode reads at a glance. The ⚔/🛡 pair is separated by
-  // LIGHTNESS, with "🛡" the LIGHTER tint: the app's default surface is dark, so
-  // darkening the second member (as this table first did) cost contrast exactly
-  // where it was needed — Boss 🛡 and DNG 🛡 were barely legible. Light-scheme
-  // legibility is handled downstream by useSubstatFgAdapter. User-editable.
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#26A69A',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#EF5350',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#7E57C2',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#A1887F',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#80CBC4',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#EF9A9A',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#B39DDB',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#D7CCC8',
+  // Judged defaults — one hue per game mode (PvE teal, PvP red, Boss violet, DNG
+  // blue-grey), so the mode reads at a glance, with "🛡" the LIGHTER member of each
+  // pair. Both members are picked to clear 4.5:1 against the app's paper surfaces
+  // (#1E1E1E dark, #2C2C2C RSLH) — measured, not eyeballed. Two earlier revisions
+  // failed that bar in opposite directions: the first darkened 🛡 (Boss/DNG 🛡
+  // illegible), the second fixed 🛡 but left ⚔ at mid-tones where Boss ⚔ (#7E57C2)
+  // sat at 2.68:1, below the text threshold before any tint.
+  //
+  // DNG is blue-grey rather than the original umber because RSLH tints selected
+  // surfaces warm tan (#cc9064): an umber stat on a tan row is a hue collision no
+  // contrast adapter can resolve — it can only lighten, not move the hue away.
+  // Cool neutrals stay distinct there. User-editable in Manage Colors.
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#4DB6AC',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#E57373',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#B39DDB',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#90A4AE',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#B2DFDB',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#FFCDD2',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#D1C4E9',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#CFD8DC',
 }
 
 export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
@@ -1398,13 +1404,14 @@ export const DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT: Record<number, string> = {
   [StatVariant.ACC]: '#0A1E40',
   [StatVariant.CR]: '#062833',
   [StatVariant.CDMG]: '#2A0F1E',
-  // dark tints matching the judged FG hues above.
+  // Dark tints matching the judged FG hues above — DNG follows its hue change from
+  // umber to blue-grey, so the chip surface never reads as the warm RSLH tint.
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus]: '#0E2B27',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgPlus]: '#2F1414',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgPlus]: '#221A33',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#291F1B',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgPlus]: '#1B2429',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgMinus]: '#0A211E',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pvpDmgMinus]: '#260F0F',
   [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.bossDmgMinus]: '#1B1429',
-  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#211814',
+  [ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.dungeonDmgMinus]: '#161D21',
 }
