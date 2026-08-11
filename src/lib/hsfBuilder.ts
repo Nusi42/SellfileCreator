@@ -29,6 +29,7 @@ export {
   normalizeRollTargetEntry,
   quantizeTargetValueForVariant,
   resolveRollTargetValue,
+  targetEntriesEqual,
   targetValueStepForVariant,
 } from './hsfBuilder/targets'
 import {

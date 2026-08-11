@@ -54,7 +54,7 @@ import {
 } from './noteOverridesParser'
 // Case-insensitive set display name → ArtifactSetId (SSOT defined next to the tuple parser).
 import { artifactSetIdByName } from './safeguards'
-import { normalizeRollTargetEntry } from './hsfBuilder/targets'
+import { normalizeRollTargetEntry, quantizeTargetValueForVariant } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { countPositiveSubstats } from './recipeNormalization'
 import { cloneSubstatTargets } from './substatTargets'
@@ -997,6 +997,19 @@ const parseIntegerValue = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+// Stat TARGET values (minima cells, roll targets) accept decimals — anomalous
+// mode-damage substats live on a 1.25 grid, so truncating here would silently
+// degrade a written 3.75 to 3. Everything else the DSL parses is a genuine count
+// (roll counts, substat counts, the any-rank star selector) and keeps
+// parseIntegerValue. Values are quantized per variant when applied, so an
+// off-grid literal still lands on the stat's grid rather than persisting raw.
+const parseTargetValue = (value: string): number | null => {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const clampMinSubstats = (value: number): 0 | 1 | 2 | 3 | 4 => {
   if (value <= 0) return 0
   if (value >= NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX) return NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX
@@ -1007,9 +1020,12 @@ const clampSubstatMin = (value: number): 0 | 1 | 2 | 3 | 4 | 5 => (
   clampAggregateRollValue(value)
 )
 
-const clampMinimaValue = (value: number): number => {
+// DSL-authored minima quantize on the stat's own grid, exactly like SFC ingress
+// and the Substat Targets tab — every write into a target table goes through the
+// one quantizer regardless of authoring route.
+const clampMinimaValue = (variant: number, value: number): number => {
   if (!Number.isFinite(value)) return 0
-  return Math.max(0, Math.round(value))
+  return quantizeTargetValueForVariant(variant, value)
 }
 
 const resolveSelectedSubstatCount = (recipe: Pick<BuilderRecipe, 'substatsV'>): number => (
@@ -1244,9 +1260,15 @@ const parseSelectorTokens = (
       const valToken = cursor.peek()
       if (!valToken || (valToken.kind !== 'word' && valToken.kind !== 'string')) return null
       cursor.next()
-      const numeric = parseIntegerValue(valToken.value)
+      // 'minima.any' selects a star (integer); 'minima.STAR.STAT' compares a
+      // target value, which may sit on a fractional grid.
+      if (parsed.kind === 'any') {
+        const star = parseIntegerValue(valToken.value)
+        if (star == null) return null
+        return { kind: 'minimaAny', op, value: star }
+      }
+      const numeric = parseTargetValue(valToken.value)
       if (numeric == null) return null
-      if (parsed.kind === 'any') return { kind: 'minimaAny', op, value: numeric }
       const variant = variantFromLabel(parsed.statKey)
       if (variant == null) return null
       return { kind: 'minimaField', op, star: parsed.star, variant, value: numeric }
@@ -1580,13 +1602,17 @@ const parseOperations = (
     const minimaField = parseMinimaField(field)
     if (minimaField) {
       if (op !== 'eq') continue
-      const numeric = parseIntegerValue(valueRaw)
-      if (numeric == null) continue
+      // 'minima.any' names a star (integer); a minima cell holds a target value,
+      // which may sit on a fractional grid (quantized per variant when applied).
       if (minimaField.kind === 'any') {
+        const numeric = parseIntegerValue(valueRaw)
+        if (numeric == null) continue
         const star = MINIMA_STAR_LOOKUP[String(numeric)]
         if (!star) continue
         operations.push({ kind: 'minimaAnyRank', value: star })
       } else {
+        const numeric = parseTargetValue(valueRaw)
+        if (numeric == null) continue
         const variant = variantFromLabel(minimaField.statKey)
         if (variant == null) continue
         operations.push({
@@ -1622,8 +1648,9 @@ const parseOperations = (
       if (!rtStatKey) continue
       const variant = variantFromLabel(rtStatKey)
       if (variant == null) continue
-      // First value is the Base (0-roll) threshold.
-      const base = parseIntegerValue(valueRaw)
+      // First value is the Base (0-roll) threshold — a target value, so decimals
+      // are accepted (quantized to the stat's grid when applied).
+      const base = parseTargetValue(valueRaw)
       if (base == null) continue
       // Subsequent comma-separated values are +1…+SUBSTAT_TARGET_MAX_ROLLS thresholds.
       // Empty slots (consecutive commas, e.g. "300, , 900") become null and fall back
@@ -1634,7 +1661,7 @@ const parseOperations = (
         const next = cursor.peek()
         if (next?.kind === 'word') {
           cursor.next()
-          increments.push(parseIntegerValue(next.value))
+          increments.push(parseTargetValue(next.value))
         } else {
           increments.push(null)  // empty slot between commas
         }
@@ -3412,7 +3439,7 @@ export const applyRecipeOverridesSubstatTargetsOverrides = (
         continue
       }
       const starKey = starKeyForSubstatTargets(op.star)
-      const nextValue = clampMinimaValue(op.value)
+      const nextValue = clampMinimaValue(op.variant, op.value)
       const currentSlice = next[starKey] ?? {}
       const currentValue = currentSlice[op.variant]
       if (currentValue === nextValue) continue

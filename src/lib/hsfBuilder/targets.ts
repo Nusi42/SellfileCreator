@@ -87,6 +87,29 @@ export const normalizeRollTargetEntry = (
   return hasOverride ? normalized : null
 }
 
+// Structural equality for two target entries. Both sides are normalized first so
+// shape differences (undefined vs null, trailing nulls, off-grid values that
+// quantize to the same threshold) never register as a change. Normalization is
+// idempotent, so passing already-normalized entries is free.
+export const targetEntriesEqual = (
+  left: SubstatRollTargetEntry | null | undefined,
+  right: SubstatRollTargetEntry | null | undefined,
+  variant: number,
+): boolean => {
+  const a = normalizeRollTargetEntry(left, variant)
+  const b = normalizeRollTargetEntry(right, variant)
+  if (!a && !b) return true
+  if (!a || !b) return false
+  if (a.base !== b.base) return false
+  const leftIncrements = a.increments ?? []
+  const rightIncrements = b.increments ?? []
+  if (leftIncrements.length !== rightIncrements.length) return false
+  for (let i = 0; i < leftIncrements.length; i += 1) {
+    if (leftIncrements[i] !== rightIncrements[i]) return false
+  }
+  return true
+}
+
 // Resolves the effective roll target threshold for a given roll count.
 // rollIndex 0 = Base; 1 = +1, etc. factoryBase is the per-roll increment value
 // for this stat/star (e.g. from baseMinForStarV — the game doubles it per roll:

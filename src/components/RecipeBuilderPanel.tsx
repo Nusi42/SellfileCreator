@@ -422,7 +422,7 @@ const applySingleSubstatTargets = React.useCallback((variant: number, builder: (
     ...(Array.isArray(prevRaw.increments) ? { increments: [...prevRaw.increments] } : {}),
   } : undefined)
   const nextNormalized = normalizeRollTargetEntry(nextRaw, Number(variant))
-  if (targetEntriesEqual(prevRaw, nextNormalized)) return
+  if (targetEntriesEqual(prevRaw, nextNormalized, Number(variant))) return
   let nextMap: SubstatRollTargets | undefined
   if (!nextNormalized) {
     if (prevRaw === undefined) return
@@ -857,7 +857,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         baseline = entry ?? null
         continue
       }
-      if (!targetEntriesEqual(baseline ?? null, entry ?? null)) {
+      if (!targetEntriesEqual(baseline ?? null, entry ?? null, Number(variant))) {
         return null
       }
     }

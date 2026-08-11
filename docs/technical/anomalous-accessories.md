@@ -60,7 +60,7 @@ be revisited.
 | Filter / sort / targets / colors | `RulesFilterPanel.tsx` substat include/exclude rows + the Rolls flyout per-stat options, `PreviewHeaderActions.tsx` sort keys, `SubstatTargetsTabContent.tsx` target rows (rank-5 factory default 1.25; other tiers empty), `ManageColorsDialog.tsx`, `statColorContext.tsx`, `useSubstatColors.ts` defaults (judged per-mode hues), `substatDisplay.ts` colorization gate, `gearInspectorSubstatSortPreferences.ts` allowlists |
 | Gear DB ingest | `gearDbNormalizer.ts` — ids 11–18 decode as percent lines; the taken family's negative storage folds to magnitude (direction lives in the stat identity). Pinned by `tests/unit/gearDbNormalizer-anomalous.test.ts` using the real example-DB rows |
 | Custom gear editor | jewelry slots offer the substats via anomalous-aware `slotSupportsSub` (`types.ts`); anomalous line values SNAP to the 1.25 grid and floor at one grid step; the session's random auto-fill pool stays classic on purpose |
-| Decimal targets | Three named helpers in `targets.ts` own the whole model, and everything else calls them: **`targetValueStepForVariant`** (the stat's grid — 1 classic, 1.25 anomalous), **`quantizeTargetValueForVariant`** (snap to that grid; a non-zero input never becomes "no threshold"), and **`engineAppliedTargetValue`** (the i32 emit floor, named after its Rust counterpart `emit_hsf_target_value`). The variant is a REQUIRED argument through `clampTargetOverrideValue` / `normalizeRollTargetEntry` / `normalizeLooseRollTargetEntry`, so no ingress (SFC, builder UI, note-overrides DSL, menu drafts) can bypass quantization — enforced by the signature, not by convention. Rust's `normalize_target_override_value` mirrors the snap. Every surface that ADVERTISES or COMPARES a threshold (flyout placeholders + hint, min/max roll chips via the shared `resolveRollTargetValue`, the "target decreases" warning, recipe-chip summaries) shows the engine-applied value; only editable inputs show the stored one. Spinners and `inputMode`/`step` affordances are gated per variant |
+| Decimal targets | Three named helpers in `targets.ts` own the whole model, and everything else calls them: **`targetValueStepForVariant`** (the stat's grid — 1 classic, 1.25 anomalous), **`quantizeTargetValueForVariant`** (snap to that grid; a non-zero input never becomes "no threshold"), and **`engineAppliedTargetValue`** (the i32 emit floor, named after its Rust counterpart `emit_hsf_target_value`). The variant is a REQUIRED argument through `clampTargetOverrideValue` / `normalizeRollTargetEntry` / `normalizeLooseRollTargetEntry` / `targetEntriesEqual`, so no ingress can bypass quantization — enforced by the signature, not by convention. Those four have exactly one definition each (`targets.ts`); `substatMenuHelpers` re-exports rather than re-implements, and `recipeMultiEditDraft`'s private integer-rounding copies are gone (they persisted an anomalous 2.5 as 3 — *above* what the user typed). **Both** target tables quantize at every write: roll targets (`sfcIO.parseReadableTargetEntry`, the multi-edit apply path, the DSL apply path) and the Minima table (`sfcIO.normalizeSubstatTargets`, the DSL's `clampMinimaValue`, the tab's own clamp). Rust's `normalize_target_override_value` mirrors the snap. Every surface that ADVERTISES or COMPARES a threshold (flyout placeholders + hint, min/max roll chips via the shared `resolveRollTargetValue`, the "target decreases" warning, recipe-chip summaries) shows the engine-applied value; only editable inputs show the stored one. Spinners and `inputMode`/`step` affordances are gated per variant |
 | Gear line values | `clampGearLineValue` (`gearInspectorSession.ts`) is the one rule — grid snap + one-step floor — shared by the custom-gear editor's input clamp and the session's `adjustSubValuesFor` re-normalization, which previously disagreed on both grid and floor |
 | SFC round-trip (labels, both languages) | TS `sfcIO.ts` via `labelOfVariant`/`variantFromLabel`; Rust `sfc_reader.rs` via the generated `ANOMALOUS_SUBSTAT_LABELS`; pinned by `shared/sfc-label-test-vectors.json` |
 | Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it |
@@ -80,15 +80,17 @@ base / glyph data, safeguard score normalization (anomalous values normalize to
 0 and stay inert in ranking until the roll model is confirmed), set-eligibility
 as a combination constraint (all observed pieces carry one of the 9 sets, but
 setless anomalous accessories are unconfirmed — no false "impossible"
-verdicts), and the note-overrides DSL: its EBNF *reference text*
-(`overridesEbnf.ts`) omits anomalous stat keys, but the parser resolves keys
-via `variantFromLabel` and therefore ACCEPTS them (including the space-free /
-`DMG`-less aliases) — `parseIntegerValue` / `clampMinimaValue`
-(`noteRecipeOverrides.ts`) truncate fractional values to integers first, and
-the apply path then re-snaps roll targets to the grid per variant (so a DSL
-`1.25` lands as 1 → 1.25, but `3.75` lands as 3 → 2.5). DSL-side grid support
-is future work; until then hand-written anomalous overrides are lossy above
-the first grid step.
+verdicts). The note-overrides DSL is fully wired: stat TARGET values parse as
+decimals (`parseTargetValue` — counts like `minrolls` still truncate), the apply
+paths quantize per variant, and the EBNF reference lists the anomalous keys plus
+a `targetNum` terminal marking where decimals are legal.
+
+**Anomalous stats spell as their internal key in DSL text** (`rolltarget.pveDmgPlus=1.25`),
+never as their display label: `+` and spaces are token separators, so "PvE DMG +"
+cannot occupy a field position. `statVariantToKey` (`overridesEditorModel.ts`) is the
+SSOT for that spelling and the serializer emits through it; `variantFromLabel` still
+accepts every alias (label, space-free, `DMG`-less, key) so hand-written text keeps
+parsing.
 
 ## Judged values (the PROVISIONAL(anomalous) ledger)
 

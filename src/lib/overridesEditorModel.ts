@@ -33,6 +33,8 @@ import {
   type RankValue,
   type StatVariant,
 } from './types'
+// PROVISIONAL(anomalous): DSL-typable token for the mode-damage substats.
+import { anomalousSubstatDslKey } from './anomalousAccessories'
 // Type-only: catalog key union, so every labelKey below is COMPILE-checked to exist.
 import type { I18nKey } from './i18n'
 // Numeric widget bounds mirror the apply-side clamp SSOTs — never re-spelled here.
@@ -348,9 +350,19 @@ const GEARSET_ID_BY_NAME = new Map<string, number>(
 export const gearsetNameToId = (name: string): number | null => GEARSET_ID_BY_NAME.get(name) ?? null
 export const gearsetIdToName = (id: number): string | null => artifactSetNames[Number(id)] ?? null
 
-/** DSL stat key ('SPD', 'HP%') ⇄ StatVariant — the parser's own mapping pair. */
+/**
+ * DSL stat key ('SPD', 'HP%') ⇄ StatVariant — the parser's own mapping pair, and the
+ * SSOT for how a stat is SPELLED in override text (fields, lists, the EBNF listing).
+ *
+ * PROVISIONAL(anomalous): mode-damage substats spell as their internal key
+ * (`pveDmgPlus`), not their display label — `+` and spaces are token separators, so
+ * "PvE DMG +" cannot appear in a field position. `variantFromLabel` accepts both, so
+ * parsing stays permissive while emission always produces the writable form.
+ */
 export const statKeyToVariant = (key: string): StatVariant | null => variantFromLabel(key)
-export const statVariantToKey = (variant: StatVariant): string => labelOfVariant(variant)
+export const statVariantToKey = (variant: StatVariant): string => (
+  anomalousSubstatDslKey(variant) ?? labelOfVariant(variant)
+)
 
 // Rarity rank value (1–6) ⇄ lowercase DSL rarity name (the serializer's spelling).
 const RARITY_NAME_BY_RANK = new Map<number, string>(

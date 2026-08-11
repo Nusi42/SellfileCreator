@@ -53,11 +53,13 @@ import {
   artifactSetNames,
   artifactTypeNames,
   factionCodeToName,
-  labelOfVariant,
   rarityCodeFromRankValue,
   rarityCodeParts,
   rarityCodeToName,
 } from './types'
+// Stats are SPELLED through the DSL-key SSOT, not their display label: anomalous
+// substats must emit their writable internal key (see statVariantToKey).
+import { statVariantToKey } from './overridesEditorModel'
 
 /** Thrown when a draft holds a construct the DSL grammar cannot express (e.g. an
  *  `or` nested under `and` in the paren-less recipe selector grammar). Such drafts
@@ -234,9 +236,9 @@ const emitRecipeSelTerm = (sel: RecipeOverridesSelector): string => {
     case 'minSubstats': return `minsubstats${OP_SYMBOL[sel.op]}${sel.value}`
     case 'flex': return `flex=${sel.value ? 'on' : 'off'}`
     case 'substatMin': return `substatmin${OP_SYMBOL[sel.op]}${sel.value}`
-    case 'substatMinField': return `substatmin.${labelOfVariant(sel.variant)}${OP_SYMBOL[sel.op]}${sel.value}`
+    case 'substatMinField': return `substatmin.${statVariantToKey(sel.variant)}${OP_SYMBOL[sel.op]}${sel.value}`
     case 'minimaAny': return `minima.any${OP_SYMBOL[sel.op]}${sel.value}`
-    case 'minimaField': return `minima.${sel.star}.${labelOfVariant(sel.variant)}${OP_SYMBOL[sel.op]}${sel.value}`
+    case 'minimaField': return `minima.${sel.star}.${statVariantToKey(sel.variant)}${OP_SYMBOL[sel.op]}${sel.value}`
     case 'not': case 'and': case 'or':
       throw new SerializeError('combinator reached term emitter')  // handled by emitRecipeSel
   }
@@ -326,11 +328,11 @@ export function serializeRecipeOperation(op: RecipeOverridesOperation): string {
     case 'minSubstats': return emitNumericOrExpr(field, op.value, op.ast)
     case 'flex': return `${field}=${op.value ? 'on' : 'off'}`
     case 'substatMinAll': return `${field}=${op.value}`
-    case 'substatMinVariant': return `${field}.${labelOfVariant(op.variant)}=${op.value}`
+    case 'substatMinVariant': return `${field}.${statVariantToKey(op.variant)}=${op.value}`
     case 'minimaAnyRank': return `${field}.any=${op.value}`
-    case 'minimaTarget': return `${field}.${op.star}.${labelOfVariant(op.variant)}=${op.value}`
+    case 'minimaTarget': return `${field}.${op.star}.${statVariantToKey(op.variant)}=${op.value}`
     // Null increments are empty slots between commas (`300,,900`); trailing nulls survive too.
-    case 'rollTarget': return `${field}.${labelOfVariant(op.variant)}=${op.base}${op.increments.map((n) => `,${n == null ? '' : n}`).join('')}`
+    case 'rollTarget': return `${field}.${statVariantToKey(op.variant)}=${op.base}${op.increments.map((n) => `,${n == null ? '' : n}`).join('')}`
     case 'artifactTypes': return op.mode === 'replace'
       ? emitList(field, op.values.map((id) => ({ prefix: '' as const, name: artifactTypeNames[id] ?? String(id) })))
       : emitList(field, [
@@ -339,10 +341,10 @@ export function serializeRecipeOperation(op: RecipeOverridesOperation): string {
       ])
     case 'substats':
     case 'mainStats': return op.mode === 'replace'
-      ? emitList(field, op.variants.map((v) => ({ prefix: '' as const, name: labelOfVariant(v) })))
+      ? emitList(field, op.variants.map((v) => ({ prefix: '' as const, name: statVariantToKey(v) })))
       : emitList(field, [
-        ...op.add.map((v) => ({ prefix: '+' as const, name: labelOfVariant(v) })),
-        ...op.remove.map((v) => ({ prefix: '-' as const, name: labelOfVariant(v) })),
+        ...op.add.map((v) => ({ prefix: '+' as const, name: statVariantToKey(v) })),
+        ...op.remove.map((v) => ({ prefix: '-' as const, name: statVariantToKey(v) })),
       ])
     case 'artifactSets': return op.mode === 'replace'
       ? emitList(field, op.ids.map((id) => ({ prefix: '' as const, name: artifactSetNames[id] ?? String(id) })))
@@ -378,14 +380,14 @@ export function serializeSafeguardOperation(op: SafeguardOverridesOperation): st
     case 'perSet':
     case 'perRule': return `${field}=${op.value ? 'on' : 'off'}`
     case 'substats': return op.mode === 'replace'
-      ? emitList(field, op.stats.map((v) => ({ prefix: '' as const, name: labelOfVariant(v) })))
+      ? emitList(field, op.stats.map((v) => ({ prefix: '' as const, name: statVariantToKey(v) })))
       : emitList(field, [
-        ...op.add.map((v) => ({ prefix: '+' as const, name: labelOfVariant(v) })),
-        ...op.remove.map((v) => ({ prefix: '-' as const, name: labelOfVariant(v) })),
+        ...op.add.map((v) => ({ prefix: '+' as const, name: statVariantToKey(v) })),
+        ...op.remove.map((v) => ({ prefix: '-' as const, name: statVariantToKey(v) })),
       ])
     // Value strings ('1'…'4' / 'perSubstat') lowercase into the accepted keyword set.
     case 'substatMatch': return `${field}=${String(op.value).toLowerCase()}`
-    case 'substatWeight': return `${field}.${labelOfVariant(op.stat)}=${op.value}`
+    case 'substatWeight': return `${field}.${statVariantToKey(op.stat)}=${op.value}`
     case 'improvementChance': {
       if (op.dynamic) return `${field}=$value`
       if (op.value == null) return `${field}=disabled`

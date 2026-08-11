@@ -181,6 +181,39 @@ test('recipe operation table: every kind emits parse-exact DSL', () => {
   }
 })
 
+// PROVISIONAL(anomalous): stat TARGET values carry decimals (mode-damage substats
+// sit on a 1.25 grid). The parser must keep the fraction — truncating here would
+// degrade a written 3.75 to 3 before the per-variant quantizer ever sees it — and
+// the serializer must re-emit it verbatim so the DSL round-trips.
+test('recipe target values keep decimals through parse and re-emit', () => {
+  // Anomalous stats spell as their internal key here — "PvE DMG +" cannot appear in
+  // a field position ('+' and spaces are token separators).
+  const body = '{ @all { rolltarget.pveDmgPlus=1.25,2.5,,3.75 minima.5.pveDmgPlus=2.5 } }'
+  const option = roundTripBody('recipe', body)
+  assert.ok(option.body.kind === 'structured')
+  const ops = (option.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
+  const rollTarget = (ops as Array<{ kind: string; base?: number; increments?: Array<number | null> }>)
+    .find((op) => op.kind === 'rollTarget')
+  assert.equal(rollTarget?.base, 1.25)
+  assert.deepEqual(rollTarget?.increments, [2.5, null, 3.75])
+  const minima = (ops as Array<{ kind: string; value?: number }>).find((op) => op.kind === 'minimaTarget')
+  assert.equal(minima?.value, 2.5)
+  // Counts in the same grammar still truncate — decimals are target-only.
+  const counts = roundTripBody('recipe', '{ @all { minrolls=2 minsubstats=3 } }')
+  const countOps = (counts.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
+  assert.deepEqual(
+    (countOps as Array<{ kind: string; value?: number }>).map((op) => op.value),
+    [2, 3],
+  )
+  // Every emitted op re-parses to itself (decimals survive serialization).
+  for (const op of ops as Parameters<typeof serializeRecipeOperation>[0][]) {
+    const emitted = serializeRecipeOperation(op)
+    const back = roundTripBody('recipe', `{ @all { ${emitted} } }`)
+    const reOps = (back.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
+    assert.deepEqual(reOps, [op], `op '${emitted}' must round-trip`)
+  }
+})
+
 test('safeguard operation table: every kind emits parse-exact DSL', () => {
   const body = '{ @all { activation=anticipate_improvements count=8 ignprev=on igncoll=off '
     + 'ignvault=on perfaction=on permainstat=off perslot=on perset=off perrule=on '

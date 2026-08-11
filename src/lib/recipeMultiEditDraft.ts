@@ -6,6 +6,8 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderRecipe, SubstatRollTargetEntry } from './hsfBuilder'
+// Roll-target normalization/equality have one definition (variant-aware, quantizer-backed).
+import { normalizeRollTargetEntry, targetEntriesEqual } from './hsfBuilder'
 import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex, countPositiveSubstats, normalizeFactionSlotScope } from './recipeNormalization'
 import { isAccessorySlot, slotPatchIntroducesArtifact } from './gearInspectorDomain'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
@@ -649,7 +651,8 @@ function areTargetPatchesEqual(
     const leftEntry = left[idx]?.value
     const rightEntry = right[idx]?.value
     if (leftEntry === undefined && rightEntry === undefined) continue
-    if (!targetEntriesEqual(leftEntry ?? null, rightEntry ?? null)) return false
+    // The patch key is the stat variant — compare on that stat's grid.
+    if (!targetEntriesEqual(leftEntry ?? null, rightEntry ?? null, idx)) return false
   }
   return true
 }
@@ -725,69 +728,26 @@ function areRollTargetsEqual(
   for (const key of aKeys) {
     if (!Object.prototype.hasOwnProperty.call(b, key)) return false
     const idx = Number(key)
-    if (!targetEntriesEqual(a[idx], b[idx])) return false
+    if (!targetEntriesEqual(a[idx], b[idx], idx)) return false
   }
   return true
 }
 
 // Canonicalize target maps before comparing so we avoid spurious dirty
-// states when the same numbers are provided in different shapes.
+// states when the same numbers are provided in different shapes. The map key IS
+// the stat variant, so every entry quantizes on its own grid — multi-edit writes
+// land on exactly the values the flyout and SFC ingress would produce.
 function normalizeRollTargets(
   source: BuilderRecipe['substatRollTargetsV'],
 ): SubstatRollTargetsMap {
   if (!source) return {}
   const result: SubstatRollTargetsMap = {}
   for (const [key, entry] of Object.entries(source)) {
-    const normalized = normalizeRollTargetEntryValue(entry as SubstatRollTargetEntry | null | undefined)
+    const normalized = normalizeRollTargetEntry(entry as SubstatRollTargetEntry | null | undefined, Number(key))
     if (!normalized) continue
     result[Number(key)] = normalized
   }
   return result
-}
-
-// Clamp one target entry to integers and trim trailing nulls.
-function normalizeRollTargetEntryValue(
-  entry: SubstatRollTargetEntry | null | undefined,
-): SubstatRollTargetEntry | null {
-  if (!entry) return null
-  const next: SubstatRollTargetEntry = {}
-  const baseValid = typeof entry.base === 'number' && Number.isFinite(entry.base)
-  if (baseValid) {
-    next.base = Math.round(entry.base!)
-  }
-  if (Array.isArray(entry.increments)) {
-    const normalized = entry.increments.map((value) => (
-      typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null
-    ))
-    while (normalized.length > 0 && normalized[normalized.length - 1] == null) {
-      normalized.pop()
-    }
-    if (normalized.length > 0) {
-      next.increments = normalized
-    }
-  }
-  if (next.base == null && !next.increments) return null
-  return next
-}
-
-// Helper shared by equality/persist helpers. Treats `undefined` like `null` and
-// ignores trailing null increments so drafts line up with serialized SFC.
-function targetEntriesEqual(
-  left: SubstatRollTargetEntry | null | undefined,
-  right: SubstatRollTargetEntry | null | undefined,
-): boolean {
-  const normalizedLeft = normalizeRollTargetEntryValue(left)
-  const normalizedRight = normalizeRollTargetEntryValue(right)
-  if (!normalizedLeft && !normalizedRight) return true
-  if (!normalizedLeft || !normalizedRight) return false
-  if (normalizedLeft.base !== normalizedRight.base) return false
-  const leftIncrements = normalizedLeft.increments ?? []
-  const rightIncrements = normalizedRight.increments ?? []
-  if (leftIncrements.length !== rightIncrements.length) return false
-  for (let i = 0; i < leftIncrements.length; i += 1) {
-    if (leftIncrements[i] !== rightIncrements[i]) return false
-  }
-  return true
 }
 export function applyMultiEditFieldToRecipe(
   recipe: BuilderRecipe,
@@ -1111,7 +1071,9 @@ function applyTargetPatch(recipe: BuilderRecipe, patch: MultiEditTargetPatch): B
   for (const [key, entry] of Object.entries(patch)) {
     const idx = Number(key)
     if (!selectable.has(idx)) continue
-    const normalized = normalizeRollTargetEntryValue(entry?.value ?? null)
+    // idx IS the stat variant — quantize the incoming patch on its own grid so a
+    // multi-edit apply cannot persist an off-grid (or rounded-up) target.
+    const normalized = normalizeRollTargetEntry(entry?.value ?? null, idx)
     const existing = current[idx]
     if (!normalized) {
       if (existing === undefined) continue
@@ -1120,7 +1082,7 @@ function applyTargetPatch(recipe: BuilderRecipe, patch: MultiEditTargetPatch): B
       changed = true
       continue
     }
-    if (targetEntriesEqual(existing, normalized)) continue
+    if (targetEntriesEqual(existing, normalized, idx)) continue
     if (!nextEntries) nextEntries = { ...current }
     nextEntries[idx] = normalized
     changed = true

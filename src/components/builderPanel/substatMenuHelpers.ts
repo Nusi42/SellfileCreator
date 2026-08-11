@@ -64,50 +64,10 @@ export const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRoll
   && (Boolean(a?.not) === Boolean(b?.not))
 )
 
-export const normalizeRollTargetEntry = (
-  entry: SubstatRollTargetEntry | null | undefined,
-  variant: number,
-): SubstatRollTargetEntry | null => {
-  // Builder stores overrides as variant keyed objects. UI accepts partial drafts,
-  // so we sanitize them before comparing or persisting to avoid false positives.
-  // Values run through the shared quantizer (same grid as every other ingress),
-  // so a draft can never persist off-grid — and drafts compare against stored
-  // entries on identical terms.
-  if (!entry) return null
-  const next: SubstatRollTargetEntry = {}
-  const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
-  if (hasBase) next.base = quantizeTargetValueForVariant(variant, entry.base!)
-  if (Array.isArray(entry.increments)) {
-    const trimmed = entry.increments
-      .slice(0, SUBSTAT_TARGET_MAX_ROLLS)
-      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? quantizeTargetValueForVariant(variant, value) : null))
-    while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
-      trimmed.pop()
-    }
-    if (trimmed.some((value) => value != null)) {
-      next.increments = trimmed
-    }
-  }
-  if (next.base == null && !next.increments) return null
-  return next
-}
-
-export const targetEntriesEqual = (
-  a: SubstatRollTargetEntry | null | undefined,
-  b: SubstatRollTargetEntry | null | undefined,
-): boolean => {
-  if (a === b) return true
-  if (!a && !b) return true
-  if (!a || !b) return false
-  if (a.base !== b.base) return false
-  const left = Array.isArray(a.increments) ? a.increments : []
-  const right = Array.isArray(b.increments) ? b.increments : []
-  if (left.length !== right.length) return false
-  for (let i = 0; i < left.length; i += 1) {
-    if (left[i] !== right[i]) return false
-  }
-  return true
-}
+// Roll-target normalization and equality have ONE definition, in hsfBuilder/targets
+// (variant-aware, quantizer-backed). Re-exported here so the menu's own helpers stay
+// importable from a single module — never re-implement them.
+export { normalizeRollTargetEntry, targetEntriesEqual } from '../../lib/hsfBuilder'
 
 export const createEmptyTargetRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_TARGET_MAX_ROLLS }, () => null)
 

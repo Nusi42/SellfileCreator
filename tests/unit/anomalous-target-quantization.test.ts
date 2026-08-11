@@ -15,6 +15,9 @@ import {
   resolveRollTargetValue,
 } from '../../src/lib/hsfBuilder/targets.js'
 import { clampGearLineValue } from '../../src/lib/gearInspectorSession.js'
+import { applyMultiEditFieldToRecipe } from '../../src/lib/recipeMultiEditDraft.js'
+import { normalizeSubstatTargets } from '../../src/lib/sfcIO.js'
+import type { BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../../src/lib/statCompatibility.js'
 import { buildHsfFileFromMerged } from '../../src/lib/hsfIO.js'
 import {
@@ -104,6 +107,36 @@ test('gear line values use one grid+floor rule for editor input and session re-n
   // Idempotent: re-normalizing a stored value never drifts it.
   const stored = clampGearLineValue(PVE_PLUS, 3.75)
   assert.equal(clampGearLineValue(PVE_PLUS, stored), stored)
+})
+
+test('multi-edit apply persists targets on the grid, not rounded to integers', () => {
+  // The multi-edit path used to run its own integer-rounding normalizer, storing
+  // an anomalous 1.25 as 1 and — worse — 2.5 as 3, ABOVE what the user asked for.
+  const recipe = { substatsV: [PVE_PLUS], substatRollTargetsV: {} } as unknown as BuilderRecipe
+  const applied = applyMultiEditFieldToRecipe(recipe, 'substatRollTargetsV', {
+    value: null,
+    status: 'common',
+    patch: { [PVE_PLUS]: { value: { base: 2.5, increments: [3.75] } } },
+  } as never)
+  assert.deepEqual(applied.substatRollTargetsV?.[PVE_PLUS], { base: 2.5, increments: [3.75] })
+  // Off-grid input snaps rather than persisting raw or rounding up.
+  const offGrid = applyMultiEditFieldToRecipe(recipe, 'substatRollTargetsV', {
+    value: null,
+    status: 'common',
+    patch: { [PVE_PLUS]: { value: { base: 2.6 } } },
+  } as never)
+  assert.deepEqual(offGrid.substatRollTargetsV?.[PVE_PLUS], { base: 2.5 })
+})
+
+test('SFC Minima ingress quantizes per stat like its roll-target sibling', () => {
+  // A hand-edited/older SFC can carry values that never passed a UI clamp.
+  const table = normalizeSubstatTargets({
+    five: { 'PvE DMG +': 2.6, SPD: 4.5 },
+    anyRankDefaultsTo: 6,
+  })
+  // Anomalous snaps to the 1.25 grid; classic rounds to an integer.
+  assert.equal(table.five[PVE_PLUS], 2.5)
+  assert.equal(table.five[StatVariant.SPD], 5)
 })
 
 test('anomalous feasibility requires a jewelry slot that SURVIVES the main-stat gate', () => {

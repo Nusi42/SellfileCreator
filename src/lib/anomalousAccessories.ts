@@ -91,10 +91,20 @@ export const isAnomalousEligibleSlotId = (slotId: number): boolean => eligibleSl
 export const anomalousSubstatLabel = (variant: number): string | undefined =>
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT[variant]
 
+// The DSL-typable token for an anomalous substat: its stable internal key
+// (`pveDmgPlus`, …). The display labels ("PvE DMG +") cannot be used in
+// note-overrides FIELD positions — `+` and spaces are token separators there —
+// so the key is the writable form. Case-insensitive on the way in.
+export const anomalousSubstatDslKey = (variant: number): string | undefined => (
+  (Object.keys(ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY) as AnomalousSubstatKey[])
+    .find((key) => ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY[key] === variant)
+)
+
 // Reverse lookup: uppercase display label → variant, for label-parsing paths
 // (variantFromLabel in types.ts). Built once from the generated label map, with
-// defensive aliases: the space-free form and the "DMG"-less short form
-// ("PVE+", "BOSS-", ...) so hand-typed or legacy-shortened labels still resolve.
+// defensive aliases: the space-free form, the "DMG"-less short form ("PVE+",
+// "BOSS-", ...), and the internal key ("PVEDMGPLUS") — the only alias that
+// survives DSL field tokenization.
 const variantByUpperLabel = new Map<string, number>()
 for (const [variantStr, label] of Object.entries(ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT)) {
   const variant = Number(variantStr)
@@ -102,6 +112,9 @@ for (const [variantStr, label] of Object.entries(ANOMALOUS_SUBSTAT_DISPLAY_LABEL
   variantByUpperLabel.set(upper, variant)
   variantByUpperLabel.set(upper.replace(/\s+/g, ''), variant)
   variantByUpperLabel.set(upper.replace(/\s*DMG\s*/, ''), variant)
+}
+for (const [key, variant] of Object.entries(ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY)) {
+  variantByUpperLabel.set(key.toUpperCase(), variant)
 }
 
 // Parse a display label into an anomalous variant; null when it is not one.

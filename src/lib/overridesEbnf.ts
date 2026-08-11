@@ -50,7 +50,7 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
 } from './noteSafeguardOverrides'
-import { STAT_VARIANTS_PRIORITY, labelOfVariant } from './types'
+import { ANOMALOUS_SUBSTAT_VARIANTS, STAT_VARIANTS_PRIORITY, labelOfVariant } from './types'
 
 // Wrap limit matched to the EBNF popover width (~126 chars at its mono font size).
 const EBNF_MAX_LINE_LENGTH = 126
@@ -151,6 +151,9 @@ rankNum       := "1" | "2" | "3" | "4" | "5" | "6"
 lvlVal        := lvlMilestone | lvlMilestone "-" lvlMilestone
 lvlMilestone  := "0" | "4" | "8" | "12" | "16"
 starKey       := "1" | "2" | "3" | "4" | "5" | "6" | "one" | "two" | "three" | "four" | "five" | "six"
+targetNum     := number, decimals allowed (e.g. 1.25)
+                 // stat TARGET values only (rolltarget., minima.STAR.STAT); every other
+                 // number is a count and truncates. Values snap to the stat's value grid.
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
 gearToken     := ["+" | "+-" | "-"] token`
 
@@ -159,7 +162,7 @@ gearToken     := ["+" | "+-" | "-"] token`
 const RECIPE_ASSIGNMENT_LINES = `recipeAssign  := ("rank" | "rarity") ("=" | ">=" | "<=") value
              | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
              | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
-             | "rolltarget." statKey "=" number ("," [number])*
+             | "rolltarget." statKey "=" targetNum ("," [targetNum])*
 ${wrapAltRule('field', [
   ...NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS.map(quoteTok),
   '"substatmin." statKey', '"minima.any"', '"minima." starKey "." statKey',
@@ -250,11 +253,13 @@ ${SHARED_VALUE_LINES}`
 
 // ── Runtime statKey row (labels come from the stat-variant SSOT) ──────────────
 
-// Enumerate supported stat labels in canonical order, de-duplicated.
+// Enumerate supported stat labels in canonical order, de-duplicated. Includes the
+// PROVISIONAL(anomalous) accessory-only substats — the parser resolves them through
+// variantFromLabel, so the reference must list what it actually accepts.
 const buildStatKeys = (): string[] => {
   const seen = new Set<string>()
   const statKeys: string[] = []
-  for (const variant of STAT_VARIANTS_PRIORITY) {
+  for (const variant of [...STAT_VARIANTS_PRIORITY, ...ANOMALOUS_SUBSTAT_VARIANTS]) {
     const label = labelOfVariant(variant)
     if (!label || !label.trim() || seen.has(label)) continue
     seen.add(label)

@@ -8,7 +8,7 @@
  *
  * This module deliberately contains only SFC read/write concerns to keep UI code tidy.
  */
-import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
+import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, quantizeTargetValueForVariant, type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
 import { normalizeRecipeKeepState, isMilestoneThresholdsActive, canEnableSubstatFlex, countPositiveSubstats } from './recipeNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
@@ -696,7 +696,10 @@ export function normalizeSubstatTargets(src: unknown): SubstatTargetTable {
       const vk = variantFromLabel(k)
       if (vk === null) continue
       const num = Number(v)
-      if (Number.isFinite(num)) out[vk as number] = num
+      // Quantize on the stat's own grid, like the roll-target ingress beside it —
+      // an SFC value that never passed through the UI must not persist off-grid
+      // (it would display verbatim yet apply floored, silently widening the rule).
+      if (Number.isFinite(num)) out[vk as number] = quantizeTargetValueForVariant(vk as number, num)
     }
     return out
   }
