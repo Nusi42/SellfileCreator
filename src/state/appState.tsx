@@ -36,11 +36,12 @@ type AppState = {
   recipesEnabled: boolean
   selectedRecipeIdx: number | null
   sfcNote: string | null
-  // Session-only recipeOverrides answers keyed by question ID.
+  // Document state, persisted in the SFC alongside the note that declares the questions.
+  // recipeOverrides answers keyed by question ID.
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
-  // Session-only flag to disable all dynamic overrides (recipe + safeguard) prompts.
+  // Flag to disable all dynamic overrides (recipe + safeguard) prompts; saved with the document.
   noteOverridesDisabled: boolean
-  // Session-only safeguard-overrides answers keyed by question ID (slider values + checkbox states).
+  // safeguard-overrides answers keyed by question ID (slider values + checkbox states).
   noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
 }
 
@@ -206,7 +207,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     recipesEnabled: true,
     selectedRecipeIdx: null,
     sfcNote: null,
-    // Recipe overrides answers are stored only in autosave/session state.
+    // Empty until a document supplies answers; the SFC carries them from then on.
     noteRecipeOverridesAnswers: {},
     // Dynamic overrides are enabled by default when a note includes markers.
     noteOverridesDisabled: false,

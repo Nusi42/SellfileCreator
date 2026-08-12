@@ -17,6 +17,7 @@ import {
   type NoteSafeguardOverridesAnswers,
   type SafeguardNoteQuestionDefinition,
 } from './noteSafeguardOverrides'
+import { arraysEqual } from './array'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 import { normalizeTagValue } from './tagHelpers'
@@ -470,10 +471,12 @@ export type NoteQuestionDefinition = {
   isSpacer?: true
 }
 
-// Autosave key for storing recipe overrides answers (session-only).
+// Persisted SFC key for recipe overrides answers. Written after `Note` by buildSfcPayload and
+// read back by parseSfcObject, so it serves the .sfc file, the autosave snapshot and the
+// background account push alike. Part of the on-disk format — never rename it.
 export const NOTE_RECIPE_OVERRIDES_ANSWERS_KEY = 'NoteRecipeOverridesAnswers'
-// Autosave key for disabling dynamic overrides (recipe + safeguard) parsing (session-only).
-// Value kept as-is for backward-compatible autosave restore.
+// Persisted SFC key for the dynamic-overrides (recipe + safeguard) kill switch. The name keeps
+// its legacy "Recipe" spelling for backward-compatible restore even though it gates both domains.
 export const NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
 // Marker keyword for recipe overrides in note comments.
 export const NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD = 'recipe-overrides'
@@ -763,7 +766,7 @@ export const dropDefaultSafeguardOverridesAnswers = (
   for (const [questionId, value] of Object.entries(answers)) {
     const base = baseline[questionId]
     // Array compare: answers are option-id lists (sliders carry a single stringified number).
-    if (base && base.length === value.length && base.every((entry, i) => entry === value[i])) {
+    if (base && arraysEqual(base, value)) {
       dropped = true
       continue
     }

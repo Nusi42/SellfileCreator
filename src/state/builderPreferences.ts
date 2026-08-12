@@ -26,6 +26,14 @@ const DEFAULT_BUILDER_PANEL_COLLAPSED: BuilderPanelCollapsedSections = Object.fr
 // Exported so autosave/restore logic can create default snapshots without re-declaring them.
 export const cloneDefaultBuilderPanelCollapsed = (): BuilderPanelCollapsedSections => ({ ...DEFAULT_BUILDER_PANEL_COLLAPSED })
 
+/**
+ * True while EITHER substat sub-group is open. Both builder panels gate their substat
+ * override badge on this — the badge lives inside the rows, so it must hide only once both
+ * halves are folded away. One definition so the two hand-parallel panels cannot drift.
+ */
+export const isAnySubstatSectionExpanded = (collapsed: BuilderPanelCollapsedSections): boolean =>
+  !collapsed.substats || !collapsed.substatsAnomalous
+
 // Exported for equality checks in autosave signature computation.
 export const builderPanelCollapsedEquals = (a: BuilderPanelCollapsedSections, b: BuilderPanelCollapsedSections): boolean =>
   BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS.every((k) => Boolean(a[k]) === Boolean(b[k]))

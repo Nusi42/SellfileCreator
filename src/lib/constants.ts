@@ -549,12 +549,23 @@ export const BUILDER_LABEL_TEXT_SX = {
   minWidth: 0,
 } as const
 
-// SSOT for the "collapsed, but this section holds a selection" signal colour. Section LABELS
-// have carried this as `color: 'primary.main'` since the collapse feature shipped; sub-group
-// CHEVRONS that share a header row (anomalous substats) have no label of their own, so they
-// tint the icon with the same token. One definition keeps the two signals the same blue.
-export const COLLAPSED_CONTENT_INDICATOR_COLOR = 'primary.main'
-export const COLLAPSED_CONTENT_INDICATOR_SX = { color: COLLAPSED_CONTENT_INDICATOR_COLOR } as const
+// SSOT for the "collapsed, but this section holds a selection" signal colour. It is always the
+// section LABEL that carries it — top-level sections and the paired sub-groups (anomalous
+// substats) alike, in both the builder panels and the rules filter. Chevron icons are never
+// tinted. One definition keeps every instance of the signal the same blue.
+export const COLLAPSED_CONTENT_INDICATOR_SX = { color: 'primary.main' } as const
+
+/**
+ * The builder section-label style, with the collapsed-with-content highlight applied.
+ *
+ * Both builder panels label ~17 sections and each was spelling out
+ * `collapsed.X && XDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX`
+ * inline. The colour had already been consolidated into one token; this gives the surrounding
+ * CONDITION one definition too, matching how FilterSectionHeader composes its own `highlight`.
+ * Callers pass the two raw flags and never re-derive the rule.
+ */
+export const builderSectionLabelSx = (collapsed: boolean, dirty: boolean) =>
+  collapsed && dirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX
 
 // Mirror the English layout widths for the Min Required / Required / Milestone trio so
 // other locales preserve the same proportions without wrapping their controls.

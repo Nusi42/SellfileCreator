@@ -131,3 +131,15 @@ test('malformed override payloads are sanitized rather than rejected', () => {
   // A non-object payload is rejected wholesale rather than throwing.
   assert.equal(parsed.noteSafeguardOverridesAnswers, null)
 })
+
+test('a copied document round-trips its disabled flag for paste to apply', () => {
+  // "Copy All Recipes" writes the kill switch through the shared writer; paste reads it back
+  // via parseSfcObject and applies it when it adopts the note (adoptPastedNote). Without that
+  // last step a document copied with overrides switched OFF pasted them back ON.
+  const copied = buildSfcPayload({ ...baseArgs(), noteOverridesDisabled: true })
+  const parsed = parseSfcObject(JSON.parse(JSON.stringify(copied)), prev())
+  assert.equal(parsed.noteOverridesDisabled, true)
+  // The default direction must survive too — an enabled document must not paste as disabled.
+  const enabled = parseSfcObject(JSON.parse(JSON.stringify(buildSfcPayload(baseArgs()))), prev())
+  assert.equal(enabled.noteOverridesDisabled, false)
+})

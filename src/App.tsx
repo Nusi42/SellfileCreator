@@ -4124,7 +4124,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Persist the updated note content immediately.
     setSfcNote(() => nextNormalized)
     // Keep recipe overrides answers aligned with the current note markers.
-    // Why: answers are session-only, so imports reset them while edits prune stale entries.
+    // Why: an import adopts the incoming document's own answers; an edit prunes stale entries.
     setNoteRecipeOverridesAnswers((prev) => {
       // An import uses the answers the DOCUMENT carried (a saved .sfc restores its own
       // configuration); with none, this resolves to {} → the note's `*` default mode.
@@ -5013,6 +5013,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteRecipeOverridesAnswers,
     noteSafeguardOverridesAnswers,
     noteOverridesDisabled,
+    setNoteOverridesDisabled,
     finalSellRemainder,
     safeguardRules,
     safeguardsEnabled,
@@ -9980,7 +9981,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onApplyRecipeOverrides={applyRecipeOverridesToRecipes}
           // Apply display safeguard rules (overrides applied) back to stored rules when requested.
           onApplySafeguardOverrides={applySafeguardOverridesToRules}
-          // Safeguard overrides answers are session-only; changes update app state directly.
+          // Safeguard overrides answers live in app state; the SFC writer persists them on save.
           safeguardOverridesAnswers={noteSafeguardOverridesAnswers}
           onSafeguardOverridesAnswersChange={setNoteSafeguardOverridesAnswers}
           onSafeguardOverridesResolutionChange={handleSafeguardOverridesResolutionChange}

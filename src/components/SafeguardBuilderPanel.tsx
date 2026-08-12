@@ -89,7 +89,7 @@ import {
   BUILDER_LABEL_TEXT_SX,
   BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
-  COLLAPSED_CONTENT_INDICATOR_SX,
+  builderSectionLabelSx,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   ELLIPSIS_TEXT_SX,
   FONT_SIZE_BASE_PX,
@@ -116,7 +116,7 @@ import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import type { HistoryPreview, HistoryTimelineEntry } from '../hooks/useSfcHistory'
-import { useBuilderSafeguardCollapsedPreference } from '../state/builderPreferences'
+import { useBuilderSafeguardCollapsedPreference, isAnySubstatSectionExpanded } from '../state/builderPreferences'
 import { useBuilderPanelPrefs } from './builderPanel/useBuilderPanelPrefs'
 import BuilderSectionHeader from './BuilderSectionToggle'
 import { summaryParts } from './RecipeChip'
@@ -2384,7 +2384,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.rank, rankSectionDirty)}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRankSelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => {
@@ -2450,7 +2450,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.rarity, raritySectionDirty)}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRaritySelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => {
@@ -2513,7 +2513,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.faction, factionSectionDirty)}>{t('builderFaction')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearFactionSelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(factionSectionDirty, t('builderClearFaction'), () => {
@@ -2648,7 +2648,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.mainStat, mainStatSectionDirty)}>{t('builderMain')}</Box>
             </BuilderSectionHeader>
             {mainStatSectionDirty
               ? (
@@ -2873,7 +2873,7 @@ export default function SafeguardBuilderPanel({
               secondaryDirty={hasAnomalousSubstatSelection}
               secondaryAriaLabel={t('substatsToggleAnomalousAria')}
             >
-              <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.substats, hasSubstatSelection)}>{t('builderSubstats')}</Box>
             </BuilderSectionHeader>
             {hasSubstatSelection
               ? (
@@ -2894,7 +2894,7 @@ export default function SafeguardBuilderPanel({
             {/* Expanded-state control badge for the substat SELECTION itself. The chevron aggregate
                 badge only shows while collapsed; the specific stored→effective badge lives here.
                 Hidden once BOTH halves are collapsed, matching the old single-Collapse behavior. */}
-            {substatsOverrideActive && !(builderCollapsed.substats && builderCollapsed.substatsAnomalous) && renderSafeguardOverrideBadge(
+            {substatsOverrideActive && isAnySubstatSectionExpanded(builderCollapsed) && renderSafeguardOverrideBadge(
               buildSafeguardOverrideBadgeTooltip(
                 substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
                 substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
@@ -3199,7 +3199,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.slots, slotSectionDirty)}>{t('builderSlots')}</Box>
             </BuilderSectionHeader>
             {slotSectionDirty
               ? (
@@ -3367,7 +3367,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0, flex: '0 1 auto' }}
             >
-              <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+              <Box component="span" sx={builderSectionLabelSx(builderCollapsed.sets, setsSectionDirty)}>{t('setsTitle')}</Box>
             </BuilderSectionHeader>
             {/* Clear wipes both sets and metaSetNames, mirroring the GearSetsSelect onChange paths (single + multi). */}
             {renderSectionClearButton(setsSectionDirty, t('builderClearSets'), () => {

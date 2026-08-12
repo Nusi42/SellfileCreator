@@ -764,7 +764,9 @@ export const safeguardAnswerMatchesDefault = (
   return true
 }
 
-// ── Autosave key ──────────────────────────────────────────────────────────────
+// ── Persisted SFC key ─────────────────────────────────────────────────────────
+// Written after `Note` by buildSfcPayload, read by parseSfcObject; shared by the .sfc file,
+// the autosave snapshot and the background push. Part of the on-disk format — never rename.
 
 export const NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY = 'NoteSafeguardOverridesAnswers'
 

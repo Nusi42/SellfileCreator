@@ -85,6 +85,8 @@ type UseSfcClipboardParams = {
   noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
   noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
   noteOverridesDisabled: boolean
+  // Applied on paste when the copied note is adopted (mirrors the file-load paths).
+  setNoteOverridesDisabled: (value: boolean) => void
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -145,16 +147,25 @@ export type UseSfcClipboardResult = {
 const adoptPastedNote = (
   shouldApplyNote: boolean,
   incomingNote: string | null,
-  parsed: Pick<ParsedSfcResult, 'noteRecipeOverridesAnswers' | 'noteSafeguardOverridesAnswers'>,
+  parsed: Pick<
+    ParsedSfcResult,
+    'noteRecipeOverridesAnswers' | 'noteSafeguardOverridesAnswers' | 'noteOverridesDisabled'
+  >,
   applyNoteChange: ApplyNoteChangeFn,
-): HistoryEntryDescriptor | null => shouldApplyNote
-  ? applyNoteChange(incomingNote, {
-      mode: 'import',
-      publish: false,
-      importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
-      importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
-    })
-  : null
+  setNoteOverridesDisabled: (value: boolean) => void,
+): HistoryEntryDescriptor | null => {
+  if (!shouldApplyNote) return null
+  // The kill switch is part of the same override state as the answers, and both file load and
+  // shift-load apply it when they adopt a note. applyNoteChange does not own the flag, so it is
+  // set here — otherwise a copied document with overrides switched OFF pasted them back ON.
+  setNoteOverridesDisabled(parsed.noteOverridesDisabled)
+  return applyNoteChange(incomingNote, {
+    mode: 'import',
+    publish: false,
+    importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
+    importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
+  })
+}
 
 const valueKey = (sets: number[]): string => {
   const arr = (sets ?? []).map(Number).slice().sort((a, b) => a - b)
@@ -195,6 +206,7 @@ export function useSfcClipboard({
   noteRecipeOverridesAnswers,
   noteSafeguardOverridesAnswers,
   noteOverridesDisabled,
+  setNoteOverridesDisabled,
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
@@ -410,7 +422,7 @@ export function useSfcClipboard({
         : null
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-      const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
+      const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange, setNoteOverridesDisabled)
       setCustomRecipes(prev => {
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
           ? selectedRecipeIdx + 1
@@ -494,6 +506,7 @@ export function useSfcClipboard({
     setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
+    setNoteOverridesDisabled,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,
@@ -552,7 +565,7 @@ export function useSfcClipboard({
             : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
+          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange, setNoteOverridesDisabled)
           setCustomRecipes(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
             const count = prep.recipesMapped.length
@@ -641,6 +654,7 @@ export function useSfcClipboard({
     setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
+    setNoteOverridesDisabled,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,
@@ -805,7 +819,7 @@ export function useSfcClipboard({
             : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
+          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange, setNoteOverridesDisabled)
           setCustomRecipes(prev => {
             const count = prep.recipesMapped.length
             if (count === 0) {
@@ -887,6 +901,7 @@ export function useSfcClipboard({
     setCustomRecipes,
     applyFinalSellChange,
     applyNoteChange,
+    setNoteOverridesDisabled,
     setImportIdMap,
     setMetasetConflictOpen,
     setMetasets,
