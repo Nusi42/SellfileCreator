@@ -1,5 +1,10 @@
 # Pre-Release Checklist
 
+## v1.0.39 — 2026-08-12
+
+- Remove anomalous rule export scrub and warning toast (`toastAnomalousRulesNotExported`, `buildExportPayload` scrubbing logic, `scrubbedAnomalousRules` tracking) once RSL Helper sample sellfile with anomalous RULE encoding is obtained and confirmed. Currently rules with anomalous substats match in preview but drop from exports because the wire format is unconfirmed. Checklist: verify `docs/orig/anomalous.hsf` exists and contains rules with stat IDs 11–18, update `tests/unit/anomalous-hsf-sample.test.ts` to assert the real encoding, remove scrub paths in `hsfIO.ts` / `App.tsx` / `backgroundAccountPush.ts`. (0f0b705f, c001c4af)
+- Per-rank base values for anomalous stats (ranks 1–4 and 6): currently hardcoded to 1.25 everywhere (only rank 5 observed). Search `JUDGED(anomalous per-rank values)` — sites: `ANOMALOUS_FACTORY_MINIMA` (`hsfBuilder.ts`), `factory_minima_for_star` (`recipe_builder.rs`). Replacement: update `shared/domain-constants.json` → `anomalousAccessories.star*RollValue` to per-rank table, regenerate constants, update both mirrored factory-minima tables and their tests. Trigger: richer DB dumps. (0f702515, a96a42f7)
+
 ## v1.0.38 — 2026-07-16
 
 - Investigate and optimize autosave restore memory usage in multi-account scenarios — restoring previous session state shows 1.75 GB heap spike right after restore, before any endpoint frame; flagged as a secondary contributor to the OOM issue and needs follow-up investigation (b50e50e1)
