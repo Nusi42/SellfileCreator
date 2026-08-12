@@ -62,6 +62,7 @@ import { appearancePersistField, readAppearanceFromRecord, type NameAppearance }
 import { normalizeArtifactSetSelections } from './gearSets/selection'
 import {
   canonicalizeNoteRecipeOverridesMarkers,
+  dropDefaultSafeguardOverridesAnswers,
   normalizeNoteRecipeOverridesAnswers,
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
   NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
@@ -1421,12 +1422,20 @@ export function buildSfcPayload(args: {
     noteSafeguardOverridesAnswers,
     noteOverridesDisabled = false,
   } = args
+  // Safeguard answers that merely restate the document's own effective defaults are dropped
+  // BEFORE the empty check, so an untouched preset emits no key at all. The baseline is the
+  // note's seeded state (which includes cross-domain `setval` forces from the selected recipe
+  // tier), not each slider's `default=` — see dropDefaultSafeguardOverridesAnswers. The loader
+  // re-derives the same baseline, so omitted defaults come back identically.
+  const safeguardAnswersLean = noteSafeguardOverridesAnswers
+    ? dropDefaultSafeguardOverridesAnswers(note ?? '', noteRecipeOverridesAnswers ?? {}, noteSafeguardOverridesAnswers)
+    : undefined
   // Drop empty answer maps so a document with no overrides emits no keys at all.
   const recipeAnswersOut = noteRecipeOverridesAnswers && Object.keys(noteRecipeOverridesAnswers).length > 0
     ? noteRecipeOverridesAnswers
     : undefined
-  const safeguardAnswersOut = noteSafeguardOverridesAnswers && Object.keys(noteSafeguardOverridesAnswers).length > 0
-    ? noteSafeguardOverridesAnswers
+  const safeguardAnswersOut = safeguardAnswersLean && Object.keys(safeguardAnswersLean).length > 0
+    ? safeguardAnswersLean
     : undefined
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)

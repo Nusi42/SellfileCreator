@@ -730,6 +730,49 @@ export const seedSafeguardAnswersFromRecipeDefaults = (
   return next
 }
 
+/**
+ * Drop safeguard answers that merely restate the document's own defaults, so a saved file
+ * records deviations rather than the full resolved state.
+ *
+ * The subtlety this exists for: a safeguard answer is "default" only relative to the
+ * *effective* defaults, which are NOT each slider's `default=`. A recipe option selected by
+ * default (the `*` tier) can force sliders via cross-domain `setval`, and those forced values
+ * are the real baseline. `seedSafeguardAnswersFromRecipeDefaults(note, recipeAnswers)` computes
+ * exactly that baseline — it is idempotent and a fixed point — so it is the only correct
+ * definition of "full true defaults" to compare against. Comparing against `default=` instead
+ * would wrongly keep every forced value (the visible symptom: an untouched preset saving a
+ * complete answer map).
+ *
+ * Safe because the load path re-derives the baseline: App's import seeds from the note after
+ * pruning stored answers, so an omitted default is reconstructed identically, while a genuine
+ * deviation is preserved and its default-valued siblings still come back.
+ *
+ * Pass the SAME `recipeAnswers` the document stores — the baseline depends on which recipe
+ * options are selected, so a non-default tier compares against ITS forces, not Lategame's.
+ */
+export const dropDefaultSafeguardOverridesAnswers = (
+  note: string,
+  recipeAnswers: NoteRecipeOverridesAnswers,
+  answers: NoteSafeguardOverridesAnswers,
+): NoteSafeguardOverridesAnswers => {
+  // No note ⇒ no questions ⇒ nothing is derivable; keep the answers untouched.
+  if (!note) return answers
+  const baseline = seedSafeguardAnswersFromRecipeDefaults(note, recipeAnswers)
+  const next: NoteSafeguardOverridesAnswers = {}
+  let dropped = false
+  for (const [questionId, value] of Object.entries(answers)) {
+    const base = baseline[questionId]
+    // Array compare: answers are option-id lists (sliders carry a single stringified number).
+    if (base && base.length === value.length && base.every((entry, i) => entry === value[i])) {
+      dropped = true
+      continue
+    }
+    next[questionId] = value
+  }
+  // Preserve reference identity when nothing was dropped so memoized consumers don't churn.
+  return dropped ? next : answers
+}
+
 // ── REVERSE cross-domain option writes (safeguard option → recipe radio/checkbox) ──
 //
 // Mirror of the forward bridge with one deliberate asymmetry: a source option that both
