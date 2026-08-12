@@ -170,6 +170,16 @@ pub const ANOMALOUS_MIN_TARGET_VALUE: f64 = 0.25;
 pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {
     if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }
 }
+// The inverse: an HSF wire value back to the display number (125 -> 1.25).
+// Emitted rules carry wire units while item sub_values carry display units, so
+// every comparison between the two must pass through here. Classic stats scale
+// by 1. Mirrors hsfValueToDisplay in src/lib/anomalousAccessories.ts.
+pub fn wire_value_to_display(variant: i64, wire_value: f64) -> f64 {
+    let scale = hsf_value_scale_for_variant(variant);
+    if scale == 1.0 { return wire_value; }
+    // Round at the wire resolution so the division cannot reintroduce float noise.
+    wire_value.round() / scale
+}
 // Anomalous variants in announcement order (mirrors the TS list).
 pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[2816, 3072, 3328, 3584, 3840, 4096, 4352, 4608];
 // Accessory slots that can carry anomalous substats (Banner observed in the DB).

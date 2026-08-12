@@ -489,10 +489,16 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
             if sub.NotAvailable.unwrap_or(false) || id == STAT_ID_ANY {
                 return None;
             }
+            // IsFlat is now Option<bool>; map to the i64 flag sub_to_variant expects.
+            let variant = sub_to_variant(id, sub.IsFlat.map_or(0_i64, i64::from));
             Some(PreparedRuleSub {
-                // IsFlat is now Option<bool>; map to the i64 flag sub_to_variant expects.
-                variant: sub_to_variant(id, sub.IsFlat.map_or(0_i64, i64::from)),
-                value: sub.Value.unwrap_or(0.0),
+                variant,
+                // Rules carry HSF WIRE units (anomalous 1.25% -> 125); item sub_values
+                // carry DISPLAY units (1.25). Normalize the threshold to display units
+                // once here, at configure time, so the hot matcher compares like with
+                // like without paying a scale lookup per item per rule. Classic stats
+                // scale by 1, which is why this was invisible before these stats existed.
+                value: wire_value_to_display(variant, sub.Value.unwrap_or(0.0)),
                 condition: parse_sub_condition(sub.Condition.as_deref()),
             })
         })

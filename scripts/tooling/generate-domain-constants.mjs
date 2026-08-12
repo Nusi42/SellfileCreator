@@ -740,6 +740,16 @@ rustLines.push(`pub const ANOMALOUS_MIN_TARGET_VALUE: f64 = ${anomalousMinTarget
 rustLines.push('pub fn hsf_value_scale_for_variant(variant: i64) -> f64 {')
 rustLines.push('    if is_anomalous_substat_variant(variant) { ANOMALOUS_HSF_VALUE_SCALE } else { 1.0 }')
 rustLines.push('}')
+rustLines.push('// The inverse: an HSF wire value back to the display number (125 -> 1.25).')
+rustLines.push('// Emitted rules carry wire units while item sub_values carry display units, so')
+rustLines.push('// every comparison between the two must pass through here. Classic stats scale')
+rustLines.push('// by 1. Mirrors hsfValueToDisplay in src/lib/anomalousAccessories.ts.')
+rustLines.push('pub fn wire_value_to_display(variant: i64, wire_value: f64) -> f64 {')
+rustLines.push('    let scale = hsf_value_scale_for_variant(variant);')
+rustLines.push('    if scale == 1.0 { return wire_value; }')
+rustLines.push('    // Round at the wire resolution so the division cannot reintroduce float noise.')
+rustLines.push('    wire_value.round() / scale')
+rustLines.push('}')
 rustLines.push('// Anomalous variants in announcement order (mirrors the TS list).')
 rustLines.push(
   `pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[${anomalousSubstatEntries.map(({ variant }) => variant).join(', ')}];`

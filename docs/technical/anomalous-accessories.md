@@ -117,6 +117,35 @@ On the Rust side the display→wire conversion is `to_hsf_wire_value`
 arithmetic — therefore works in wire units, and the emitted `Value` is already
 correct with no f64 plumbing anywhere.
 
+### The return trip: wire → display at match time
+
+Export is only half the boundary. The **matcher** compares an emitted rule's
+threshold against an item's `subValues`, and those two arrive in *different*
+units: rules carry wire units (the `125` above), while `subValues` come out of
+the importer in display units (`1.25`, see `gearDbNormalizer.ts`'s
+`PERCENT_WHEN_FLAT_FLAG_ZERO` conversion). Comparing them raw makes every
+anomalous rule unsatisfiable — `1.25 >= 125` is false for any real gear.
+
+`wire_value_to_display` (generated into `generated_domain_constants.rs`, the
+inverse of `hsf_value_scale_for_variant` and the mirror of `hsfValueToDisplay`
+in `anomalousAccessories.ts`) closes it. It is applied **once per rule at
+configure time**, where `PreparedRuleSub` is built in `matcher_evaluator.rs` —
+not in the hot compare — so `match_rule_substats` keeps comparing two plain
+`f64`s with no per-item scale lookup. Classic stats scale by 1, so the
+conversion is a no-op for them; that is exactly why the gap stayed invisible
+until these stats existed.
+
+Note this is the *matcher's* inverse, not a change to the wire format:
+`docs/orig/anomalous.hsf` confirms RSL Helper reads `Value: 25` as 0.25%, and
+the exported file is unchanged.
+
+Regression coverage is split deliberately:
+`tests/unit/anomalous-rule-emission.test.ts` pins what the builder *emits*, and
+`tests/unit/anomalous-rule-matching.test.ts` pins that the matcher then *accepts*
+a real item carrying that line. Either spec alone passes with the bug present —
+the assertion has to cross the unit boundary, so the matching spec runs the full
+build → normalize → evaluate path.
+
 The variant is a **REQUIRED** argument through `clampTargetOverrideValue` /
 `normalizeRollTargetEntry` / `normalizeLooseRollTargetEntry` /
 `targetEntriesEqual` / `resolveRollTargetValue` / `engineAppliedTargetValue`, so
@@ -168,14 +197,17 @@ Pinned by `tests/unit/substat-targets-sparse-sfc.test.ts` (round-trip losslessne
 deviations, 0-correction, forward adoption) and
 `tests/unit/anomalous-rule-emission.test.ts`, which asserts the whole emission path
 end-to-end: eight substats × five level milestones, each rule carrying its own id
-at `>= 125`.
+at `>= 125`. Its counterpart `tests/unit/anomalous-rule-matching.test.ts` then
+asserts an item carrying such a line actually MATCHES that rule (see "The return
+trip" above) — emission and matching sit on opposite sides of the unit boundary,
+so neither spec alone can catch a scale error.
 
 ## SSOT map
 
 | Piece | Location |
 | --- | --- |
 | Spec block (ids, labels, wire scale, set/slot scope) | `shared/domain-constants.json` → `anomalousAccessories` |
-| Generated TS constants (`ANOMALOUS_*`) + Rust label/tuple tables and `hsf_value_scale_for_variant` | `scripts/tooling/generate-domain-constants.mjs` → `src/lib/generated/domainConstants.ts`, `wasm/rule_engine_core/src/generated_domain_constants.rs` |
+| Generated TS constants (`ANOMALOUS_*`) + Rust label/tuple tables, `hsf_value_scale_for_variant` and its inverse `wire_value_to_display` | `scripts/tooling/generate-domain-constants.mjs` → `src/lib/generated/domainConstants.ts`, `wasm/rule_engine_core/src/generated_domain_constants.rs` |
 | Typed domain helpers (incl. the `+`/`−` UI row split and the wire scale) | `src/lib/anomalousAccessories.ts` |
 | Variant/label/i18n-key resolution | `src/lib/types.ts` (`subToVariant`, `labelOfVariant`, `variantFromLabel`, `statVariantI18nKey`), i18n keys `statPveDmgPlus` … `statDungeonDmgMinus` in every `src/lib/i18n/catalogs/*.ts` |
 | Feasibility gate (accessory slots only) | `src/lib/statCompatibility.ts` → `resolveAllowedSubstatsForSlotsAndMains` appends the variants when the slot scope can reach a **viable** jewelry slot; mirrored in Rust `recipe_builder.rs::resolve_allowed_substats_for_slots_and_mains` |
@@ -191,7 +223,8 @@ at `>= 125`.
 | Honest rule semantics | `hsfTypes.ts::variantToSub` + Rust `safeguard_variant_to_sub` emit the real id tuple (never "Any"), so internal/preview rules with a required anomalous substat match exactly the gear that carries it — and now export as that same rule |
 | Stat-id DECODING (both directions must know these ids) | `subToVariant` (`types.ts`) and Rust `sub_to_variant` (`lib.rs`) decode an HSF `(ID, IsFlat)` tuple back to a variant. Both branch on the CLASSIC id ranges first, so each needs an explicit anomalous branch — Rust reaches it through the generated `anomalous_variant_for_stat_id`. Rust's was missing, so every anomalous id decoded to the `Any` fallback and *all eight looked like the same stat* to anything keyed on the decoded variant. The visible symptom was the obsolete detector pruning every anomalous rule after the first as "covered by looser/equal thresholds": a recipe with N mode-damage substats emitted one rule per level instead of N. `main_to_variant` deliberately keeps the Any fallback — these can never be main stats |
 | HSF export | No special-casing left. `hsfIO.ts::buildHsfFileFromMerged` passes anomalous rules through like any other; the value scale is applied by the emitter (see above). The old export scrub, its disclosure toast (`toastAnomalousRulesNotExported`), and the `scrubbedAnomalousRules` plumbing through `buildExportPayload` / `backgroundAccountPush` are all deleted |
-| Guard tests | `tests/unit/anomalous-hsf-sample.test.ts` (the sample file itself), `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-target-quantization.test.ts`, `tests/unit/anomalous-rule-emission.test.ts`, `tests/unit/substat-targets-sparse-sfc.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
+| Rule MATCHING (wire → display) | `matcher_evaluator.rs` converts each rule substat threshold back to display units via the generated `wire_value_to_display` when `PreparedRuleSub` is built at configure time, because item `subValues` are display units. Without it every anomalous rule is unsatisfiable (`1.25 >= 125`) — the recipe silently matches nothing, which no emission-only test can see. See "The return trip" above |
+| Guard tests | `tests/unit/anomalous-hsf-sample.test.ts` (the sample file itself), `tests/unit/anomalous-accessories.test.ts`, `tests/unit/anomalous-target-quantization.test.ts`, `tests/unit/anomalous-rule-emission.test.ts`, `tests/unit/anomalous-rule-matching.test.ts`, `tests/unit/substat-targets-sparse-sfc.test.ts`, `tests/unit/gearDbNormalizer-anomalous.test.ts` |
 | SFC→HSF fixtures | `tests/fixtures/anomalous-two-mode-damage-substats-any-rolls.{sfc,hsf}` (two substats must emit two rules per milestone, not one) and `anomalous-decimal-minima-targets.{sfc,hsf}` (a 2.5 target emits 250, the 0.25 minimum emits 25). These run the FULL pipeline — `parseSfcObject → computeMergedRules → export` — which is where the decode bug above actually bit; unit tests calling `buildHsfRules` directly were blind to it because the damage happened in the post-build pruning step |
 
 SFC documents persist substats as **label strings**, so the numeric id scheme
