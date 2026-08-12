@@ -8,6 +8,8 @@
  */
 
 import test from 'node:test'
+import { readdirSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import assert from 'node:assert/strict'
 
 import {
@@ -69,8 +71,25 @@ test('the highlight fires only when collapsed AND dirty', () => {
 
 test('the default chevron aria-label describes the ACTION, not the state', () => {
   // A collapsed section's button expands it — naming it "Collapse" would invert the meaning.
-  assert.equal(defaultSectionToggleAriaLabel(true), 'Expand')
-  assert.equal(defaultSectionToggleAriaLabel(false), 'Collapse')
+  // The strings are injected (callers pass t(...)), so this asserts the CHOICE, not English.
+  assert.equal(defaultSectionToggleAriaLabel(true, 'expand-label', 'collapse-label'), 'expand-label')
+  assert.equal(defaultSectionToggleAriaLabel(false, 'expand-label', 'collapse-label'), 'collapse-label')
+})
+
+test('every catalog defines both chevron aria-label keys, distinctly', () => {
+  // The labels are localized now; a catalog missing either key would render the key name as an
+  // accessible label, and identical values would make the two chevrons indistinguishable.
+  const catalogDir = resolve(process.cwd(), 'src/lib/i18n/catalogs')
+  const files = readdirSync(catalogDir).filter((name) => name.endsWith('.ts'))
+  assert.ok(files.length >= 10, 'all shipped locales are covered')
+  for (const file of files) {
+    const source = readFileSync(resolve(catalogDir, file), 'utf-8')
+    const expand = source.match(/^\s*sectionToggleExpandAria: "(.*)",$/m)?.[1]
+    const collapse = source.match(/^\s*sectionToggleCollapseAria: "(.*)",$/m)?.[1]
+    assert.ok(expand, `${file} defines sectionToggleExpandAria`)
+    assert.ok(collapse, `${file} defines sectionToggleCollapseAria`)
+    assert.notEqual(expand, collapse, `${file} distinguishes expand from collapse`)
+  }
 })
 
 test('both panels\' real id lists work with the shared toggler', () => {

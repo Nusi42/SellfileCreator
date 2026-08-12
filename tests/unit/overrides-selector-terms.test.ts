@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { loadLategameSfc } from '../setup/presetFixtures.js'
 import {
   buildSelectorFromFlat,
   collectKnownSelectorTags,
@@ -28,7 +27,7 @@ import type { DraftSelectorBlock } from '../../src/lib/overridesDraftTypes.js'
 // text the parser re-parses to the identical leaf. The lategame preset is the
 // acceptance fixture — every one of its selectors must be row-representable.
 
-const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
+const sfc = loadLategameSfc()
 const note: string = (sfc.Note as string[]).join('\n')
 
 // Collect every selector block from every option body + fallback in the note.

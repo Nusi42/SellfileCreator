@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { loadLategameSfc } from '../setup/presetFixtures.js'
 import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics } from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags, collectSafeguardOverridesDiagnostics } from '../../src/lib/noteSafeguardOverrides.js'
 
@@ -96,7 +95,7 @@ function buildDigest(label: string, questions: AnyQuestion[]): string {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
+const sfc = loadLategameSfc()
 const note: string = (sfc.Note as string[]).join('\n')
 
 // ── Golden ────────────────────────────────────────────────────────────────────

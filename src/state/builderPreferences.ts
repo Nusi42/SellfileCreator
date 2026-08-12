@@ -51,19 +51,16 @@ export const parseBuilderPanelCollapsedFromRaw = (raw: unknown): BuilderPanelCol
   return next
 }
 
+// localStorage variant: JSON.parse, then the SAME merge the autosave path uses. Delegating
+// means the "copy known ids, discard unknown, fall back to defaults" rule has one definition —
+// the two previously spelled out identical loops.
 const parseBuilderPanelCollapsed = (raw: string | null): BuilderPanelCollapsedSections => {
-  if (!raw) return { ...DEFAULT_BUILDER_PANEL_COLLAPSED }
+  if (!raw) return cloneDefaultBuilderPanelCollapsed()
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_BUILDER_PANEL_COLLAPSED }
-    const next = { ...DEFAULT_BUILDER_PANEL_COLLAPSED }
-    for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) {
-      const val = parsed[k]
-      if (typeof val === 'boolean') next[k] = val
-    }
-    return next
+    return parseBuilderPanelCollapsedFromRaw(JSON.parse(raw) as unknown)
   } catch {
-    return { ...DEFAULT_BUILDER_PANEL_COLLAPSED }
+    // Corrupt JSON is treated exactly like an absent key: fall back to defaults.
+    return cloneDefaultBuilderPanelCollapsed()
   }
 }
 

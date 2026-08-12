@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { loadLategameSfc } from '../setup/presetFixtures.js'
 import {
   resolveRecipeOverridesTags,
   collectRecipeOverridesDiagnostics,
@@ -11,7 +10,7 @@ import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOv
 import { listOverrideBlocks, parseOverridesBlockDraft } from '../../src/lib/overridesDraft.js'
 
 // Load the real shipped preset note so we validate the actual authored markup.
-const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
+const sfc = loadLategameSfc()
 const note: string = (sfc.Note as string[]).join('\n')
 
 const seed = resolveRecipeOverridesTags(note)

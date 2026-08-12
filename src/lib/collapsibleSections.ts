@@ -60,6 +60,13 @@ export const isCollapsedWithContent = (collapsed: boolean | undefined, dirty: bo
  * Default aria-label for a chevron with no sub-group name of its own. Sections that share a
  * header row (classic vs anomalous substats) pass their own localized label instead, so the two
  * buttons are distinguishable; a lone chevron falls back to this.
+ *
+ * Names the ACTION the button performs, not the state it is in — a collapsed section's button
+ * EXPANDS it. Takes the translated strings rather than calling `t` so this module stays a pure,
+ * dependency-free rule set; callers pass `t('sectionToggleExpandAria')` / `…CollapseAria`.
  */
-export const defaultSectionToggleAriaLabel = (isCollapsed: boolean): string =>
-  isCollapsed ? 'Expand' : 'Collapse'
+export const defaultSectionToggleAriaLabel = (
+  isCollapsed: boolean,
+  expandLabel: string,
+  collapseLabel: string,
+): string => isCollapsed ? expandLabel : collapseLabel

@@ -37,7 +37,7 @@ const BuilderSectionToggle: React.FC<BuilderSectionToggleProps> = ({ id, collaps
         size="small"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id])}
+        aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id], t('sectionToggleExpandAria'), t('sectionToggleCollapseAria'))}
       >
         {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
       </IconButton>

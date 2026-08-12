@@ -1557,6 +1557,8 @@ const catalog: Catalog = {
   statDungeonDmgMinusTooltip: "Reduz o dano recebido em Masmorras.",
   statAnomalousTooltipNote: "Substatus de Acessório Anômalo, encontrado apenas em acessórios dos Champion Proving Grounds. Bônus do mesmo tipo se acumulam (ex.: dano PvE e contra Chefes se aplicam juntos).",
   substatsToggleClassicAria: "Mostrar ou ocultar substatus clássicos",
+  sectionToggleExpandAria: "Expandir",
+  sectionToggleCollapseAria: "Recolher",
   substatsToggleAnomalousAria: "Mostrar ou ocultar substatus anômalos",
   substatsGroupAnomalous: "Anômalos",
 

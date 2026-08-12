@@ -1557,6 +1557,8 @@ const overrides: Catalog = {
   statDungeonDmgMinusTooltip: "Зменшує отримувану шкоду в підземеллях.",
   statAnomalousTooltipNote: "Додаткова характеристика Аномальних аксесуарів, трапляється лише на аксесуарах із Champion Proving Grounds. Однотипні бонуси додаються (наприклад, шкода в PvE та по босах діють разом).",
   substatsToggleClassicAria: "Згорнути або розгорнути класичні характеристики",
+  sectionToggleExpandAria: "Розгорнути",
+  sectionToggleCollapseAria: "Згорнути",
   substatsToggleAnomalousAria: "Згорнути або розгорнути аномальні характеристики",
   substatsGroupAnomalous: "Аномальні",
 

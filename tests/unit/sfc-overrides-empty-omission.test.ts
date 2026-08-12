@@ -9,10 +9,10 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 
 import { buildSfcPayload } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
+import { loadLategameNote } from '../setup/presetFixtures.js'
 import { buildDocumentOverridesView } from '../../src/lib/documentOverrides.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import {
@@ -74,11 +74,6 @@ test('answer maps holding only empty selections still count as content', () => {
 // document was saving a full six-entry answer map. The writer now compares against the
 // note's seeded baseline — not each slider's `default=`, which would keep every forced value.
 
-const lategameNote = (): string => {
-  const raw = JSON.parse(readFileSync('presets/lategame.sfc', 'utf8')) as { Note: string[] }
-  return raw.Note.join('\n')
-}
-
 const emit = (
   note: string,
   recipeAnswers: Record<string, string[]>,
@@ -94,7 +89,7 @@ const emit = (
 }) as Record<string, unknown>
 
 test('an untouched preset emits no safeguard answers at all', () => {
-  const note = lategameNote()
+  const note = loadLategameNote()
   // Exactly the load-time state: no recipe answers (the `*` tier applies) + its seeded forces.
   const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
   assert.ok(Object.keys(seeded).length > 0, 'preset really does seed answers (guards the premise)')
@@ -102,7 +97,7 @@ test('an untouched preset emits no safeguard answers at all', () => {
 })
 
 test('a genuine deviation still persists, and only that entry', () => {
-  const note = lategameNote()
+  const note = loadLategameNote()
   const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
   const questionId = Object.keys(seeded)[0]!
   const payload = emit(note, {}, { ...seeded, [questionId]: ['64'] })
@@ -113,7 +108,7 @@ test('a genuine deviation still persists, and only that entry', () => {
 test('the baseline tracks the SELECTED tier, not the default one', () => {
   // A non-default tier forces different values; those are ITS defaults and must be omitted —
   // while the same values under the default tier are a real deviation and must be kept.
-  const note = lategameNote()
+  const note = loadLategameNote()
   const acctQ = resolveRecipeOverridesTags(note).questions
     .find((q) => q.options.some((o) => o.token === 'endgame'))!
   const recipeAnswers = { [acctQ.id]: [acctQ.options.find((o) => o.token === 'endgame')!.id] }
@@ -127,7 +122,7 @@ test('the baseline tracks the SELECTED tier, not the default one', () => {
 test('omitted defaults are reconstructed by the load path', () => {
   // Omission is only safe because import re-seeds from the note. This is that guarantee:
   // an absent map must resolve to the identical effective instructions.
-  const note = lategameNote()
+  const note = loadLategameNote()
   const seeded = seedSafeguardAnswersFromRecipeDefaults(note)
   const reconstructed = seedSafeguardAnswersFromRecipeDefaults(note, {}, {})
   assert.deepEqual(reconstructed, seeded)
@@ -170,7 +165,7 @@ const overridesSignature = async (
 }
 
 test('a lean-written document resolves identically with and without pre-seeding', async () => {
-  const note = lategameNote()
+  const note = loadLategameNote()
   const live = seedSafeguardAnswersFromRecipeDefaults(note)
   const persisted = dropDefaultSafeguardOverridesAnswers(note, {}, live)
   assert.equal(Object.keys(persisted).length, 0, 'the preset really is written lean (guards the premise)')
@@ -186,7 +181,7 @@ test('a lean-written document resolves identically with and without pre-seeding'
 })
 
 test('seam seeding never overrides a genuine deviation', async () => {
-  const note = lategameNote()
+  const note = loadLategameNote()
   const live = seedSafeguardAnswersFromRecipeDefaults(note)
   const questionId = Object.keys(live)[0]!
   // A stored deviation differs from the baseline and survives seeding intact.

@@ -1430,13 +1430,12 @@ export function buildSfcPayload(args: {
   const safeguardAnswersLean = noteSafeguardOverridesAnswers
     ? dropDefaultSafeguardOverridesAnswers(note ?? '', noteRecipeOverridesAnswers ?? {}, noteSafeguardOverridesAnswers)
     : undefined
-  // Drop empty answer maps so a document with no overrides emits no keys at all.
-  const recipeAnswersOut = noteRecipeOverridesAnswers && Object.keys(noteRecipeOverridesAnswers).length > 0
-    ? noteRecipeOverridesAnswers
-    : undefined
-  const safeguardAnswersOut = safeguardAnswersLean && Object.keys(safeguardAnswersLean).length > 0
-    ? safeguardAnswersLean
-    : undefined
+  // Drop empty answer maps so a document with no overrides emits no keys at all. One definition
+  // for both domains — an empty map must never reach the payload as a bare `{}`.
+  const omitWhenEmpty = <T extends object>(answers: T | undefined): T | undefined =>
+    answers && Object.keys(answers).length > 0 ? answers : undefined
+  const recipeAnswersOut = omitWhenEmpty(noteRecipeOverridesAnswers)
+  const safeguardAnswersOut = omitWhenEmpty(safeguardAnswersLean)
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
     // id field omitted — name is now the primary key.

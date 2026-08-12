@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { loadLategameSfc } from '../setup/presetFixtures.js'
 import {
   listOverrideBlocks,
   parseOverridesBlockDraft,
@@ -40,7 +39,7 @@ import { localizeDslDisplay } from '../../src/lib/noteOverridesParser.js'
 
 // Load the real shipped preset note — the acceptance fixture for "fully edit a
 // complete override like those in lategame.sfc".
-const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
+const sfc = loadLategameSfc()
 const note: string = (sfc.Note as string[]).join('\n')
 
 const refs = listOverrideBlocks(note)
