@@ -13,8 +13,10 @@ import { readFileSync } from 'node:fs'
 
 import { buildSfcPayload } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
+import { resolveOverridesNoteText } from '../../src/lib/documentOverrides.js'
 import {
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
+  dropDefaultSafeguardOverridesAnswers,
   resolveRecipeOverridesTags,
   seedSafeguardAnswersFromRecipeDefaults,
 } from '../../src/lib/noteRecipeOverrides.js'
@@ -132,4 +134,46 @@ test('omitted defaults are reconstructed by the load path', () => {
     JSON.stringify(resolveNoteSafeguardOverridesTags(note, reconstructed).instructions),
     JSON.stringify(resolveNoteSafeguardOverridesTags(note, seeded).instructions),
   )
+})
+
+// ── The lean-write contract holds for EVERY consumer, not just the app ────────────────
+//
+// Omitting default-equal answers is only safe if every consumer re-derives the baseline.
+// The background account push (lib/backgroundAccountPush.ts) feeds a parsed document
+// straight into buildDocumentOverridesView with no seeding of its own, so the seeding
+// lives inside that builder — one definition, not a contract each call site must recall.
+// Without it an untouched Lategame preset resolved count=16/32 in the background push
+// while the app showed 12/24, i.e. the pushed sellfile kept materially more gear.
+
+test('a lean-written document resolves identically with and without pre-seeding', () => {
+  const note = lategameNote()
+  const live = seedSafeguardAnswersFromRecipeDefaults(note)
+  const persisted = dropDefaultSafeguardOverridesAnswers(note, {}, live)
+  assert.equal(Object.keys(persisted).length, 0, 'the preset really is written lean (guards the premise)')
+
+  // What buildDocumentOverridesView now does for any caller: seed, then resolve.
+  const resolveViaSeam = (stored: Record<string, string[]>): string => {
+    const noteText = resolveOverridesNoteText(note, false)
+    const seeded = seedSafeguardAnswersFromRecipeDefaults(noteText, {}, stored)
+    return JSON.stringify(resolveNoteSafeguardOverridesTags(noteText, seeded).instructions)
+  }
+  // Background-push input (lean, unseeded) must match the app's in-memory state.
+  assert.equal(resolveViaSeam(persisted), resolveViaSeam(live))
+  // And seeding an already-seeded map is a fixed point, so the app path is unaffected.
+  assert.equal(resolveViaSeam(live), resolveViaSeam(seedSafeguardAnswersFromRecipeDefaults(note, {}, live)))
+})
+
+test('seam seeding never overrides a genuine deviation', () => {
+  const note = lategameNote()
+  const live = seedSafeguardAnswersFromRecipeDefaults(note)
+  const questionId = Object.keys(live)[0]!
+  const resolveViaSeam = (stored: Record<string, string[]>): string => {
+    const noteText = resolveOverridesNoteText(note, false)
+    return JSON.stringify(
+      resolveNoteSafeguardOverridesTags(noteText, seedSafeguardAnswersFromRecipeDefaults(noteText, {}, stored)).instructions,
+    )
+  }
+  // A stored deviation differs from the baseline and survives seeding intact.
+  assert.notEqual(resolveViaSeam({ [questionId]: ['64'] }), resolveViaSeam(live))
+  assert.equal(resolveViaSeam({ [questionId]: ['64'] }), resolveViaSeam({ ...live, [questionId]: ['64'] }))
 })

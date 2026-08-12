@@ -17,6 +17,7 @@ import {
   applyRecipeOverridesSubstatTargetsOverrides,
   buildRecipeOverridesExportModeResolution,
   resolveRecipeOverridesTags,
+  seedSafeguardAnswersFromRecipeDefaults,
   type NoteRecipeOverridesAnswers,
 } from './noteRecipeOverrides'
 import {
@@ -92,9 +93,22 @@ export const resolveOverridesNoteText = (
  */
 export const buildDocumentOverridesView = (input: DocumentOverridesInput): DocumentOverridesView => {
   const noteText = resolveOverridesNoteText(input.note, input.noteOverridesDisabled)
+  // Seed the cross-domain forces the selected recipe options imply BEFORE resolving.
+  // Saved documents omit safeguard answers that merely restate this baseline
+  // (dropDefaultSafeguardOverridesAnswers), so a consumer that skips seeding would fall
+  // back to each slider's own `default=` and silently resolve different counts/thresholds
+  // than the app shows. Doing it here makes "resolve a document's overrides" ONE operation
+  // with one definition, instead of a contract every call site has to remember.
+  // Seeding never overwrites an existing answer and is a fixed point, so callers that
+  // already seeded (App) pass through unchanged.
+  const safeguardAnswers = seedSafeguardAnswersFromRecipeDefaults(
+    noteText,
+    input.recipeOverridesAnswers,
+    input.safeguardOverridesAnswers,
+  )
   // Resolve both domains' tag actions from the same gated note text.
   const recipeOverridesResolution = resolveRecipeOverridesTags(noteText, input.recipeOverridesAnswers)
-  const safeguardOverridesResolution = resolveNoteSafeguardOverridesTags(noteText, input.safeguardOverridesAnswers)
+  const safeguardOverridesResolution = resolveNoteSafeguardOverridesTags(noteText, safeguardAnswers)
   // Merge native recipe instructions with cross-domain ones from safeguard questions.
   const effectiveRecipeInstructions = [
     ...recipeOverridesResolution.instructions,
