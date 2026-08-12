@@ -1164,7 +1164,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       })
   const substatSectionDirty = sanitizedSubstatsV.length > 0
   // Split the same selection by family so each chevron reports only its own half:
-  // the classic chevron highlights its label, the anomalous chevron tints its icon.
+  // each half highlights its own label when collapsed while holding a selection.
   const anomalousSubstatSectionDirty = includesAnomalousSubstatVariant(sanitizedSubstatsV)
   const setsSectionDirty = (recipe.artifactSets ?? []).length > 0 || (recipe.artifactMetaSets ?? []).length > 0
   // rank/rarity/faction: non-default when anything other than "any" is selected.
@@ -7041,9 +7041,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
-            {/* Two chevrons: the first collapses the classic rows, the second the anomalous ones.
-                The anomalous chevron turns blue while collapsed AND holding a selection, since it
-                has no label of its own to carry the usual highlight. */}
+            {/* Two chevrons + two labels on one row: the first pair collapses the classic rows,
+                the second the anomalous ones. The anomalous LABEL carries the collapsed-with-content
+                highlight, exactly like every other section — the chevron icon is never tinted. */}
             <BuilderSectionHeader
               id="substats"
               collapsed={builderCollapsed}

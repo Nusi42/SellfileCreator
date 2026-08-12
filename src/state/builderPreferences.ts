@@ -14,7 +14,7 @@ export type BuilderPanelCollapsedSections = Record<BuilderPanelCollapsibleSectio
 
 // Sections that start COLLAPSED rather than expanded. Anomalous substats are niche
 // (accessory-only, and only for players running Proving Grounds gear), so they stay
-// folded away until asked for — the blue chevron advertises when they hold a selection.
+// folded away until asked for — the highlighted label advertises when they hold a selection.
 const DEFAULT_COLLAPSED_BUILDER_SECTION_IDS: readonly BuilderPanelCollapsibleSectionId[] = Object.freeze(['substatsAnomalous'] as const)
 
 const DEFAULT_BUILDER_PANEL_COLLAPSED: BuilderPanelCollapsedSections = Object.freeze(

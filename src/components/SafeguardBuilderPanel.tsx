@@ -723,7 +723,7 @@ export default function SafeguardBuilderPanel({
     (effectiveRule.substats ?? []).filter((v) => allowedSubstatOptions.includes(v))
   )
   const hasSubstatSelection = substatSelection.length > 0
-  // Anomalous half of the same selection — drives the blue tint on the second chevron.
+  // Anomalous half of the same selection — drives the highlight on the second label.
   const hasAnomalousSubstatSelection = includesAnomalousSubstatVariant(substatSelection)
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(effectiveRule.substatMatch)
@@ -2858,9 +2858,9 @@ export default function SafeguardBuilderPanel({
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
-            {/* Two chevrons: the first collapses the classic rows, the second the anomalous ones.
-                The anomalous chevron turns blue while collapsed AND holding a selection, since it
-                has no label of its own to carry the usual highlight. */}
+            {/* Two chevrons + two labels on one row: the first pair collapses the classic rows,
+                the second the anomalous ones. The anomalous LABEL carries the collapsed-with-content
+                highlight, exactly like every other section — the chevron icon is never tinted. */}
             <BuilderSectionHeader
               id="substats"
               collapsed={builderCollapsed}
