@@ -55,6 +55,9 @@ type BuilderSectionHeaderProps = {
   labelSx?: Record<string, unknown>
   // dataTourId: forwarded as data-tour-id on the FormLabel for product-tour targeting.
   dataTourId?: string
+  // primaryAriaLabel: names the primary chevron. Only needed when a secondary chevron shares
+  // the row — two bare "Expand" buttons are indistinguishable to a screen reader.
+  primaryAriaLabel?: string
   // secondaryId: renders a SECOND chevron + label after the primary one, for a paired sub-group
   // that collapses independently (anomalous substats). The two sit on ONE header row rather than
   // stacking. Omitted on every ordinary single-chevron section.
@@ -62,17 +65,19 @@ type BuilderSectionHeaderProps = {
   // secondaryLabel: the sub-group's own label text. Carries the same collapsed-with-content
   // highlight the primary label uses, so both sub-groups signal identically.
   secondaryLabel?: React.ReactNode
-  // secondaryIndicate: highlight the second LABEL — "collapsed but holding a selection".
+  // secondaryDirty: the sub-group holds a non-default selection. Composed with its own
+  // collapsed state HERE (not by the caller) so the highlight rule has one definition —
+  // same name and same contract as FilterSectionHeader's prop in RulesFilterPanel.
   // Label-only, exactly like every other section; the chevron itself is never tinted.
-  secondaryIndicate?: boolean
+  secondaryDirty?: boolean
   // secondaryAriaLabel: names the sub-group so the two chevrons are distinguishable to screen readers.
   secondaryAriaLabel?: string
   children?: React.ReactNode
 }
 
 const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
-  id, collapsed, onCollapsedChange, labelSx, dataTourId,
-  secondaryId, secondaryLabel, secondaryIndicate, secondaryAriaLabel, children,
+  id, collapsed, onCollapsedChange, labelSx, dataTourId, primaryAriaLabel,
+  secondaryId, secondaryLabel, secondaryDirty, secondaryAriaLabel, children,
 }) => {
   // Toggling is parameterized by section id so the primary and secondary chevrons share it (SSOT).
   const toggleSectionId = (target: BuilderPanelCollapsibleSectionId, applyToAll: boolean) => {
@@ -92,7 +97,12 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
   }
   return (
     <>
-      <BuilderSectionToggle id={id} collapsed={collapsed} onToggle={toggleSections} />
+      <BuilderSectionToggle
+        id={id}
+        collapsed={collapsed}
+        onToggle={toggleSections}
+        {...(primaryAriaLabel !== undefined ? { ariaLabel: primaryAriaLabel } : {})}
+      />
       <FormLabel
         sx={{ ...BUILDER_LABEL_INLINE_SX, cursor: 'pointer', ...labelSx }}
         onClick={() => toggleSections(false)}
@@ -118,7 +128,7 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
                 cursor: 'pointer',
                 ...labelSx,
                 // Same signal the primary label carries, so both halves read alike.
-                ...(secondaryIndicate ? COLLAPSED_CONTENT_INDICATOR_SX : {}),
+                ...(secondaryDirty && collapsed[secondaryId] ? COLLAPSED_CONTENT_INDICATOR_SX : {}),
               }}
               onClick={() => toggleSectionId(secondaryId, false)}
               onContextMenu={(event) => { event.preventDefault(); toggleSectionId(secondaryId, true) }}

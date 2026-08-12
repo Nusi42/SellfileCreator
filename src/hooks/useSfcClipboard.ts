@@ -6,6 +6,7 @@ import {
   buildReadableRecipe,
   parseRecipesFromText,
   parseSfcText,
+  type ParsedSfcResult,
 } from '../lib/sfcIO'
 import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -132,6 +133,28 @@ export type UseSfcClipboardResult = {
     strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth'
   ) => FinalizeImportResult
 }
+
+/**
+ * Adopt a pasted note (and the override answers that belong to it) on import.
+ *
+ * All three paste entry points — paste-at-end, paste-after-index, and the metaset-conflict
+ * continuation — need the identical call, so it lives here once. Paste only replaces the note
+ * when the current one is blank; when it does, the pasted document's answers ride along, so
+ * the configuration survives instead of reverting to the note's authored defaults.
+ */
+const adoptPastedNote = (
+  shouldApplyNote: boolean,
+  incomingNote: string | null,
+  parsed: Pick<ParsedSfcResult, 'noteRecipeOverridesAnswers' | 'noteSafeguardOverridesAnswers'>,
+  applyNoteChange: ApplyNoteChangeFn,
+): HistoryEntryDescriptor | null => shouldApplyNote
+  ? applyNoteChange(incomingNote, {
+      mode: 'import',
+      publish: false,
+      importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
+      importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
+    })
+  : null
 
 const valueKey = (sets: number[]): string => {
   const arr = (sets ?? []).map(Number).slice().sort((a, b) => a - b)
@@ -387,16 +410,7 @@ export function useSfcClipboard({
         : null
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-      const noteDescriptor = shouldApplyNote
-        // Paste adopts the copied note only when the current one is empty; when it does,
-        // it adopts that note's override answers too so the pasted configuration survives.
-        ? applyNoteChange(incomingNote, {
-            mode: 'import',
-            publish: false,
-            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
-            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
-          })
-        : null
+      const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
       setCustomRecipes(prev => {
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
           ? selectedRecipeIdx + 1
@@ -538,16 +552,7 @@ export function useSfcClipboard({
             : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-          const noteDescriptor = shouldApplyNote
-            // Paste adopts the copied note only when the current one is empty; when it does,
-        // it adopts that note's override answers too so the pasted configuration survives.
-        ? applyNoteChange(incomingNote, {
-            mode: 'import',
-            publish: false,
-            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
-            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
-          })
-            : null
+          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
           setCustomRecipes(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
             const count = prep.recipesMapped.length
@@ -800,16 +805,7 @@ export function useSfcClipboard({
             : null
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
-          const noteDescriptor = shouldApplyNote
-            // Paste adopts the copied note only when the current one is empty; when it does,
-        // it adopts that note's override answers too so the pasted configuration survives.
-        ? applyNoteChange(incomingNote, {
-            mode: 'import',
-            publish: false,
-            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
-            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
-          })
-            : null
+          const noteDescriptor = adoptPastedNote(shouldApplyNote, incomingNote, parsed, applyNoteChange)
           setCustomRecipes(prev => {
             const count = prep.recipesMapped.length
             if (count === 0) {

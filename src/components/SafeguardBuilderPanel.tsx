@@ -150,7 +150,7 @@ import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
-  isAnomalousSubstatVariant,
+  includesAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
@@ -724,7 +724,7 @@ export default function SafeguardBuilderPanel({
   )
   const hasSubstatSelection = substatSelection.length > 0
   // Anomalous half of the same selection — drives the blue tint on the second chevron.
-  const hasAnomalousSubstatSelection = substatSelection.some((v) => isAnomalousSubstatVariant(Number(v)))
+  const hasAnomalousSubstatSelection = includesAnomalousSubstatVariant(substatSelection)
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(effectiveRule.substatMatch)
     : SafeguardSubstatMatch.Min1
@@ -2867,8 +2867,10 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
               secondaryId="substatsAnomalous"
+              // Both chevrons name their own sub-group (see the recipe panel).
+              primaryAriaLabel={t('substatsToggleClassicAria')}
               secondaryLabel={t('substatsGroupAnomalous')}
-              secondaryIndicate={builderCollapsed.substatsAnomalous && hasAnomalousSubstatSelection}
+              secondaryDirty={hasAnomalousSubstatSelection}
               secondaryAriaLabel={t('substatsToggleAnomalousAria')}
             >
               <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>

@@ -75,6 +75,7 @@ import { resolveAllowedSubstatsForSlotsAndMains, retainAllowedSubstats } from '.
 import {
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  includesAnomalousSubstatVariant,
   isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { useKeepOverrideCombinationTools } from './keepOverrides/useKeepOverrideCombinationTools'
@@ -1164,7 +1165,7 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const substatSectionDirty = sanitizedSubstatsV.length > 0
   // Split the same selection by family so each chevron reports only its own half:
   // the classic chevron highlights its label, the anomalous chevron tints its icon.
-  const anomalousSubstatSectionDirty = sanitizedSubstatsV.some((v) => isAnomalousSubstatVariant(Number(v)))
+  const anomalousSubstatSectionDirty = includesAnomalousSubstatVariant(sanitizedSubstatsV)
   const setsSectionDirty = (recipe.artifactSets ?? []).length > 0 || (recipe.artifactMetaSets ?? []).length > 0
   // rank/rarity/faction: non-default when anything other than "any" is selected.
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
@@ -7049,8 +7050,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
               secondaryId="substatsAnomalous"
+              // Both chevrons name their own sub-group: two "Expand" buttons in one row are
+              // indistinguishable to a screen reader.
+              primaryAriaLabel={t('substatsToggleClassicAria')}
               secondaryLabel={t('substatsGroupAnomalous')}
-              secondaryIndicate={builderCollapsed.substatsAnomalous && anomalousSubstatSectionDirty}
+              secondaryDirty={anomalousSubstatSectionDirty}
               secondaryAriaLabel={t('substatsToggleAnomalousAria')}
             >
               <MarkdownTooltip

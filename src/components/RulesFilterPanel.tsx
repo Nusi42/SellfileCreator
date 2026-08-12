@@ -32,7 +32,7 @@ import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX, ROLLS_FLYOUT_MAX_HEIGHT_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX, COLLAPSED_CONTENT_INDICATOR_SX, ROLLS_FLYOUT_MAX_HEIGHT_PX } from '../lib/constants'
 import { APP_CSS_VAR } from '../lib/themeCustomTokens'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
@@ -43,7 +43,7 @@ import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
-  isAnomalousSubstatVariant,
+  includesAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import React from 'react'
@@ -382,7 +382,7 @@ const SectionHeaderLabel = ({
     {/* onClick/onContextMenu: clicking the label mirrors the toggle icon — left-click toggles one, right-click toggles all. */}
     <FormLabel sx={onClick ? [sectionHeaderLabelSx, { cursor: 'pointer' }] : sectionHeaderLabelSx} onClick={onClick} onContextMenu={onContextMenu}>
       {/* highlight: primary color signals the section has an active selection while collapsed. */}
-      <Box component="span" data-ellipsis-target sx={highlight ? [sectionHeaderLabelTextSx, { color: 'primary.main' }] : sectionHeaderLabelTextSx}>
+      <Box component="span" data-ellipsis-target sx={highlight ? [sectionHeaderLabelTextSx, COLLAPSED_CONTENT_INDICATOR_SX] : sectionHeaderLabelTextSx}>
         {label}
       </Box>
     </FormLabel>
@@ -1702,11 +1702,11 @@ function RulesFilterPanel({
     || (isGearInspectorMode && gearInspectorGlyphMode !== (DEFAULT_RULES_FILTER_STATE.gearInspectorGlyphs?.mode ?? 'any'))
     || (isGearInspectorMode && gearInspectorRollsActive)
   )
-  // Anomalous half of the same substat selection — drives the blue tint on the second chevron.
+  // Anomalous half of the same substat selection — drives the highlight on the second label.
   // Only the stat lists matter here: mode/glyph/rolls chips live with the classic half.
   const subAnomalousSectionDirty = (
-    state.sub.selected.some((v) => isAnomalousSubstatVariant(Number(v)))
-    || state.sub.notSelected.some((v) => isAnomalousSubstatVariant(Number(v)))
+    includesAnomalousSubstatVariant(state.sub.selected)
+    || includesAnomalousSubstatVariant(state.sub.notSelected)
   )
   const levelSectionDirty = (
     (state.level.selected.length > 0)

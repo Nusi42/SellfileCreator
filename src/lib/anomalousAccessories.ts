@@ -82,6 +82,18 @@ export const isAnomalousSubstatVariant = (variant: number): boolean =>
   anomalousVariantSet.has(variant)
 
 /**
+ * SELECTION-level predicate: does this list of substat variants include an anomalous one?
+ *
+ * The SSOT for the "anomalous sub-group holds something" signal that the recipe builder,
+ * safeguard builder and rules filter all need to drive their collapsed-with-content
+ * highlight. Distinct from hasAnomalousSubstat, which asks the same question of a gear
+ * ITEM's substat objects rather than a bare variant list.
+ */
+export const includesAnomalousSubstatVariant = (
+  variants: readonly number[] | null | undefined,
+): boolean => variants?.some((variant) => isAnomalousSubstatVariant(Number(variant))) ?? false
+
+/**
  * ITEM-level predicate: does this piece actually CARRY a mode-damage substat?
  *
  * The SSOT for "is this an anomalous accessory" as the UI means it — deliberately
