@@ -89,6 +89,7 @@ import {
   BUILDER_LABEL_TEXT_SX,
   BUILDER_STATUS_CHIP_HEIGHT_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
+  COLLAPSED_CONTENT_INDICATOR_SX,
   COMPACT_HEADER_ACTION_BUTTON_SX,
   ELLIPSIS_TEXT_SX,
   FONT_SIZE_BASE_PX,
@@ -149,6 +150,7 @@ import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import { bumpGearInspectorSortWeight, normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
@@ -721,6 +723,8 @@ export default function SafeguardBuilderPanel({
     (effectiveRule.substats ?? []).filter((v) => allowedSubstatOptions.includes(v))
   )
   const hasSubstatSelection = substatSelection.length > 0
+  // Anomalous half of the same selection — drives the blue tint on the second chevron.
+  const hasAnomalousSubstatSelection = substatSelection.some((v) => isAnomalousSubstatVariant(Number(v)))
   const effectiveSubstatMatch = hasSubstatSelection
     ? normalizeSafeguardSubstatMatch(effectiveRule.substatMatch)
     : SafeguardSubstatMatch.Min1
@@ -1553,6 +1557,50 @@ export default function SafeguardBuilderPanel({
     : { value: substatValueStrings, onChange: handleSubstatChange }
   const substatGroupSx = multiEditActive ? [substatToggleGroupSx, mixedToggleOverrides] : substatToggleGroupSx
 
+  // One row of substat chips. Extracted so the classic and anomalous Collapse blocks — which
+  // now live under separate chevrons — render identical chips from a single definition (SSOT).
+  const renderSubstatRow = (rowVariants: readonly StatVariant[]) => (
+    // Each row's first variant is unique and stable — use it as the row key.
+    <ToggleButtonGroup key={String(rowVariants[0])} size="small" {...substatGroupProps} sx={substatGroupSx}>
+      {rowVariants.map((variant) => {
+        const presence = getSubstatPresence(variant)
+        const isMixed = presence === 'partial'
+        // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
+        const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
+          const target = presence === 'all' ? 'none' : 'all'
+          const base = deriveBaseTriState(
+            multiSummary.substatCounts.get(variant) ?? 0,
+            multiSummary.total,
+          )
+          const nextPatch = computeSubstatPatchToggle(
+            multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
+            variant as StatVariant,
+            base,
+            target,
+          )
+          multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
+        } : undefined
+        // Mode-damage chips explain themselves on hover.
+        const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
+        const toggleButtonNode = (
+          <ToggleButton
+            key={variant}
+            value={String(variant)}
+            disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
+            {...(isMixed ? { 'data-mixed': 'true' } : {})}
+            {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
+          >
+            <StatLabel variant={variant} inControl />
+          </ToggleButton>
+        )
+        // Wrap only anomalous chips; the context-based group tolerates the wrapper.
+        return anomalousTooltip
+          ? <MarkdownTooltip key={variant} markdown={anomalousTooltip}>{toggleButtonNode}</MarkdownTooltip>
+          : toggleButtonNode
+      })}
+    </ToggleButtonGroup>
+  )
+
   // Pre-compute the improvement-chance popover body so no IIFE appears inside JSX.
   // Rendered only when the threshold is active; null when disabled or not yet opened.
   const improvementChancePopoverBody = (() => {
@@ -2336,7 +2384,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+              <Box component="span" sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRankSelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => {
@@ -2402,7 +2450,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+              <Box component="span" sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearRaritySelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => {
@@ -2465,7 +2513,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              <Box component="span" sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </BuilderSectionHeader>
             {/* Clear mirrors the GearFactionSelect onChange empty-selection paths (single + multi-edit). */}
             {renderSectionClearButton(factionSectionDirty, t('builderClearFaction'), () => {
@@ -2600,7 +2648,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+              <Box component="span" sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
             </BuilderSectionHeader>
             {mainStatSectionDirty
               ? (
@@ -2810,13 +2858,20 @@ export default function SafeguardBuilderPanel({
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
+            {/* Two chevrons: the first collapses the classic rows, the second the anomalous ones.
+                The anomalous chevron turns blue while collapsed AND holding a selection, since it
+                has no label of its own to carry the usual highlight. */}
             <BuilderSectionHeader
               id="substats"
               collapsed={builderCollapsed}
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
+              secondaryId="substatsAnomalous"
+              secondaryLabel={t('substatsGroupAnomalous')}
+              secondaryIndicate={builderCollapsed.substatsAnomalous && hasAnomalousSubstatSelection}
+              secondaryAriaLabel={t('substatsToggleAnomalousAria')}
             >
-              <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+              <Box component="span" sx={builderCollapsed.substats && hasSubstatSelection ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
             </BuilderSectionHeader>
             {hasSubstatSelection
               ? (
@@ -2832,71 +2887,34 @@ export default function SafeguardBuilderPanel({
               : <Box sx={CLEAR_BUTTON_STRUT_SX} />
             }
           </Box>
-          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
-              {/* Expanded-state control badge for the substat SELECTION itself. The chevron aggregate
-                  badge only shows while collapsed; the specific stored→effective badge lives here. */}
-              {substatsOverrideActive && renderSafeguardOverrideBadge(
-                buildSafeguardOverrideBadgeTooltip(
-                  substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
-                  substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
-                ),
-              )}
-              {/* substatGroupProps and substatGroupSx are pre-computed before the return statement. */}
-              <>
-                {/* One shared chip renderer per row: Row 1 SPD/CR%/CDMG%/ACC/RES, Row 2 the
-                    HP/ATK/DEF flats+percents, then the accessory-only
-                    ⚔/🛡 mode-damage rows. All rows render unconditionally like every other stat;
-                    the per-chip disabled state greys anomalous chips out on non-jewelry scopes. */}
-                {[
-                  STAT_VARIANTS_PRIORITY_ROW1,
-                  STAT_VARIANTS_PRIORITY_ROW2,
-                  ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
-                  ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
-                ].map((rowVariants) => (
-                  // Each row's first variant is unique and stable — use it as the row key.
-                  <ToggleButtonGroup key={String(rowVariants[0])} size="small" {...substatGroupProps} sx={substatGroupSx}>
-                    {rowVariants.map((variant) => {
-                      const presence = getSubstatPresence(variant)
-                      const isMixed = presence === 'partial'
-                      // Hoist multi-edit click handler to satisfy exactOptionalPropertyTypes.
-                      const handleMultiClick = (multiEditActive && multiEdit && multiSummary) ? () => {
-                        const target = presence === 'all' ? 'none' : 'all'
-                        const base = deriveBaseTriState(
-                          multiSummary.substatCounts.get(variant) ?? 0,
-                          multiSummary.total,
-                        )
-                        const nextPatch = computeSubstatPatchToggle(
-                          multiSubstatsField?.patch as MultiEditArrayPatch<number> | null,
-                          variant as StatVariant,
-                          base,
-                          target,
-                        )
-                        multiEdit.updateField('substats', { value: substatSelection as number[], status: 'common', patch: nextPatch ?? null })
-                      } : undefined
-                      // Mode-damage chips explain themselves on hover.
-                      const anomalousTooltip = anomalousSubstatTooltipMarkdown(Number(variant), t)
-                      const toggleButtonNode = (
-                        <ToggleButton
-                          key={variant}
-                          value={String(variant)}
-                          disabled={!allowedSubstatOptions.includes(variant as StatVariant)}
-                          {...(isMixed ? { 'data-mixed': 'true' } : {})}
-                          {...(handleMultiClick ? { onClick: handleMultiClick } : {})}
-                        >
-                          <StatLabel variant={variant} inControl />
-                        </ToggleButton>
-                      )
-                      // Wrap only anomalous chips; the context-based group tolerates the wrapper.
-                      return anomalousTooltip
-                        ? <MarkdownTooltip key={variant} markdown={anomalousTooltip}>{toggleButtonNode}</MarkdownTooltip>
-                        : toggleButtonNode
-                    })}
-                  </ToggleButtonGroup>
-                ))}
-              </>
-            </Box>
-          </Collapse>
+          {/* No outer Collapse: each family gets its own, driven by its own chevron. */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
+            {/* Expanded-state control badge for the substat SELECTION itself. The chevron aggregate
+                badge only shows while collapsed; the specific stored→effective badge lives here.
+                Hidden once BOTH halves are collapsed, matching the old single-Collapse behavior. */}
+            {substatsOverrideActive && !(builderCollapsed.substats && builderCollapsed.substatsAnomalous) && renderSafeguardOverrideBadge(
+              buildSafeguardOverrideBadgeTooltip(
+                substatsLabel(sortSafeguardSubstats(rule.substats ?? [])),
+                substatsLabel(sortSafeguardSubstats(effectiveRule.substats ?? [])),
+              ),
+            )}
+            {/* Classic rows under the FIRST chevron; anomalous rows under the SECOND. One shared
+                row renderer (renderSubstatRow) serves both so the chip logic stays single-source.
+                All rows render unconditionally like every other stat; the per-chip disabled state
+                greys anomalous chips out on non-jewelry scopes. */}
+            <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {/* Row 1 SPD/CR%/CDMG%/ACC/RES, Row 2 the HP/ATK/DEF flats+percents. */}
+                {[STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2].map(renderSubstatRow)}
+              </Box>
+            </Collapse>
+            <Collapse in={!builderCollapsed.substatsAnomalous} timeout="auto" unmountOnExit>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {/* Accessory-only ⚔/🛡 mode-damage rows, folded away by default. */}
+                {[ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS, ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS].map(renderSubstatRow)}
+              </Box>
+            </Collapse>
+          </Box>
         </FormControl>
         {/* Substat match mode chips + weights button + improvement-chance threshold — all inline */}
         <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
@@ -3179,7 +3197,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0 }}
             >
-              <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+              <Box component="span" sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
             </BuilderSectionHeader>
             {slotSectionDirty
               ? (
@@ -3347,7 +3365,7 @@ export default function SafeguardBuilderPanel({
               onCollapsedChange={setBuilderCollapsed}
               labelSx={{ m: 0, flex: '0 1 auto' }}
             >
-              <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+              <Box component="span" sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
             </BuilderSectionHeader>
             {/* Clear wipes both sets and metaSetNames, mirroring the GearSetsSelect onChange paths (single + multi). */}
             {renderSectionClearButton(setsSectionDirty, t('builderClearSets'), () => {

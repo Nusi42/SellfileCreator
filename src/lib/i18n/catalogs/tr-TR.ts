@@ -1556,6 +1556,9 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Boss'lardan alınan hasarı azaltır.",
   statDungeonDmgMinusTooltip: "Zindanlarda alınan hasarı azaltır.",
   statAnomalousTooltipNote: "Anormal Aksesuar alt değeri; yalnızca Champion Proving Grounds aksesuarlarında bulunur. Aynı türdeki bonuslar birikir (örn. PvE ve Boss hasarı birlikte uygulanır).",
+  substatsToggleClassicAria: "Klasik alt değerleri aç/kapat",
+  substatsToggleAnomalousAria: "Anormal alt değerleri aç/kapat",
+  substatsGroupAnomalous: "Anormal",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Reçeteler kaydedildi. İndirilenler'i kontrol edin.",

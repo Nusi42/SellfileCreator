@@ -31,12 +31,10 @@ import type { SafeguardRule } from '../lib/safeguards'
 import {
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
   NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
-  normalizeNoteRecipeOverridesAnswers,
   type NoteRecipeOverridesAnswers,
 } from '../lib/noteRecipeOverrides'
 import {
   NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
-  normalizeNoteSafeguardOverridesAnswers,
   type NoteSafeguardOverridesAnswers,
 } from '../lib/noteSafeguardOverrides'
 import type { BuilderPanelCollapsedSections } from '../state/builderPreferences'
@@ -282,24 +280,12 @@ function computeInitialAutosaveState(args: {
         && args.safeguardRules.length === 0
         && !args.safeguardsEnabled
       const recipesEnabledMatchesSession = savedRecipesEnabled === args.recipesEnabled
-      // Read any recipe overrides answers stored alongside the autosave payload.
-      const payloadRecord = (entry.payload && typeof entry.payload === 'object')
-        ? (entry.payload as Record<string, unknown>)
-        : null
-      const savedRecipeOverridesAnswers = normalizeNoteRecipeOverridesAnswers(
-        payloadRecord
-          ? payloadRecord[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]
-          : null,
-      )
-      const savedOverridesDisabled = payloadRecord
-        ? payloadRecord[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] === true
-        : false
-      // Read any safeguard overrides answers stored alongside the autosave payload.
-      const savedSafeguardOverridesAnswers = normalizeNoteSafeguardOverridesAnswers(
-        payloadRecord
-          ? payloadRecord[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]
-          : null,
-      )
+      // Override answers now come from parseSfcObject like every other document field —
+      // the autosave payload and a saved .sfc share one reader, so these no longer need
+      // to be dug out of the raw record here (they were the last hand-rolled exception).
+      const savedRecipeOverridesAnswers = parsed.noteRecipeOverridesAnswers
+      const savedOverridesDisabled = parsed.noteOverridesDisabled
+      const savedSafeguardOverridesAnswers = parsed.noteSafeguardOverridesAnswers
       // Consider the note, recipe overrides, or safeguard overrides answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
         || (savedRecipeOverridesAnswers && Object.keys(savedRecipeOverridesAnswers).length > 0)

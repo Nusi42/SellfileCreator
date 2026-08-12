@@ -39,6 +39,12 @@ to default on reload.
 reset to defaults when OFF. **All global** (the filter was made global — a filter is a view, not
 account data).
 
+> **Dynamic-overrides answers are NOT in this table** — they are **document** state, stored in
+> the `.sfc` payload right after `Note` (see
+> [Application Behavior](app-behavior.md#sfc-global-note)). One writer/reader serves the file,
+> the autosave snapshot, and the background push. The separate *named* override presets
+> (`sellfileCreator.dynamicOverridesPresets.v1`) stay a preset library, listed further down.
+
 | Setting | Key | File |
 |---|---|---|
 | Rules filter — applied values | `sellfileCreator.rulesFilter.state.v3` | `state/rulesFilterPersistence.ts` |
@@ -48,6 +54,12 @@ account data).
 | Gear Inspector — applied substat sort | `sellfileCreator.gearInspector.sort.substats.v1` | `state/gearInspectorSubstatSortPreferences.ts` |
 | Builder — recipe section collapse | `sellfileCreator.builder.recipeCollapsed.v1` | `state/builderPreferences.ts` |
 | Builder — safeguard section collapse | `sellfileCreator.builder.safeguardCollapsed.v1` | `state/builderPreferences.ts` |
+
+> **Non-uniform collapse defaults.** Builder sections default to *expanded* except those listed
+> in `DEFAULT_COLLAPSED_BUILDER_SECTION_IDS` (`state/builderPreferences.ts`) — currently just
+> `substatsAnomalous`, the anomalous-substat sub-group. Filter-panel sections all default to
+> *collapsed*, so `subAnomalous` needed no special case there. Add to that ID list rather than
+> hand-writing a default map, or `parseBuilderPanelCollapsed` and the reset paths will disagree.
 | Preview mode (Sellfile / Gear Inspector) | `sellfileCreator.previewMode.v1` | `state/previewBuilderModePreferences.ts` |
 | Builder mode (Recipe / Safeguard) | `sellfileCreator.builderMode.v1` | `state/previewBuilderModePreferences.ts` |
 | Gear Analytics — section collapse | `sellfileCreator.gearAnalytics.collapsed.v1` | `state/gearAnalyticsPreferences.ts` |

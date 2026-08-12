@@ -1556,6 +1556,9 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Réduit les dégâts subis face aux Boss.",
   statDungeonDmgMinusTooltip: "Réduit les dégâts subis dans les Donjons.",
   statAnomalousTooltipNote: "Sous-statistique d'Accessoire Anormal, présente uniquement sur les accessoires des Champion Proving Grounds. Les bonus de même type se cumulent (p. ex. dégâts PvE et contre les Boss s'appliquent ensemble).",
+  substatsToggleClassicAria: "Afficher ou masquer les sous-statistiques classiques",
+  substatsToggleAnomalousAria: "Afficher ou masquer les sous-statistiques anormales",
+  substatsGroupAnomalous: "Anormales",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Recettes enregistrées. Vérifiez votre dossier Téléchargements.",

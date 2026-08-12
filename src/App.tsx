@@ -44,7 +44,7 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText, firstSelectableRecipeIndex } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -4060,9 +4060,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const applyNoteChange = useCallback((
     value: React.SetStateAction<string | null>,
-    options?: { mode?: NoteDescriptorMode; publish?: boolean },
+    options?: {
+      mode?: NoteDescriptorMode
+      publish?: boolean
+      // Override answers carried BY the imported document (a .sfc that stored them).
+      // Import mode normally resets to the note's authored defaults; when the file supplies
+      // its own answers these take precedence, so reopening a saved file restores the exact
+      // configuration the user saved. `null`/absent keeps the reset+seed behavior.
+      importedRecipeAnswers?: NoteRecipeOverridesAnswers | null
+      importedSafeguardAnswers?: NoteSafeguardOverridesAnswers | null
+    },
   ): HistoryEntryDescriptor | null => {
     const mode = options?.mode ?? 'edit'
+    // Resolve the import-mode answers ONCE so the changed and unchanged branches below
+    // (both of which reseed on import) cannot diverge.
+    const resolveImportRecipeAnswers = (note: string): NoteRecipeOverridesAnswers =>
+      options?.importedRecipeAnswers
+        // Prune against the note that actually arrived: a hand-edited file may name
+        // questions this note no longer has.
+        ? pruneNoteRecipeOverridesAnswers(note, options.importedRecipeAnswers)
+        : {}
+    const resolveImportSafeguardAnswers = (note: string): NoteSafeguardOverridesAnswers => {
+      const stored = options?.importedSafeguardAnswers
+        ? pruneNoteSafeguardOverridesAnswers(note, options.importedSafeguardAnswers)
+        : {}
+      // Seed cross-domain forces from the resolved recipe answers, then let the file's own
+      // stored answers win — seeding never overwrites an answer that already exists.
+      return seedSafeguardAnswersFromRecipeDefaults(note, resolveImportRecipeAnswers(note), stored)
+    }
     const prevRaw = sfcNote ?? null
     const nextRaw = typeof value === 'function'
       ? (value as (prev: string | null) => string | null)(prevRaw)
@@ -4090,8 +4115,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // default mode shows the wrong slider values. Reconcile here too. (Edit/clear/restore keep
       // the old skip: edits leave answers as-is, and restore's caller sets answers explicitly.)
       if (mode === 'import') {
-        setNoteRecipeOverridesAnswers({})
-        setNoteSafeguardOverridesAnswers(seedSafeguardAnswersFromRecipeDefaults(nextNormalized ?? ''))
+        setNoteRecipeOverridesAnswers(resolveImportRecipeAnswers(nextNormalized ?? ''))
+        setNoteSafeguardOverridesAnswers(resolveImportSafeguardAnswers(nextNormalized ?? ''))
       }
       setSfcNote(() => nextNormalized)
       return null
@@ -4101,8 +4126,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Keep recipe overrides answers aligned with the current note markers.
     // Why: answers are session-only, so imports reset them while edits prune stale entries.
     setNoteRecipeOverridesAnswers((prev) => {
-      // Imports never carry answers, so clear them (→ the note's `*` default mode is selected).
-      if (mode === 'import') return {}
+      // An import uses the answers the DOCUMENT carried (a saved .sfc restores its own
+      // configuration); with none, this resolves to {} → the note's `*` default mode.
+      if (mode === 'import') return resolveImportRecipeAnswers(nextNormalized ?? '')
       // Prune or reset answers based on the new note content.
       return nextNormalized ? pruneNoteRecipeOverridesAnswers(nextNormalized, prev) : {}
     })
@@ -4114,7 +4140,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // values, not each slider's own default=. This is the single source of truth for the import
     // seed; the SFC/shift-load callers must NOT pre-seed (this runs last and would clobber it).
     setNoteSafeguardOverridesAnswers((prev) => {
-      if (mode === 'import') return seedSafeguardAnswersFromRecipeDefaults(nextNormalized ?? '')
+      if (mode === 'import') return resolveImportSafeguardAnswers(nextNormalized ?? '')
       return nextNormalized ? pruneNoteSafeguardOverridesAnswers(nextNormalized, prev) : {}
     })
     const descriptor = createNoteChangeDescriptor({
@@ -4984,6 +5010,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     customRecipes,
     sfcNote,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
     finalSellRemainder,
     safeguardRules,
     safeguardsEnabled,
@@ -5231,20 +5260,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
+      // Dynamic-overrides answers now travel INSIDE the SFC payload (buildSfcPayload drops
+      // empty maps itself), so autosave and the saved .sfc file share one writer. The three
+      // hand-rolled spreads that used to live below are gone with it.
+      noteRecipeOverridesAnswers,
+      noteSafeguardOverridesAnswers,
+      noteOverridesDisabled,
     })
     // Filter/sort/collapse view state is EPHEMERAL — no longer written to the .sfc autosave
     // (see the sessionOnly stores). Legacy files may still carry `Filters`/`GearInspectorSort`/
     // `SafeguardsGridFilterMode`; the loader tolerates and ignores them.
-    // Persist recipe overrides answers in autosave only when non-empty.
-    const recipeOverridesPayload = Object.keys(noteRecipeOverridesAnswers).length > 0
-      ? noteRecipeOverridesAnswers
-      : null
-    // Persist safeguard overrides answers in autosave only when non-empty.
-    const safeguardOverridesPayload = Object.keys(noteSafeguardOverridesAnswers).length > 0
-      ? noteSafeguardOverridesAnswers
-      : null
-    // Persist recipe overrides disabled flag only when turned off.
-    const overridesDisabledPayload = noteOverridesDisabled ? true : null
     // Stamp the preset origin when the live setup still matches a built-in preset
     // (ignoring dynamic overrides). The full body is still written for expert-mode
     // restore; simple-mode load reads this marker to swap in the current built-in.
@@ -5259,9 +5284,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(simpleMode ? { [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expertMode } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       AutosaveSavedAt: new Date().toISOString(),
-      ...(recipeOverridesPayload ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeOverridesPayload } : {}),
-      ...(safeguardOverridesPayload ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: safeguardOverridesPayload } : {}),
-      ...(overridesDisabledPayload ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
@@ -7594,19 +7616,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
 
   // Shared SFC payload shape used by direct loads and selective Shift imports.
-  type SfcLoadPayload = {
-    recipes: BuilderRecipe[]
-    metasets: Metaset[]
-    substatTargets: SubstatTargetTable
-    selectedIndex: number | null
-    note?: string
-    // null when the key was absent from the source (e.g. old SFC without these sections).
-    // File-import callers fall back to defaults; clipboard paste callers skip applying.
-    finalSellRemainder: FinalSellRemainderConfig | null
-    safeguardRules: SafeguardRule[] | null
-    safeguardsEnabled: boolean | null
-    recipesEnabled: boolean
-  }
+  // The parser's own result shape (SSOT in sfcIO). Previously restated here, which is how
+  // it drifted from the reader; aliasing means a new payload field cannot go missing again.
+  type SfcLoadPayload = ParsedSfcResult
 
   // Merge strategy for metaset conflict handling when selective import uses merge mode.
   type MetasetConflictStrategy = 'keepCurrent' | 'useIncoming' | 'keepBoth'
@@ -7632,6 +7644,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled: payloadRecipesEnabled,
+      noteRecipeOverridesAnswers: importedRecipeAnswers,
+      noteSafeguardOverridesAnswers: importedSafeguardAnswers,
+      noteOverridesDisabled: importedOverridesDisabled,
     } = payload
 
     const loadDescriptor = createSfcLoadedDescriptor(fileName)
@@ -7651,12 +7666,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Non-history state — not part of the signature, safe outside the transition.
     setNoteRecipeOverridesAnswers({})
-    // SFC files never store the disabled flag, so re-enable parsing.
-    setNoteOverridesDisabled(false)
-    // Safeguard overrides answers are seeded from the freshly-loaded note's default recipe mode
-    // by the import-mode `applyNoteChange` below (its SSOT). We must NOT pre-seed here: that
-    // applyNoteChange runs last in this batch and would overwrite whatever we set, so any seed
-    // here is dead. Clearing keeps the pre-commit state consistent; the import path reseeds.
+    // SFC files may now carry the disabled flag; absent (legacy files) reads as false.
+    setNoteOverridesDisabled(importedOverridesDisabled)
+    // Safeguard + recipe overrides answers are resolved by the import-mode `applyNoteChange`
+    // below (its SSOT) — it runs last in this batch and would overwrite anything set here, so
+    // any seed here is dead. Clearing keeps the pre-commit state consistent; the import path
+    // reapplies the document's own stored answers (or reseeds when the file carries none).
     setNoteSafeguardOverridesAnswers({})
 
     startTransition(() => {
@@ -7666,7 +7681,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // urgently (outside the transition), the first render would consume markNextAsSavedRef
       // and the second render (customRecipes etc.) would land in a dirty state.
       // applyNoteChange with publish:false never calls describeNextChange, so loadDescriptor is safe.
-      applyNoteChange(importedNote, { mode: 'import', publish: false })
+      // Hand the document's own override answers to the import so a saved .sfc reopens in the
+      // configuration it was saved in, instead of snapping back to the note's authored defaults.
+      applyNoteChange(importedNote, {
+        mode: 'import',
+        publish: false,
+        importedRecipeAnswers,
+        importedSafeguardAnswers,
+      })
       // Open the viewer inside the SAME transition so the dialog mounts together with the
       // freshly-committed sfcNote. Opening it urgently (outside the transition) made the
       // dialog render once against the OLD sfcNote before this commit, flashing stale content.
@@ -7873,18 +7895,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const importedNote = incomingNoteRaw.trim().length > 0 ? incomingNoteRaw : null
         if (importedNote !== null) {
           setNoteAutoOpenedFromSfc(true)
-          applyNoteChange(importedNote, { mode: 'import', publish: false })
+          // Replacing the note also adopts the incoming document's override answers; they are
+          // pruned against that note, so entries it no longer declares are dropped.
+          applyNoteChange(importedNote, {
+            mode: 'import',
+            publish: false,
+            importedRecipeAnswers: payload.noteRecipeOverridesAnswers,
+            importedSafeguardAnswers: payload.noteSafeguardOverridesAnswers,
+          })
           openNoteViewer()
         } else {
           applyNoteChange(null, { mode: 'import', publish: false })
           closeNoteAfterLoad()
         }
       }
-      // Shift-load note import resets recipe-overrides answers to canonical defaults; the
-      // import-mode applyNoteChange above seeds the safeguard slider forces from the new note's
-      // default recipe mode (SSOT), so do NOT pre-seed here — it would be clobbered by that call.
-      setNoteRecipeOverridesAnswers({})
-      setNoteOverridesDisabled(false)
+      // The import-mode applyNoteChange above is the SSOT for BOTH answer maps: it adopts the
+      // incoming document's stored answers when it has them and otherwise resets + seeds from
+      // the new note's default recipe mode. Do NOT reset either map here — that ran after the
+      // call and silently discarded whatever it had just resolved.
+      // The disabled flag is not part of applyNoteChange, so it is applied here.
+      setNoteOverridesDisabled(payload.noteOverridesDisabled)
     }
     if (selection.safeguards) {
       if (modes.safeguards === 'replace') {
@@ -7944,7 +7974,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasetConflictOpen,
     setMetasets,
     setNoteAutoOpenedFromSfc,
-    setNoteRecipeOverridesAnswers,
     setNoteOverridesDisabled,
     setPendingSfcLoadImport,
     setSafeguardRules,
@@ -8731,6 +8760,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
+      // The latch stands in for the user's whole custom document, so it carries the
+      // overrides too — restoring "custom" must not drop their answers.
+      noteRecipeOverridesAnswers,
+      noteSafeguardOverridesAnswers,
+      noteOverridesDisabled,
     }), null, 2)
     setCustomAvailable(true)
     // A live custom setup (e.g. the user edited a preset) becomes the persisted
@@ -8748,6 +8782,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
   ])
 
   // Clear the latch and snapshot when leaving simple view (Go Expert / session
@@ -8783,6 +8820,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
+    // Same writer as "Save .sfc" means the same override payload — the merge carry would
+    // otherwise silently reset the answers when switching accounts.
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
   }), null, 2), [
     metasets,
     substatTargets,
@@ -8792,6 +8834,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
   ])
 
   // One switcher component, two mount points (header + simple Note dialog) so both entry
@@ -8847,6 +8892,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           safeguardRules,
           safeguardsEnabled,
           recipesEnabled,
+          // Save the user's dynamic-overrides answers with the file so reopening it restores
+          // the same configured state instead of snapping back to the note's authored defaults.
+          noteRecipeOverridesAnswers,
+          noteSafeguardOverridesAnswers,
+          noteOverridesDisabled,
         })
         const blob = sfcToBlob(payload)
         const url = URL.createObjectURL(blob)

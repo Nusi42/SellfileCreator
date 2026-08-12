@@ -102,7 +102,7 @@ import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import { ColorField } from './ColorField'
-import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX, COLLAPSED_CONTENT_INDICATOR_SX } from '../lib/constants'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
@@ -1162,6 +1162,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
         mainStats: sanitizedMainStats,
       })
   const substatSectionDirty = sanitizedSubstatsV.length > 0
+  // Split the same selection by family so each chevron reports only its own half:
+  // the classic chevron highlights its label, the anomalous chevron tints its icon.
+  const anomalousSubstatSectionDirty = sanitizedSubstatsV.some((v) => isAnomalousSubstatVariant(Number(v)))
   const setsSectionDirty = (recipe.artifactSets ?? []).length > 0 || (recipe.artifactMetaSets ?? []).length > 0
   // rank/rarity/faction: non-default when anything other than "any" is selected.
   const levelSectionDirty = (recipe.minLevel ?? 0) !== 0 || (recipe.maxLevel ?? 16) !== 16
@@ -4036,54 +4039,64 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     }
     const toggleGroupContent = (
       <>
-        {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
-        <ToggleButtonGroup
-          size="small"
-          value={value}
-          onChange={() => {}}
-          sx={substatToggleGroupSx}
-        >
-          {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
-            const dataTourId = variant === StatVariant.SPD
-              ? 'builder.substat.spd'
-              : variant === StatVariant.CR
-                ? 'builder.substat.cr'
-                : variant === StatVariant.CDMG
-                  ? 'builder.substat.cdmg'
-                  : undefined
-            return renderSubstatToggle(variant, dataTourId ? { dataTourId } : undefined)
-          })}
-        </ToggleButtonGroup>
-        {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
-        <ToggleButtonGroup
-          size="small"
-          value={value}
-          onChange={() => {}}
-          sx={substatToggleGroupSx}
-        >
-          {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
-        </ToggleButtonGroup>
-        {/* Accessory-only mode-scoped damage substats. Rows render
-            unconditionally like every other stat row; the per-chip disabled state (via
-            allowedSubstatOptions) greys them out when the slot scope has no jewelry slot. */}
-        {/* Row 3: PvE/PvP/Boss/DNG ⚔ (damage dealt) */}
-        <ToggleButtonGroup
-          size="small"
-          value={value}
-          onChange={() => {}}
-          sx={substatToggleGroupSx}
-        >
-          {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatToggle(variant))}
-        </ToggleButtonGroup>
-        {/* Row 4: PvE/PvP/Boss/DNG 🛡 (damage taken) */}
-        <ToggleButtonGroup
-          size="small"
-          value={value}
-          onChange={() => {}}
-          sx={substatToggleGroupSx}
-        >
-          {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatToggle(variant))}
-        </ToggleButtonGroup>
+        {/* Classic rows collapse under the FIRST header chevron ('substats'). */}
+        <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+                const dataTourId = variant === StatVariant.SPD
+                  ? 'builder.substat.spd'
+                  : variant === StatVariant.CR
+                    ? 'builder.substat.cr'
+                    : variant === StatVariant.CDMG
+                      ? 'builder.substat.cdmg'
+                      : undefined
+                return renderSubstatToggle(variant, dataTourId ? { dataTourId } : undefined)
+              })}
+            </ToggleButtonGroup>
+            {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
+            </ToggleButtonGroup>
+          </Box>
+        </Collapse>
+        {/* Accessory-only mode-scoped damage substats, collapsed under their OWN chevron
+            ('substatsAnomalous') and folded away by default. Rows render unconditionally like
+            every other stat row; the per-chip disabled state (via allowedSubstatOptions) greys
+            them out when the slot scope has no jewelry slot. */}
+        <Collapse in={!builderCollapsed.substatsAnomalous} timeout="auto" unmountOnExit>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {/* Row 3: PvE/PvP/Boss/DNG ⚔ (damage dealt) */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS.map((variant) => renderSubstatToggle(variant))}
+            </ToggleButtonGroup>
+            {/* Row 4: PvE/PvP/Boss/DNG 🛡 (damage taken) */}
+            <ToggleButtonGroup
+              size="small"
+              value={value}
+              onChange={() => {}}
+              sx={substatToggleGroupSx}
+            >
+              {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatToggle(variant))}
+            </ToggleButtonGroup>
+          </Box>
+        </Collapse>
       </>
     )
     return (
@@ -4612,7 +4625,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             dataTourId="builder.min-rolls.label"
           >
             <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
-              <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.minRolls && minRollsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
           {/* Reset routes through the same set-auto action the Auto toggle uses, so the aggregate-min
@@ -4893,7 +4906,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 />
               )}
             >
-              <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.requiredSubstats && requiredSubstatsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
           {/* Reset to the section's default (Auto count, no locked substats); minCount is re-derived by
@@ -5143,7 +5156,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 />
               )}
             >
-              <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
+              <Box component="span" data-ellipsis-target sx={builderCollapsed.milestoneThresholds && milestoneThresholdsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
             </MarkdownTooltip>
           </BuilderSectionHeader>
           {renderSectionClearButton(milestoneThresholdsSectionDirty, t('builderClearMilestoneThresholds'), () => {
@@ -6504,7 +6517,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.rank && rankSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {renderSectionClearButton(rankSectionDirty, t('builderClearRank'), () => {
@@ -6642,7 +6655,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.rarity && raritySectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {renderSectionClearButton(raritySectionDirty, t('builderClearRarity'), () => {
@@ -6818,7 +6831,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.faction && factionSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {renderSectionClearButton(factionSectionDirty, t('builderClearFaction'), () => {
@@ -6923,7 +6936,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           {/* Level label row mirrors Rank/Rarity/Faction pattern with a collapsible chevron. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <BuilderSectionHeader id="level" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
-              <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
+              <Box component="span" sx={builderCollapsed.level && levelSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderLevelWindow')}</Box>
             </BuilderSectionHeader>
             {renderSectionClearButton(levelSectionDirty, t('builderClearLevel'), () => {
               // Default window is the full 0–16 range; mirror the slider's min/max change paths.
@@ -6999,7 +7012,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.mainStat && mainStatSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {mainStatClearButton}
@@ -7027,7 +7040,19 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
-            <BuilderSectionHeader id="substats" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
+            {/* Two chevrons: the first collapses the classic rows, the second the anomalous ones.
+                The anomalous chevron turns blue while collapsed AND holding a selection, since it
+                has no label of its own to carry the usual highlight. */}
+            <BuilderSectionHeader
+              id="substats"
+              collapsed={builderCollapsed}
+              onCollapsedChange={setBuilderCollapsed}
+              labelSx={{ m: 0 }}
+              secondaryId="substatsAnomalous"
+              secondaryLabel={t('substatsGroupAnomalous')}
+              secondaryIndicate={builderCollapsed.substatsAnomalous && anomalousSubstatSectionDirty}
+              secondaryAriaLabel={t('substatsToggleAnomalousAria')}
+            >
               <MarkdownTooltip
                 ellipsisTitle={t('builderSubstats')}
                 render={(
@@ -7043,21 +7068,21 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.substats && substatSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.substats && substatSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {substatsClearButton}
           </Box>
-          <Collapse in={!builderCollapsed.substats} timeout="auto" unmountOnExit>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
-              {/* Override badge on the substat toggles; unmounts with the section when collapsed. */}
-              {substatsVOverrideActive && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
-                (recipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-                (effectiveRecipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
-              ))}
-              {substatsContent}
-            </Box>
-          </Collapse>
+          {/* No outer Collapse: substatsContent wraps each half in its own Collapse so the two
+              chevrons act independently. */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, position: 'relative' }}>
+            {/* Override badge on the substat toggles; hidden once BOTH halves are collapsed. */}
+            {substatsVOverrideActive && !(builderCollapsed.substats && builderCollapsed.substatsAnomalous) && renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
+              (recipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+              (effectiveRecipe.substatsV ?? []).map((v) => t(statVariantI18nKey(v))).join(', ') || t('any'),
+            ))}
+            {substatsContent}
+          </Box>
         </FormControl>
 
         {/* Slots — cols 1-2, spans rows 4a + 4b so it sits flush alongside both right-column items */}
@@ -7081,7 +7106,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.slots && slotSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {slotsClearButton}
@@ -7302,7 +7327,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <Box component="span" data-ellipsis-target sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, { color: 'primary.main' }] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+                <Box component="span" data-ellipsis-target sx={builderCollapsed.sets && setsSectionDirty ? [BUILDER_LABEL_TEXT_SX, COLLAPSED_CONTENT_INDICATOR_SX] : BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
             </BuilderSectionHeader>
             {/* Clear ✕ mirrors the in-content sets clear (see InlineSelectClearButton): wipes sets + metasets. */}

@@ -41,7 +41,21 @@ export type RawSfcFile = Record<string, unknown> & {
   Note?: string | string[]
   SafeguardsEnabled?: boolean
   RecipesEnabled?: boolean
+  NoteRecipeOverridesAnswers?: Record<string, string[]>
+  NoteSafeguardOverridesAnswers?: Record<string, string[]>
+  NoteRecipeOverridesDisabled?: boolean
 }
+
+// Wire key names for the dynamic-overrides answers. Declared locally on purpose:
+// this module is deliberately dependency-free (the release CLI compiles it standalone),
+// and the canonical definitions live in noteRecipeOverrides.ts / noteSafeguardOverrides.ts,
+// which pull in the whole app graph. Every other SFC key here is likewise a literal.
+// These names are part of the persisted SFC format and must never change — see
+// docs/technical/app-behavior.md ("Document answers"). Pinned by preset-patch.test.ts,
+// which asserts them against the app's own exported constants so a rename fails loudly.
+const NOTE_RECIPE_OVERRIDES_ANSWERS_KEY = 'NoteRecipeOverridesAnswers'
+const NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY = 'NoteSafeguardOverridesAnswers'
+const NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY = 'NoteRecipeOverridesDisabled'
 
 // A target identifies a single entry in Metasets/Recipes/Safeguards.
 // String → match by name (must be unique). Number → 1-based array index.
@@ -119,6 +133,16 @@ export type PresetPatch = {
   // ship with safeguards disabled by default.
   safeguardsEnabled?: boolean
   recipesEnabled?: boolean
+  // Dynamic-overrides answers the shipped preset should START in. Without these
+  // a loaded preset falls back to the Note DSL's authored defaults (the `*` option
+  // / each slider's `default=`), so this is how a release variant pins a different
+  // account tier or slider position without editing the DSL itself.
+  // Whole-value replace (not a merge): the patch states the full answer map, which
+  // keeps a patch file readable as "this is the configuration we ship".
+  noteRecipeOverridesAnswers?: Record<string, string[]>
+  noteSafeguardOverridesAnswers?: Record<string, string[]>
+  // Ship with dynamic overrides switched off entirely (markers stay in the Note).
+  noteRecipeOverridesDisabled?: boolean
 }
 
 // Thrown for any patch resolution or application failure. Carries a path
@@ -462,5 +486,18 @@ export function applyPresetPatch(sfc: RawSfcFile, patch: PresetPatch): RawSfcFil
   // an omitted flag in the patch leaves the original value intact.
   if (patch.safeguardsEnabled !== undefined) out.SafeguardsEnabled = patch.safeguardsEnabled
   if (patch.recipesEnabled !== undefined) out.RecipesEnabled = patch.recipesEnabled
+  // Dynamic-overrides answers. Same absence semantics as the flags above, and the
+  // wire key names come from the app's own constants so a rename cannot desync the
+  // patcher from the loader. Setting an EMPTY map is meaningful (ship with no answers,
+  // i.e. force the DSL defaults), so `{}` is written rather than treated as absent.
+  if (patch.noteRecipeOverridesAnswers !== undefined) {
+    out[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY] = patch.noteRecipeOverridesAnswers
+  }
+  if (patch.noteSafeguardOverridesAnswers !== undefined) {
+    out[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY] = patch.noteSafeguardOverridesAnswers
+  }
+  if (patch.noteRecipeOverridesDisabled !== undefined) {
+    out[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] = patch.noteRecipeOverridesDisabled
+  }
   return out
 }

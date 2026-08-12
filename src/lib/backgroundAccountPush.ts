@@ -39,15 +39,6 @@ import { parseSfcObject } from './sfcIO'
 import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
-import {
-  NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
-  NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
-  normalizeNoteRecipeOverridesAnswers,
-} from './noteRecipeOverrides'
-import {
-  NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
-  normalizeNoteSafeguardOverridesAnswers,
-} from './noteSafeguardOverrides'
 import { buildDocumentOverridesView } from './documentOverrides'
 import { createDatasetFromSnapshot, patchArtifactRowsCID } from './importers/gearDbRawDataset'
 import { mergeChampionRows } from './importers/gearDbLookups'
@@ -167,14 +158,14 @@ export const createBackgroundAccountPushService = (
         { metasets: defaultMetasets(), substatTargets: defaultSubstatTargets() },
         { runtimeSetNameMap: getPersistedRuntimeGearSetNameMap() },
       )
-      // Dynamic-override answers + disabled flag ride the autosave payload directly.
-      const rawPayload = entry.payload
+      // Dynamic-override answers + disabled flag come straight off the parsed document now —
+      // parseSfcObject reads them for autosave payloads and .sfc files alike, so this no
+      // longer digs through the raw record. `null` (absent) means "no answers".
       const view = buildDocumentOverridesView({
         note: doc.note ?? null,
-        noteOverridesDisabled: rawPayload[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] === true,
-        // The normalizers return null for absent/invalid payload fields — treat as "no answers".
-        recipeOverridesAnswers: normalizeNoteRecipeOverridesAnswers(rawPayload[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]) ?? {},
-        safeguardOverridesAnswers: normalizeNoteSafeguardOverridesAnswers(rawPayload[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]) ?? {},
+        noteOverridesDisabled: doc.noteOverridesDisabled,
+        recipeOverridesAnswers: doc.noteRecipeOverridesAnswers ?? {},
+        safeguardOverridesAnswers: doc.noteSafeguardOverridesAnswers ?? {},
         recipes: doc.recipes,
         substatTargets: doc.substatTargets,
         safeguardRules: doc.safeguardRules ?? [],

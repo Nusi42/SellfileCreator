@@ -1556,6 +1556,9 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Уменьшает получаемый урон от боссов.",
   statDungeonDmgMinusTooltip: "Уменьшает получаемый урон в подземельях.",
   statAnomalousTooltipNote: "Дополнительная характеристика Аномальных аксессуаров, встречается только на аксессуарах из Champion Proving Grounds. Однотипные бонусы суммируются (например, урон в PvE и по боссам действуют вместе).",
+  substatsToggleClassicAria: "Свернуть или развернуть классические характеристики",
+  substatsToggleAnomalousAria: "Свернуть или развернуть аномальные характеристики",
+  substatsGroupAnomalous: "Аномальные",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Рецепты сохранены. Проверьте папку «Загрузки».",

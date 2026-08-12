@@ -1556,6 +1556,9 @@ const enUS: Catalog = {
   statBossDmgMinusTooltip: "Decreases damage taken from Bosses.",
   statDungeonDmgMinusTooltip: "Decreases damage taken in Dungeons.",
   statAnomalousTooltipNote: "Anomalous Accessory substat, found only on accessories from the Champion Proving Grounds. Bonuses of the same kind stack (e.g. PvE and Boss damage both apply).",
+  substatsToggleClassicAria: "Toggle classic substats",
+  substatsToggleAnomalousAria: "Toggle anomalous substats",
+  substatsGroupAnomalous: "Anomalous",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Recipes saved. Check your Downloads folder.",

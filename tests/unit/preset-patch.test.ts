@@ -13,6 +13,13 @@ import {
   type PresetPatch,
   type RawSfcFile,
 } from '../../src/lib/presetPatch.js'
+// The app's canonical override key names — imported ONLY so the drift-guard test
+// below can compare them against the literals presetPatch.ts declares locally.
+import {
+  NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
+  NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
+} from '../../src/lib/noteRecipeOverrides.js'
+import { NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY } from '../../src/lib/noteSafeguardOverrides.js'
 
 // Minimal SFC fixture covering all sections the patch can touch. Field
 // shapes mirror real preset files (appearance.name for modern entries,
@@ -346,6 +353,51 @@ test('omitted global flags do not change existing values', () => {
   const out = applyPresetPatch(baseSfc(), {})
   assert.equal(out.SafeguardsEnabled, true)
   assert.equal(out.RecipesEnabled, true)
+})
+
+// ── Dynamic-overrides answers ─────────────────────────────────────────────
+
+test('a patch can pin the dynamic-overrides answers the preset ships with', () => {
+  const out = applyPresetPatch(baseSfc(), {
+    noteRecipeOverridesAnswers: { q_account: ['endgame'] },
+    noteSafeguardOverridesAnswers: { q_spd: ['16'] },
+    noteRecipeOverridesDisabled: true,
+  })
+  assert.deepEqual(out.NoteRecipeOverridesAnswers, { q_account: ['endgame'] })
+  assert.deepEqual(out.NoteSafeguardOverridesAnswers, { q_spd: ['16'] })
+  assert.equal(out.NoteRecipeOverridesDisabled, true)
+})
+
+test('omitted override fields leave the base preset untouched', () => {
+  // Absence semantics match the global flags: a patch that says nothing about
+  // overrides must not strip answers the base preset already carries.
+  const withAnswers = { ...baseSfc(), NoteRecipeOverridesAnswers: { q_account: ['lategame'] } }
+  const out = applyPresetPatch(withAnswers, {})
+  assert.deepEqual(out.NoteRecipeOverridesAnswers, { q_account: ['lategame'] })
+})
+
+test('an explicit empty answer map is written, not treated as absent', () => {
+  // "Ship with no answers" (force the DSL's authored defaults) is a real intent
+  // and must be distinguishable from "this patch does not mention overrides".
+  const withAnswers = { ...baseSfc(), NoteRecipeOverridesAnswers: { q_account: ['lategame'] } }
+  const out = applyPresetPatch(withAnswers, { noteRecipeOverridesAnswers: {} })
+  assert.deepEqual(out.NoteRecipeOverridesAnswers, {})
+})
+
+test('patcher override keys match the app\'s canonical constants', () => {
+  // presetPatch.ts declares these key names locally (it is deliberately
+  // dependency-free so the release CLI can compile it standalone). This test is
+  // the drift guard: it is the one place both definitions are compared, so a
+  // rename in the app fails here instead of silently producing presets whose
+  // answers the loader ignores.
+  const out = applyPresetPatch(baseSfc(), {
+    noteRecipeOverridesAnswers: { a: ['1'] },
+    noteSafeguardOverridesAnswers: { b: ['2'] },
+    noteRecipeOverridesDisabled: true,
+  })
+  assert.ok(NOTE_RECIPE_OVERRIDES_ANSWERS_KEY in out)
+  assert.ok(NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY in out)
+  assert.ok(NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY in out)
 })
 
 // ── Combined / end-to-end ─────────────────────────────────────────────────

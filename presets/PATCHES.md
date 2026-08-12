@@ -67,7 +67,10 @@ manually.
   "safeguards":       { "remove": [...], "edit": [...], "add": [...] },
   "note":             { "replace": [...], "append": "...", "prepend": "..." },
   "safeguardsEnabled": false,
-  "recipesEnabled":    false
+  "recipesEnabled":    false,
+  "noteRecipeOverridesAnswers":   { "<questionId>": ["<optionId>"] },
+  "noteSafeguardOverridesAnswers": { "<questionId>": ["<value>"] },
+  "noteRecipeOverridesDisabled":   false
 }
 ```
 
@@ -381,6 +384,64 @@ Toggle the global enable flags independently of per-entry edits:
 ```
 
 Omitting a flag leaves the original value intact.
+
+---
+
+## Dynamic-overrides answers
+
+A `.sfc` stores the answers to its Note's `<!-- recipe-overrides -->` /
+`<!-- safeguard-overrides -->` questions alongside the Note itself, so a
+preset reopens in the configuration it was saved in. Without stored answers a
+preset falls back to the DSL's *authored* defaults (the `*` option, each
+slider's `default=`).
+
+These three fields let a release variant **pin a different starting
+configuration without editing the DSL** — e.g. ship a build that starts on
+`Endgame` rather than the DSL's default `Lategame`:
+
+```json
+{
+  "noteRecipeOverridesAnswers": {
+    "q_account_tier": ["endgame"]
+  },
+  "noteSafeguardOverridesAnswers": {
+    "min_spd_pieces": ["16"],
+    "impr_art": ["50"]
+  }
+}
+```
+
+Ship with the whole dynamic-overrides system switched off (markers stay in
+the Note, they just stop being interactive):
+
+```json
+{ "noteRecipeOverridesDisabled": true }
+```
+
+**Semantics**
+
+- **Whole-value replace, not a merge.** The patch states the complete answer
+  map, so a patch file reads as "this is the configuration we ship". To adjust
+  one answer you restate the map.
+- **Omitted ⇒ untouched**, matching the global flags: a patch that says nothing
+  about overrides never strips answers the base preset already carries.
+- **`{}` is meaningful and is written.** An explicit empty map means "ship with
+  no answers — force the DSL's authored defaults", which is deliberately
+  distinct from omitting the field.
+- Values are **arrays of strings** in both maps. Slider answers are a
+  single-element array holding the number as a string (`["16"]`).
+
+**Finding the ids.** Question and option ids are the DSL's `id=` tokens; a
+question with no explicit `id=` derives one from its prompt text. The
+practical way to author these is to configure the preset in the app, save the
+`.sfc`, and copy the emitted `NoteRecipeOverridesAnswers` /
+`NoteSafeguardOverridesAnswers` blocks out of the saved file.
+
+> Answers are **pruned against the Note at load time**, so an id the Note no
+> longer declares is dropped silently rather than failing the build. If a
+> pinned answer seems to have no effect, check that the id still exists in the
+> DSL — patch-time validation cannot catch this, because the patcher never
+> parses the Note.
 
 ---
 

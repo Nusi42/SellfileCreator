@@ -1556,6 +1556,9 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Verringert den erlittenen Schaden durch Bosse.",
   statDungeonDmgMinusTooltip: "Verringert den erlittenen Schaden in Dungeons.",
   statAnomalousTooltipNote: "Anomaler Accessoire-Unterwert, nur auf Accessoires aus den Champion Proving Grounds. Gleichartige Boni stapeln sich (z. B. gelten PvE- und Boss-Schaden gemeinsam).",
+  substatsToggleClassicAria: "Klassische Unterwerte ein-/ausklappen",
+  substatsToggleAnomalousAria: "Anomale Unterwerte ein-/ausklappen",
+  substatsGroupAnomalous: "Anomal",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Rezepte gespeichert. Prüfe deinen Downloads-Ordner.",

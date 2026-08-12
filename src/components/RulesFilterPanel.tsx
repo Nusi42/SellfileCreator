@@ -32,7 +32,7 @@ import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX, ROLLS_FLYOUT_MAX_HEIGHT_PX } from '../lib/constants'
 import { APP_CSS_VAR } from '../lib/themeCustomTokens'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasets, resolveMetasets, type Metaset } from '../lib/metasets'
@@ -43,6 +43,7 @@ import {
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS,
   ANOMALOUS_SUBSTAT_VARIANTS_ROW_PLUS,
+  isAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
 import React from 'react'
@@ -395,9 +396,11 @@ type FilterSectionToggleProps = {
   collapsed: CollapsedSections
   // onToggle: shared toggle callback from FilterSectionHeader; avoids duplicating the logic here.
   onToggle: (applyToAll: boolean) => void
+  // ariaLabel: names the sub-group so paired chevrons are distinguishable to screen readers.
+  ariaLabel?: string
 }
 
-const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onToggle }) => {
+const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed, onToggle, ariaLabel }) => {
   const { t } = useI18n()
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     // Guard against right-button synthetic clicks that some browser/OS combinations fire
@@ -421,7 +424,7 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
         size="small"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
+        aria-label={ariaLabel ?? (collapsed[id] ? 'Expand' : 'Collapse')}
       >
         {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
       </IconButton>
@@ -440,6 +443,16 @@ type FilterSectionHeaderProps = {
   maxWidth?: number | string
   collapsed: CollapsedSections
   onCollapsedChange: (next: CollapsedSections) => void
+  // secondaryId: renders a SECOND chevron + label for a paired sub-group that collapses
+  // independently (anomalous substats), sharing this header row rather than stacking.
+  // Omitted on every ordinary single-chevron section.
+  secondaryId?: keyof CollapsedSections
+  // secondaryLabel: the sub-group's own label, carrying the same collapsed-with-content highlight.
+  secondaryLabel?: string
+  // secondaryDirty: the sub-group holds a non-default selection; highlights it when collapsed.
+  secondaryDirty?: boolean
+  // secondaryAriaLabel: names the sub-group for screen readers.
+  secondaryAriaLabel?: string
 }
 
 const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
@@ -451,14 +464,19 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   maxWidth,
   collapsed,
   onCollapsedChange,
+  secondaryId,
+  secondaryLabel,
+  secondaryDirty,
+  secondaryAriaLabel,
 }) => {
   const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
   // Highlight the label when the section is collapsed and has a non-default selection,
   // so the color acts as a secondary signal alongside the X-clear button.
   const highlight = !!dirty && !!collapsed[id]
   // Single source of truth for toggle logic shared by the icon button and the label.
-  const toggleSections = (applyToAll: boolean) => {
-    const nextValue = !collapsed[id]
+  // Parameterized by id so the primary and secondary chevrons reuse it.
+  const toggleSectionId = (target: keyof CollapsedSections, applyToAll: boolean) => {
+    const nextValue = !collapsed[target]
     if (applyToAll) {
       const nextAll: CollapsedSections = { ...collapsed }
       for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
@@ -467,8 +485,9 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
       onCollapsedChange(nextAll)
       return
     }
-    onCollapsedChange({ ...collapsed, [id]: nextValue })
+    onCollapsedChange({ ...collapsed, [target]: nextValue })
   }
+  const toggleSections = (applyToAll: boolean) => toggleSectionId(id, applyToAll)
   const handleLabelContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
     // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- matches the icon button's contextmenu flush to keep collapse state visible immediately.
@@ -493,6 +512,30 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
         }}
       >
         <SectionHeaderLabel label={label} highlight={highlight} onClick={() => toggleSections(false)} onContextMenu={handleLabelContextMenu} />
+        {/* Paired sub-group: its own chevron AND label on this same header row. Reuses
+            SectionHeaderLabel so the highlight matches every other section exactly. */}
+        {secondaryId ? (
+          <>
+            <FilterSectionToggle
+              id={secondaryId}
+              collapsed={collapsed}
+              onToggle={(applyToAll) => toggleSectionId(secondaryId, applyToAll)}
+              {...(secondaryAriaLabel !== undefined ? { ariaLabel: secondaryAriaLabel } : {})}
+            />
+            {secondaryLabel ? (
+              <SectionHeaderLabel
+                label={secondaryLabel}
+                highlight={!!secondaryDirty && !!collapsed[secondaryId]}
+                onClick={() => toggleSectionId(secondaryId, false)}
+                onContextMenu={(event: React.MouseEvent) => {
+                  event.preventDefault()
+                  // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- matches the sibling toggles' contextmenu flush.
+                  flushSync(() => toggleSectionId(secondaryId, true))
+                }}
+              />
+            ) : null}
+          </>
+        ) : null}
         {actions ? (
           <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
             {actions}
@@ -1658,6 +1701,12 @@ function RulesFilterPanel({
     || (state.sub.mode !== DEFAULT_RULES_FILTER_STATE.sub.mode)
     || (isGearInspectorMode && gearInspectorGlyphMode !== (DEFAULT_RULES_FILTER_STATE.gearInspectorGlyphs?.mode ?? 'any'))
     || (isGearInspectorMode && gearInspectorRollsActive)
+  )
+  // Anomalous half of the same substat selection — drives the blue tint on the second chevron.
+  // Only the stat lists matter here: mode/glyph/rolls chips live with the classic half.
+  const subAnomalousSectionDirty = (
+    state.sub.selected.some((v) => isAnomalousSubstatVariant(Number(v)))
+    || state.sub.notSelected.some((v) => isAnomalousSubstatVariant(Number(v)))
   )
   const levelSectionDirty = (
     (state.level.selected.length > 0)
@@ -3055,7 +3104,12 @@ function RulesFilterPanel({
                 )}
                 collapsed={collapsed}
                 onCollapsedChange={onCollapsedChange}
+                secondaryId="subAnomalous"
+                secondaryLabel={t('substatsGroupAnomalous')}
+                secondaryDirty={subAnomalousSectionDirty}
+                secondaryAriaLabel={t('substatsToggleAnomalousAria')}
               />
+              {/* Classic rows first — the long-standing order (classic above anomalous). */}
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {/* subMustHave, subMustNot, subActiveUnion, renderSubstatButton pre-computed before return. */}
@@ -3074,6 +3128,13 @@ function RulesFilterPanel({
                   >
                     {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
                   </ToggleButtonGroup>
+                </>
+              </Box>
+              </Collapse>
+              {/* Anomalous rows sit BELOW the classic ones, in their own Collapse driven by the
+                  second chevron so the two halves fold independently. */}
+              <Collapse in={!collapsed.subAnomalous} timeout="auto" unmountOnExit>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   {/* Accessory-only mode-damage substat rows (Update 11.70).
                       The filter is not slot-scoped, so the rows always show here. */}
                   <ToggleButtonGroup
@@ -3090,8 +3151,10 @@ function RulesFilterPanel({
                   >
                     {ANOMALOUS_SUBSTAT_VARIANTS_ROW_MINUS.map((variant) => renderSubstatButton(variant))}
                   </ToggleButtonGroup>
-                </>
-              </Box>
+                </Box>
+              </Collapse>
+              {/* Chips row: belongs to the classic half (mode/glyphs/rolls), so it reopens with it. */}
+              <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               {/* Chips row below substats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
                 <MarkdownTooltip
@@ -3793,7 +3856,10 @@ function RulesFilterPanel({
                 <Typography variant="caption" color="text.secondary">
                   {t('filterRollsPerStatTitle')}
                 </Typography>
-                <Stack spacing={1}>
+                {/* Scroll the per-stat list rather than the paper: ContextMenuPaper needs
+                    overflow:visible so its close button can protrude past the corner. Capping
+                    here keeps the wildcard row and title pinned while all 19 stats stay reachable. */}
+                <Stack spacing={1} sx={{ maxHeight: ROLLS_FLYOUT_MAX_HEIGHT_PX, overflowY: 'auto', pr: `${MENU_SCROLL_GUTTER_PX}px` }}>
                   {rollFilterStatOptions.map((variant) => {
                     const counts = getPerStatCounts(variant)
                     const label = t(statVariantI18nKey(variant))

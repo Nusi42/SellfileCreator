@@ -549,6 +549,13 @@ export const BUILDER_LABEL_TEXT_SX = {
   minWidth: 0,
 } as const
 
+// SSOT for the "collapsed, but this section holds a selection" signal colour. Section LABELS
+// have carried this as `color: 'primary.main'` since the collapse feature shipped; sub-group
+// CHEVRONS that share a header row (anomalous substats) have no label of their own, so they
+// tint the icon with the same token. One definition keeps the two signals the same blue.
+export const COLLAPSED_CONTENT_INDICATOR_COLOR = 'primary.main'
+export const COLLAPSED_CONTENT_INDICATOR_SX = { color: COLLAPSED_CONTENT_INDICATOR_COLOR } as const
+
 // Mirror the English layout widths for the Min Required / Required / Milestone trio so
 // other locales preserve the same proportions without wrapping their controls.
 export const BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX = 224
@@ -667,6 +674,12 @@ export const METASETS_DIALOG_LIST_HEIGHT_PX = METASETS_ROW_HEIGHT_PX * METASETS_
 // header controls stationary when toggling modes.
 export const MENU_MAX_HEIGHT_SETS_ICONS_PX = 200
 export const MENU_MAX_HEIGHT_SETS_LIST_PX = 300
+
+// Rolls flyout (Gear Inspector substat filter) lists every substat: 11 classic + 8 anomalous,
+// plus a wildcard row and divider. Without an explicit scroll window the popover is clamped by
+// the space between its anchor and the viewport bottom, which cut off the anomalous rows —
+// they sort last, so they were exactly what fell off. Cap the height and let it scroll instead.
+export const ROLLS_FLYOUT_MAX_HEIGHT_PX = 520
 
 // Extra right padding inside scrollable menu sections to keep right-edge
 // hover markers visible in browsers with overlay scrollbars.

@@ -60,7 +60,18 @@ import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
-import { canonicalizeNoteRecipeOverridesMarkers } from './noteRecipeOverrides'
+import {
+  canonicalizeNoteRecipeOverridesMarkers,
+  normalizeNoteRecipeOverridesAnswers,
+  NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
+  NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY,
+  type NoteRecipeOverridesAnswers,
+} from './noteRecipeOverrides'
+import {
+  normalizeNoteSafeguardOverridesAnswers,
+  NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY,
+  type NoteSafeguardOverridesAnswers,
+} from './noteSafeguardOverrides'
 
 // Legacy safeguard note markers used `keep-uniques` wording.
 // Normalize opening markers at the SFC boundary so runtime/editor state stays canonical.
@@ -954,11 +965,12 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
  * Parse a full SFC text payload and return normalized state slices.
  * Accepts a previous snapshot for metasets/substatTargets/allExplicit defaults.
  */
-export function parseSfcText(
-  text: string,
-  prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
-  options?: { runtimeSetNameMap?: Map<string, number> },
-): {
+/**
+ * Normalized slices produced by every SFC reader. Named once so parseSfcText /
+ * parseSfcObject / readSfcFile cannot drift — the shape was previously written out
+ * inline three times, so a field added to one was silently missing from the others.
+ */
+export type ParsedSfcResult = {
   recipes: BuilderRecipe[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
@@ -971,7 +983,20 @@ export function parseSfcText(
   safeguardRules: SafeguardRule[] | null
   safeguardsEnabled: boolean | null
   recipesEnabled: boolean
-} {
+  // Dynamic-overrides answers carried by the document. `null` means the key was ABSENT —
+  // distinct from `{}` (present but empty), so a legacy file that never stored them can be
+  // told apart from one that deliberately stores none. Callers decide what absence means.
+  noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers | null
+  noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers | null
+  // Absent key reads as false — overrides are enabled unless the document says otherwise.
+  noteOverridesDisabled: boolean
+}
+
+export function parseSfcText(
+  text: string,
+  prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+  options?: { runtimeSetNameMap?: Map<string, number> },
+): ParsedSfcResult {
   const parsed = JSON.parse(text) as unknown
   return parseSfcObject(parsed, prev, options)
 }
@@ -981,20 +1006,7 @@ export function parseSfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
   options?: { runtimeSetNameMap?: Map<string, number> },
-): {
-  recipes: BuilderRecipe[]
-  metasets: Metaset[]
-  substatTargets: SubstatTargetTable
-  selectedIndex: number | null
-  note?: string
-  // null when the key was absent from the source (e.g. recipe-only clipboard copy).
-  // Callers that perform a full replace (file import) should fall back to defaults;
-  // callers that merge into existing state (clipboard paste) should skip applying.
-  finalSellRemainder: FinalSellRemainderConfig | null
-  safeguardRules: SafeguardRule[] | null
-  safeguardsEnabled: boolean | null
-  recipesEnabled: boolean
-} {
+): ParsedSfcResult {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
   let rawRecipes = Array.isArray(parsed)
@@ -1137,6 +1149,12 @@ export function parseSfcObject(
     ? migrateImprovchanceSpacesToCommas(noteStr)
     : noteStr
   const note = migratedNoteStr ? canonicalizeLegacyNoteMarkers(migratedNoteStr) : undefined
+  // Dynamic-overrides answers ride beside the Note. Reuse the canonical normalizers so a
+  // hand-edited or truncated file is sanitized exactly like an autosave payload (SSOT).
+  // `null` preserves "key absent" — normalize* returns null for missing/invalid input.
+  const noteRecipeOverridesAnswers = normalizeNoteRecipeOverridesAnswers(parsedRec[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY])
+  const noteSafeguardOverridesAnswers = normalizeNoteSafeguardOverridesAnswers(parsedRec[NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY])
+  const noteOverridesDisabled = parsedRec[NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY] === true
   return {
     recipes,
     metasets,
@@ -1147,6 +1165,9 @@ export function parseSfcObject(
     safeguardRules,
     safeguardsEnabled,
     recipesEnabled,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
   }
 }
 
@@ -1154,18 +1175,7 @@ export function parseSfcObject(
 export async function readSfcFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
-): Promise<{
-  recipes: BuilderRecipe[]
-  metasets: Metaset[]
-  substatTargets: SubstatTargetTable
-  selectedIndex: number | null
-  note?: string
-  // null when the key was absent from the file (old SFC without these sections).
-  finalSellRemainder: FinalSellRemainderConfig | null
-  safeguardRules: SafeguardRule[] | null
-  safeguardsEnabled: boolean | null
-  recipesEnabled: boolean
-}>
+): Promise<ParsedSfcResult>
 {
   const text = await file.text()
   return parseSfcText(text, prev)
@@ -1372,6 +1382,13 @@ export function buildSfcPayload(args: {
   safeguardRules?: SafeguardRule[],
   safeguardsEnabled?: boolean,
   recipesEnabled?: boolean,
+  // Dynamic-overrides answers: the user's deviations from the Note DSL's authored defaults.
+  // They belong to the DOCUMENT (they only mean anything against this file's Note), so they
+  // ride along in the payload right after it. Autosave feeds the same three through here —
+  // one writer for both the .sfc file and the localStorage snapshot (SSOT).
+  noteRecipeOverridesAnswers?: NoteRecipeOverridesAnswers,
+  noteSafeguardOverridesAnswers?: NoteSafeguardOverridesAnswers,
+  noteOverridesDisabled?: boolean,
   }): {
     Version: string
     Metasets: Array<{ name: string; setNames: string[]; show?: boolean }>
@@ -1385,6 +1402,10 @@ export function buildSfcPayload(args: {
     RecipesEnabled: boolean
     // Array of lines for diff-friendliness; legacy files may still carry a plain string.
     Note?: string[]
+    // Emitted only when non-empty, so files without overrides stay byte-identical to before.
+    [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]?: NoteRecipeOverridesAnswers
+    [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]?: NoteSafeguardOverridesAnswers
+    [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]?: boolean
   } {
   const {
     version,
@@ -1396,7 +1417,17 @@ export function buildSfcPayload(args: {
     safeguardRules = [],
     safeguardsEnabled = false,
     recipesEnabled = true,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled = false,
   } = args
+  // Drop empty answer maps so a document with no overrides emits no keys at all.
+  const recipeAnswersOut = noteRecipeOverridesAnswers && Object.keys(noteRecipeOverridesAnswers).length > 0
+    ? noteRecipeOverridesAnswers
+    : undefined
+  const safeguardAnswersOut = noteSafeguardOverridesAnswers && Object.keys(noteSafeguardOverridesAnswers).length > 0
+    ? noteSafeguardOverridesAnswers
+    : undefined
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
     // id field omitted — name is now the primary key.
@@ -1434,6 +1465,11 @@ export function buildSfcPayload(args: {
     // Canonicalize legacy marker aliases so exports never re-emit old note keywords.
     // Store as an array of lines so the saved file is diff-friendly and copy-readable.
     ...(note ? { Note: canonicalizeLegacyNoteMarkers(note).split('\n') } : {}),
+    // Dynamic-overrides answers sit directly after the Note they belong to. Each key is
+    // omitted when it carries nothing, keeping override-free files unchanged on disk.
+    ...(recipeAnswersOut ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeAnswersOut } : {}),
+    ...(safeguardAnswersOut ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: safeguardAnswersOut } : {}),
+    ...(noteOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
   }
 }
 

@@ -11,6 +11,8 @@ import type { BuilderRecipe, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
+import type { NoteRecipeOverridesAnswers } from '../lib/noteRecipeOverrides'
+import type { NoteSafeguardOverridesAnswers } from '../lib/noteSafeguardOverrides'
 import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { createRecipesInsertedDescriptor } from '../history/recipeCollectionDescriptors'
@@ -63,7 +65,14 @@ type ApplyFinalSellChangeFn = (
 
 type ApplyNoteChangeFn = (
   value: SetStateAction<string | null>,
-  options?: { mode?: NoteDescriptorMode; publish?: boolean },
+  options?: {
+    mode?: NoteDescriptorMode
+    publish?: boolean
+    // Override answers carried by the pasted document — adopted on import so a pasted
+    // note arrives with its own configuration. Mirrors App.tsx's applyNoteChange.
+    importedRecipeAnswers?: NoteRecipeOverridesAnswers | null
+    importedSafeguardAnswers?: NoteSafeguardOverridesAnswers | null
+  },
 ) => HistoryEntryDescriptor | null
 
 type UseSfcClipboardParams = {
@@ -71,6 +80,10 @@ type UseSfcClipboardParams = {
   substatTargets: SubstatTargetTable
   customRecipes: BuilderRecipe[]
   sfcNote: string | null
+  // Dynamic-overrides answers, copied alongside the note they belong to.
+  noteRecipeOverridesAnswers: NoteRecipeOverridesAnswers
+  noteSafeguardOverridesAnswers: NoteSafeguardOverridesAnswers
+  noteOverridesDisabled: boolean
   finalSellRemainder: FinalSellRemainderConfig
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
@@ -156,6 +169,9 @@ export function useSfcClipboard({
   substatTargets,
   customRecipes,
   sfcNote,
+  noteRecipeOverridesAnswers,
+  noteSafeguardOverridesAnswers,
+  noteOverridesDisabled,
   finalSellRemainder,
   safeguardRules,
   safeguardsEnabled,
@@ -372,7 +388,14 @@ export function useSfcClipboard({
       const incomingNote = typeof note === 'string' ? note : null
       const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
       const noteDescriptor = shouldApplyNote
-        ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+        // Paste adopts the copied note only when the current one is empty; when it does,
+        // it adopts that note's override answers too so the pasted configuration survives.
+        ? applyNoteChange(incomingNote, {
+            mode: 'import',
+            publish: false,
+            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
+            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
+          })
         : null
       setCustomRecipes(prev => {
         const insertIdx = (selectedRecipeIdx !== null && selectedRecipeIdx >= 0 && selectedRecipeIdx < prev.length)
@@ -516,7 +539,14 @@ export function useSfcClipboard({
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
-            ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+            // Paste adopts the copied note only when the current one is empty; when it does,
+        // it adopts that note's override answers too so the pasted configuration survives.
+        ? applyNoteChange(incomingNote, {
+            mode: 'import',
+            publish: false,
+            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
+            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
+          })
             : null
           setCustomRecipes(prev => {
             const insertIdx = Math.min(prev.length, idx + 1)
@@ -638,6 +668,14 @@ export function useSfcClipboard({
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
+      // "Copy All Recipes" copies the whole document — note included — so the answers
+      // to that note's questions travel with it. Copying the note but leaving its
+      // configuration behind would paste a preset that silently reverts to the DSL's
+      // authored defaults. Paste only overwrites the note when the current one is empty,
+      // and the answers are pruned against whichever note ends up active.
+      noteRecipeOverridesAnswers,
+      noteSafeguardOverridesAnswers,
+      noteOverridesDisabled,
     })
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
@@ -649,6 +687,9 @@ export function useSfcClipboard({
     customRecipes,
     finalSellRemainder,
     sfcNote,
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
     metasets,
     substatTargets,
     safeguardRules,
@@ -760,7 +801,14 @@ export function useSfcClipboard({
           const incomingNote = typeof note === 'string' ? note : null
           const shouldApplyNote = !normalizeNoteValue(sfcNote) && Boolean(normalizeNoteValue(incomingNote))
           const noteDescriptor = shouldApplyNote
-            ? applyNoteChange(incomingNote, { mode: 'import', publish: false })
+            // Paste adopts the copied note only when the current one is empty; when it does,
+        // it adopts that note's override answers too so the pasted configuration survives.
+        ? applyNoteChange(incomingNote, {
+            mode: 'import',
+            publish: false,
+            importedRecipeAnswers: parsed.noteRecipeOverridesAnswers,
+            importedSafeguardAnswers: parsed.noteSafeguardOverridesAnswers,
+          })
             : null
           setCustomRecipes(prev => {
             const count = prep.recipesMapped.length

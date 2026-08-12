@@ -6,12 +6,21 @@
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import { BUILDER_AUTO_APPLY_SELECTED_RECIPE_KEY, BUILDER_AUTO_RESET_AFTER_INSERT_KEY, BUILDER_SHOW_TAG_CHIPS_KEY, BUILDER_SHOW_TAGS_IN_CHIPS_KEY, BUILDER_RECIPE_COLLAPSED_KEY, BUILDER_SAFEGUARD_COLLAPSED_KEY } from '../lib/constants'
 
-export const BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS = Object.freeze(['action', 'rank', 'rarity', 'faction', 'level', 'mainStat', 'substats', 'slots', 'sets', 'minRolls', 'requiredSubstats', 'milestoneThresholds'] as const)
+// 'substats' owns the CLASSIC substat grid; 'substatsAnomalous' owns the anomalous rows.
+// The two share one header row (two chevrons) but collapse independently — see BuilderSectionToggle.
+export const BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS = Object.freeze(['action', 'rank', 'rarity', 'faction', 'level', 'mainStat', 'substats', 'substatsAnomalous', 'slots', 'sets', 'minRolls', 'requiredSubstats', 'milestoneThresholds'] as const)
 export type BuilderPanelCollapsibleSectionId = typeof BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS[number]
 export type BuilderPanelCollapsedSections = Record<BuilderPanelCollapsibleSectionId, boolean>
 
+// Sections that start COLLAPSED rather than expanded. Anomalous substats are niche
+// (accessory-only, and only for players running Proving Grounds gear), so they stay
+// folded away until asked for — the blue chevron advertises when they hold a selection.
+const DEFAULT_COLLAPSED_BUILDER_SECTION_IDS: readonly BuilderPanelCollapsibleSectionId[] = Object.freeze(['substatsAnomalous'] as const)
+
 const DEFAULT_BUILDER_PANEL_COLLAPSED: BuilderPanelCollapsedSections = Object.freeze(
-  Object.fromEntries(BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS.map((k) => [k, false])) as BuilderPanelCollapsedSections,
+  Object.fromEntries(
+    BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS.map((k) => [k, DEFAULT_COLLAPSED_BUILDER_SECTION_IDS.includes(k)]),
+  ) as BuilderPanelCollapsedSections,
 )
 
 // Exported so autosave/restore logic can create default snapshots without re-declaring them.

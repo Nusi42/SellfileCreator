@@ -1556,6 +1556,9 @@ const overrides: Catalog = {
   statBossDmgMinusTooltip: "Reduz o dano recebido de Chefes.",
   statDungeonDmgMinusTooltip: "Reduz o dano recebido em Masmorras.",
   statAnomalousTooltipNote: "Substatus de Acessório Anómalo, encontrado apenas em acessórios dos Champion Proving Grounds. Bónus do mesmo tipo acumulam-se (ex.: dano PvE e contra Chefes aplicam-se juntos).",
+  substatsToggleClassicAria: "Mostrar ou ocultar substatus clássicos",
+  substatsToggleAnomalousAria: "Mostrar ou ocultar substatus anómalos",
+  substatsGroupAnomalous: "Anómalos",
 
   // Builder panel caption and toasts
   toastRecipesSaved: "Receitas guardadas. Verifique a sua pasta de Descargas.",

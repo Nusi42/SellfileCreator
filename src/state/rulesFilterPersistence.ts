@@ -37,7 +37,10 @@ export const RULES_FILTER_COLLAPSIBLE_SECTION_IDS = Object.freeze([
   'lastUse',
   'champions',
   'main',
+  // 'sub' owns the CLASSIC substat rows; 'subAnomalous' owns the anomalous ones.
+  // Both hang off one header row with two chevrons, mirroring the builder panels.
   'sub',
+  'subAnomalous',
   'level',
   'slots',
   'rank',
