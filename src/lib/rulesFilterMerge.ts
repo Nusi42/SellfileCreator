@@ -15,7 +15,9 @@ import {
 } from './rulesFilter'
 import type { StatVariant } from './types'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import type { RulesFilterPreviewMode } from '../state/rulesFilterPersistence'
+import { RULES_FILTER_PREVIEW_MODES, type RulesFilterPreviewMode } from '../state/rulesFilterPersistence'
+// Type-only: filterPresetsPreference does not import this module, so there is no cycle.
+import type { FilterPreset, FilterPresetView } from '../state/filterPresetsPreference'
 import {
   clone,
   unionBy,
@@ -197,4 +199,48 @@ export const projectFilterStateToMode = (state: RulesFilterState, mode: RulesFil
     out.rule = clone(D.rule!)
   }
   return out
+}
+
+/**
+ * The meaningful filter payload of a preset, resolved for the panel it is being applied to.
+ *
+ * A snapshot stores one view per preview mode. With "sync views" OFF each panel keeps its own
+ * independent filter, so the two stored views can hold entirely different selections — the
+ * non-active one is usually stale leftover state. Preferring the ACTIVE panel's own view keeps
+ * "apply" faithful to what the user configured and saw when they saved. Only when that view
+ * contributes nothing do we fall back to the other one, which is what makes a preset authored
+ * in one panel still work in the other (cross-panel mapping via projectFilterStateToMode).
+ *
+ * Order matters: a mode-agnostic scan (`rules` first, unconditionally) would let a stale rules
+ * view win over the Gear Inspector selection the user actually made.
+ */
+export const presetPayloadView = (
+  preset: FilterPreset,
+  mode: RulesFilterPreviewMode,
+): FilterPresetView | null => {
+  const snap = preset.snapshot
+  // The active panel's own view wins whenever it carries something.
+  const own = snap.views?.[mode]
+  if (own && rulesFilterStateHasContribution(own.state)) return own
+  // Otherwise fall back to any other view that contributes (cross-panel preset).
+  for (const other of RULES_FILTER_PREVIEW_MODES) {
+    if (other === mode) continue
+    const view = snap.views?.[other]
+    if (view && rulesFilterStateHasContribution(view.state)) return view
+  }
+  // No view contributes (degenerate/default preset): fall back to any view so apply is a no-op.
+  return own ?? snap.views?.gearInspector ?? snap.views?.rules ?? null
+}
+
+/**
+ * The preset's payload projected onto a target panel (cross-panel mapping) so it applies regardless
+ * of which panel authored it — e.g. a Sell preset filters the Sellfile preview as a Sell-rule filter.
+ */
+export const presetPayloadForMode = (
+  preset: FilterPreset,
+  mode: RulesFilterPreviewMode,
+): RulesFilterState | null => {
+  const view = presetPayloadView(preset, mode)
+  if (!view) return null
+  return projectFilterStateToMode(view.state, mode)
 }

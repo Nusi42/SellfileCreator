@@ -180,7 +180,7 @@ import { setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreference
 import { mergeSortState, subtractSortState, reapplySortScalars, sortStateContains, sortStateHasContribution } from './lib/gearInspectorSortMerge'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
-import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot, type FilterPresetView } from './state/filterPresetsPreference'
+import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { createPresetId } from './state/presetUtils'
 import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
@@ -216,7 +216,7 @@ import { GEAR_INSPECTOR_RECIPE_FILTER_MODE_DEFAULT, type GearInspectorRecipeFilt
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatGearInspectorSetLabel } from './lib/gearInspectorFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterGearInspectorItems, isRulesFilterActive, normalizeRulesFilterForGearInspector, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import { mergeRulesFilterState, subtractRulesFilterState, reapplyRulesFilterScalars, rulesFilterStateContains, rulesFilterStateHasContribution, projectFilterStateToMode } from './lib/rulesFilterMerge'
+import { mergeRulesFilterState, subtractRulesFilterState, reapplyRulesFilterScalars, rulesFilterStateContains, rulesFilterStateHasContribution, projectFilterStateToMode, presetPayloadView, presetPayloadForMode } from './lib/rulesFilterMerge'
 import type { GearAnalyticsDim, GearAnalyticsOutcome, GearAnalyticsSource } from './lib/gearAnalytics'
 import { EMPTY_GEAR_ANALYTICS_DIM, improvChanceBinsToRange, rangeToImprovChanceBins } from './lib/gearAnalytics'
 import {
@@ -411,7 +411,6 @@ import {
   useRulesFilterOpenPreference,
   useRulesFilterStatePreference,
   RULES_FILTER_PREVIEW_MODES,
-  type RulesFilterPreviewMode,
   setRulesFilterOpenForMode,
   setRulesFilterStateForMode,
   setRulesFilterCollapsedForMode,
@@ -539,30 +538,8 @@ type PipelineCacheEntry = {
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
-/**
- * The meaningful filter payload of a preset: the first stored view that actually contributes
- * something. Presets are mode-agnostic (no saved activeMode) and apply to whichever panel is
- * active, so a single payload is resolved here rather than fanning out per stored mode.
- */
-function presetPayloadView(preset: FilterPreset): FilterPresetView | null {
-  const snap = preset.snapshot
-  for (const mode of RULES_FILTER_PREVIEW_MODES) {
-    const view = snap.views?.[mode]
-    if (view && rulesFilterStateHasContribution(view.state)) return view
-  }
-  // No view contributes (degenerate/default preset): fall back to any view so apply is a no-op.
-  return snap.views?.gearInspector ?? snap.views?.rules ?? null
-}
-
-/**
- * The preset's payload projected onto a target panel (cross-panel mapping) so it applies regardless
- * of which panel authored it — e.g. a Sell preset filters the Sellfile preview as a Sell-rule filter.
- */
-function presetPayloadForMode(preset: FilterPreset, mode: RulesFilterPreviewMode): RulesFilterState | null {
-  const view = presetPayloadView(preset)
-  if (!view) return null
-  return projectFilterStateToMode(view.state, mode)
-}
+// presetPayloadView / presetPayloadForMode live in lib/rulesFilterMerge.ts (SSOT alongside the
+// rest of the preset filter algebra) and are imported above.
 
 // Resolve the simple-mode expert choice at startup, preferring the durable autosave copy
 // over the standalone localStorage key. The standalone key is written once at click time;
@@ -3411,7 +3388,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // that panel via cross-panel mapping) without switching the preview mode or touching globals.
     // setRulesFilter/setFilterCollapsed are sync-aware (they fan out to both modes when synced).
     if (!preset.exclusive) {
-      const view = presetPayloadView(preset)
+      // Resolve against the ACTIVE panel so a stale other-panel view can't override what the
+      // user configured here (see presetPayloadView). Needs the view itself for `collapsed`,
+      // so it calls the shared resolver directly rather than presetPayloadForMode.
+      const view = presetPayloadView(preset, previewMode)
       if (!view) return
       const payload = projectFilterStateToMode(view.state, previewMode)
       setRulesFilter((prev) => mergeRulesFilterState(prev, payload))
