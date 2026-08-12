@@ -46,6 +46,7 @@ import {
   includesAnomalousSubstatVariant,
 } from '../lib/anomalousAccessories'
 import { anomalousSubstatTooltipMarkdown } from '../lib/substatDisplay'
+import { createSectionToggler, defaultSectionToggleAriaLabel, isCollapsedWithContent } from '../lib/collapsibleSections'
 import React from 'react'
 import { flushSync } from 'react-dom'
 import { useTheme } from '@mui/material/styles'
@@ -424,7 +425,7 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
         size="small"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        aria-label={ariaLabel ?? (collapsed[id] ? 'Expand' : 'Collapse')}
+        aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id])}
       >
         {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
       </IconButton>
@@ -472,21 +473,10 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
   const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
   // Highlight the label when the section is collapsed and has a non-default selection,
   // so the color acts as a secondary signal alongside the X-clear button.
-  const highlight = !!dirty && !!collapsed[id]
-  // Single source of truth for toggle logic shared by the icon button and the label.
-  // Parameterized by id so the primary and secondary chevrons reuse it.
-  const toggleSectionId = (target: keyof CollapsedSections, applyToAll: boolean) => {
-    const nextValue = !collapsed[target]
-    if (applyToAll) {
-      const nextAll: CollapsedSections = { ...collapsed }
-      for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
-        nextAll[key] = nextValue
-      }
-      onCollapsedChange(nextAll)
-      return
-    }
-    onCollapsedChange({ ...collapsed, [target]: nextValue })
-  }
+  const highlight = isCollapsedWithContent(collapsed[id], dirty)
+  // Toggle semantics come from the shared definition the builder header also uses, so
+  // "collapse this one / collapse all" cannot drift between the two panels (SSOT).
+  const toggleSectionId = createSectionToggler(RULES_FILTER_COLLAPSIBLE_SECTION_IDS, collapsed, onCollapsedChange)
   const toggleSections = (applyToAll: boolean) => toggleSectionId(id, applyToAll)
   const handleLabelContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
@@ -525,7 +515,7 @@ const FilterSectionHeader: React.FC<FilterSectionHeaderProps> = ({
             {secondaryLabel ? (
               <SectionHeaderLabel
                 label={secondaryLabel}
-                highlight={!!secondaryDirty && !!collapsed[secondaryId]}
+                highlight={isCollapsedWithContent(collapsed[secondaryId], secondaryDirty)}
                 onClick={() => toggleSectionId(secondaryId, false)}
                 onContextMenu={(event: React.MouseEvent) => {
                   event.preventDefault()

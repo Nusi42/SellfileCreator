@@ -4,6 +4,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS, type BuilderPanelCollapsibleSectionId, type BuilderPanelCollapsedSections } from '../state/builderPreferences'
 import { BUILDER_LABEL_INLINE_SX, COLLAPSED_CONTENT_INDICATOR_SX } from '../lib/constants'
+import { createSectionToggler, defaultSectionToggleAriaLabel, isCollapsedWithContent } from '../lib/collapsibleSections'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
 
@@ -36,7 +37,7 @@ const BuilderSectionToggle: React.FC<BuilderSectionToggleProps> = ({ id, collaps
         size="small"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        aria-label={ariaLabel ?? (collapsed[id] ? 'Expand' : 'Collapse')}
+        aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id])}
       >
         {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
       </IconButton>
@@ -79,17 +80,9 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
   id, collapsed, onCollapsedChange, labelSx, dataTourId, primaryAriaLabel,
   secondaryId, secondaryLabel, secondaryDirty, secondaryAriaLabel, children,
 }) => {
-  // Toggling is parameterized by section id so the primary and secondary chevrons share it (SSOT).
-  const toggleSectionId = (target: BuilderPanelCollapsibleSectionId, applyToAll: boolean) => {
-    const nextValue = !collapsed[target]
-    if (applyToAll) {
-      const nextAll = { ...collapsed }
-      for (const k of BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS) nextAll[k] = nextValue
-      onCollapsedChange(nextAll)
-    } else {
-      onCollapsedChange({ ...collapsed, [target]: nextValue })
-    }
-  }
+  // Toggle semantics come from the shared definition the rules-filter header also uses, so
+  // "collapse this one / collapse all" cannot drift between the two panels (SSOT).
+  const toggleSectionId = createSectionToggler(BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS, collapsed, onCollapsedChange)
   const toggleSections = (applyToAll: boolean) => toggleSectionId(id, applyToAll)
   const handleLabelContextMenu = (event: React.MouseEvent<HTMLLabelElement>) => {
     event.preventDefault()
@@ -128,7 +121,7 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
                 cursor: 'pointer',
                 ...labelSx,
                 // Same signal the primary label carries, so both halves read alike.
-                ...(secondaryDirty && collapsed[secondaryId] ? COLLAPSED_CONTENT_INDICATOR_SX : {}),
+                ...(isCollapsedWithContent(collapsed[secondaryId], secondaryDirty) ? COLLAPSED_CONTENT_INDICATOR_SX : {}),
               }}
               onClick={() => toggleSectionId(secondaryId, false)}
               onContextMenu={(event) => { event.preventDefault(); toggleSectionId(secondaryId, true) }}
