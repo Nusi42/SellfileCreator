@@ -75,6 +75,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file (the file) | Sellfile | one word, no space — never "Sell File"/"Sell-Datei" |
   | rolls / drops | Rolls / Drops | **intentional loanwords** |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Aus / Schützen / Vorbeugen / Verbessern (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Gruppe (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording ("group rank"). de-DE calls quota scopes *Kontingent/Bereich*, so "Gruppe" is free and is the plainer word for players. |
 
   de-DE **intentional loanwords** (do NOT "correct" to German): Set, SPD, Banner, Slot, Rolls, Drops. **"Gear" is NOT a loanword in de-DE** — it is translated to "Ausrüstung" everywhere (catalog, README, preset prose); the lone exception is the proper-noun series title "Gear-Cleanse-Videos". The whole **stat** family is also translated: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` / `gear*` etc. TS **keys** stay English; `[[stat:…]]` tokens are untouched).
 
@@ -107,6 +108,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | rolls / drops | roll / drop | loanwords (used singular+plural invariant) |
   | rules (HSF) | regole | engine rules; the `Rules`/`Gear Inspector` preview toggle reads `Regole`/`Ispettore Equipaggiamento`. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Disattiva / Proteggi / Anticipa / Migliora (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Gruppo (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. it-IT has no such collision, so the natural word is used. |
 
   it-IT **intentional loanwords** (do NOT "correct" to Italian): Set, SPD, Slot, Roll(s), Drop(s), Chaos Ore, Sellfile, Metaset, Flex. **"Gear" is translated** to "equipaggiamento" (the *Gear Inspector* mode → "Ispettore Equipaggiamento"). The **substat** family is translated to **feminine "sotto-stat"**; "main stat" → "stat principale"; "stat" stays the loanword "stat". it-IT addresses the user informally (**tu**, not voi).
 
@@ -136,6 +138,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | rolls / drops | rolagem(ns) / drop(s) | **rolls is TRANSLATED** to "rolagem/rolagens" (never the "roll/rolls"/"quad-rolls" loanwords). **drop(s)** stays the loanword. |
   | vault / inbox / custom | Cofre / Entrada / Personalizado | Gear-Analytics source labels match the Gear-Inspector source set; `gearInspectorSourceManual` → "Personalizado" to match en "Custom". |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Desativar / Proteger / Antecipar / Melhorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Grupo (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. pt-BR has no such collision, so the natural word is used. |
 
   pt-BR **intentional loanwords** (do NOT "correct" to Portuguese): set/Sets (alongside "conjunto"), SPD, Slot, stat/substat, Chaos Ore, Sellfile, Drops, Flex, RSL Helper. **"Gear" is translated** to "equipamento"; the *Gear Inspector* mode is "Inspetor de Equipamento". **"rolls" is translated** to "rolagem/rolagens" (unlike de-DE which keeps "Rolls"). pt-BR is a SEPARATE locale from pt-PT — keep them distinct.
 
@@ -157,6 +160,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word, masculine ("el Sellfile"). |
   | rolls / drops | rolls / drops / tiradas | "tiradas" for the count; "rolls"/"drops" loanwords where idiomatic. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Apagada / Proteger / Anticipar / Mejorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Grupo (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. es-ES has no such collision, so the natural word is used. |
 
   es-ES **intentional loanwords:** set, metaset, stat, substat, SPD/CR%/CDMG%/ACC/RES (stat codes), rolls, drops, Sellfile, Normalized, Diff, KPI. **"gear" is translated** to "equipo"; **slot → "ranura"**. Disambiguation: the gear-set game concept = "set"; generic set/pool = "conjunto".
 
@@ -178,6 +182,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word. |
   | rolls / drops | rolls (jets / lancers) / drops | loanwords in prose; « jets »/« lancers » also native. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Désactivé / Protéger / Prévoir / Améliorer (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Groupe (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. fr-FR has no such collision, so the natural word is used. |
 
   fr-FR **intentional loanwords:** Set, SPD, Rolls, Drops, Glyphed/Chaos'd (KPI badges), Vault, Inbox. **"Gear" is translated** to « équipement »; **slot → « emplacement »**.
 
@@ -201,6 +206,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word. |
   | rolls / drops | rolagens / drops | "rolagens" translated (not loanword); "drops" kept. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Desligar / Proteger / Antecipar / Melhorar (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Grupo (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. pt-PT has no such collision, so the natural word is used. |
 
   pt-PT **intentional loanwords:** Set, SPD (+stat tokens), Slot, Rank, drops, Flex, metaset, Sellfile, Chaos Ore (label), Normalized. **"gear" → "equipamento"**, **"rolls" → "rolagens"**, **"substat" kept as loanword**. **European Portuguese** spelling throughout (ficheiro, ecrã, predefinição, facção). pt-PT is a SEPARATE locale from pt-BR.
 
@@ -223,6 +229,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word. |
   | rolls / drops | ролл / дропы | **rolls canonicalized to "ролл"** (not "роль"-style forms or "прок"). |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Выкл. / Хранить / Упреждать / Улучшать (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Группа (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. ru-RU has no such collision, so the natural word is used. |
 
   ru-RU **intentional loanwords:** сет, Sellfile, ролл, дроп, SPD/ATK/DEF/HP/ACC/RES/CR/CDMG, Flex. **"Gear" → снаряжение**, **"substat" → подстат** (translated, not loanwords).
 
@@ -246,6 +253,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word. |
   | rolls / drops | rulo / düşüş | translated. |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Kapalı / Koru / Öngör / İyileştir (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Grup (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. tr-TR has no such collision, so the natural word is used. |
 
   tr-TR **intentional loanwords:** SPD/ATK/DEF/HP/RES/ACC/CR/CDMG, Set, Flex, Sellfile, Glyph/glif, RSL Helper, Chaos'd/Chaos Orb. **"gear" → ekipman**, **slot → Yuva**, **recipe → Reçete**, **Vault → Kasa**, **faction → Fraksiyon**.
 
@@ -268,6 +276,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file | Sellfile | one word. |
   | rolls / drops | роли / дропи | loanwords (not *рулон*/*проки*). |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Вимкнути / Захистити / Передбачити / Покращення (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
+  | bundle (safeguard container) | Група (`safeguardsBundle*`) | English uses "bundle" only because "group" is taken there by the count-scope wording. uk-UA has no such collision, so the natural word is used. |
 
   uk-UA **intentional loanwords:** Sellfile, SPD/ATK/DEF/HP/CR/CDMG/ACC/RES, роли (rolls), дропи (drops), сет (gear set), Chaos Ore, Chaos'd, Glyphed, Flex. **"gear" → спорядження**, **"substat" → підстат** (translated). Catalog strings use DOUBLE quotes (U+2019 apostrophe trap).
 
@@ -693,6 +702,23 @@ Recipe separators (`exportMode='separator'`) and safeguard separators (`Safeguar
 - **Builder toggle**: the shared `SeparatorToggleButton` (`━`, single on/off ToggleButton) sits right of the name field in BOTH builders (single-edit only). Turning it ON resets the draft's other fields to factory defaults — exactly what a separator persists as — keeping appearance; turning it OFF returns to a normal rule/recipe (recipes resume `exportMode='active'`). Undo restores the pre-toggle state.
 - **Disabled sections**: while the draft is a separator, every non-name control section stays MOUNTED (stable layout when switching chips) but is dimmed + non-interactive via `separatorDisabledSectionSx` (`builderPanel/constants.ts`, opacity from `resolveDisabledOpacity`).
 - **Load selection**: fresh loads land on the first non-separator chip (see `rules-and-data.md`).
+
+### Bundles (the safeguard outline) in the chip list
+
+Semantics live in [app-behavior.md](app-behavior.md#bundles-the-safeguards-outline); this is the
+UI contract.
+
+- **Entry kinds**: branch on `safeguardEntryKind(rule)` → `'rule' | 'bundle' | 'separator'`. Never test `rule.bundle`/`rule.separator` inline — that discriminator is the SSOT, and a second copy of the test is how the two structural kinds drift apart.
+- **Structural facts** (parent, subtree span, member list, evaluation order, each bundle's demand) come from `lib/safeguardOutline.ts`, a memoizing facade over the Rust authority. It memoizes on the rules-array identity, so it costs one wasm call per mutation, not per consumer per render.
+- **Indentation**: `SAFEGUARD_OUTLINE_INDENT_PX` (`lib/constants.ts`) per level, consumed by the chip's left inset, the drop-guide inset during a drag, and the drag-and-drop depth resolver — one constant, three consumers, so tuning it cannot desync the guide from the drop. Nested chips additionally carry a left border (`--mui-palette-text-primaryChannel` at `ALPHA.a20`).
+- **No positioned wrapper around a chip.** The drag layer measures each chip's `offsetTop`, which is relative to its nearest *positioned* ancestor, so wrapping chips in a `position: relative` element (e.g. to host absolutely-positioned guide rails) silently zeroes every measurement and misplaces the drop guide. Depth cues must live inside the chip's own box.
+- **Bundle chip**: collapse chevron (`aria-expanded`; Ctrl/right-click applies to all bundles, matching `createSectionToggler`), name, activation badge, `≥ N` + scope suffix, ignore glyphs, tags. The combination summary is replaced by "N safeguards" (or the empty-bundle hint) via `safeguardSummaryParts`'s bundle branch.
+- **Chip badges**: a bundle shows its own `≥ N` — the count it keeps per merged bucket — read through the outline rather than off the rule, so an empty header correctly reads 0. A member shows its own `≥ N` unchanged; inside a bundle that number reads as the size of the feed it contributes. The owning bundle is NOT named on the chip or in the form — indentation already shows it.
+- **Visibility**: a subtree behind a collapsed bundle drops out, and the ancestor chain of anything still visible is forced back in, so indentation never dangles when `visibleRuleIndices` filters the list.
+- **Subtree operations**: delete, duplicate, copy and drag all act on `safeguardSubtreeIndices`. The four directional moves route through the optional `useItemListManager.resolveDirectionalMove`; drag-and-drop picks a level from the pointer's horizontal position via the optional `useChipListDnd.resolveDropDepth` + `depthIndentPx`. Both params are additive — `RecipeChipsPanel` omits them and behaves exactly as before.
+- **Builder form**: a `Bundle` ToggleButton sits beside `SeparatorToggleButton` (mutually exclusive). A bundle uses only two settings — its **scope chips** (which define what counts as the same merged bucket) and its **Required Count** (what it keeps out of each) — so the filter rows dim via the same `separatorDisabledSectionSx` mechanism. The count is an ordinary editable spinner, with a `fed by N safeguards` caption beside it: the count means nothing until safeguards feed the header, and that caption is what makes an empty bundle visible without a second control.
+- **Everything else on a bundle is inert** — substats, weights, ranking, activation mode, ignore toggles, improvement chance. A bundle does not evaluate, so none of them can mean anything; members keep their own. See [Bundles](app-behavior.md#bundles-the-safeguards-outline).
+- **Note**: `SafeguardChipsPanel` mirrors `buildChipContextMenuActions` rather than calling it. Routing through that helper trips `react-hooks/refs` (several chip handlers transitively read a ref, and the rule forbids *calling* such a function during render). The helper currently has no callers.
 
 ## Hooks and Shared Components
 

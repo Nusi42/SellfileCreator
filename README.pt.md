@@ -181,6 +181,20 @@ Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por sal
 | `Por facção` | Duplica a quota para cada facção. | Garante três anéis Merciless para cada facção. |
 | `Por stat principal` | Duplica a quota para cada stat principal selecionado. | Mantém pools separados para estandartes ACC vs. RES. |
 
+#### Grupos: várias proteções a partilhar uma quantidade necessária
+Duas proteções podem acabar a descrever a *mesma* promessa sem querer. Uma guarda 3 anéis bons, outra guarda 2 — mas só querias 3 anéis no total, e agora estás a guardar 5.
+
+Um **grupo** resolve isso. Transforma qualquer entrada em grupo com o botão `Grupo` ao lado do campo do nome e arrasta proteções para dentro (ou seleciona algumas e escolhe `Agrupar num grupo` no menu do botão direito).
+
+- Cada proteção dentro de um grupo continua a procurar **exatamente** o que sempre procurou: os seus próprios slots, conjuntos, subatributos e pesos. Um grupo nunca muda o que elas procuram.
+- O que muda é para onde vão os achados delas. Uma proteção dentro de um grupo já não guarda equipamento sozinha: **oferece** os seus achados ao grupo, e a sua `Quantidade necessária` decide quantos oferece.
+- A `Quantidade necessária` do grupo é o número que realmente decide. Escreve-o diretamente: é quanto o grupo guarda de tudo o que as suas proteções lhe ofereceram.
+- Os botões de âmbito do próprio grupo decidem o que conta como o mesmo lote. Põe `Por facção` no grupo e cada facção recebe a sua própria contagem, independentemente de como estejam divididas as proteções lá dentro.
+- Quando várias proteções oferecem peças para o mesmo lote, **ganham as melhores peças**. Cada peça é avaliada pelos subatributos e pesos da proteção que a ofereceu, portanto uma peça da segunda proteção pode perfeitamente vencer uma da primeira.
+- Os grupos podem estar dentro de grupos. Clica no ▾ de um grupo para o recolher; com o botão direito recolhes todos os grupos de uma vez.
+
+**Exemplo.** Queres cinco bons acessórios de VEL por facção, mas «bom» significa duas coisas diferentes: `VEL + T.CRIT + D.CRIT` para quem causa dano e `VEL + PV + DEF` para tanques. Cria uma proteção para cada perfil, põe ambas num grupo e define o grupo em `5` com `Por facção`. Cada proteção oferece as suas melhores peças e o grupo guarda as cinco que saíram melhor entre as duas, em vez de cinco de cada.
+
 #### Exemplos reais
 | Cenário | Filtros | Quantidade necessária | Botões de âmbito | O que o scanner garante |
 | --- | --- | --- | --- | --- |
@@ -189,6 +203,7 @@ Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por sal
 | Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `3` | `Por facção` | Cada facção guarda três anéis Merciless próprios. |
 | Anéis de HP% por facção | Slot = Anel, Stat principal = HP%, Sets vazios | `2` | `Por facção` | Permanecem dois anéis de HP% por facção. |
 | Acessórios básicos por facção | Três regras (Anel, Amuleto, Estandarte), Sets/Stat principal vazios | `5` | `Por facção` | Cada facção conserva cinco anéis, amuletos e estandartes. |
+| Cinco acessórios por facção, em qualquer slot | As mesmas três regras, dentro de um grupo | `5` no grupo | `Por facção` no grupo | Cada facção mantém cinco acessórios no total, em quaisquer slots que sejam. |
 | Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal vazio | `2` | `Por set` + `Por facção` + `Por slot` | Cada facção guarda duas peças Stoneskin e duas Protection em cada slot de acessório. |
 | Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Mantém as cinco melhores rolagens de SPD entre os acessórios (empates incluídos). |
 | Estandartes de ACC com SPD | Slot = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD mais alto | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD conta mais. |

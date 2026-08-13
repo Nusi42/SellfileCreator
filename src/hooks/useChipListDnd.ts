@@ -11,6 +11,8 @@ export type DragState = {
   activeIndex: number
   dropIndex: number | null
   copyMode: boolean
+  /** Outline level the drop would land at; null for flat lists (no resolveDropDepth). */
+  dropDepth: number | null
 }
 
 type ChipLayoutEntry = {
@@ -35,10 +37,24 @@ type PointerDragSession = {
 export type UseChipListDndOptions = {
   containerRef: React.MutableRefObject<HTMLElement | null>
   itemIndexAttr: string
-  onReorder: (movingIndices: number[], toIndex: number, options?: { mode?: 'move' | 'copy' }) => void
+  onReorder: (movingIndices: number[], toIndex: number, options?: { mode?: 'move' | 'copy'; depth?: number }) => void
   onPrepareSelection?: (idx: number) => number[]
   copyModeEnabled?: boolean
   enabled: boolean
+  /**
+   * Optional outline support. When supplied, the pointer's HORIZONTAL position also picks a
+   * nesting level for the drop — the standard outliner interaction — and that level is
+   * reported on the drop guide (so the bar renders indented) and forwarded to `onReorder`.
+   *
+   * Callers that model a flat list omit this and are entirely unaffected: no depth is ever
+   * computed, and `onReorder` receives exactly the options it does today.
+   */
+  resolveDropDepth?: (insertIndex: number, pointerOffsetX: number) => number
+  /**
+   * Pixels of indentation per outline level, used to inset the drop guide so it lines up with
+   * where the dragged block will actually land. Only read when `resolveDropDepth` is supplied.
+   */
+  depthIndentPx?: number
 }
 
 export type UseChipListDndResult = {
@@ -146,16 +162,30 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
     const selectionMax = (selection[selection.length - 1] ?? -1) + 1
     let nextDrop: number | null = null
     let nextGuide: DropGuide = null
+    let nextDepth: number | null = null
     const withinSelectionRange = resolved
       ? resolved.insertIndex >= selectionMin && resolved.insertIndex <= selectionMax
       : false
     if (resolved && (current.copyMode || !withinSelectionRange)) {
       nextDrop = resolved.insertIndex
       nextGuide = resolved.guide
+      // Outline lists let the pointer's horizontal position pick the nesting level, and the
+      // guide is inset to match so the drop reads unambiguously before the user commits.
+      const { resolveDropDepth, depthIndentPx } = optionsRef.current
+      if (resolveDropDepth) {
+        const container = containerRef.current
+        const offsetX = container ? clientX - container.getBoundingClientRect().left : 0
+        nextDepth = resolveDropDepth(resolved.insertIndex, offsetX)
+        const inset = (depthIndentPx ?? 0) * nextDepth
+        const base = resolved.guide
+        if (inset > 0 && base) {
+          nextGuide = { ...base, left: base.left + inset, width: Math.max(4, base.width - inset) }
+        }
+      }
     }
     setDropGuide(nextGuide)
-    setDragState(prev => (prev ? { ...prev, dropIndex: nextDrop } : prev))
-  }, [measureChipLayouts, resolveDropTargetFromPoint])
+    setDragState(prev => (prev ? { ...prev, dropIndex: nextDrop, dropDepth: nextDepth } : prev))
+  }, [containerRef, measureChipLayouts, resolveDropTargetFromPoint])
 
   const stopAutoScroll = useCallback(() => {
     autoScrollVelocityRef.current = 0
@@ -228,15 +258,21 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
   const applyDrop = useCallback(() => {
     const current = dragStateRef.current
     if (!current) return
-    const { indices, dropIndex, copyMode } = current
+    const { indices, dropIndex, copyMode, dropDepth } = current
+    // Depth rides along only when the caller opted into outline drops; a flat list receives
+    // exactly the options it always did.
+    const depthOption = dropDepth === null ? {} : { depth: dropDepth }
     if (dropIndex != null) {
       if (copyMode) {
-        optionsRef.current.onReorder(indices, dropIndex, { mode: 'copy' })
+        optionsRef.current.onReorder(indices, dropIndex, { mode: 'copy', ...depthOption })
       } else {
         const min = indices[0] ?? 0
         const max = (indices[indices.length - 1] ?? -1) + 1
-        if (dropIndex < min || dropIndex > max) {
-          optionsRef.current.onReorder(indices, dropIndex)
+        // An outline drop at the same position can still be meaningful — it may only change
+        // the level — so a depth-aware list also commits in-range drops when the depth differs.
+        const positionChanged = dropIndex < min || dropIndex > max
+        if (positionChanged || dropDepth !== null) {
+          optionsRef.current.onReorder(indices, dropIndex, depthOption)
         }
       }
     }
@@ -250,6 +286,8 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
       activeIndex: idx,
       dropIndex: idx,
       copyMode,
+      // Resolved on the first pointer move; null until then, and always null for flat lists.
+      dropDepth: null,
     }
     dragStateRef.current = next
     setDragState(next)

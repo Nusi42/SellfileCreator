@@ -1070,6 +1070,9 @@ mod improvement_watch_tests {
                 threshold, threshold, threshold, threshold,
             ])),
             tags: None,
+            // Outline placement: test rules are flat, top-level, in no bundle.
+            bundle: None,
+            depth: None,
         }
     }
 

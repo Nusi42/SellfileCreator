@@ -187,6 +187,20 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 | `Par faction` | Duplique la quote-part pour chaque faction. | Garantir trois anneaux Merciless pour chaque faction. |
 | `Par stat principale` | Duplique la quote-part pour chaque stat principale. | Séparer les réserves d’étendards ACC vs RES. |
 
+#### Groupes : plusieurs protections partageant un nombre requis
+Deux protections peuvent finir par décrire la *même* promesse sans le vouloir. L'une garde 3 bons anneaux, l'autre en garde 2 — alors que tu ne voulais que 3 anneaux au total, et t'en gardes maintenant 5.
+
+Un **groupe** règle ça. Transforme une entrée en groupe avec le bouton `Groupe` à côté du champ du nom, puis glisse des protections dedans (ou sélectionnes-en plusieurs et choisis `Regrouper dans un groupe` dans le menu du clic droit).
+
+- Chaque protection dans un groupe cherche **exactement** ce qu'elle cherchait avant : ses propres emplacements, sets, sous-stats et pondérations. Un groupe ne change jamais ce qu'elles cherchent.
+- Ce qui change, c'est où vont leurs trouvailles. Une protection dans un groupe ne garde plus d'équipement toute seule : elle **propose** ses trouvailles au groupe, et son propre `Nombre requis` décide combien elle en propose.
+- Le `Nombre requis` du groupe est le nombre qui décide vraiment. Tape-le directement : c'est ce que le groupe garde parmi tout ce que ses protections lui ont proposé.
+- Les boutons de portée du groupe décident de ce qui compte comme un même lot. Mets `Par faction` sur le groupe et chaque faction reçoit son propre compte, quelle que soit la répartition des protections à l'intérieur.
+- Quand plusieurs protections proposent des pièces pour le même lot, **les meilleures pièces gagnent**. Chaque pièce est jugée avec les sous-stats et les pondérations de la protection qui l'a proposée, donc une pièce de la deuxième protection peut tout à fait battre une pièce de la première.
+- Les groupes peuvent contenir des groupes. Clique sur le ▾ d'un groupe pour le replier ; le clic droit replie tous les groupes d'un coup.
+
+**Exemple.** Tu veux cinq bons accessoires de VIT par faction, mais « bon » veut dire deux choses : `VIT + T.CRIT + D.CRIT` pour les DPS, `VIT + PV + DEF` pour les tanks. Crée une protection par profil, mets les deux dans un groupe et règle le groupe sur `5` avec `Par faction`. Chaque protection propose ses meilleures pièces, et le groupe garde les cinq qui ressortent le mieux des deux — au lieu de cinq de chaque.
+
 #### Exemples concrets
 
 | Scénario | Filtres | Quantité requise | Puces de portée | Ce que garantit l’analyse |
@@ -196,6 +210,7 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 | Anneaux Merciless par faction | Emplacement = Anneau, Set = Merciless, Faction vide | `3` | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
 | Anneaux PV% par faction | Emplacement = Anneau, Stat principale = PV%, Sets vides | `2` | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
 | Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides | `5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
+| Cinq accessoires par faction, tous emplacements | Les trois mêmes règles, dans un groupe | `5` sur le groupe | `Par faction` sur le groupe | Chaque faction garde cinq accessoires au total, quels que soient leurs emplacements. |
 | Séries Stoneskin/Protection par faction | Emplacement = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `2` | `Par set` + `Par faction` + `Par emplacement` | Chaque faction garde deux Stoneskin et deux Protection par emplacement d’accessoire. |
 | Accessoires SPD les plus rapides | Emplacement = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par garde-fou` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
 | Bannières ACC avec SPD | Emplacement = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |

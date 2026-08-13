@@ -29,6 +29,10 @@ type SafeguardRuleSignature = {
   appearance: { name: string; fgColor?: string } | undefined
   requiredCount: number
   activation: SafeguardRuleActivation
+  // Bundle outline placement — see the construction site for why both belong here and why
+  // `collapsed` does not.
+  bundle: boolean
+  depth: number
   ignorePreviousSafeguards: boolean
   ignoreEquippedInCollection: boolean
   ignoreEquippedInVault: boolean
@@ -272,6 +276,14 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     appearance: rule.appearance,
     requiredCount: rule.requiredCount,
     activation: rule.activation,
+    // Outline placement. `bundle` is a genuine content edit made from the builder form, and
+    // `depth` changes which entries feed a bundle — both change the emitted rule set, so
+    // history and the apply gate must see them. Without this the mutation funnel treats such
+    // an edit as a no-op and silently drops it, leaving the control dead. `collapsed` is
+    // deliberately absent: it is presentation state, and its changes travel through the
+    // funnel's explicit `displayOnly` path instead.
+    bundle: rule.bundle === true,
+    depth: rule.depth ?? 0,
     // Keep toggle fields in the signature so history detects their edits.
     ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
@@ -309,6 +321,12 @@ function safeguardRuleSignaturesEqual(left: SafeguardRuleSignature, right: Safeg
     || left.weightMainStatByRank !== right.weightMainStatByRank
     || left.mainStatRankWeightFactor !== right.mainStatRankWeightFactor
     || left.substatMatch !== right.substatMatch
+    // Outline placement. This comparator is a SECOND hand-maintained field list beside
+    // buildSafeguardRuleSignature — a field added there but forgotten here compares equal, so
+    // the mutation funnel sees neither a content change nor a reorder and silently drops the
+    // update. Adding a field to the signature means adding it here in the same edit.
+    || left.bundle !== right.bundle
+    || left.depth !== right.depth
   ) {
     return false
   }

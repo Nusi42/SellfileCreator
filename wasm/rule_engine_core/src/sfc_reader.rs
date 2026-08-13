@@ -786,6 +786,12 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
 fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
     let rec = raw.as_object().ok_or("Safeguard rule is not a JSON object")?;
 
+    // Outline placement is read for EVERY entry kind, separators included — a divider nested
+    // in a bundle keeps its slot and its level. Mirrors safeguards.ts, which reads depth
+    // before its separator short-circuit for the same reason. The structural invariant is
+    // repaired list-wide by resolve_safeguard_outline; this only carries the stored values.
+    let depth = rec.get("depth").and_then(|v| v.as_i64());
+
     // Separator entries persist minimally ({ appearance?, Separator: true }) and are pure
     // list dividers — parse them as inert activation="off" rules so the Safeguards array
     // indices stay aligned with the TS side and matching never sees them.
@@ -807,8 +813,17 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
             main_stat_rank_weight_factor: None,
             improvement_chance_threshold: None,
             tags: None,
+            // A divider is never a container, but it does occupy an outline level.
+            bundle: None,
+            depth,
         });
     }
+
+    // Bundle headers persist the full rule shape minus the tuple: they own the required count
+    // that decides what survives out of everything their members feed them. Everything below
+    // therefore parses for bundles too — only the combination is absent, which is expected
+    // rather than invalid.
+    let bundle = rec.get("Bundle").and_then(|v| v.as_bool());
 
     let id = rec.get("id").and_then(|v| v.as_str()).map(|s| s.trim().to_string());
 
@@ -895,6 +910,9 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         substats,
         substat_match,
         substat_weights,
+        // Outline placement carried verbatim; resolve_safeguard_outline owns the semantics.
+        bundle,
+        depth,
         weight_main_stat_by_rank,
         main_stat_rank_weight_factor,
         improvement_chance_threshold,

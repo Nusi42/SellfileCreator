@@ -106,6 +106,14 @@ and substats — names only add role + tier.
 - Never introduce an `acc*` tag (too close to "accuracy") — use `accessory*`. Option ids
   like `acc_rolls_22` are ids, not tags, and keep their spelling for answer
   compatibility.
+- **The preset does not use bundles (yet).** Its 18 separators fake a two-level outline —
+  top-level sections (`Speed`, `Accessories`, `Mercurial`, …) plus `#`-prefixed sub-sections
+  (`# Rings`, `# Amulets`, `# Banners`) — and the `Protect: % Ring` / `Protect: % Ring - Across
+  Sets` pair fakes a shared quota by duplicating filters across two rules. Both are exactly what
+  [bundles](app-behavior.md#bundles-the-safeguards-outline) replace, but converting the preset
+  changes what it protects, so it is a deliberate editorial decision rather than a migration.
+  The loader will never infer it: `#` prefixes stay a divider line-style hint and are never read
+  as outline depth.
 
 ## Override wiring notes
 

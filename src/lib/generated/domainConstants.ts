@@ -125,6 +125,9 @@ export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION = false
 export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = false
 export const SAFEGUARD_REASON_GLOBAL = "global"
 export const SAFEGUARD_REASON_GROUP = "group"
+// Safeguard bundle outline: nesting cap and the depth an entry takes when it stores none.
+export const SAFEGUARD_OUTLINE_MAX_DEPTH = 5
+export const SAFEGUARD_OUTLINE_DEFAULT_DEPTH = 0
 export const SAFEGUARD_WEIGHT_STEP = 0.05
 export const SAFEGUARD_WEIGHT_MIN = 0.01
 export const SAFEGUARD_WEIGHT_MAX = 9.9

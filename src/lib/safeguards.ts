@@ -92,6 +92,9 @@ import {
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_STEP,
   SAFEGUARD_SUBSTAT_ALL,
   SAFEGUARD_SUBSTAT_PER_SUBSTAT,
+  // Bundle outline limits — shared with Rust so the clamp is identical on both loaders.
+  SAFEGUARD_OUTLINE_DEFAULT_DEPTH,
+  SAFEGUARD_OUTLINE_MAX_DEPTH,
   RANK_VALUE_MAX,
   RANK_VALUE_MIN,
 } from './generated/domainConstants'
@@ -367,17 +370,40 @@ export const normalizeSafeguardSubstatMatch = (
   return SafeguardSubstatMatch.Min1
 }
 
+// SSOT for "what kind of entry is this". The Safeguards array holds three kinds and every
+// consumer must branch on this one discriminator rather than testing the marker flags inline —
+// a second `rule.separator === true` or `rule.bundle === true` somewhere is how the two kinds
+// drift apart. Bundles are real, active, editable entries (a shared quota over their members);
+// separators are inert dividers.
+export type SafeguardEntryKind = 'rule' | 'bundle' | 'separator'
+
+export const safeguardEntryKind = (rule: SafeguardRule): SafeguardEntryKind => {
+  // Separator wins when both markers are somehow set — dividers can never hold a quota.
+  if (rule.separator === true) return 'separator'
+  // Bundle headers own a shared count over whatever nests beneath them.
+  if (rule.bundle === true) return 'bundle'
+  return 'rule'
+}
+
+/** True for entries that pool candidates of their own, i.e. everything but a bundle header. */
+export const isSafeguardLeafEntry = (rule: SafeguardRule): boolean => safeguardEntryKind(rule) === 'rule'
+
+/** True for bundle headers — the container entries that own a shared required count. */
+export const isSafeguardBundle = (rule: SafeguardRule): boolean => safeguardEntryKind(rule) === 'bundle'
+
 export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
   // Separators are pure list dividers — never active, whatever their activation says.
-  rule.separator !== true && rule.activation !== SafeguardRuleActivation.Off
+  // Bundles ARE active: their quota is a promise the scanner keeps like any other.
+  safeguardEntryKind(rule) !== 'separator' && rule.activation !== SafeguardRuleActivation.Off
 )
 
 // First selectable rule index for load-time selection: separators are list dividers,
-// not editable content, so fresh loads land on the first real rule. Falls back to
+// not editable content, so fresh loads land on the first real rule. Bundles are editable
+// (they carry a count, scopes and a ranking) so they count as selectable. Falls back to
 // index 0 when the list holds only separators (still selectable).
 export const firstSelectableSafeguardIndex = (rules: readonly SafeguardRule[]): number | null => {
   if (rules.length === 0) return null
-  const idx = rules.findIndex((r) => r.separator !== true)
+  const idx = rules.findIndex((r) => safeguardEntryKind(r) !== 'separator')
   return idx >= 0 ? idx : 0
 }
 
@@ -533,6 +559,24 @@ export type SafeguardRule = {
   // structure the chip list. Persisted minimally: `{ appearance?, Separator: true }`
   // with NO other fields; all other rule fields below are display-time defaults.
   separator?: boolean
+  // True marks a BUNDLE header: the entry that OWNS the promise for everything nested under
+  // it. A bundle never matches gear itself. Its members do, each exactly as if ungrouped —
+  // own filters, substats, weights and count mode — and each member's own `requiredCount`
+  // decides how much gear it FEEDS the bundle. The bundle then merges those feeds into
+  // buckets keyed by ITS `countMode`, ranks the pool by the score each piece got from its own
+  // member, and keeps its own `requiredCount` out of each bucket. Mutually exclusive with
+  // `separator`; branch on `safeguardEntryKind`, never on this flag directly.
+  bundle?: boolean
+  // Outline level; absent means top level. The Safeguards array is an outline, not a flat
+  // list: an entry belongs to the nearest preceding bundle header one level shallower.
+  // Membership, subtree span, evaluation order and each bundle's demand are all DERIVED from
+  // this — see lib/safeguardOutline.ts, which delegates to the Rust authority.
+  depth?: number
+  // Bundle headers only: subtree collapsed in the chip list. Display-only document state —
+  // deliberately EXCLUDED from safeguardRuleContentFingerprint (it changes nothing about
+  // the generated rules), but persisted on the entry so it survives reorder/undo/autosave
+  // and travels with a shared .sfc.
+  collapsed?: boolean
   // Optional tags for identifying this rule in safeguard-overrides DSL and note display.
   tags?: string[]
   combination: SafeguardCombination
@@ -585,6 +629,12 @@ export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => 
   // Flipping a rule to a separator (or back) changes what WASM receives (separators
   // project as activation=off), so the flag must bust the rules cache.
   separator: rule.separator === true,
+  // Both outline fields change the emitted rule set: `bundle` makes the entry the owner of a
+  // shared promise rather than a rule of its own, and `depth` decides which entries feed it.
+  // `collapsed` is deliberately absent — it is pure display state, like appearance.fgColor,
+  // and would bust the cache on every chevron click.
+  bundle: rule.bundle === true,
+  depth: rule.depth ?? 0,
   combination: rule.combination,
   requiredCount: rule.requiredCount,
   activation: rule.activation,
@@ -658,6 +708,13 @@ export const createSafeguardRuleContentSnapshot = (rule: SafeguardRule): Safegua
   ...(rule.appearance ? { appearance: rule.appearance } : {}),
   // Separator flag included (absent on normal rules — matches the factory default shape).
   ...(rule.separator === true ? { separator: true } : {}),
+  // Bundle flag included on the same terms: flipping an entry to a container is a content
+  // change the dirty check must see.
+  ...(rule.bundle === true ? { bundle: true } : {}),
+  // `depth` is deliberately NOT here: it is outline *position*, changed by grouping and moving
+  // rather than by editing the selected entry, so folding it in would make every reorder read
+  // as an unsaved builder edit. (It IS in the content fingerprint, which answers a different
+  // question: "does the emitted rule set change".)
   // Tags included so equality checks detect tag changes correctly.
   tags: rule.tags ?? [],
   requiredCount: rule.requiredCount,
@@ -1224,6 +1281,16 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
 export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   const record = unwrapSafeguardRuleRecord(value)
   if (!record) return null
+  // Outline placement is read for every entry kind, separators included: a divider inside a
+  // bundle keeps its slot and its level. Depth is clamped here; the structural invariant
+  // (no level may open unless the preceding entry is a bundle) is repaired list-wide by the
+  // Rust outline authority, which is the only place that logic exists.
+  const depth = Math.min(
+    Math.max(toFiniteFloor(record.depth) ?? SAFEGUARD_OUTLINE_DEFAULT_DEPTH, SAFEGUARD_OUTLINE_DEFAULT_DEPTH),
+    SAFEGUARD_OUTLINE_MAX_DEPTH,
+  )
+  // Only emit the field when it carries information, so untouched files re-save unchanged.
+  const depthFields = depth > SAFEGUARD_OUTLINE_DEFAULT_DEPTH ? { depth } : {}
   // Separator entries persist minimally (`{ appearance?, Separator: true }`) — no
   // combination or count fields exist to normalize; everything else is a factory default.
   if (toBoolish(record['Separator'] ?? record['separator']) === true) {
@@ -1231,11 +1298,26 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     return {
       ...createFactorySafeguardBuilderDefaults(),
       ...(separatorAppearance ? { appearance: separatorAppearance } : {}),
+      ...depthFields,
       separator: true,
     }
   }
+  // Bundle headers persist the full rule shape minus the combination: they carry the required
+  // count that decides what survives, scope chips, substats/weights, ignore toggles and an
+  // improvement threshold, but draw their candidates from what their members feed them instead
+  // of matching gear themselves. Everything below this point therefore runs for bundles too —
+  // only the combination is defaulted.
+  const isBundle = toBoolish(record['Bundle'] ?? record['bundle']) === true
+  // Collapsed is display-only document state and applies to bundle headers alone.
+  const collapsedFields = isBundle && toBoolish(record['collapsed'] ?? record['Collapsed']) === true
+    ? { collapsed: true }
+    : {}
+  const outlineFields = { ...depthFields, ...collapsedFields, ...(isBundle ? { bundle: true } : {}) }
+  // A bundle has no combination of its own; an absent/empty one is expected, not invalid, so
+  // it falls back to the empty ("Any") combination rather than rejecting the entry.
   const combinationSource = record.combination ?? record.tuple ?? value
   const combination = normalizeSafeguardCombination(combinationSource)
+    ?? (isBundle ? createEmptySafeguardCombination() : null)
   if (!combination) return null
 
   // IDs are not persisted; the `id` field on legacy payloads is ignored.
@@ -1289,6 +1371,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // cannot smuggle in a faction filter with empty slots.
   return normalizeSafeguardFactionSlotScope(normalizeSafeguardSubstatDependents({
     ...(appearance ? { appearance } : {}),
+    // Outline placement (bundle marker, depth, own-quota tri-state, collapsed) rides through
+    // both gates untouched — neither one reasons about structure.
+    ...outlineFields,
     tags,
     combination,
     requiredCount,

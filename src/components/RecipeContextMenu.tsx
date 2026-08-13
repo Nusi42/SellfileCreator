@@ -85,6 +85,19 @@ export interface RecipeContextMenuActions {
   deleteAll?: HighlightableAction
   /** Toggle tag display on chips — does NOT close the menu so users can see the effect instantly. */
   toggleShowTagsInChips?: { checked: boolean; handler: MenuClickHandler }
+  // ── Safeguard bundle outline (safeguard chips only; the recipe panel omits all of these,
+  // so its menu is byte-for-byte unchanged). Grouped into their own menu section below.
+  /** Wrap the current selection in a new bundle that owns their shared Required Count. */
+  groupIntoBundle?: MoveAction
+  /** Dissolve this bundle, promoting its members back to keeping gear on their own. */
+  ungroupBundle?: MoveAction
+  /** Nest this entry into the bundle immediately above it. */
+  indentEntry?: MoveAction
+  /** Lift this entry out of the bundle containing it. */
+  outdentEntry?: MoveAction
+  /** Collapse / expand every bundle in the list at once. */
+  collapseAllBundles?: MoveAction
+  expandAllBundles?: MoveAction
 }
 
 interface RecipeContextMenuProps {
@@ -184,6 +197,25 @@ export function RecipeContextMenu({
     primaryItems.push(
       <MenuItem key="applyAsSafeguard" onClick={wrapClick(onClose, actions.applyAsSafeguard.handler)}>
         {actions.applyAsSafeguard.label}
+      </MenuItem>,
+    )
+  }
+  // ── Bundle outline section ─────────────────────────────────────────────────
+  // Only the safeguard chip list supplies these, so the recipe menu never grows an entry.
+  // Built from one table so every item shares the same disabled/wrap handling.
+  const outlineActions: Array<[string, MoveAction | undefined, string]> = [
+    ['groupIntoBundle', actions.groupIntoBundle, 'chipsMenuGroupIntoBundle'],
+    ['ungroupBundle', actions.ungroupBundle, 'chipsMenuUngroupBundle'],
+    ['indentEntry', actions.indentEntry, 'chipsMenuIndent'],
+    ['outdentEntry', actions.outdentEntry, 'chipsMenuOutdent'],
+    ['collapseAllBundles', actions.collapseAllBundles, 'chipsMenuCollapseAll'],
+    ['expandAllBundles', actions.expandAllBundles, 'chipsMenuExpandAll'],
+  ]
+  for (const [key, action, labelKey] of outlineActions) {
+    if (!action) continue
+    primaryItems.push(
+      <MenuItem key={key} onClick={wrapClick(onClose, action.handler)} disabled={Boolean(action.disabled)}>
+        {t(labelKey)}
       </MenuItem>,
     )
   }

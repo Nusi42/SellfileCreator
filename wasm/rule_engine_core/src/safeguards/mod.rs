@@ -18,6 +18,12 @@ pub mod improvement_chance;
 // Improvement-watch corner synthesis: post-detection pass that turns zero-missing
 // "watch" placeholders into minimal-substat-value corner frontiers (or removes them).
 mod improvement_watch;
+// Bundle outline: the single authority for parent/span/member-list/evaluation-order/demand
+// derivation over the flat Safeguards array. TypeScript calls into it rather than mirroring it.
+pub mod outline;
+// Detection-path tests for bundles, kept out of this file (already past the size guideline).
+#[cfg(test)]
+mod bundle_tests;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -318,6 +324,14 @@ pub struct SafeguardWasmRuleIn {
     // unchanged so TS can apply selector-matched override instructions after metaset expansion.
     #[serde(default)]
     pub tags: Option<Vec<String>>,
+    // ── Bundle outline (see safeguards/outline.rs) ──────────────────────────────────────
+    // True marks a bundle header. A bundle never evaluates: its members do, unchanged. It only
+    // MERGES their count-buckets (re-keyed by its own count_mode) and caps each merged bucket.
+    #[serde(default)]
+    pub bundle: Option<bool>,
+    // Outline level; absent = top level.
+    #[serde(default)]
+    pub depth: Option<i64>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -345,6 +359,10 @@ pub struct SafeguardWasmResolvedRuleOut {
     pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
     // Opaque string tags passed through from the input rule unchanged.
     pub tags: Vec<String>,
+    // Outline placement echoed back so metaset-expansion consumers keep the structure intact.
+    // Expansion rewrites the combination, never the structure.
+    pub bundle: bool,
+    pub depth: i64,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -2917,6 +2935,155 @@ pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> 
     selection.contains(&candidate)
 }
 
+/// Applies every bundle's cap to the finished member selections.
+///
+/// This is the whole of what a bundle does. Members evaluate exactly as if ungrouped — own
+/// filters, substats, weights, count mode, ranking, required count — and produce their own
+/// `item_keys`. A bundle then MERGES their count-buckets, re-keyed by the BUNDLE's own count
+/// mode, and caps each merged bucket at one demand (the best of its members' counts, or an
+/// explicit override).
+///
+/// Members fill a merged bucket in list order until it is full; a later member finds no room and
+/// keeps nothing more there. Members rank by different substats and weights, so there is no
+/// common scale to compare them on — list order is the only well-defined precedence, which makes
+/// chip order a real setting for a bundle. That is documented for users, not just here.
+///
+/// Bundles are visited innermost-first (post-order), so an inner bundle's cap is already in
+/// effect when an outer one counts what survived: both constraints hold.
+fn safeguard_apply_bundle_caps(
+    outline: &outline::SafeguardOutlineOut,
+    candidates: &[SafeguardWasmCandidateIn],
+    entries: &mut [SafeguardWasmEntryOut],
+) {
+    // item_key → artifact, so a member's selections can be re-bucketed by the bundle's mode.
+    // Borrowed, not cloned: an artifact carries a substat Vec, and a developed account reaches
+    // thousands of candidates — cloning them all per scan would be pure waste. `entries` is a
+    // disjoint borrow, so these references stay valid across the mutation below.
+    let artifact_by_item_key = candidates
+        .iter()
+        .map(|candidate| (candidate.item_key, &candidate.artifact))
+        .collect::<BTreeMap<i64, &SafeguardWasmArtifactIn>>();
+    for bundle_index in outline.post_order.iter().map(|value| *value as usize) {
+        // Non-bundles hold no merged-bucket demand, and an empty bundle resolves to 0.
+        let demand = outline.demands.get(bundle_index).copied().unwrap_or(0);
+        if demand <= 0 {
+            continue;
+        }
+        // The bundle's own count mode defines the merged buckets — "merged based on the
+        // bucket-defining properties". Members' chips still shape their OWN feed; they just do
+        // not decide what counts as the same bucket once that feed arrives here.
+        let Some(bundle_mode) = entries.get(bundle_index).map(|entry| entry.count_mode) else {
+            continue;
+        };
+        let members = outline.pools.get(bundle_index).map(Vec::as_slice).unwrap_or(&[]);
+        // Pool every member's feed into one list before deciding anything. Members do not keep
+        // gear of their own inside a bundle — each one's required count sized what it fed, and
+        // the bundle now picks the survivors across all of it.
+        let mut pooled = Vec::<PooledBundleCandidate>::new();
+        for (member_order, member_index) in members.iter().enumerate() {
+            let Some(entry) = entries.get(*member_index as usize) else { continue };
+            // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
+            // it — but its entry can still carry scored item_keys for the UI. Letting those
+            // into the pool would have a switched-Off rule (or a separator, which arrives as
+            // one) silently crowd out its siblings.
+            if safeguard_is_activation_off(&entry.rule_activation) {
+                continue;
+            }
+            // Each fed piece keeps the score its OWN member gave it — that is the yardstick the
+            // pool is sorted by, so a member's ranking survives into the shared decision.
+            let score_by_item_key = entry
+                .candidates
+                .iter()
+                .map(|candidate| (candidate.item_key, (candidate.score, candidate.candidate_rank)))
+                .collect::<BTreeMap<i64, (f64, u32)>>();
+            for item_key in entry.item_keys.iter().copied() {
+                // Rules with no substats take the non-ranking path and score 0 across the board;
+                // the tie-break below then falls through to member order, which is exactly the
+                // "first member fills first" behaviour those rules had before.
+                let (score, own_rank) = score_by_item_key.get(&item_key).copied().unwrap_or((0.0, 0));
+                pooled.push(PooledBundleCandidate {
+                    item_key,
+                    member_index: *member_index as usize,
+                    member_order,
+                    score,
+                    own_rank,
+                });
+            }
+        }
+        // Best score first. Every tie-break is deterministic so two runs over the same account
+        // cannot disagree about which piece got the last slot: a member's own rank, then its
+        // position in the list (the user's stated priority), then the item key.
+        pooled.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(core::cmp::Ordering::Equal)
+                .then(left.own_rank.cmp(&right.own_rank))
+                .then(left.member_order.cmp(&right.member_order))
+                .then(left.item_key.cmp(&right.item_key))
+        });
+        // Remaining room per merged bucket, seeded lazily as buckets are first touched.
+        let mut room = BTreeMap::<SafeguardCountKey, i64>::new();
+        // Survivors per member, so each entry keeps reporting the gear IT contributed.
+        let mut survivors = BTreeMap::<usize, Vec<i64>>::new();
+        for candidate in &pooled {
+            let Some(artifact) = artifact_by_item_key.get(&candidate.item_key) else { continue };
+            let key = safeguard_count_key_from_parts(
+                artifact.slot,
+                artifact.set,
+                artifact.faction,
+                artifact.main_stat,
+                bundle_mode,
+            );
+            let left = room.entry(key).or_insert(demand);
+            if *left > 0 {
+                *left -= 1;
+                survivors.entry(candidate.member_index).or_default().push(candidate.item_key);
+            }
+        }
+        for member_index in members.iter().map(|value| *value as usize) {
+            let Some(entry) = entries.get_mut(member_index) else { continue };
+            if safeguard_is_activation_off(&entry.rule_activation) {
+                continue;
+            }
+            let before = entry.item_keys.len();
+            let mut kept = survivors.remove(&member_index).unwrap_or_default();
+            // Restore this member's own ranked order within what survived, so the UI's rank
+            // overlays and the preview rows stay in the order the member scored them.
+            let rank_of = entry
+                .item_keys
+                .iter()
+                .enumerate()
+                .map(|(position, item_key)| (*item_key, position))
+                .collect::<BTreeMap<i64, usize>>();
+            kept.sort_by_key(|item_key| rank_of.get(item_key).copied().unwrap_or(usize::MAX));
+            // Placeholders reserve slots for gear the user does not own yet. Once the shared
+            // bucket is turning real contributions away there is nothing left to anticipate.
+            if kept.len() < before {
+                entry.placeholders.clear();
+                entry.placeholder_count = 0;
+            }
+            entry.item_keys = kept;
+        }
+    }
+}
+
+// One piece a member fed into its bundle, carrying everything the shared decision needs: the
+// score its own member gave it (the ranking yardstick) plus deterministic tie-breaks.
+struct PooledBundleCandidate {
+    item_key: i64,
+    // Index into `entries` of the member that fed this piece — where the survivor is written back.
+    member_index: usize,
+    // Position of that member in the bundle's pool; the user's stated priority order.
+    member_order: usize,
+    // Score from the member's OWN substats/weights. Pieces from different members are compared
+    // on this number directly, which is the ranking the user chose for bundles.
+    score: f64,
+    // The member's own 1-based rank for this piece; first tie-break so a member's internal
+    // ordering survives when two pieces score identically.
+    own_rank: u32,
+}
+
 fn safeguard_artifact_matches_rule(
     artifact: &SafeguardWasmArtifactIn,
     rule: &SafeguardWasmPreparedRule,
@@ -4338,6 +4505,25 @@ fn compute_safeguard_protection_core(
     // effect — without it the toggle would only relabel kept-vs-sold counters, since the
     // protected union across rules is invariant under that relabeling.
     let mut previously_protected_state = vec![false; parsed_candidates.len()];
+    // ── Bundle outline ──────────────────────────────────────────────────────────────────
+    // Captured before the rules are consumed below. A bundle does NOT evaluate — its members do,
+    // each exactly as if ungrouped, which is what makes each member's own required count the
+    // size of its FEED. The bundle then pools those feeds and decides what survives (see
+    // safeguard_apply_bundle_caps), so nothing here touches candidate collection or scoring.
+    // Separators reach this function already projected to activation=off, and are excluded from
+    // membership by that projection rather than a flag Rust never receives.
+    let outline_entries = parsed_rules
+        .iter()
+        .map(|rule| outline::SafeguardOutlineEntryIn {
+            depth: rule.depth,
+            bundle: rule.bundle.unwrap_or(false),
+            separator: false,
+            required_count: rule.required_count,
+        })
+        .collect::<Vec<_>>();
+    // Resolved once for the whole scan, by the same authority the UI calls through
+    // `safeguard_outline_value`, so what the user sees and what the engine evaluates agree.
+    let outline = outline::resolve_safeguard_outline(&outline_entries);
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
@@ -4353,6 +4539,15 @@ fn compute_safeguard_protection_core(
             }
             if activation.trim().is_empty() {
                 activation = SAFEGUARD_ACTIVATION_PROTECT_EXISTING.to_string();
+            }
+            // A BUNDLE never evaluates. It has no combination of its own, so left active it
+            // would match everything, protect the whole account and starve the very members it
+            // is supposed to cap (it evaluates first, marking their candidates as no longer
+            // sold). Forcing it inert here — the same state a separator arrives in — is what
+            // makes "a bundle is a constraint, not a rule" true in the engine rather than just
+            // in the docs. Its entry is still emitted so ordinals stay index-aligned.
+            if rule.bundle.unwrap_or(false) {
+                activation = SAFEGUARD_ACTIVATION_OFF.to_string();
             }
             // Normalize count mode so invalid combos fall back to per-rule mode.
             let count_mode = safeguard_resolve_count_mode(rule.count_mode);
@@ -4511,6 +4706,13 @@ fn compute_safeguard_protection_core(
         // Stamp ordinal so TypeScript can reference back to the rule by position.
         entry.rule_ordinal = Some(rule_ordinal);
         entries.push(entry);
+    }
+
+    // Bundles cap what their members were allowed to keep. Applied here, after every member has
+    // evaluated independently, because that is precisely what a bundle is: a constraint over
+    // finished selections rather than an evaluation of its own. No-op on a flat list.
+    if outline.has_bundles {
+        safeguard_apply_bundle_caps(&outline, &parsed_candidates, &mut entries);
     }
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.
@@ -6396,6 +6598,9 @@ mod no_substat_protect_all_tests {
             main_stat_rank_weight_factor: None,
             improvement_chance_threshold: None,
             tags: None,
+            // Outline placement: test rules are flat, top-level, in no bundle.
+            bundle: None,
+            depth: None,
         };
         // Corner-less zero-missing placeholders emit NOTHING in any mode — improvements
         // included: without corners nothing viable clears the bar (or no threshold is set).

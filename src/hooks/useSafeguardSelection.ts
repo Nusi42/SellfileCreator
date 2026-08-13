@@ -15,6 +15,9 @@ import {
 } from 'react'
 import type { SafeguardRule } from '../lib/safeguards'
 import { cloneSafeguardRule } from '../lib/safeguards'
+// Directional moves and outline drops both relocate whole subtrees, so a bundle never
+// separates from its members; the array maths lives in one place for both.
+import { moveSafeguardSubtrees, resolveSafeguardDirectionalMove } from '../lib/safeguardOutline'
 import {
   createSafeguardMultiEditDraft,
   syncSafeguardMultiEditDraft,
@@ -146,6 +149,15 @@ export function useSafeguardSelection({
       createSafeguardMultiEditDraft(items, indices.map(String)),
     syncDraft: syncSafeguardMultiEditDraft,
     // Scroll fires on every click (safeguard default — scrollOnlyOnSingleSelectionChange absent).
+    // Safeguards are an OUTLINE, not a flat list: a bundle owns the entries nested beneath it
+    // and must travel with them, so the manager's default element swap would tear a bundle
+    // apart. Replacing all four directions at once keeps them consistent, and the array maths
+    // itself lives in lib/safeguardOutline so the menu, the arrows, the keyboard and drag &
+    // drop all move a subtree the same way. Recipes omit this and keep the swap.
+    resolveDirectionalMove: resolveSafeguardDirectionalMove,
+    // A drop that carries a level nests as well as reorders; the same subtree-move helper the
+    // directional actions use decides both.
+    resolveDropMove: moveSafeguardSubtrees,
   })
 
   // Destructure multi-edit state from the generic result.

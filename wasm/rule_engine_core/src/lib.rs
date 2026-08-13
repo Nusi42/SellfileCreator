@@ -117,6 +117,13 @@ pub use safeguards::fast_path_types::{
     SafeguardCollectRowFastIn,
     SafeguardWasmCandidateFastIn,
 };
+// Outline authority: TS and the native DLL both resolve bundle structure through these.
+pub use safeguards::outline::{
+    normalize_depths,
+    resolve_safeguard_outline,
+    SafeguardOutlineEntryIn,
+    SafeguardOutlineOut,
+};
 pub use safeguards::improvement_chance::{
     compute_improvement_chance_core,
     ImprovementChanceDebug,
@@ -974,6 +981,10 @@ pub fn resolve_safeguard_rules_with_metasets_core(
             improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
             // Pass tags through unchanged so TS override selectors can match after expansion.
             tags: rule.tags.clone().unwrap_or_default(),
+            // Outline placement survives metaset expansion untouched: expansion rewrites the
+            // combination, never the structure.
+            bundle: rule.bundle.unwrap_or(false),
+            depth: rule.depth.unwrap_or(SAFEGUARD_OUTLINE_DEFAULT_DEPTH),
         });
     }
     resolved

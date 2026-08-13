@@ -39,7 +39,7 @@ import type { Theme } from '@mui/material/styles'
 import { adaptSubstatFgOnSurface } from '../lib/themeCustomTokens'
 
 const METASET_ICON_BOX_PX = 16
-import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay, safeguardEntryKind } from '../lib/safeguards'
 import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
@@ -109,6 +109,10 @@ export type SafeguardSummaryOpts = {
   // Localized rarity word → adapted colour, for tinting rarity words in the summary (empty/omitted
   // when the master colour flag is off). Gated together with useStatButtonColors by the caller.
   rarityLabelColors?: ReadonlyMap<string, string>
+  // Bundle headers only: how many safeguards feed it. A bundle has no combination to summarize,
+  // so the summary states its membership instead. Resolved by the caller from the outline
+  // (never re-derived here).
+  bundleMemberCount?: number
 }
 
 
@@ -118,13 +122,37 @@ export type SafeguardSummaryOpts = {
  * Returns null when the rule has no displayable content.
  */
 export function safeguardSummaryParts(
-  rule: SafeguardRule,
+  sourceRule: SafeguardRule,
   metasets: Metaset[],
   opts: SafeguardSummaryOpts,
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
+
+  // A bundle never matches gear: it decides what survives out of what its members feed it. Only
+  // its SCOPE CHIPS do anything, so the summary states its membership and then falls through to
+  // the shared scope rendering with everything else stripped. Showing the inert
+  // substats/weights/threshold it still carries (retained so converting back to a rule is
+  // lossless) would describe behaviour the entry does not have.
+  const isBundleEntry = safeguardEntryKind(sourceRule) === 'bundle'
+  if (isBundleEntry) {
+    const count = opts.bundleMemberCount ?? 0
+    const memberText = opts.t
+      ? opts.t(count === 1 ? 'safeguardsBundleMemberCountOne' : 'safeguardsBundleMemberCountMany', { count })
+      : `${count}`
+    addText(count === 0 && opts.t ? opts.t('safeguardsBundleEmpty') : memberText)
+  }
+  // Everything below reads this local, so a bundle renders as "members + scopes" and nothing else.
+  const rule = isBundleEntry
+    ? {
+      ...sourceRule,
+      substats: [],
+      substatWeights: {},
+      weightMainStatByRank: false,
+      improvementChanceThreshold: null,
+    }
+    : sourceRule
 
   const c = rule.combination
   // Faction scope is only meaningful when the rule can include accessory slots.

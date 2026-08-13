@@ -35,6 +35,7 @@ import initRuleEngineWasm, {
   safeguard_count_key_value as safeguardCountKeyValueWasmBinding,
   safeguard_group_key_value as safeguardGroupKeyValueWasmValueBinding,
   safeguard_item_key_value as safeguardItemKeyValueWasmValueBinding,
+  safeguard_outline_value as safeguardOutlineValueWasmBinding,
   merge_safeguard_injected_rules_value as mergeSafeguardInjectedRulesWasmValueBinding,
   normalize_safeguard_expected_group_domain_value as normalizeSafeguardExpectedGroupDomainWasmValueBinding,
   prepare_hsf_builder_recipe_value as prepareHsfBuilderRecipeWasmValueBinding,
@@ -92,6 +93,9 @@ import type { ObsoleteReportOut } from './generated/rust-types/ObsoleteReportOut
 import type { CacheGeneratedRulesInWire } from './generated/rust-types/CacheGeneratedRulesInWire'
 import type { ComputeMergedRulesCachedInWire } from './generated/rust-types/ComputeMergedRulesCachedInWire'
 import type { SafeguardWasmCountMode } from './generated/rust-types/SafeguardWasmCountMode'
+// Bundle-outline wire types — the resolved structure the Rust authority hands back.
+import type { SafeguardOutlineEntryIn } from './generated/rust-types/SafeguardOutlineEntryIn'
+import type { SafeguardOutlineOut } from './generated/rust-types/SafeguardOutlineOut'
 import type { SafeguardCollectedCandidateOut } from './generated/rust-types/SafeguardCollectedCandidateOut'
 import type { SafeguardCollectedSnapshotOut } from './generated/rust-types/SafeguardCollectedSnapshotOut'
 import type { ImprovementChanceDebug } from './generated/rust-types/ImprovementChanceDebug'
@@ -628,12 +632,17 @@ export const finalizeGeneratedRulesWithLoadedWasm = (params: {
 // Rust uses `name: String` (flat); TS now uses `appearance: { name, fgColor }`.
 // `appearance` is presentation-only so fgColor is dropped at this boundary.
 const projectRuleForWasm = (r: SafeguardRule): Record<string, unknown> => {
-  const { appearance, separator, ...rest } = r as SafeguardRule & Record<string, unknown>
+  // `collapsed` is display-only and has no Rust field — strip it here or the strict
+  // deserializer rejects the whole payload.
+  const { appearance, separator, collapsed, ...rest } = r as SafeguardRule & Record<string, unknown>
+  void collapsed
   return {
     ...rest,
     // Separators cross the boundary as inert activation=off rules: Rust's strict
     // deserializer knows no separator flag, and keeping the array slot preserves
-    // rule indices in detection results.
+    // rule indices in detection results. Bundles cross carrying their outline fields
+    // (`bundle`/`depth`); Rust forces them inert on arrival, because a bundle decides what
+    // survives out of its members' feeds rather than matching gear itself.
     ...(separator === true ? { activation: SafeguardRuleActivation.Off } : {}),
     name: (appearance as { name?: string } | undefined)?.name ?? '',
   }
@@ -955,7 +964,11 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
   // so the Rust serde deny_unknown_fields does not reject the payload.
   const rulesWire = rules.map((r) => {
     const src = r as { appearance?: { name?: string; fgColor?: string }; name?: string; separator?: boolean }
-    const { appearance: _appearance, separator: _separator, ...rest } = src as Record<string, unknown>
+    // Presentation-only fields must not cross: Rust's SafeguardWasmRuleIn is
+    // deny_unknown_fields, so a stray key rejects the WHOLE payload and the caller sees an
+    // empty rule set rather than a field being ignored. `collapsed` (a bundle's chevron state)
+    // joins `appearance`/`separator` here for exactly that reason.
+    const { appearance: _appearance, separator: _separator, collapsed: _collapsed, ...rest } = src as Record<string, unknown>
     // Separator flag stripped for deny_unknown_fields (re-attached on echo-back below);
     // forcing activation off keeps a separator inert if it ever reaches matching.
     return {
@@ -989,11 +1002,15 @@ export const resolveSafeguardRulesWithMetasetsWithLoadedWasm = <T extends { comb
     // Separators were sent as inert off-rules (wire projection above) — restore the flag
     // and the stored activation so the round-trip does not mutate the rule.
     const isSeparator = (original as { separator?: boolean }).separator === true
+    // Same for a bundle's collapsed chevron: stripped on the way out, restored here so metaset
+    // resolution never silently expands a folded bundle.
+    const wasCollapsed = (original as { collapsed?: boolean }).collapsed === true
     const withFlag: Record<string, unknown> = {
       ...restRes,
       weightMainStatByRank,
       ...(typeof originalFactor === 'number' ? { mainStatRankWeightFactor: originalFactor } : {}),
       ...(isSeparator ? { separator: true, activation: (original as { activation?: unknown }).activation } : {}),
+      ...(wasCollapsed ? { collapsed: true } : {}),
     }
     return (nextAppearance ? { ...withFlag, appearance: nextAppearance } : withFlag) as T
   })
@@ -1580,6 +1597,30 @@ export const getSafeguardItemKeyWithLoadedWasm = (artifact: SafeguardKeyArtifact
   // Keep compatibility with number-returning bindings while still fail-closing.
   if (typeof key === 'number' && Number.isFinite(key)) return Math.floor(key)
   throw new Error('WASM safeguard item-key helper returned an invalid payload.')
+}
+
+// Safeguard bundle-outline resolution runs in Rust so the UI reads exactly the structure the
+// detection scan evaluates. Parent index, subtree span, member list, evaluation order
+// and the pooled candidate sets are derived ONCE there; there is deliberately no TS copy.
+//
+// PERF NOTE: unlike the key helpers above this is NOT per-artifact — lib/safeguardOutline.ts
+// memoizes one call per safeguardRules array change, and the payload is four optional scalars
+// per entry (~20 bytes), so even the 154-rule lategame preset stays under a kilobyte.
+export const resolveSafeguardOutlineWithLoadedWasm = (
+  entries: readonly SafeguardOutlineEntryIn[],
+): SafeguardOutlineOut => {
+  // Sync helper is fail-closed: callers must have warmed wasm already.
+  assertWasmInitializedSync()
+  const resolved = safeguardOutlineValueWasmBinding(JSON.stringify(entries))
+  // Defensive guard: the resolver must return the index-aligned vectors consumers rely on.
+  if (
+    resolved == null
+    || typeof resolved !== 'object'
+    || !Array.isArray((resolved as { depths?: unknown }).depths)
+  ) {
+    throw new Error('WASM safeguard outline helper returned an invalid payload.')
+  }
+  return resolved as SafeguardOutlineOut
 }
 
 // Safeguard group-key derivation runs in Rust so TS reuses accessory faction

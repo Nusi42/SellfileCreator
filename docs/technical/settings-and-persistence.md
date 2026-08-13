@@ -170,3 +170,9 @@ It automatically: persists only when the toggle is ON, resets on ON→OFF, and s
 while ephemeral. No other wiring needed — the factory handles the predicate + reset registration.
 **Display preferences** (always-sticky) omit `rememberableView`. **Document state** goes in the
 `.sfc` payload instead (see [Rules & Data](rules-and-data.md) for the autosave document).
+
+A worked example of the last case: a safeguard bundle's `collapsed` flag is **document** state,
+not a rememberable view. It lives on the entry inside the `.sfc` rather than in localStorage,
+because it belongs to the document's structure — it survives reorder/undo/autosave and travels
+with a shared file, where a per-machine view preference would not. It is excluded from
+`safeguardRuleContentFingerprint` so collapsing never busts the rules cache.

@@ -147,6 +147,10 @@ import {
   normalizeSafeguardSubstatMatch,
   firstSelectableSafeguardIndex,
 } from './lib/safeguards'
+// Bundle outline: structural facts come from the Rust authority through this facade, the repair
+// runs at the mutation funnel plus the append-import seam, and cross-panel jumps expand the
+// target's ancestor chain so a chip inside a collapsed bundle is scrollable.
+import { normalizeSafeguardOutline, safeguardAncestorIndices } from './lib/safeguardOutline'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import {
   PIPELINE_CACHE_MAX_ENTRIES,
@@ -2594,7 +2598,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [describeNextChange, recipesEnabled, setRecipesEnabledTransition])
   const applySafeguardRulesChange = useCallback((
     value: React.SetStateAction<SafeguardRule[]>,
-    options?: { mode?: 'edit' | 'reset'; publish?: boolean },
+    options?: { mode?: 'edit' | 'reset'; publish?: boolean; displayOnly?: boolean },
   ): void => {
     // Safeguards-tab edits often rewrite many rows; keep them in transition lane.
     // Eagerly resolve next from the current rules so the descriptor can be computed
@@ -2602,7 +2606,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // pattern (const prev = items) and avoids relying on React's eager-state evaluation
     // to flush the updater synchronously, which is not guaranteed in React 19+.
     const prev = safeguardRules
-    const next = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
+    const resolved = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
+    // Repair the bundle outline for every mutation that reaches state. This is the single
+    // funnel all safeguard edits pass through, so no insert, delete, reorder, paste or
+    // multi-edit can leave the array describing an impossible outline. Identity is preserved
+    // when nothing needed repair, so the memoized resolver is not invalidated needlessly.
+    const next = normalizeSafeguardOutline(resolved)
     // Reordering keeps rule contents intact, so compare ID order explicitly.
     const orderChanged = isSafeguardRuleOrderChanged(prev, next)
     // Describe the rule changes so history stays informative.
@@ -2612,12 +2621,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       metasets,
       mode: options?.mode ?? 'edit',
     })
-    // Skip no-op updates so we do not add empty history entries.
-    if (!descriptor && !orderChanged) return
+    // Skip no-op updates so we do not add empty history entries. `displayOnly` opts out of that
+    // guard: a change that touches only presentation state — a bundle's collapsed chevron — is
+    // real but deliberately invisible to the descriptor (and to the content fingerprint, so it
+    // never re-runs the pipeline). Without this it would be indistinguishable from a no-op and
+    // silently dropped, which is exactly what the chevron did before this branch existed.
+    if (!descriptor && !orderChanged && options?.displayOnly !== true) return
     // Queue the descriptor before the state update so the history snapshot effect
     // captures it reliably regardless of when React evaluates the transition.
     if (options?.publish !== false && descriptor) describeNextChange(descriptor)
-    setSafeguardRulesTransition(value)
+    // Commit through an updater that re-applies the outline repair against whatever state
+    // React actually holds. Two things matter here: the repair must reach state (committing the
+    // caller's raw value would leave an illegal depth — from a hand-edited file or a paste at
+    // the wrong level — in the store, with `next` only ever informing the descriptor), and the
+    // functional form must be preserved so an interleaved update is not clobbered by the
+    // eagerly-resolved snapshot taken above for the descriptor.
+    setSafeguardRulesTransition((current) => normalizeSafeguardOutline(
+      typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(current) : value,
+    ))
   }, [describeNextChange, metasets, safeguardRules, setSafeguardRulesTransition])
 
   // ── safeguard multi-select / multi-edit (mirrors useRecipeSelection wiring) ─
@@ -6022,6 +6043,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardRules, safeguardDetection, safeguardItemKeyByArtifactId])
   const openLogicHubSafeguardRule = useCallback((ruleIdx: number, artifactId?: number): boolean => {
     if (ruleIdx < 0 || ruleIdx >= safeguardRules.length) return false
+    // A jump target nested inside a COLLAPSED bundle is not rendered, so the scroll request
+    // below would find no chip. Expand its ancestor chain first. Done here, in the single jump
+    // funnel every cross-panel entry point routes through (preview star, preview row click,
+    // Gear Inspector match chip, rank-overlay chip, improvement-chance chip), rather than at
+    // each of those call sites.
+    const collapsedAncestors = safeguardAncestorIndices(safeguardRules, ruleIdx)
+      .filter((ancestor) => safeguardRules[ancestor]?.collapsed === true)
+    if (collapsedAncestors.length > 0) {
+      const expand = new Set(collapsedAncestors)
+      applySafeguardRulesChange(safeguardRules.map((rule, index) => {
+        if (!expand.has(index)) return rule
+        // Drop the key rather than storing false, keeping the persisted shape minimal.
+        const { collapsed, ...rest } = rule
+        void collapsed
+        return rest
+      }))
+    }
     // Safeguard jumps should not leave a stale Gear Inspector focus request queued.
     setGearInspectorArtifactFocusRequest(null)
     // Switch to Safeguard Builder mode and select the targeted rule inline.
@@ -6043,7 +6081,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleIdx, token })
     return true
-  }, [handleSelectSafeguardRule, safeguardRules.length, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusGroupKey])
+  }, [applySafeguardRulesChange, handleSelectSafeguardRule, safeguardRules, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusGroupKey])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
     // safeguardRuleOrdinal is 1-based; convert to 0-based index for openLogicHubSafeguardRule.
     const ruleOrdinal = selection.safeguardRuleOrdinal
@@ -7215,6 +7253,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rule={safeguardBuilder}
       onChange={setSafeguardBuilder}
       editingRuleIdx={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
+      allRules={safeguardRules}
       editingRuleIndex={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
       metasets={metasets}
       substatColors={substatColors}
@@ -7548,7 +7587,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       rules={displaySafeguardRules as SafeguardRule[]}
       selectedRuleIdx={selectedSafeguardRuleIdx}
       onSelect={handleSelectSafeguardRule}
-      onRulesChange={(next) => applySafeguardRulesChange(next)}
+      onRulesChange={(next, options) => applySafeguardRulesChange(next, options)}
       maxHeightPx={safeguardChipsMaxHeight}
       isSideBySide={isSideBySide}
       containerRef={safeguardChipsContainerRef}
@@ -7933,7 +7972,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const sgReplaceRule = sgReplaceSel !== null ? remappedSafeguards[sgReplaceSel] : undefined
         if (sgReplaceRule) setSafeguardBuilder(cloneSafeguardRule(sgReplaceRule))
       } else {
-        setSafeguardRules((prev) => [...prev, ...remappedSafeguards])
+        // Append concatenates two independently valid outlines, which can leave the seam
+        // illegal (an imported list starting mid-bundle would otherwise adopt whatever bundle
+        // the existing list ended inside). Repair across the join — one of the three
+        // normalizer call sites, alongside the mutation funnel and the SFC parse path.
+        setSafeguardRules((prev) => normalizeSafeguardOutline([...prev, ...remappedSafeguards]))
         setSafeguardsEnabled((prev) => prev || (payload.safeguardsEnabled ?? false))
         setRecipesEnabled((prev) => prev || payload.recipesEnabled !== false)
       }

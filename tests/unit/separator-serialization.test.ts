@@ -5,6 +5,11 @@
  * MINIMALLY — appearance plus the marker field, nothing else — and rehydrate to
  * working defaults on load. Safeguard separators are additionally inert: never
  * active, and their flag survives clone/snapshot/fingerprint plumbing.
+ *
+ * Bundle headers (SafeguardRule.bundle) are the other structural entry kind and are covered
+ * here too: they ride the SAME clone → snapshot → fingerprint → normalize → isSafeguardRuleActive
+ * plumbing, so the contract belongs beside the separator one rather than in a parallel file.
+ * The one deliberate asymmetry is that a bundle IS active — it holds a live shared cap.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -102,5 +107,92 @@ test('safeguard separators are never active and the flag rides through clone/sna
   assert.notEqual(
     safeguardRuleContentFingerprint(separator),
     safeguardRuleContentFingerprint(twinBase as SafeguardRule),
+  )
+})
+
+// ── safeguard bundle headers ─────────────────────────────────────────────────
+
+const makeSafeguardBundle = (): SafeguardRule => ({
+  ...createFactorySafeguardBuilderDefaults(),
+  appearance: { name: 'Endgame Accessories', fgColor: '#88ccff' },
+  bundle: true,
+  requiredCount: 5,
+})
+
+test('a bundle header serializes without a tuple and carries its outline fields', () => {
+  const entry = buildReadableSafeguardRuleEntry({ ...makeSafeguardBundle(), depth: 1, collapsed: true })
+  const keys = Object.keys(entry)
+  // A bundle caps its members rather than matching gear, so it has no filters to persist.
+  assert.equal(keys.includes('tuple'), false, 'a bundle must not persist a combination tuple')
+  assert.equal((entry as { Bundle?: true }).Bundle, true)
+  assert.equal((entry as { depth?: number }).depth, 1)
+  assert.equal((entry as { collapsed?: true }).collapsed, true)
+  // The quota-bearing fields a bundle DOES own are still written.
+  assert.equal((entry as { requiredCount?: number }).requiredCount, 5)
+})
+
+test('outline fields are omitted at their defaults so pre-bundle files re-save byte-identically', () => {
+  // A plain top-level rule with no bundle context must serialize exactly as it always did.
+  const entry = buildReadableSafeguardRuleEntry(createFactorySafeguardBuilderDefaults())
+  for (const key of ['Bundle', 'depth', 'collapsed']) {
+    assert.equal(key in entry, false, `${key} must be omitted at its default`)
+  }
+})
+
+test("a bundle's own required count is persisted like any other rule's", () => {
+  // The header's count IS the promise, so it is an ordinary stored number — no derivation, no
+  // pin flag, nothing conditional about whether it round-trips.
+  const written = buildReadableSafeguardRuleEntry({
+    ...createFactorySafeguardBuilderDefaults(),
+    bundle: true,
+    requiredCount: 7,
+  })
+  assert.equal((written as { requiredCount?: number }).requiredCount, 7)
+  assert.equal(normalizeSafeguardRule(written)?.requiredCount, 7)
+})
+
+test('a bundle entry loads back as a bundle with its outline placement intact', () => {
+  const rule = normalizeSafeguardRule({
+    appearance: { name: 'SPD core' },
+    Bundle: true,
+    depth: 2,
+    requiredCount: 3,
+    collapsed: true,
+  })
+  assert.ok(rule, 'bundle entries must not be skipped on load')
+  assert.equal(rule!.bundle, true)
+  assert.equal(rule!.depth, 2)
+  assert.equal(rule!.collapsed, true)
+  assert.equal(rule!.requiredCount, 3)
+  // No tuple in the payload is expected for a bundle, not a parse failure.
+  assert.deepEqual(rule!.combination.slots, [])
+})
+
+test('bundles are ACTIVE and the outline fields ride through clone/snapshot/fingerprint', () => {
+  const bundle = makeSafeguardBundle()
+  // Unlike a separator, a bundle holds a live promise — it must not be filtered out as inert.
+  assert.equal(isSafeguardRuleActive(bundle), true)
+  assert.equal(cloneSafeguardRule(bundle).bundle, true)
+  assert.equal((createSafeguardRuleContentSnapshot(bundle) as { bundle?: boolean }).bundle, true)
+  // Flipping an entry to a container changes what the engine emits → cache must bust.
+  const { bundle: _dropped, ...plain } = bundle
+  assert.notEqual(
+    safeguardRuleContentFingerprint(bundle),
+    safeguardRuleContentFingerprint(plain as SafeguardRule),
+  )
+  // So does moving it in or out of a bundle — depth decides which entries feed which header.
+  assert.notEqual(
+    safeguardRuleContentFingerprint(bundle),
+    safeguardRuleContentFingerprint({ ...bundle, depth: 1 }),
+  )
+})
+
+test('collapsing a bundle does NOT bust the rules cache', () => {
+  // `collapsed` is display-only document state, like appearance.fgColor. If it entered the
+  // fingerprint every chevron click would re-run the whole detection pipeline.
+  const bundle = makeSafeguardBundle()
+  assert.equal(
+    safeguardRuleContentFingerprint(bundle),
+    safeguardRuleContentFingerprint({ ...bundle, collapsed: true }),
   )
 })

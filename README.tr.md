@@ -181,6 +181,20 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | `Fraksiyon başına` | Her fraksiyon kendi kotasına sahip olur. | Her fraksiyon için üç Merciless yüzük bırakın. |
 | `Ana stat başına` | Seçili ana statların her biri kendi havuzuna sahip olur. | ACC ve RES sancakları farklı kotalarda takip edin. |
 
+#### Gruplar: tek bir gerekli sayıyı paylaşan korumalar
+İki koruma istemeden *aynı* sözü tarif edebilir. Biri 3 iyi yüzük tutar, diğeri 2 tutar — ama sen toplamda sadece 3 yüzük istiyordun, şimdi 5 tutuyorsun.
+
+Bunu bir **grup** çözer. Ad alanının yanındaki `Grup` düğmesiyle herhangi bir girdiyi gruba çevir, sonra korumaları içine sürükle (ya da birkaçını seçip sağ tık menüsünden `Grup hâline getir` seç).
+
+- Grup içindeki her koruma **tam olarak** eskisi gibi arar: kendi yuvaları, setleri, alt istatistikleri ve ağırlıkları. Bir grup ne aradıklarını asla değiştirmez.
+- Değişen şey, buldukları parçaların nereye gittiği. Grup içindeki bir koruma artık kendi başına eşya tutmaz: bulduklarını gruba **sunar**, ve kaç tane sunacağına kendi `Gerekli Sayı` değeri karar verir.
+- Grubun kendi `Gerekli Sayı` değeri, asıl karar veren sayıdır. Doğrudan yaz: korumalarının sunduğu her şeyden grup bu kadarını tutar.
+- Grubun kendi kapsam düğmeleri neyin aynı havuz sayıldığına karar verir. Gruba `Fraksiyon başına` koy, içindeki korumalar nasıl bölünmüş olursa olsun her fraksiyon kendi sayısını alsın.
+- Aynı havuza birden fazla koruma parça sunduğunda **en iyi parçalar kazanır**. Her parça, onu sunan korumanın alt istatistikleri ve ağırlıklarıyla değerlendirilir; yani ikinci korumadan gelen bir parça pekâlâ birincininkini geçebilir.
+- Gruplar grupların içinde durabilir. Bir grubu katlamak için ▾ simgesine tıkla; sağ tıklarsan bütün grupları aynı anda katlarsın.
+
+**Örnek.** Fraksiyon başına beş iyi HIZ aksesuarı istiyorsun, ama «iyi» iki ayrı şey demek: hasar verenler için `HIZ + KRT.O + KRT.H`, tanklar için `HIZ + CAN + SAV`. Her profil için bir koruma yap, ikisini bir gruba koy ve grubu `Fraksiyon başına` ile `5` yap. Her koruma en iyi parçalarını sunar, grup da ikisi arasından en iyi çıkan beş taneyi tutar — her birinden beş tane yerine.
+
 #### Gerçek dünyadan örnekler
 | Senaryo | Filtreler | Gerekli adet | Kapsam düğmeleri | Tarayıcının garantisi |
 | --- | --- | --- | --- | --- |
@@ -189,6 +203,7 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | Fraksiyon başına Merciless yüzük | Yuva = Yüzük, Set = Merciless, Fraksiyon boş | `3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
 | Fraksiyon başına HP% yüzük | Yuva = Yüzük, Ana stat = HP%, Setler boş | `2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
 | Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş | `5` | `Fraksiyon başına` | Her fraksiyon her aksesuar yuvasında beşer parça bırakır. |
+| Fraksiyon başına beş aksesuar, yuva fark etmez | Aynı üç kural, bir grubun içinde | Grupta `5` | Grupta `Fraksiyon başına` | Her fraksiyonda toplam beş aksesuar kalır, hangi yuvadan oldukları fark etmez. |
 | Stoneskin + Protection aksesuarları | Yuva = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş | `2` | `Set başına` + `Fraksiyon başına` + `Yuva başına` | Her fraksiyon her aksesuar yuvası için iki Stoneskin ve iki Protection parça tutar. |
 | En hızlı SPD aksesuarları | Yuva = Yüzük/Muska/Sancak, Alt statlar = SPD | `5` | `Koruma başına` | Aksesuarlarındaki en iyi beş SPD rollarını korur (eşitlikler dahil). |
 | SPD’li ACC sancakları | Yuva = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Ağırlıklar: SPD daha yüksek | `3` | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |

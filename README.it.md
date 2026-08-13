@@ -170,6 +170,20 @@ Sellfile Creator semplifica la creazione di Sellfile per RSL Helper — definisc
 | `Per fazione` | Duplica la quota per ogni fazione. | Garantisce tre anelli Merciless per ogni fazione. |
 | `Per stat principale` | Duplica la quota per ogni stat principale selezionata. | Divide i pool per vessilli ACC e RES. |
 
+#### Gruppi: più protezioni che condividono un numero richiesto
+Due protezioni possono finire per descrivere la *stessa* promessa senza volerlo. Una tiene 3 buoni anelli, un'altra ne tiene 2 — ma ne volevi solo 3 in totale, e adesso ne stai tenendo 5.
+
+Un **gruppo** risolve la cosa. Trasforma una voce in gruppo con il pulsante `Gruppo` accanto al campo del nome, poi trascinaci dentro le protezioni (oppure selezionane alcune e scegli `Raggruppa in un gruppo` dal menu del tasto destro).
+
+- Ogni protezione dentro un gruppo continua a cercare **esattamente** quello che cercava prima: i suoi slot, set, sotto-statistiche e pesi. Un gruppo non cambia mai cosa cercano.
+- Quello che cambia è dove finiscono i loro pezzi. Una protezione dentro un gruppo non tiene più equipaggiamento da sola: **offre** i suoi pezzi al gruppo, e il suo `Numero richiesto` decide quanti ne offre.
+- Il `Numero richiesto` del gruppo è il numero che decide davvero. Scrivilo direttamente: è quanto il gruppo tiene di tutto ciò che le sue protezioni gli hanno offerto.
+- I pulsanti di ambito del gruppo decidono cosa conta come stesso lotto. Metti `Per fazione` sul gruppo e ogni fazione riceve il proprio conteggio, comunque siano divise le protezioni al suo interno.
+- Quando più protezioni offrono pezzi per lo stesso lotto, **vincono i pezzi migliori**. Ogni pezzo viene valutato con le sotto-statistiche e i pesi della protezione che lo ha offerto, quindi un pezzo della seconda protezione può benissimo battere uno della prima.
+- I gruppi possono stare dentro altri gruppi. Clicca sul ▾ di un gruppo per richiuderlo; con il tasto destro richiudi tutti i gruppi insieme.
+
+**Esempio.** Vuoi cinque buoni accessori VEL per fazione, ma «buono» significa due cose diverse: `VEL + T.CRIT + D.CRIT` per chi fa danno, `VEL + PS + DIF` per i tank. Crea una protezione per ciascun profilo, mettile entrambe in un gruppo e imposta il gruppo su `5` con `Per fazione`. Ogni protezione offre i suoi pezzi migliori e il gruppo tiene i cinque venuti meglio fra le due, invece di cinque per ciascuna.
+
 #### Esempi concreti
 
 | Scenario | Filtri | Quantità richiesta | Chip di ambito | Cosa garantisce lo scanner |
@@ -179,6 +193,7 @@ Sellfile Creator semplifica la creazione di Sellfile per RSL Helper — definisc
 | Anelli Merciless per fazione | Slot = Anello, Set = Merciless, Fazione vuota | `3` | `Per fazione` | Ogni fazione conserva tre dei propri anelli Merciless. |
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
+| Cinque accessori per fazione, in qualsiasi slot | Le stesse tre regole, dentro un gruppo | `5` sul gruppo | `Per fazione` sul gruppo | Ogni fazione mantiene cinque accessori in totale, in qualunque slot si trovino. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
 | Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Sotto-stat = SPD | `5` | `Per salvaguardia` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
 | Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Sotto-stat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |

@@ -144,6 +144,8 @@ const safeguardSubstatMatch = safeguard.substatMatch
 const safeguardCountModeDefault = safeguard.countModeDefault
 const safeguardRuleOptionsDefault = safeguard.ruleOptionsDefault ?? {}
 const safeguardPlaceholderReason = safeguard.placeholderReason
+// Outline (bundle) limits: nesting depth cap + the default depth for entries without one.
+const safeguardOutline = safeguard.outline
 const safeguardWeight = safeguard.weight
 // Scorer-internal tuning knobs (not user-facing weights) live in their own group.
 const safeguardScoring = safeguard.scoring
@@ -291,6 +293,9 @@ const tsLines = [
   `export const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true}`,
   `export const SAFEGUARD_REASON_GLOBAL = ${asTsStringLiteral(safeguardPlaceholderReason.global)}`,
   `export const SAFEGUARD_REASON_GROUP = ${asTsStringLiteral(safeguardPlaceholderReason.group)}`,
+  '// Safeguard bundle outline: nesting cap and the depth an entry takes when it stores none.',
+  `export const SAFEGUARD_OUTLINE_MAX_DEPTH = ${Number(safeguardOutline.maxDepth)}`,
+  `export const SAFEGUARD_OUTLINE_DEFAULT_DEPTH = ${Number(safeguardOutline.defaultDepth)}`,
   `export const SAFEGUARD_WEIGHT_STEP = ${Number(safeguardWeight.step)}`,
   `export const SAFEGUARD_WEIGHT_MIN = ${Number(safeguardWeight.min)}`,
   `export const SAFEGUARD_WEIGHT_MAX = ${Number(safeguardWeight.max)}`,
@@ -439,6 +444,9 @@ const rustLines = [
   `pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = ${safeguardRuleOptionsDefault.ignoreEquippedInVault === true};`,
   `pub const SAFEGUARD_REASON_GLOBAL: &str = ${asRustStringLiteral(safeguardPlaceholderReason.global)};`,
   `pub const SAFEGUARD_REASON_GROUP: &str = ${asRustStringLiteral(safeguardPlaceholderReason.group)};`,
+  '// Safeguard bundle outline: nesting cap and the depth an entry takes when it stores none.',
+  `pub const SAFEGUARD_OUTLINE_MAX_DEPTH: i64 = ${Number(safeguardOutline.maxDepth)};`,
+  `pub const SAFEGUARD_OUTLINE_DEFAULT_DEPTH: i64 = ${Number(safeguardOutline.defaultDepth)};`,
   `pub const SAFEGUARD_WEIGHT_STEP: f64 = ${asRustF64Literal(safeguardWeight.step)};`,
   `pub const SAFEGUARD_WEIGHT_MIN: f64 = ${asRustF64Literal(safeguardWeight.min)};`,
   `pub const SAFEGUARD_WEIGHT_MAX: f64 = ${asRustF64Literal(safeguardWeight.max)};`,

@@ -69,6 +69,8 @@ import {
   type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
 } from '../lib/safeguards'
+// Outline placement for the entry being edited — the same facade the chip list and engine use.
+import { safeguardBundleMemberIndices } from '../lib/safeguardOutline'
 import type { ColorBlindMode } from '../lib/constants'
 import {
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
@@ -259,6 +261,12 @@ export type SafeguardBuilderPanelProps = {
   onChange: (next: SafeguardRule | ((prev: SafeguardRule) => SafeguardRule)) => void
   editingRuleIdx: number | null
   editingRuleIndex: number | null
+  /**
+   * The live safeguard list. The form edits a detached draft, but the OUTLINE questions it has
+   * to answer — "is this entry inside a bundle?", "whose promise governs its count?" — are
+   * properties of the entry's position in the list, not of the draft.
+   */
+  allRules: readonly SafeguardRule[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
@@ -322,6 +330,7 @@ export default function SafeguardBuilderPanel({
   onChange,
   editingRuleIdx,
   editingRuleIndex,
+  allRules,
   metasets,
   substatColors,
   useStatButtonColors,
@@ -663,6 +672,24 @@ export default function SafeguardBuilderPanel({
   // switching chips) but are disabled+dimmed via separatorDisabledSectionSx on the row
   // wrappers. Multi-edit never enters separator mode; the toggle is single-edit only.
   const isSeparatorDraft = !multiEditActive && rule.separator === true
+  // Bundle drafts: everything a rule has EXCEPT the gear filters, because a bundle's candidates
+  // are whatever its members match — it never filters gear itself. The filter sections stay
+  // MOUNTED but disabled+dimmed via the same mechanism separators use, so the layout does not
+  // jump when switching chips and the retained combination is visibly inert rather than gone.
+  const isBundleDraft = !multiEditActive && rule.bundle === true
+  // The filter rows (slots / sets / ranks / rarities / main stats / factions) are inert for both
+  // structural kinds; the quota, ranking and mode rows are inert for separators only.
+  const isFilterSectionInert = isSeparatorDraft || isBundleDraft
+  // Outline position of the entry being edited. Asked of the live list rather than the draft,
+  // because "which bundle contains me" is a property of where the entry sits, and answered by
+  // the shared facade so the form, the chip badge and the engine gate agree.
+  // A bundle's required count is an ordinary editable number — the count it keeps out of each
+  // merged bucket. How many members feed it is worth showing next to that number, because a
+  // bundle with nothing under it keeps nothing however high the count is set. Resolved through
+  // the shared facade so the form and the engine read the same membership.
+  const bundleMemberCount = isBundleDraft && editingRuleIdx !== null
+    ? safeguardBundleMemberIndices(allRules, editingRuleIdx).length
+    : 0
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
   // stored rule (empty instructions path above), so the guard lives in one place only.
   const displayActivation = effectiveRule.activation
@@ -1907,6 +1934,35 @@ export default function SafeguardBuilderPanel({
             })}
           />
         ) : null}
+        {/* Bundle toggle — mutually exclusive with the divider toggle beside it. A bundle keeps
+            every field a rule has EXCEPT the filters, because its candidates come from whatever
+            its members match, so switching modes preserves the draft rather than resetting it
+            (unlike the separator toggle, which persists nothing but a label). */}
+        {!multiEditActive ? (
+          <MarkdownTooltip placement="top" markdown={t('safeguardsBundleToggleHint')}>
+            <ToggleButton
+              value="bundle"
+              size="small"
+              selected={isBundleDraft}
+              aria-label={t('safeguardsBundleLabel')}
+              data-tour-id="safeguards.builder.bundle"
+              onChange={() => updateRule((prev) => {
+                if (isBundleDraft) {
+                  // Back to a plain rule: the retained combination becomes live again, which is
+                  // what makes bundle ⇄ rule lossless.
+                  const { bundle: _dropped, collapsed: _alsoDropped, ...rest } = prev
+                  return rest
+                }
+                // A divider can never also be a container.
+                const { separator: _notADivider, ...rest } = prev
+                return { ...rest, bundle: true }
+              })}
+              sx={{ px: 1.5, flexShrink: 0 }}
+            >
+              {t('safeguardsBundleLabel')}
+            </ToggleButton>
+          </MarkdownTooltip>
+        ) : null}
       </Box>
       {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
           than the splitter-controlled panel; name field above avoids label clipping.
@@ -2130,7 +2186,6 @@ export default function SafeguardBuilderPanel({
               ? (multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
                 ? ''
                 : Number(multiRequiredCountField?.value ?? rule.requiredCount ?? 1))
-              // Single-edit: show effective count so the control reflects the active override.
               : (effectiveRule.requiredCount ?? 1)}
             {...(multiEditActive && multiRequiredCountField?.status === 'mixed' && !multiRequiredCountField.dirty
               ? { placeholder: t('builderMultiEditMixedPlaceholder') }
@@ -2173,6 +2228,18 @@ export default function SafeguardBuilderPanel({
             })}
           />
         </Box>
+
+        {/* Membership caption — bundles only. The count above is an ordinary editable number,
+            but it only means anything once safeguards feed the bundle: an empty header keeps
+            nothing however high it is set. Naming the member count here is what makes that
+            visible without a second control. */}
+        {isBundleDraft && !multiEditActive ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', alignSelf: 'center' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
+              {t('safeguardsBundleFedBy', { count: bundleMemberCount })}
+            </Typography>
+          </Box>
+        ) : null}
 
         {/* Ignore toggles — right of required count, compact two-line group: the
             `Ignore:` caption sits above one row of glyph-only chips [»] [♛] [⌂]
@@ -2372,7 +2439,7 @@ export default function SafeguardBuilderPanel({
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
-        ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
+        ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}),
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
@@ -2639,7 +2706,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader
@@ -3187,7 +3254,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4: Slots (left) + Sets (right) — flex row; each always takes 50%, collapses vertically ── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>

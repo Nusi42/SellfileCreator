@@ -35,6 +35,8 @@ import {
   normalizeSafeguardSubstatDependents,
   normalizeSafeguardFactionSlotScope,
   parseMainStatRankWeightFactor,
+  // Entry-kind discriminator: bundles take no filter edits (they have no combination).
+  safeguardEntryKind,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
@@ -108,6 +110,13 @@ export const SAFEGUARD_FIELD_KEYS = [
 ] as const satisfies ReadonlyArray<keyof SafeguardEditableFields>
 
 export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
+
+// The subset of editable fields that describe the gear FILTER. Bundle headers have no filter —
+// they pool whatever their members match — so a multi-edit apply skips exactly these keys on a
+// bundle. Named once here so the apply path and any future summary/aggregation share it.
+export const SAFEGUARD_COMBINATION_FIELD_KEYS: ReadonlySet<SafeguardFieldKey> = new Set([
+  'slots', 'sets', 'metaSetNames', 'ranks', 'rarities', 'mainStats', 'factions',
+])
 
 // ── patch type mapping ────────────────────────────────────────────────────────
 
@@ -656,7 +665,13 @@ export function applyMultiEditFieldsToSafeguardRule(
 ): SafeguardRule {
   const keys = dirtyKeys && dirtyKeys.length > 0 ? dirtyKeys : SAFEGUARD_FIELD_KEYS
   let nextRule = rule
+  // A bundle has no combination of its own — its candidates come from what its members match —
+  // so a filter edit staged across a mixed selection must skip it rather than write a filter
+  // the entry can never apply. Every other field (count, scopes, ranking, mode, ignore toggles)
+  // applies to bundles exactly as it does to rules, which is the point of the whole design.
+  const skipFilterFields = safeguardEntryKind(rule) === 'bundle'
   for (const key of keys) {
+    if (skipFilterFields && SAFEGUARD_COMBINATION_FIELD_KEYS.has(key)) continue
     const field = fields[key]
     if (!field?.dirty) continue
     const updated = applyMultiEditFieldToSafeguardRule(nextRule, key, field)
