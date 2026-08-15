@@ -65,9 +65,9 @@ test('grouping a selection makes it one run: no extra entry, same id, coloured e
   await expect(chip(page, 1)).toHaveAttribute('data-safeguard-chip-group', id as string)
   // The third rule stays outside the group.
   await expect(chip(page, 2)).not.toHaveAttribute('data-safeguard-chip-group', /.+/)
-  // Every member carries the group badge with the seeded (neutral: 1 + 1) count.
-  await expect(chip(page, 0).locator('[data-safeguard-group-badge]')).toContainText('2')
-  await expect(chip(page, 1).locator('[data-safeguard-group-badge]')).toContainText('2')
+  // Every member carries the group badge with the seeded (min of 1 and 1) count.
+  await expect(chip(page, 0).locator('[data-safeguard-group-badge]')).toContainText('1')
+  await expect(chip(page, 1).locator('[data-safeguard-group-badge]')).toContainText('1')
 })
 
 test('the group strip edits the group for every member and survives a round trip', async ({ page }) => {

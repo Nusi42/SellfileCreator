@@ -68,6 +68,7 @@ import {
 } from '../lib/safeguardGroups'
 // Group colour: a stable hue per group id, contrast-adapted to the active scheme's paper.
 import { resolveLabelColor } from '../lib/labelColors'
+import { useReservedLabelHues } from '../lib/themeContrastHooks'
 import { SafeguardGroupBadge } from './SafeguardGroupBadge'
 import { INLINE_TAG_CHIP_SX, useTagChipSx } from './BuilderTagChips'
 import type { Metaset } from '../lib/metasets'
@@ -263,7 +264,8 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const badgeCount = rule.requiredCount ?? 1
   // Group colour: derived from the id (stable per group, no storage) and adapted to the chip's
   // real surface so the edge and the badge stay legible in every scheme.
-  const groupColor = groupSettings ? resolveLabelColor(groupSettings.id, chipBg) : null
+  const reservedHues = useReservedLabelHues()
+  const groupColor = groupSettings ? resolveLabelColor(groupSettings.id, chipBg, reservedHues) : null
   // Per-tag colour for the inline tag chips (shared hook with the recipe chip list).
   const tagChipSx = useTagChipSx()
   // Base line color mirrors RecipeChip's primaryColor source (CSS-var aware).
@@ -527,6 +529,8 @@ export default function SafeguardChipsPanel({
   const effectiveSelectedIndicesRef = useRef<ReadonlySet<number>>(effectiveSelectedIndices)
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
+  // Semantic hues the active scheme reserves; the drop guide keeps group colours clear of them.
+  const reservedHues = useReservedLabelHues()
   // ── groups ───────────────────────────────────────────────────────────────
   // Resolved once per rules-array identity by the Rust authority (see lib/safeguardGroups).
   // Every structural question below reads this result; nothing is re-derived from ids.
@@ -1219,7 +1223,7 @@ export default function SafeguardChipsPanel({
               ? resolveSafeguardDropMembership(rules, dndDragState.dropIndex).settings
               : null
             const guideColor = joining
-              ? resolveLabelColor(joining.id, themeInner.palette.background.paper)
+              ? resolveLabelColor(joining.id, themeInner.palette.background.paper, reservedHues)
               : themeInner.palette.primary.main
             return {
               position: 'absolute',

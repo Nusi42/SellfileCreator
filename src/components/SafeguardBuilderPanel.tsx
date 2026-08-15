@@ -78,6 +78,7 @@ import {
 } from '../lib/safeguards'
 // Group colour: a stable hue per group id, adapted to the builder's paper surface.
 import { resolveLabelColor } from '../lib/labelColors'
+import { useReservedLabelHues } from '../lib/themeContrastHooks'
 import GroupWorkOutlinedIcon from '@mui/icons-material/GroupWorkOutlined'
 import { describeSafeguardGroupScope } from './SafeguardGroupBadge'
 // Group view of the candidate flyout: the members' feeds pooled and ranked the way the engine
@@ -711,7 +712,9 @@ export default function SafeguardBuilderPanel({
     ? Array.from(new Set((multiSelectedRules ?? []).map((entry) => entry.group?.id).filter((id): id is string => Boolean(id))))
     : []
   const stripGroupId = multiEditActive ? (multiGroupIds.length === 1 ? multiGroupIds[0] ?? null : null) : (draftGroup?.id ?? null)
-  const stripColor = stripGroupId ? resolveLabelColor(stripGroupId, schemePalette.background.paper) : null
+  // Semantic hues the active scheme reserves; group colours steer clear of them.
+  const reservedHues = useReservedLabelHues()
+  const stripColor = stripGroupId ? resolveLabelColor(stripGroupId, schemePalette.background.paper, reservedHues) : null
   // Displayed group count: the staged value in multi-edit (blank while mixed), else the draft's.
   const groupCountMixed = multiEditActive && multiGroupCountField?.status === 'mixed' && !multiGroupCountField.dirty
   const displayGroupCount = multiEditActive
@@ -1490,7 +1493,7 @@ export default function SafeguardBuilderPanel({
     return Array.from(union)
   }, [allRules, draftGroup, editingRuleIdx])
   // The colour rows use to say "trimmed by the group", adapted to the flyout surface.
-  const groupTrimColor = draftGroup ? resolveLabelColor(draftGroup.id, schemePalette.background.paper) : null
+  const groupTrimColor = draftGroup ? resolveLabelColor(draftGroup.id, schemePalette.background.paper, reservedHues) : null
 
   // Candidate list shown in the popover right column: the group's pool when the group view is
   // on; otherwise prefer live preview (from unsaved weight edits) over the detection snapshot.
@@ -2346,10 +2349,17 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
             own count sizes what it FEEDS the group; the group's count is what the group keeps out
             of each bucket. Editing here edits the group: the draft's copy changes and the funnel's
             normalizer fans it out to every member of the run. In multi-edit the strip stages the
-            same two fields onto every grouped member of the selection. */}
-        {groupStripVisible ? (
+            same two fields onto every grouped member of the selection.
+
+            Always MOUNTED so the row keeps one layout whether or not the selected chip is a
+            member: on an ungrouped draft the strip is dimmed + non-interactive (the same
+            `separatorDisabledSectionSx` treatment every other inert section gets) instead of being
+            removed, so switching between grouped and ungrouped chips never shifts the controls
+            beside it. */}
+        {(
           <Box
             data-tour-id="safeguards.builder.group-strip"
+            data-group-strip-active={groupStripVisible ? 'true' : 'false'}
             sx={(themeInner) => ({
               display: 'flex',
               alignItems: 'stretch',
@@ -2359,6 +2369,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               border: '1px solid',
               borderColor: stripColor ?? (themeInner.vars?.palette.divider ?? themeInner.palette.divider),
               overflow: 'hidden',
+              ...(groupStripVisible ? {} : separatorDisabledSectionSx(themeInner)),
             })}
           >
             <MarkdownTooltip placement="top" markdown={t('safeguardsGroupStripHint')}>
@@ -2370,7 +2381,8 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
             <TextField
               size="small"
               type="number"
-              value={groupCountMixed ? '' : displayGroupCount}
+              value={groupCountMixed || !groupStripVisible ? '' : displayGroupCount}
+              disabled={!groupStripVisible}
               {...(groupCountMixed ? { placeholder: t('builderMultiEditMixedPlaceholder') } : {})}
               onChange={(event) => commitGroupCount(Number(event.target.value))}
               slotProps={{
@@ -2441,7 +2453,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               })}
             </ToggleButtonGroup>
           </Box>
-        ) : null}
+        )}
 
         {/* Ignore toggles — right of required count, compact two-line group: the
             `Ignore:` caption sits above one row of glyph-only chips [»] [♛] [⌂]

@@ -52,8 +52,8 @@ test('grouping gathers the selection at its first slot with a NEUTRAL seed', () 
   const g = grouped!.rules[0]?.group
   assert.ok(g)
   assert.equal(grouped!.rules[1]?.group?.id, g!.id)
-  // Sum of the members' counts: grouping changes nothing until the user tightens it.
-  assert.equal(g!.requiredCount, 5)
+  // Minimum of the members' counts: the tightest promise any member already made.
+  assert.equal(g!.requiredCount, 2)
   // Members keep their own counts.
   assert.equal(grouped!.rules[0]?.requiredCount, 2)
   assert.equal(grouped!.rules[1]?.requiredCount, 3)

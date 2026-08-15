@@ -9,7 +9,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { labelHueOf, resolveLabelChipColors, resolveLabelColor } from '../../src/lib/labelColors.js'
+import { labelHueOf, reservedHuesOf, resolveLabelChipColors, resolveLabelColor } from '../../src/lib/labelColors.js'
 import { WCAG_NORMAL_TEXT_CONTRAST } from '../../src/lib/colorUtils.js'
 
 // The three shipped paper surfaces a label can sit on.
@@ -57,4 +57,28 @@ test('chip colours derive border and fill from the same adapted foreground', () 
   // Border and fill are alpha variants of the foreground (rgba strings), never a second hue.
   assert.match(border, /^rgba\(/)
   assert.match(bg, /^rgba\(/)
+})
+
+test('label hues stay clear of the reserved semantic hues in every theme', () => {
+  // Representative semantic mains per scheme (MUI defaults; RSLH primary from rslhPreset.ts): primary, error,
+  // warning, success, info. A label must never sit inside the band around any of them.
+  const RESERVED = {
+    light: ['#0969da', '#d32f2f', '#ed6c02', '#2e7d32', '#0288d1'],
+    dark: ['#58a6ff', '#f44336', '#ffa726', '#66bb6a', '#29b6f6'],
+    rslh: ['#F1960E', '#f44336', '#FFC107', '#66bb6a', '#29b6f6'],
+  }
+  const distance = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d }
+  for (const [scheme, colors] of Object.entries(RESERVED)) {
+    const reserved = reservedHuesOf(colors)
+    assert.ok(reserved.length === colors.length, `${scheme}: every semantic colour has a hue`)
+    for (const label of SAMPLES) {
+      const hue = labelHueOf(label, reserved)
+      for (const r of reserved) {
+        assert.ok(distance(hue, r) >= 22 - 1e-9, `${scheme}: "${label}" hue ${hue.toFixed(1)} too close to reserved ${r.toFixed(1)}`)
+      }
+    }
+  }
+  // Without reserved hues the hash hue is used as is; with them it is deterministic too.
+  assert.equal(labelHueOf('boots', []), labelHueOf('boots'))
+  assert.equal(labelHueOf('boots', reservedHuesOf(RESERVED.light)), labelHueOf('boots', reservedHuesOf(RESERVED.light)))
 })

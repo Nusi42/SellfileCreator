@@ -224,9 +224,9 @@ keep gear itself. It **feeds** the group:
    else that was fed is sold.
 
 So two rules feeding 3 and 2 SPD boots keep 5 boots when ungrouped, and however many the group
-asks for when grouped. **Grouping starts as a no-op**: a new group's count is seeded with the SUM
-of its members' counts and its chips with the ones every member already shares, so nothing changes
-until the user tightens it. The count is neither the max nor the sum of the members' counts, and
+asks for when grouped. A new group's count is seeded with the MINIMUM of its members' counts (the
+tightest promise any of them already made) and its chips with the ones every member already
+shares. From then on the count is a plain number — neither the max nor the sum of the members', and
 there is no pin/override flag: what the user types is what the group keeps. Setting it above what
 the members feed is harmless — a group can only ever keep gear that reached its pool — so to
 protect more, raise a member's count as well.
@@ -313,15 +313,18 @@ turn a divider into a quota-bearing group and change what the file protects. A s
 carries a group and always ends the run before it.
 
 **Group colour.** Every group is identified by a colour derived from its id
-(`lib/labelColors.ts`: FNV-1a hash → golden-angle hue, `ensureContrastOnBg` against the active
-scheme's paper) — nothing is stored, and the same helper colours recipe/safeguard **tags** by their
-text, so a tag reads the same colour on every chip in all three themes.
+(`lib/labelColors.ts`: FNV-1a hash → golden-angle hue, pushed out of a ±22° band around each of
+the active scheme's semantic hues — primary/error/warning/success/info, supplied by
+`useReservedLabelHues` — then `ensureContrastOnBg` against the active scheme's paper) — nothing is
+stored, and the same helper colours recipe/safeguard **tags** by their text, so a tag reads the same
+colour on every chip in all three themes and never looks like a state tint.
 
 **UI.** Member chips carry a coloured left edge (`SAFEGUARD_GROUP_EDGE_PX`, squared where it meets
 the neighbouring member so a run reads as one bracket) and, beside their own `Protect ≥ N`, a
 `SafeguardGroupBadge` (`⊚ ≥ M` in the group's colour, tooltip naming the group's chips). No chevron,
-no collapse, no indentation. The builder form is an ordinary rule form; when the draft is a member
-the **group strip** appears directly beside Required Count as one visual pill in the group's colour
+no collapse, no indentation. The builder form is an ordinary rule form; the **group strip** sits
+directly beside Required Count as one visual pill in the group's colour (always mounted — dimmed and
+inert on an ungrouped draft so the row never shifts)
 — `⊚ ≥ [M]` plus the four scope toggles (`slot · set · faction · main stat`) — and edits the group
 (the draft's copy changes; the funnel's normalizer fans it out to the run). In multi-edit the strip
 shows whenever any selected rule is grouped and stages `groupRequiredCount` / `groupCountMode` onto

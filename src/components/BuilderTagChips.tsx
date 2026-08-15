@@ -8,7 +8,7 @@ import type { SxProps, Theme } from '@mui/material'
 import type { SystemStyleObject } from '@mui/system'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
 import { EllipsisTooltip } from './EllipsisTooltip'
-import { useSchemePaper } from '../lib/themeContrastHooks'
+import { useReservedLabelHues, useSchemePaper } from '../lib/themeContrastHooks'
 import { resolveLabelChipColors } from '../lib/labelColors'
 import { ALPHA } from '../lib/colorTints'
 import { alpha } from '@mui/material/styles'
@@ -25,8 +25,10 @@ export const INLINE_TAG_CHIP_SX = { height: 16, fontSize: '0.65rem', '& .MuiChip
  */
 export function useTagChipSx(): (tag: string) => SystemStyleObject<Theme> {
   const paper = useSchemePaper()
+  // Semantic hues of the active scheme, so a tag never looks like a state colour.
+  const reserved = useReservedLabelHues()
   return useCallback((tag: string): SystemStyleObject<Theme> => {
-    const { fg, border, bg } = resolveLabelChipColors(tag, paper)
+    const { fg, border, bg } = resolveLabelChipColors(tag, paper, reserved)
     return {
       color: fg,
       borderColor: border,
@@ -34,7 +36,7 @@ export function useTagChipSx(): (tag: string) => SystemStyleObject<Theme> {
       // The delete glyph (removable list) follows the tag colour instead of the neutral grey.
       '& .MuiChip-deleteIcon': { color: alpha(fg, ALPHA.a60), '&:hover': { color: fg } },
     }
-  }, [paper])
+  }, [paper, reserved])
 }
 
 // Falls back to the manual copy dialog when the Clipboard API is unavailable.

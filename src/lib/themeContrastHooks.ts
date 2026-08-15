@@ -8,14 +8,16 @@
  * wrong surface. These hooks read the runtime scheme via useColorScheme() and resolve the
  * real per-scheme paper, then expose ready-to-use adapters so call sites stay one-liners.
  */
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTheme, useColorScheme } from '@mui/material/styles'
 import {
   adaptSubstatFgOnSurface,
   resolveControlSurface,
+  resolveSchemePalette,
   resolveSchemePaper,
   schemeModeFromColorScheme,
 } from './themeCustomTokens'
+import { reservedHuesOf } from './labelColors'
 
 // The active scheme's paper color (real per-scheme hex, not the frozen light palette).
 export function useSchemePaper(): string {
@@ -46,4 +48,21 @@ export function useControlFgAdapter(): (fg: string | undefined) => string | unde
   const { colorScheme } = useColorScheme()
   const surface = resolveControlSurface(theme, schemeModeFromColorScheme(colorScheme))
   return useCallback((fg: string | undefined) => adaptSubstatFgOnSurface(fg, surface), [surface])
+}
+
+/**
+ * The hues the ACTIVE scheme reserves for its semantic colours — primary, error, warning,
+ * success, info — so tag/group label colours (`lib/labelColors`) can steer clear of them and a
+ * label is never mistaken for a state tint. Resolved from the runtime scheme palette (never the
+ * frozen light palette) and memoized per scheme so the array identity is stable for memo deps.
+ */
+export function useReservedLabelHues(): readonly number[] {
+  const theme = useTheme()
+  const { colorScheme } = useColorScheme()
+  const palette = resolveSchemePalette(theme, schemeModeFromColorScheme(colorScheme))
+  const { primary, error, warning, success, info } = palette
+  return useMemo(
+    () => reservedHuesOf([primary.main, error.main, warning.main, success.main, info.main]),
+    [primary.main, error.main, warning.main, success.main, info.main],
+  )
 }

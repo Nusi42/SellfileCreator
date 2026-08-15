@@ -199,8 +199,8 @@ const intersectCountModes = (modes: readonly SafeguardRuleCountMode[]): Safeguar
  *
  * The selection is gathered (in its existing relative order) at the position of its topmost
  * member — grouping is "block moved together + joined", the same thing a drop inside a bracket
- * does. The seed is NEUTRAL: the count is the SUM of the members' counts and the chips are the
- * ones every member already shares, so grouping changes nothing until the user tightens it.
+ * does. The seed count is the MINIMUM of the members' counts — the tightest promise any of them
+ * already made — and the chips are the ones every member already shares.
  * Members already in another group are pulled out of it (their old run is repaired by the
  * normalizer). Separators are never grouped.
  *
@@ -220,7 +220,7 @@ export const groupSafeguardSelection = (
   const members = ordered.map((index) => rules[index] as SafeguardRule)
   const settings: SafeguardGroupSettings = {
     id: createSafeguardGroupId(),
-    requiredCount: members.reduce((sum, rule) => sum + Math.max(1, rule.requiredCount), 0),
+    requiredCount: members.reduce((min, rule) => Math.min(min, Math.max(1, rule.requiredCount)), Number.POSITIVE_INFINITY),
     countMode: intersectCountModes(members.map((rule) => rule.countMode)),
   }
   const block = members.map((rule) => withSafeguardGroup(cloneSafeguardRule(rule), settings))
