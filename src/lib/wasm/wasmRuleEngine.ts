@@ -33,11 +33,11 @@ import initRuleEngineWasm, {
   hash_safeguard_combination_value as hashSafeguardCombinationWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
   safeguard_count_key_value as safeguardCountKeyValueWasmBinding,
-  safeguard_group_key_value as safeguardGroupKeyValueWasmValueBinding,
+  safeguard_bucket_key_value as safeguardBucketKeyValueWasmValueBinding,
   safeguard_item_key_value as safeguardItemKeyValueWasmValueBinding,
   safeguard_groups_value as safeguardGroupsValueWasmBinding,
   merge_safeguard_injected_rules_value as mergeSafeguardInjectedRulesWasmValueBinding,
-  normalize_safeguard_expected_group_domain_value as normalizeSafeguardExpectedGroupDomainWasmValueBinding,
+  normalize_safeguard_expected_bucket_domain_value as normalizeSafeguardExpectedBucketDomainWasmValueBinding,
   prepare_hsf_builder_recipe_value as prepareHsfBuilderRecipeWasmValueBinding,
   resolve_safeguard_rules_with_metasets_value as resolveSafeguardRulesWithMetasetsWasmValueBinding,
   resolve_auto_rarity_code_for_builder_value as resolveAutoRarityCodeForBuilderWasmValueBinding,
@@ -76,7 +76,7 @@ import {
   expandRuleRawFromWire,
   expandSafeguardSnapshotFromWire,
   projectSafeguardSnapshotForWire,
-  projectSafeguardExpectedGroupDomainForWire,
+  projectSafeguardExpectedBucketDomainForWire,
   projectAutoFlexRarityRecipeForWire,
   expandAutoFlexRarityBranchFromWire,
   type SafeguardWasmSnapshotOutWire,
@@ -670,21 +670,21 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
   rules: readonly SafeguardRule[]
   // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
   improvementChances?: readonly ImprovementChanceWasmEntry[]
-  expectedGroupsByRuleId?: Record<string, unknown>
-  expectedGroupDomain?: Record<string, unknown>
+  expectedBucketsByRuleId?: Record<string, unknown>
+  expectedBucketDomain?: Record<string, unknown>
   enabled: boolean
   now: number
 }): SafeguardDetectionSnapshot => {
   assertWasmInitializedSync()
-  // Wrapper payload carries canonical expected-group metadata into wasm.
-  const expectedGroupsByRuleId =
-    params.expectedGroupsByRuleId !== undefined || params.expectedGroupDomain !== undefined
+  // Wrapper payload carries canonical expected-bucket metadata into wasm.
+  const expectedBucketsByRuleId =
+    params.expectedBucketsByRuleId !== undefined || params.expectedBucketDomain !== undefined
       ? {
-          ...(params.expectedGroupsByRuleId !== undefined
-            ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
+          ...(params.expectedBucketsByRuleId !== undefined
+            ? { expectedBucketsByRuleId: params.expectedBucketsByRuleId }
             : {}),
-          ...(params.expectedGroupDomain !== undefined
-            ? { expectedGroupDomain: params.expectedGroupDomain }
+          ...(params.expectedBucketDomain !== undefined
+            ? { expectedBucketDomain: params.expectedBucketDomain }
             : {}),
         }
       : undefined
@@ -695,7 +695,7 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
   const payload = JSON.stringify({
     candidates: params.candidates.map(toWasmSafeguardCandidate),
     rules: resolveRulesForWasm(params.rules),
-    ...(expectedGroupsByRuleId !== undefined ? { expectedGroupsByRuleId } : {}),
+    ...(expectedBucketsByRuleId !== undefined ? { expectedBucketsByRuleId } : {}),
     enabled: params.enabled === true,
     now: Number.isFinite(params.now) ? params.now : 0,
     ...(params.improvementChances?.length
@@ -710,7 +710,7 @@ export const computeSafeguardProtectionWithLoadedWasm = (params: {
   throw new Error('WASM safeguard detection returned an invalid payload.')
 }
 
-// Candidate collection keeps keep-flag resolution + item/group key derivation
+// Candidate collection keeps keep-flag resolution + item/bucket key derivation
 // in Rust; TS callers reattach row references for compatibility.
 //
 // Payload crosses the boundary as a single JSON string (not multiple JsValues)
@@ -758,23 +758,23 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
   safeguardRules: readonly SafeguardRule[]
   // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
   improvementChances?: readonly ImprovementChanceWasmEntry[]
-  expectedGroupsByRuleId?: Record<string, unknown>
-  expectedGroupDomain?: Record<string, unknown>
+  expectedBucketsByRuleId?: Record<string, unknown>
+  expectedBucketDomain?: Record<string, unknown>
   enabled: boolean
   now: number
 }): WasmCollectedAndProtectedSafeguardSnapshot => {
   assertWasmInitializedSync()
   const ignored = toSortedNumberArray(params.ignoreSafeguardRecipeIndices) ?? null
-  const expectedGroupsPayload = (
-    params.expectedGroupsByRuleId !== undefined
-    || params.expectedGroupDomain !== undefined
+  const expectedBucketsPayload = (
+    params.expectedBucketsByRuleId !== undefined
+    || params.expectedBucketDomain !== undefined
   )
     ? {
-      ...(params.expectedGroupsByRuleId !== undefined
-        ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
+      ...(params.expectedBucketsByRuleId !== undefined
+        ? { expectedBucketsByRuleId: params.expectedBucketsByRuleId }
         : {}),
-      ...(params.expectedGroupDomain !== undefined
-        ? { expectedGroupDomain: params.expectedGroupDomain }
+      ...(params.expectedBucketDomain !== undefined
+        ? { expectedBucketDomain: params.expectedBucketDomain }
         : {}),
     }
     : undefined
@@ -787,7 +787,7 @@ export const collectAndComputeSafeguardProtectionWithLoadedWasm = (params: {
     recipeModes: params.recipeModes,
     ...(ignored !== null ? { ignoreSafeguardRecipeIndices: ignored } : {}),
     safeguardRules: resolveRulesForWasm(params.safeguardRules),
-    ...(expectedGroupsPayload !== undefined ? { expectedGroupsPayload } : {}),
+    ...(expectedBucketsPayload !== undefined ? { expectedBucketsPayload } : {}),
     enabled: params.enabled === true,
     now: Number.isFinite(params.now) ? params.now : 0,
     ...(params.improvementChances?.length
@@ -880,7 +880,7 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
   safeguardRules: readonly SafeguardRule[]
   // Pre-computed improvement-chance entries; passed to WASM for threshold gating.
   improvementChances?: readonly ImprovementChanceWasmEntry[]
-  expectedGroupDomain?: Record<string, unknown>
+  expectedBucketDomain?: Record<string, unknown>
   enabled: boolean
   now: number
 }): WasmEvaluateAndCollectSnapshot => {
@@ -896,10 +896,10 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
   if (opts?.baselineExcludeSources?.length) evaluatePayload.baselineExcludeSources = [...opts.baselineExcludeSources]
   if (opts?.excludeRecipeIndices?.size) evaluatePayload.excludeRecipeIndices = [...opts.excludeRecipeIndices]
   if (opts?.ignoreSafeguardRecipeIndices?.size) evaluatePayload.ignoreSafeguardRecipeIndices = [...opts.ignoreSafeguardRecipeIndices]
-  // Expected-groups wrapper maps onto SafeguardWasmExpectedGroupsPayloadIn; only
-  // emit it when the caller actually supplied an expected-group domain.
-  const expectedGroupsPayload = params.expectedGroupDomain !== undefined
-    ? { expectedGroupDomain: params.expectedGroupDomain }
+  // Expected-groups wrapper maps onto SafeguardWasmExpectedBucketsPayloadIn; only
+  // emit it when the caller actually supplied an expected-bucket domain.
+  const expectedBucketsPayload = params.expectedBucketDomain !== undefined
+    ? { expectedBucketDomain: params.expectedBucketDomain }
     : undefined
   // Single JSON-stringified wrapper so the Rust side activates
   // deny_unknown_fields on EvaluateAndCollectSafeguardProtectionInWire.
@@ -913,7 +913,7 @@ export const evaluateAndCollectSafeguardProtectionWithLoadedWasm = (params: {
     ...(Object.keys(evaluatePayload).length ? { options: evaluatePayload } : {}),
     ...(ignored !== null ? { ignoreSafeguardRecipeIndices: ignored } : {}),
     safeguardRules: resolveRulesForWasm(params.safeguardRules),
-    ...(expectedGroupsPayload !== undefined ? { expectedGroupsPayload } : {}),
+    ...(expectedBucketsPayload !== undefined ? { expectedBucketsPayload } : {}),
     ...(params.improvementChances?.length
       ? { improvementChances: params.improvementChances.map(toWasmImprovementChanceInput) }
       : {}),
@@ -1491,7 +1491,7 @@ export const hashSafeguardCombinationWithLoadedWasm = (combination: unknown): st
 }
 
 // Hot-path projection input: the field subset the safeguard item-key /
-// group-key helpers actually read from NormalizedGearArtifact.  Decoupled
+// bucket-key helpers actually read from NormalizedGearArtifact.  Decoupled
 // from NormalizedGearArtifact's full ~20-field shape so callers in tests or
 // non-importer paths can supply a minimal stub without faking unrelated
 // fields.  See the two projection helpers below for the wire shape sent
@@ -1542,11 +1542,11 @@ const toWasmSafeguardItemKeyArtifact = (artifact: SafeguardKeyArtifactInput): {
   }
 }
 
-// Project NormalizedGearArtifact → the wire shape SafeguardWasmGroupKeyArtifactIn
+// Project NormalizedGearArtifact → the wire shape SafeguardWasmBucketKeyArtifactIn
 // declares (slot, set, faction, mainStat).  mainStat is emitted as a plain
 // number when present so serde immediately matches the Variant(i64) branch of
 // the untagged SafeguardWasmMainStatRawIn enum (skipping the failed object-try).
-// Keep this in lockstep with SafeguardWasmGroupKeyArtifactIn.
+// Keep this in lockstep with SafeguardWasmBucketKeyArtifactIn.
 const toWasmSafeguardGroupKeyArtifact = (artifact: SafeguardKeyArtifactInput): {
   slot: number
   set: number
@@ -1614,21 +1614,21 @@ export const resolveSafeguardGroupsWithLoadedWasm = (
   return resolved as SafeguardGroupsOut
 }
 
-// Safeguard group-key derivation runs in Rust so TS reuses accessory faction
+// Safeguard bucket-key derivation runs in Rust so TS reuses accessory faction
 // normalization used by candidate collection.
 //
 // PERF NOTE (hot path): same considerations as getSafeguardItemKeyWithLoadedWasm
 // — see the projection comment above.  Payload is ~40–60 bytes per call.
 export const getSafeguardGroupKeyWithLoadedWasm = (artifact: SafeguardKeyArtifactInput): string => {
   assertWasmInitializedSync()
-  // Project to the minimal shape SafeguardWasmGroupKeyArtifactIn declares.
+  // Project to the minimal shape SafeguardWasmBucketKeyArtifactIn declares.
   const projected = toWasmSafeguardGroupKeyArtifact(artifact)
-  const key = safeguardGroupKeyValueWasmValueBinding(JSON.stringify(projected))
+  const key = safeguardBucketKeyValueWasmValueBinding(JSON.stringify(projected))
   if (typeof key === 'string') return key
-  throw new Error('WASM safeguard group-key helper returned an invalid payload.')
+  throw new Error('WASM safeguard bucket-key helper returned an invalid payload.')
 }
 
-// Safeguard expected-group generation uses this helper so group-key logic is
+// Safeguard expected-bucket generation uses this helper so bucket-key logic is
 // defined by Rust only; JS now supplies normalized tuple fields only.
 //
 // PERF NOTE (hot path): wrapper struct (SafeguardCountKeyInWire) bundles the
@@ -1657,12 +1657,12 @@ export const getSafeguardCountKeyWithLoadedWasm = (params: {
   return safeguardCountKeyValueWasmBinding(payload)
 }
 
-// Safeguard expected-group domain normalization is centralized in Rust so
+// Safeguard expected-bucket domain normalization is centralized in Rust so
 // ordering/dedupe semantics cannot drift from matcher-side domain readers.
 // Returns an opaque wire object (short field names: so/acs/ams/amb/afi) that callers
-// pass unchanged as expectedGroupDomain in WASM compute payloads.
+// pass unchanged as expectedBucketDomain in WASM compute payloads.
 // The wire type flows opaquely through TS — callers must not read individual fields.
-export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = (domain: {
+export const normalizeSafeguardExpectedBucketDomainWithLoadedWasm = (domain: {
   slotOrder: number[]
   accessoryCompatibleSetIds: number[]
   artifactCompatibleSetIds: number[]
@@ -1670,10 +1670,10 @@ export const normalizeSafeguardExpectedGroupDomainWithLoadedWasm = (domain: {
   allFactionIds: number[]
 }): Record<string, unknown> => {
   assertWasmInitializedSync()
-  const wire = projectSafeguardExpectedGroupDomainForWire(domain)
-  const result = normalizeSafeguardExpectedGroupDomainWasmValueBinding(JSON.stringify(wire))
+  const wire = projectSafeguardExpectedBucketDomainForWire(domain)
+  const result = normalizeSafeguardExpectedBucketDomainWasmValueBinding(JSON.stringify(wire))
   if (result && typeof result === 'object') return result as Record<string, unknown>
-  throw new Error('WASM safeguard expected-group domain normalizer returned an invalid payload.')
+  throw new Error('WASM safeguard expected-bucket domain normalizer returned an invalid payload.')
 }
 
 // Full builder runtime helper runs preflight + branch orchestration in one wasm

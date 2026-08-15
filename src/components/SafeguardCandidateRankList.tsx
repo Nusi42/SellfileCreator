@@ -32,7 +32,7 @@ import { alpha, useTheme, useColorScheme, type Theme } from '@mui/material/style
 import { createElement, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { SafeguardCandidateOut, SafeguardDetectionArtifact } from '../lib/safeguards'
-import { safeguardFocusGroupKeyFor, safeguardFocusGroupSubstatVariant } from '../lib/safeguards'
+import { safeguardFocusBucketKeyFor, safeguardFocusBucketSubstatVariant } from '../lib/safeguards'
 import { normalizeSubstatByMax6 } from '../lib/substatRollNormalization'
 import { ANOMALOUS_SUBSTAT_VARIANTS, artifactSetName, artifactTypeI18nKey, factionI18nKey, statVariantI18nKey, rarityRankValueI18nKey, starRankValueI18nKey, STAT_VARIANTS_PRIORITY, type StatVariant, type ArtifactSetId, type FactionId } from '../lib/types'
 import { isAccessorySlot } from '../lib/gearInspectorDomain'
@@ -129,7 +129,7 @@ const CANDIDATE_CARD_COLUMN_COUNT = CHAMPION_ICON_LARGE_THRESHOLD
 const CANDIDATE_CARD_SCALE = GEAR_DB_DIFF_TOAST_CARD_SCALE
 const EMPTY_RECIPE_NAMES: string[] = []
 // All-false count mode: used only to build a substat-only focus key for a perSubstat rule whose
-// count mode has no active group dimension (per-rule mode). The key then carries just `substat:X`.
+// count mode has no active bucket dimension (per-rule mode). The key then carries just `substat:X`.
 const EMPTY_COUNT_MODE = { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false } as const
 const CARD_PRIORITY_BASE = 0
 // Mythic substat highlight mirrors GearInspectorGridCard constants.
@@ -146,7 +146,7 @@ const ROW_FACTION_ICON_SIZE_PX = 14
 // exact width so substat columns line up across rows with and without a faction icon.
 const ROW_FACTION_ICON_FOOTPRINT_PX = ROW_FACTION_ICON_SIZE_PX + FACTION_ICON_HALO_PAD_PX
 
-// One focus-toggle target on a candidate row: the focus-group key it toggles plus an optional
+// One focus-toggle target on a candidate row: the focus-bucket key it toggles plus an optional
 // substat label (present only for perSubstat rules, where a row exposes one target per substat).
 type RowFocusTarget = { key: string; label: string | null }
 
@@ -172,7 +172,7 @@ export type SafeguardCandidateRankListProps = {
   candidates: SafeguardCandidateOut[] | undefined
   // Quota for the rule — used to draw the cutoff line and count kept items.
   quota: number
-  // Count mode for the rule — used to label the cutoff with active grouping dimensions.
+  // Count mode for the rule — used to label the cutoff with active bucketing dimensions.
   countMode?: SafeguardRuleCountMode
   // Combination for the rule — used to suppress per-X labels that are redundant given the selected filters.
   combination?: SafeguardCombination
@@ -181,7 +181,7 @@ export type SafeguardCandidateRankListProps = {
   // Substat variants selected in the rule — used for per-roll hints when no data.
   substats: StatVariant[]
   // True when the rule scores each substat independently (substatMatch === PerSubstat with >1
-  // substat). Then the true quota bucket is (count-group × substat): each candidate carries a
+  // substat). Then the true quota bucket is (bucket × substat): each candidate carries a
   // `substatBuckets` entry per substat it ranks in, focus is per-substat, and the focused list
   // reads that substat's own bucketRank / quota membership. False → single combined bucket.
   perSubstat?: boolean
@@ -216,11 +216,11 @@ export type SafeguardCandidateRankListProps = {
   // Computed by the parent from the max matching substats across candidates; falls back to
   // min(substats.length, SUBSTAT_SLOT_COUNT) when not provided.
   substatColumnCount?: number
-  // Controlled focus group: when provided, the list scopes to this count-group and the parent owns
-  // the value (so it can persist across opens while the rule stays selected). onFocusedGroupKeyChange
+  // Controlled focus bucket: when provided, the list scopes to this bucket and the parent owns
+  // the value (so it can persist across opens while the rule stays selected). onFocusedBucketKeyChange
   // is called on every toggle. When neither is provided the list falls back to internal focus state.
-  focusedGroupKey?: string | null
-  onFocusedGroupKeyChange?: (key: string | null) => void
+  focusedBucketKey?: string | null
+  onFocusedBucketKeyChange?: (key: string | null) => void
   // Improvement chance percent (for the currently edited rule) keyed by safeguard item key.
   // Rendered as a column left of the score; absent keys render a blank cell.
   improvementChanceByItemKey?: ReadonlyMap<number, number> | null
@@ -233,35 +233,35 @@ export type SafeguardCandidateRankListProps = {
   feederOrdinalByItemKey?: ReadonlyMap<number, number> | null
 }
 
-// Human-readable label for a focused count-group, built from a representative artifact's active
+// Human-readable label for a focused bucket, built from a representative artifact's active
 // dimension values in the cutoff scope's slot → set → faction → main order. SSOT for the focus chip
-// so the panel header (where the chip lives) and the list agree on naming. Returns null when no group
-// is focused, the rule has no per-group dimension, or no candidate matches the key.
+// so the panel header (where the chip lives) and the list agree on naming. Returns null when no bucket
+// is focused, the rule has no per-bucket dimension, or no candidate matches the key.
 //
 // Two modes are taken on purpose. `matchCountMode` is the mode the focus key was BUILT with (App's
 // derivation) and is used only to locate the representative artifact — it must equal the key's mode
 // or the lookup misses. `displayCountMode` decides which dimensions are NAMED in the chip; it may be
 // stricter (e.g. drops perFaction for non-accessory rules) so the chip never shows a meaningless
 // dimension. When omitted, the display mode falls back to the match mode.
-export function computeSafeguardFocusGroupLabel(
-  focusGroupKey: string | null,
+export function computeSafeguardFocusBucketLabel(
+  focusBucketKey: string | null,
   candidates: readonly SafeguardCandidateOut[] | undefined,
   artifactsByItemKey: ReadonlyMap<number, SafeguardDetectionArtifact>,
   matchCountMode: SafeguardRuleCountMode | undefined,
   t: ReturnType<typeof useI18n>['t'],
   displayCountMode?: SafeguardRuleCountMode,
 ): string | null {
-  if (focusGroupKey == null || !matchCountMode || !candidates) return null
+  if (focusBucketKey == null || !matchCountMode || !candidates) return null
   // A perSubstat key carries a trailing `substat:X` segment. Read it back (SSOT parser) so we can
-  // both locate the representative artifact (by the count-group portion, rebuilt with the same
+  // both locate the representative artifact (by the bucket portion, rebuilt with the same
   // variant) and name the substat in the chip.
-  const focusSubstat = safeguardFocusGroupSubstatVariant(focusGroupKey)
-  // Locate any candidate in the focused group using the SAME mode + substat the key was built with.
+  const focusSubstat = safeguardFocusBucketSubstatVariant(focusBucketKey)
+  // Locate any candidate in the focused bucket using the SAME mode + substat the key was built with.
   let art: SafeguardDetectionArtifact | undefined
   for (const c of candidates) {
     const candidateArt = artifactsByItemKey.get(c.itemKey)
     if (!candidateArt) continue
-    if (safeguardFocusGroupKeyFor(candidateArt, matchCountMode, focusSubstat ?? undefined) === focusGroupKey) {
+    if (safeguardFocusBucketKeyFor(candidateArt, matchCountMode, focusSubstat ?? undefined) === focusBucketKey) {
       art = candidateArt
       break
     }
@@ -279,10 +279,10 @@ export function computeSafeguardFocusGroupLabel(
   return parts.join(' · ')
 }
 
-// Clearable chip naming the focused count-group. Rendered by the panel beside the "Candidates"
+// Clearable chip naming the focused bucket. Rendered by the panel beside the "Candidates"
 // header (not inside the scroll container) so it stays visible while the list scrolls. Renders
-// nothing when no group is focused.
-export function SafeguardFocusGroupChip({
+// nothing when no bucket is focused.
+export function SafeguardFocusBucketChip({
   label,
   onClear,
 }: {
@@ -323,8 +323,8 @@ export default function SafeguardCandidateRankList({
   countMode,
   combination,
   substatColumnCount,
-  focusedGroupKey: controlledFocusedGroupKey,
-  onFocusedGroupKeyChange,
+  focusedBucketKey: controlledFocusedBucketKey,
+  onFocusedBucketKeyChange,
   improvementChanceByItemKey,
   groupTrimColor,
   feederOrdinalByItemKey,
@@ -339,17 +339,17 @@ export default function SafeguardCandidateRankList({
   // so column widths are consistent regardless of which substats the current rule selects.
   const { mainstatCellWidthPx, substatCellWidthPx, rankCellWidthPx, rarityCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
 
-  // Focus state: when set, the list is scoped to a single count-group (the group of the candidate
+  // Focus state: when set, the list is scoped to a single bucket (the group of the candidate
   // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
-  // onFocusedGroupKeyChange (so focus persists across opens while the rule stays selected); otherwise
+  // onFocusedBucketKeyChange (so focus persists across opens while the rule stays selected); otherwise
   // falls back to internal state. Held before early returns to satisfy the rules of hooks.
-  const [internalFocusedGroupKey, setInternalFocusedGroupKey] = useState<string | null>(null)
-  const isFocusControlled = onFocusedGroupKeyChange != null
-  const focusedGroupKey = isFocusControlled ? (controlledFocusedGroupKey ?? null) : internalFocusedGroupKey
+  const [internalFocusedBucketKey, setInternalFocusedBucketKey] = useState<string | null>(null)
+  const isFocusControlled = onFocusedBucketKeyChange != null
+  const focusedBucketKey = isFocusControlled ? (controlledFocusedBucketKey ?? null) : internalFocusedBucketKey
   // Single setter that routes to the parent (controlled) or local state (uncontrolled).
-  const setFocusedGroupKey = (next: string | null): void => {
-    if (isFocusControlled) onFocusedGroupKeyChange(next)
-    else setInternalFocusedGroupKey(next)
+  const setFocusedBucketKey = (next: string | null): void => {
+    if (isFocusControlled) onFocusedBucketKeyChange(next)
+    else setInternalFocusedBucketKey(next)
   }
 
   // Runtime scheme paper — computed ONCE here and passed to every CandidateRow so the per-row
@@ -410,7 +410,7 @@ export default function SafeguardCandidateRankList({
   const effectiveCutoffMode = (combination && countMode)
     ? safeguardEffectiveCountModeForDisplay(combination, countMode)
     : countMode
-  // Collect active per-group dimensions in display order (slot → set → faction → main).
+  // Collect active per-bucket dimensions in display order (slot → set → faction → main).
   // suppressPerFactionInLabel hides the faction dimension from the quota label when faction is not
   // meaningful for this rule (no accessory slot targeted).
   const cutoffScopeParts: string[] = []
@@ -419,18 +419,18 @@ export default function SafeguardCandidateRankList({
   if (effectiveCutoffMode?.perFaction && !suppressPerFactionInLabel) cutoffScopeParts.push(t('safeguardsCountModeScopeFaction'))
   if (effectiveCutoffMode?.perMainStat) cutoffScopeParts.push(t('safeguardsCountModeScopeMain'))
   const cutoffLabel = cutoffScopeParts.length > 0
-    ? t('safeguardsCandidateCutoffPerGroup', { n: quota, scope: cutoffScopeParts.join(' · ') })
+    ? t('safeguardsCandidateCutoffPerBucket', { n: quota, scope: cutoffScopeParts.join(' · ') })
     : t('safeguardsCandidateCutoff', { n: quota })
 
   // perSubstat rules score each substat independently, so a candidate can belong to several
-  // (count-group × substat) sub-buckets at once; its per-substat ranks live in `substatBuckets`.
-  // Non-perSubstat rules leave that empty and use a single count-group key.
+  // (bucket × substat) sub-buckets at once; its per-substat ranks live in `substatBuckets`.
+  // Non-perSubstat rules leave that empty and use a single bucket key.
   const perSubstatMode = (perSubstat ?? false) && substats.length > 1
   // This candidate's sub-bucket for a given substat variant, or undefined when it doesn't rank there.
   const substatBucketFor = (c: SafeguardCandidateOut, variant: StatVariant) =>
     c.substatBuckets?.find((b) => b.variant === variant)
   // SSOT for the focus targets a candidate exposes: one per substat it ranks in (perSubstat, each
-  // labelled with its substat name) or a single unlabelled count-group target. Every target key is
+  // labelled with its substat name) or a single unlabelled bucket target. Every target key is
   // built with the same helper the App resolver + chip label use, so a click and the resulting
   // filter always agree. `focusTargetKeysFor` derives just the keys from this, avoiding a second
   // (drifting) key builder.
@@ -443,29 +443,29 @@ export default function SafeguardCandidateRankList({
       for (const variant of substats) {
         // Only substats this item actually ranks in are clickable.
         if (!substatBucketFor(c, variant)) continue
-        const key = safeguardFocusGroupKeyFor(art, effectiveCutoffMode ?? EMPTY_COUNT_MODE, variant)
+        const key = safeguardFocusBucketKeyFor(art, effectiveCutoffMode ?? EMPTY_COUNT_MODE, variant)
         if (key == null) continue
         targets.push({ key, label: t(statVariantI18nKey(variant)) })
       }
       return targets
     }
     if (!effectiveCutoffMode) return []
-    const key = safeguardFocusGroupKeyFor(art, effectiveCutoffMode)
-    // Non-perSubstat: one unlabelled count-group target (button tooltip covers intent).
+    const key = safeguardFocusBucketKeyFor(art, effectiveCutoffMode)
+    // Non-perSubstat: one unlabelled bucket target (button tooltip covers intent).
     return key != null ? [{ key, label: null }] : []
   }
   const focusTargetKeysFor = (c: SafeguardCandidateOut): string[] => buildRowFocusTargets(c).map((tg) => tg.key)
-  // Focus is meaningful when a per-group dimension is active OR the rule splits by substat.
+  // Focus is meaningful when a per-bucket dimension is active OR the rule splits by substat.
   const focusable = perSubstatMode || (effectiveCutoffMode != null && cutoffScopeParts.length > 0)
 
-  // Drop a stale focus once its group vanishes (weights re-ranked the list, count mode edited) so
+  // Drop a stale focus once its bucket vanishes (weights re-ranked the list, count mode edited) so
   // the list never renders empty with no way back. A key is still present if any candidate targets it.
-  const focusStillPresent = focusedGroupKey != null
-    && effectiveCandidates.some((c) => focusTargetKeysFor(c).includes(focusedGroupKey))
-  const activeFocusKey = focusStillPresent ? focusedGroupKey : null
+  const focusStillPresent = focusedBucketKey != null
+    && effectiveCandidates.some((c) => focusTargetKeysFor(c).includes(focusedBucketKey))
+  const activeFocusKey = focusStillPresent ? focusedBucketKey : null
   // The substat the active focus is scoped to (null when not a per-substat focus) — drives per-substat
   // rank/quota reads for the focused list.
-  const activeFocusSubstat = safeguardFocusGroupSubstatVariant(activeFocusKey)
+  const activeFocusSubstat = safeguardFocusBucketSubstatVariant(activeFocusKey)
 
   // When focused, keep only candidates that target the focused key.
   const inFocus = (c: SafeguardCandidateOut): boolean =>
@@ -484,11 +484,11 @@ export default function SafeguardCandidateRankList({
   const keptByRank = kept.filter((c) => effBucketRank(c) > 0 && effBucketRank(c) <= quota)
   const keptByChance = kept.filter((c) => !(effBucketRank(c) > 0 && effBucketRank(c) <= quota))
 
-  // Toggle focus to a specific focus-group key, or clear it when that key is already focused.
+  // Toggle focus to a specific focus-bucket key, or clear it when that key is already focused.
   // Computed against activeFocusKey so the setter never needs the functional-updater form (which
   // the controlled path does not support).
   const toggleFocusForKey = (key: string): void => {
-    setFocusedGroupKey(activeFocusKey === key ? null : key)
+    setFocusedBucketKey(activeFocusKey === key ? null : key)
   }
 
   // Reserve a faction-icon-sized spacer on non-accessory rows when the list mixes accessory and
@@ -500,8 +500,8 @@ export default function SafeguardCandidateRankList({
       const art = artifactsByItemKey.get(c.itemKey)
       return art != null && isAccessorySlot(art.slot)
     })
-  // Shared props for every row — `groupRankMode` switches the rank column from global candidateRank
-  // to per-group bucketRank while a group is focused; improvementChanceByItemKey feeds the chance cell.
+  // Shared props for every row — `bucketRankMode` switches the rank column from global candidateRank
+  // to per-bucket bucketRank while a group is focused; improvementChanceByItemKey feeds the chance cell.
   const rowCommonProps = {
     showSlotIcons,
     showSetIcons,
@@ -518,7 +518,7 @@ export default function SafeguardCandidateRankList({
     substatColumnCount: resolvedSubstatColumnCount,
     substatColors: substatColors ?? {},
     useStatButtonColors: useStatButtonColors ?? false,
-    groupRankMode: activeFocusKey != null,
+    bucketRankMode: activeFocusKey != null,
     quota,
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
     groupTrimColor: groupTrimColor ?? null,
@@ -608,7 +608,7 @@ export default function SafeguardCandidateRankList({
       sx={{ maxHeight: CANDIDATE_LIST_MAX_HEIGHT_PX, overflowY: 'auto' }}
     >
       {/* The focus chip lives beside the "Candidates" header (rendered by SafeguardBuilderPanel)
-          so it stays visible while this list scrolls — see SafeguardFocusGroupChip. */}
+          so it stays visible while this list scrolls — see SafeguardFocusBucketChip. */}
       <Box sx={{ paddingTop: `${padTop}px`, paddingBottom: `${Math.max(0, padBottom)}px` }}>
         {virtualItems.map((vi) => {
           const item = flatItems[vi.index]!
@@ -708,7 +708,7 @@ function CandidateRow({
   onToggleFocusKey,
   activeFocusKey,
   displayedBucketRank,
-  groupRankMode,
+  bucketRankMode,
   quota,
   improvementChanceByItemKey,
   groupTrimColor,
@@ -749,18 +749,18 @@ function CandidateRow({
   useStatButtonColors: boolean
   onSelectCandidate?: (itemKey: number) => void
   // Focus-toggle targets for this row: one per substat the item ranks in (perSubstat rules) or a
-  // single count-group target. Each renders a toggle button; clicking scopes the list to that
-  // (count-group × substat) sub-bucket. Absent when focusing would be a no-op.
+  // single bucket target. Each renders a toggle button; clicking scopes the list to that
+  // (bucket × substat) sub-bucket. Absent when focusing would be a no-op.
   focusTargets?: RowFocusTarget[]
-  // Toggles the given focus-group key (clears it when already active). Present with focusTargets.
+  // Toggles the given focus-bucket key (clears it when already active). Present with focusTargets.
   onToggleFocusKey?: (key: string) => void
   // The currently focused key (null when unfocused) — a target button is active iff its key matches.
   activeFocusKey: string | null
   // Bucket rank to show while focused: the focused substat's own sub-bucket rank (perSubstat) or the
   // combined bucket rank. Computed by the parent so the row doesn't re-derive per-substat lookups.
   displayedBucketRank: number
-  // True while a group is focused — show the per-group bucketRank instead of the global candidateRank.
-  groupRankMode: boolean
+  // True while a group is focused — show the per-bucket bucketRank instead of the global candidateRank.
+  bucketRankMode: boolean
   // Rule quota — compared against candidate.bucketRank to detect chance-protected items.
   quota: number
   // Improvement chance percent (current rule) keyed by item key — rendered left of the score.
@@ -857,10 +857,10 @@ function CandidateRow({
   const factionLabel = (factionId !== null && !showFactionIcons) ? t(factionI18nKey(factionId)) : null
   const identifierText = [slotLabel, setLabel, factionLabel].filter(Boolean).join(' · ')
 
-  // Rank shown in the leading column: the parent-supplied per-group bucketRank while a group is
+  // Rank shown in the leading column: the parent-supplied per-bucket bucketRank while a group is
   // focused (the focused substat's own sub-bucket rank for perSubstat rules, so the column reads as
   // a clean 1..N within that sub-bucket), otherwise the global candidateRank across the rule.
-  const displayedRank = groupRankMode ? displayedBucketRank : candidate.candidateRank
+  const displayedRank = bucketRankMode ? displayedBucketRank : candidate.candidateRank
 
   // Improvement chance for the current rule on this artifact (absent → blank cell). Graded on an
   // absolute 0→100 scale from error (low) to success (high), mirroring the grid overlay's palette.
@@ -1191,15 +1191,15 @@ function CandidateRow({
         {matchSourceDecoration.displayName}
       </Typography>
       {/* Per-row focus toggles: one button per focus target. Non-perSubstat rows have a single
-          unlabelled target scoping to the count-group; perSubstat rows expose one labelled target
-          per substat the item ranks in, so the user picks exactly which (count-group × substat)
+          unlabelled target scoping to the bucket; perSubstat rows expose one labelled target
+          per substat the item ranks in, so the user picks exactly which (bucket × substat)
           sub-bucket to view. Each button toggles its own key (clears when already active).
           stopPropagation keeps the row's select-in-grid click from also firing. */}
       {onToggleFocusKey && focusTargets && focusTargets.map((target) => {
         const targetFocused = activeFocusKey === target.key
         // Labelled (perSubstat) targets append the substat name to the aria-label / tooltip so
         // multiple buttons on one row stay distinguishable; unlabelled targets keep the plain label.
-        const baseLabel = targetFocused ? t('safeguardsCandidateFocusClear') : t('safeguardsCandidateFocusGroup')
+        const baseLabel = targetFocused ? t('safeguardsCandidateFocusClear') : t('safeguardsCandidateFocusBucket')
         const fullLabel = target.label ? `${baseLabel} · ${target.label}` : baseLabel
         return (
           <Tooltip key={target.key} title={fullLabel}>

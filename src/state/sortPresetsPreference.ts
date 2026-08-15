@@ -30,7 +30,7 @@ import {
   GEAR_INSPECTOR_SORT_KEY_LAST_USAGE,
   GEAR_INSPECTOR_SORT_KEY_NEWEST,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK,
 } from '../lib/gearInspectorSort'
 
 export const SORT_PRESETS_STORAGE_KEY = 'sellfileCreator.sortPresets.v1'
@@ -167,15 +167,15 @@ export const BUILTIN_SORT_PRESETS: readonly SortPreset[] = [
   },
   {
     id: 'builtin:safeguard-group-rank',
-    name: 'Safeguard Group Rank',
+    name: 'Safeguard Bucket Rank',
     savedAt: '',
     builtin: true,
     // Monochrome shield glyph evokes safeguard protection.
     iconId: 'glyph.shield',
-    // Sort by safeguard group rank ascending: group rank #1 (best within its count-group) floats first; unranked last.
+    // Sort by safeguard bucket rank ascending: bucket rank #1 (best within its bucket) floats first; unranked last.
     snapshot: {
       ...DEFAULT_GEAR_INSPECTOR_SUBSTAT_SORT_STATE,
-      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK],
+      priorities: [GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK],
       direction: 'asc',
       grouping: FLAT_TYPE_GROUPING,
     },

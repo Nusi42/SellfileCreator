@@ -39,7 +39,7 @@ use fast_path_types::{
 
 // Epsilon is used only for tie expansion at the score boundary.
 const SAFEGUARD_SCORE_TIE_EPSILON: f64 = 1e-9;
-// Placeholder samples need stable defaults when no group sample exists.
+// Placeholder samples need stable defaults when no bucket sample exists.
 const SAFEGUARD_DEFAULT_SAMPLE_SLOT: i64 = ARTIFACT_TYPE_WEAPON;
 const SAFEGUARD_DEFAULT_SAMPLE_SET: i64 = ACCESSORY_NO_SET_ID;
 // Main-stat constants keep comparisons aligned with TS StatVariant encoding.
@@ -53,7 +53,7 @@ const SAFEGUARD_MAIN_DEF_FLAT: i64 = STAT_VARIANT_DEF_FLAT;
 const SAFEGUARD_SLOT_RING: i64 = ARTIFACT_TYPE_RING;
 const SAFEGUARD_SLOT_AMULET: i64 = ARTIFACT_TYPE_AMULET;
 const SAFEGUARD_SLOT_BANNER: i64 = ARTIFACT_TYPE_BANNER;
-// Shared grouped-bucket token keeps per-rule mode branch-free and centralized.
+// Shared bucketed-bucket token keeps per-rule mode branch-free and centralized.
 const SAFEGUARD_COUNT_KEY_GLOBAL: &str = "global";
 // Equipped-location tokens are parsed once into booleans for hot match loops.
 const SAFEGUARD_EQUIPPED_LOCATION_COLLECTION: &str = "collection";
@@ -65,14 +65,14 @@ fn safeguard_candidate_from_fast_payload(
     candidate: SafeguardWasmCandidateFastIn,
 ) -> SafeguardWasmCandidateIn {
     let (artifact, _) = safeguard_convert_fast_artifact(candidate.artifact);
-    let group_key = candidate
-        .group_key
+    let bucket_key = candidate
+        .bucket_key
         .map(|inner| inner.trim().to_string())
         .filter(|inner| !inner.is_empty())
-        .unwrap_or_else(|| safeguard_group_key_from_artifact(&artifact));
+        .unwrap_or_else(|| safeguard_bucket_key_from_artifact(&artifact));
     SafeguardWasmCandidateIn {
         item_key: candidate.item_key.or(artifact.id).unwrap_or(0),
-        group_key,
+        bucket_key,
         is_sold: candidate.is_sold,
         artifact,
     }
@@ -88,9 +88,9 @@ pub fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
     }
 }
 
-// Group-key dimensions always normalize faction the same way before encoding.
+// Bucket-key dimensions always normalize faction the same way before encoding.
 // Export this so matcher and parser call sites reuse one formatting helper.
-pub fn safeguard_group_key_from_parts(
+pub fn safeguard_bucket_key_from_parts(
     slot: i64,
     set: i64,
     main_stat: i64,
@@ -100,10 +100,10 @@ pub fn safeguard_group_key_from_parts(
     format!("{slot}:{set}:{main_stat}:{normalized_faction}")
 }
 
-// Group-key helper keeps fallback key generation identical to collect-core rules.
+// Bucket-key helper keeps fallback key generation identical to collect-core rules.
 // Non-accessory slots normalize faction to zero before hashing dimensions.
-fn safeguard_group_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> String {
-    safeguard_group_key_from_parts(
+fn safeguard_bucket_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> String {
+    safeguard_bucket_key_from_parts(
         artifact.slot,
         artifact.set,
         artifact.main_stat,
@@ -192,7 +192,7 @@ where
     }))
 }
 
-// ts-rs export: per-rule count-mode flags; consumed by detection grouping.
+// ts-rs export: per-rule count-mode flags; consumed by detection bucketing.
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Default, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -420,7 +420,7 @@ fn safeguard_sort_unique_substats(values: Vec<i64>) -> Vec<i64> {
     deduped
 }
 
-// ts-rs export: nested by SafeguardWasmExpectedGroupIn.sample.  Promoted to `pub`.
+// ts-rs export: nested by SafeguardWasmExpectedBucketIn.sample.  Promoted to `pub`.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -431,12 +431,12 @@ pub struct SafeguardWasmExpectedSampleIn {
     pub main_stat: i64,
 }
 
-// ts-rs export: nested by SafeguardWasmExpectedGroupsPayloadIn.expectedGroupsByRuleId.
+// ts-rs export: nested by SafeguardWasmExpectedBucketsPayloadIn.expectedBucketsByRuleId.
 // Promoted to `pub` so ts-rs can resolve the nested reference.
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
-pub struct SafeguardWasmExpectedGroupIn {
+pub struct SafeguardWasmExpectedBucketIn {
     pub key: String,
     pub sample: SafeguardWasmExpectedSampleIn,
 }
@@ -448,7 +448,7 @@ pub struct SafeguardWasmExpectedGroupIn {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(deny_unknown_fields)]
 #[ts(export)]
-pub struct SafeguardWasmExpectedGroupDomainIn {
+pub struct SafeguardWasmExpectedBucketDomainIn {
     #[serde(rename = "so", alias = "slotOrder")]
     #[ts(rename = "so")]
     pub slot_order: Vec<i64>,
@@ -466,20 +466,20 @@ pub struct SafeguardWasmExpectedGroupDomainIn {
     pub all_faction_ids: Vec<i64>,
 }
 
-// ts-rs export: input wrapper around the expected-group precomputation payload.
+// ts-rs export: input wrapper around the expected-bucket precomputation payload.
 // Fields are `pub` (required by ts-rs).
 #[derive(Debug, Deserialize, Default, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
-pub struct SafeguardWasmExpectedGroupsPayloadIn {
+pub struct SafeguardWasmExpectedBucketsPayloadIn {
     #[serde(default)]
-    pub expected_groups_by_rule_id: BTreeMap<String, Vec<SafeguardWasmExpectedGroupIn>>,
-    pub expected_group_domain: Option<SafeguardWasmExpectedGroupDomainIn>,
+    pub expected_buckets_by_rule_id: BTreeMap<String, Vec<SafeguardWasmExpectedBucketIn>>,
+    pub expected_bucket_domain: Option<SafeguardWasmExpectedBucketDomainIn>,
 }
 
-// Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
+// Normalize safeguard expected-bucket domain arrays/maps in Rust so sorting,
 // de-duplication, and slot ordering remain single-sourced with matcher logic.
-pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpectedGroupDomainIn) -> SafeguardWasmExpectedGroupDomainIn {
+pub fn normalize_safeguard_expected_bucket_domain_core(parsed: SafeguardWasmExpectedBucketDomainIn) -> SafeguardWasmExpectedBucketDomainIn {
     // Slot order uses domain helper so fallback ordering stays consistent.
     let slot_order = safeguard_domain_slot_order(&parsed);
     // Set/faction arrays collapse to sorted unique integer domains.
@@ -495,7 +495,7 @@ pub fn normalize_safeguard_expected_group_domain_core(parsed: SafeguardWasmExpec
         allowed_main_by_slot.insert(slot_key.to_string(), safeguard_sorted_unique_i64(values));
     }
 
-    let normalized = SafeguardWasmExpectedGroupDomainIn {
+    let normalized = SafeguardWasmExpectedBucketDomainIn {
         slot_order,
         accessory_compatible_set_ids,
         artifact_compatible_set_ids,
@@ -552,9 +552,9 @@ pub struct SafeguardWasmArtifactOut {
 // Per-candidate, per-substat bucket membership for `perSubstat` rules. A perSubstat rule is
 // scored once per selected substat, so a single artifact can sit in several independent
 // substat sub-buckets (e.g. strong on both HP% and DEF%). This records, for each substat the
-// item ranks in, its 1-based rank WITHIN that substat's count-group bucket and whether it made
+// item ranks in, its 1-based rank WITHIN that substat's bucket bucket and whether it made
 // that substat's top-N quota. The substat-weights flyout reads this to scope a focus click to a
-// concrete (count-group × substat) sub-bucket. Empty on non-perSubstat rules (top-level
+// concrete (bucket × substat) sub-bucket. Empty on non-perSubstat rules (top-level
 // bucket_rank/candidate_rank already fully describe those).
 //
 // ts-rs export: leaf type referenced by SafeguardWasmCandidateOut.
@@ -564,7 +564,7 @@ pub struct SafeguardWasmArtifactOut {
 pub struct SafeguardWasmSubstatBucketOut {
     // Numeric substat variant (StatVariant) this sub-bucket ranks by.
     pub variant: i64,
-    // 1-based rank within this substat's own count-group bucket (mirrors bucket_rank semantics).
+    // 1-based rank within this substat's own bucket bucket (mirrors bucket_rank semantics).
     pub bucket_rank: u32,
     // True when the candidate is in this substat's top-N selection.
     pub is_within_quota: bool,
@@ -572,7 +572,7 @@ pub struct SafeguardWasmSubstatBucketOut {
 
 // Per-candidate scored output exposed in detection entries for UI overlays.
 // candidateRank is 1-based (1 = best score) across ALL of this rule's buckets (global rank);
-// bucketRank is 1-based within the candidate's own count-group bucket. Both are 0 on the
+// bucketRank is 1-based within the candidate's own bucket bucket. Both are 0 on the
 // non-ranking path. isWithinQuota is true when the candidate is among the top-N selected.
 //
 // ts-rs export: leaf type referenced by SafeguardWasmEntryOut and the live preview path.
@@ -595,7 +595,7 @@ pub struct SafeguardWasmCandidateOut {
 // min_value is an absolute raw stat value compared with `>=` semantics at merge time.
 // Always a whole number: gear substats only roll integers, so decimal thresholds are
 // fake precision — corners are integerized and probe-verified in improvement_watch.rs.
-// PartialEq: corner equality drives the cross-group cache test assertions.
+// PartialEq: corner equality drives the cross-bucket cache test assertions.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -608,7 +608,7 @@ pub struct SafeguardWatchCornerSubstatOut {
 // Each corner pins one exact rank + a contiguous rarity run + one level milestone plus
 // per-substat value floors; merge-time emission turns every corner into HSF keep rules
 // so only drops whose improvement chance clears the rule threshold stay protected.
-// PartialEq: corner equality drives the cross-group cache test assertions.
+// PartialEq: corner equality drives the cross-bucket cache test assertions.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
@@ -634,11 +634,11 @@ pub struct SafeguardWasmPlaceholderOut {
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub substat_variants: Option<Vec<i64>>,
-    // Concrete group dimensions observed for satisfied (missing = 0) improvement-watch
-    // groups; corner synthesis probes chances against these dims. None on deficit
+    // Concrete bucket dimensions observed for satisfied (missing = 0) improvement-watch
+    // buckets; corner synthesis probes chances against these dims. None on deficit
     // placeholders and on snapshots persisted before this field existed (serde default).
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub sample: Option<SafeguardWasmGroupSample>,
+    pub sample: Option<SafeguardWasmBucketSample>,
     // Improvement-watch corner frontier attached post-detection (improvement_watch.rs).
     // None until attached; zero-missing placeholders without corners are removed there.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -673,10 +673,10 @@ pub struct SafeguardWasmEntryOut {
     pub count_mode: SafeguardWasmCountMode,
     #[serde(rename = "pgc")]
     #[ts(rename = "pgc")]
-    pub per_group_required_count: i64,
+    pub per_bucket_required_count: i64,
     #[serde(rename = "gt")]
     #[ts(rename = "gt")]
-    pub groups_tracked: i64,
+    pub buckets_tracked: i64,
     #[serde(rename = "rc")]
     #[ts(rename = "rc")]
     pub required_count: i64,
@@ -699,7 +699,7 @@ pub struct SafeguardWasmEntryOut {
     #[ts(rename = "ar")]
     pub artifacts: Vec<SafeguardWasmArtifactOut>,
     // Merge-time placeholder requests. These NEVER cross the JS boundary (serde+ts skip):
-    // on real accounts they number in the hundreds of thousands (rules × expected-group
+    // on real accounts they number in the hundreds of thousands (rules × expected-bucket
     // domain) and were the dominant wasm→JS materialization + clone + merge round-trip
     // cost. Detection moves them into the wasm-resident hand-off store
     // (stash_detection_placeholders) and merge-time emission reads them back via the
@@ -896,7 +896,7 @@ struct SafeguardWasmPreparedRule {
     id: String,
     hash: String,
     combination: SafeguardWasmCombination,
-    required_per_group: i64,
+    required_per_bucket: i64,
     activation: String,
     rule_active: bool,
     count_mode: SafeguardWasmCountMode,
@@ -915,7 +915,7 @@ struct SafeguardWasmPreparedRule {
     main_stat_rank_weight_factor: f64,
     set_includes: HashSet<i64>,
     set_excludes: HashSet<i64>,
-    expected_groups: Vec<SafeguardWasmExpectedGroupIn>,
+    expected_buckets: Vec<SafeguardWasmExpectedBucketIn>,
 }
 
 #[derive(Debug, Clone)]
@@ -924,12 +924,12 @@ struct SafeguardWasmScoredCandidate {
     score: f64,
 }
 
-// ts-rs export: concrete count-group dimensions (nested by SafeguardWasmPlaceholderOut.sample).
+// ts-rs export: concrete bucket dimensions (nested by SafeguardWasmPlaceholderOut.sample).
 // Promoted from a private helper struct so watch placeholders can carry it across the wire.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
-pub struct SafeguardWasmGroupSample {
+pub struct SafeguardWasmBucketSample {
     pub slot: i64,
     pub set: i64,
     pub faction: i64,
@@ -937,19 +937,19 @@ pub struct SafeguardWasmGroupSample {
 }
 
 #[derive(Debug, Clone)]
-struct SafeguardWasmExpectedGroupResolved {
+struct SafeguardWasmExpectedBucketResolved {
     key: SafeguardCountKey,
-    sample: SafeguardWasmGroupSample,
+    sample: SafeguardWasmBucketSample,
 }
 
 #[derive(Debug, Clone)]
-struct SafeguardWasmGroupBucket {
+struct SafeguardWasmBucketTally {
     kept: Vec<usize>,
     sold: Vec<usize>,
-    sample: Option<SafeguardWasmGroupSample>,
+    sample: Option<SafeguardWasmBucketSample>,
 }
 
-// Count grouping keys stay typed internally so grouped scans do not allocate
+// Bucketing keys stay typed internally so bucketed scans do not allocate
 // repeated `slot:x|set:y|...` strings in hot loops.
 // pub(super) so improvement_chance submodule can build count keys without allocating.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1018,12 +1018,12 @@ pub struct SafeguardWasmItemKeyArtifactIn {
     pub gear_inspector_item: Option<SafeguardWasmItemKeyTesterItemIn>,
 }
 
-// ts-rs export: input wire struct for safeguard_group_key_value entry point.
+// ts-rs export: input wire struct for safeguard_bucket_key_value entry point.
 // Carries SafeguardWasmMainStatRawIn (an untagged enum — ts-rs emits a union).
 #[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
-pub struct SafeguardWasmGroupKeyArtifactIn {
+pub struct SafeguardWasmBucketKeyArtifactIn {
     pub slot: i64,
     pub set: i64,
     #[serde(default)]
@@ -1034,7 +1034,7 @@ pub struct SafeguardWasmGroupKeyArtifactIn {
 
 // pub(super) so improvement_chance submodule can derive faction-bucketing flags.
 pub(super) fn safeguard_is_accessory_slot(slot: i64) -> bool {
-    // Accessories are the only slots where faction grouping applies.
+    // Accessories are the only slots where faction bucketing applies.
     // Artifact slots always collapse to faction 0 in safeguard logic.
     slot == SAFEGUARD_SLOT_RING || slot == SAFEGUARD_SLOT_AMULET || slot == SAFEGUARD_SLOT_BANNER
 }
@@ -1050,10 +1050,10 @@ fn safeguard_sanitize_count_mode(mode: SafeguardWasmCountMode) -> SafeguardWasmC
             per_slot: false,
         };
     }
-    // If no grouping flag is enabled, treat the mode as global per-rule.
+    // If no bucketing flag is enabled, treat the mode as global per-rule.
     // This mirrors TS fallback behavior for partially initialized payloads.
-    let has_grouping = mode.per_set || mode.per_faction || mode.per_main_stat || mode.per_slot;
-    if !has_grouping {
+    let has_bucketing = mode.per_set || mode.per_faction || mode.per_main_stat || mode.per_slot;
+    if !has_bucketing {
         return SafeguardWasmCountMode {
             per_rule: true,
             per_set: false,
@@ -1062,7 +1062,7 @@ fn safeguard_sanitize_count_mode(mode: SafeguardWasmCountMode) -> SafeguardWasmC
             per_slot: false,
         };
     }
-    // Grouped mode keeps only the explicit toggles and clears per_rule.
+    // Bucketed mode keeps only the explicit toggles and clears per_rule.
     SafeguardWasmCountMode {
         per_rule: false,
         per_set: mode.per_set,
@@ -1072,7 +1072,7 @@ fn safeguard_sanitize_count_mode(mode: SafeguardWasmCountMode) -> SafeguardWasmC
     }
 }
 
-// Safeguard UI defaults group by set+faction+main stat (slot disabled).
+// Safeguard UI defaults bucket by set+faction+main stat (slot disabled).
 fn safeguard_default_count_mode() -> SafeguardWasmCountMode {
     SafeguardWasmCountMode {
         per_rule: SAFEGUARD_DEFAULT_COUNT_MODE_PER_RULE,
@@ -1369,7 +1369,7 @@ fn safeguard_sort_unique_main_stats(values: &[i64]) -> Vec<i64> {
     deduped
 }
 
-fn safeguard_domain_slot_order(domain: &SafeguardWasmExpectedGroupDomainIn) -> Vec<i64> {
+fn safeguard_domain_slot_order(domain: &SafeguardWasmExpectedBucketDomainIn) -> Vec<i64> {
     // Domain-provided slot order is authoritative; fallback keeps canonical order.
     if domain.slot_order.is_empty() {
         // Reuse generated slot order constants instead of duplicating literals.
@@ -1379,7 +1379,7 @@ fn safeguard_domain_slot_order(domain: &SafeguardWasmExpectedGroupDomainIn) -> V
 }
 
 fn safeguard_domain_allowed_mains_for_slot(
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
     slot: i64,
 ) -> Vec<i64> {
     // Object keys cross the JS/WASM boundary as strings, so index by string slot id.
@@ -1390,7 +1390,7 @@ fn safeguard_domain_allowed_mains_for_slot(
 
 fn safeguard_resolve_slot_candidates(
     combination: &SafeguardWasmCombination,
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     // Explicit slots preserve user-selected ordering; otherwise use preferred slot order.
     let base_slots = if combination.slots.is_empty() {
@@ -1462,7 +1462,7 @@ fn safeguard_resolve_slot_candidates(
 fn safeguard_resolve_set_candidates_for_slot(
     combination: &SafeguardWasmCombination,
     slot: i64,
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     let accessory_slot = safeguard_is_accessory_slot(slot);
     // Includes/excludes are canonicalized once per slot resolution.
@@ -1507,7 +1507,7 @@ fn safeguard_resolve_set_candidates_for_slot(
 fn safeguard_resolve_set_candidates_for_slots(
     combination: &SafeguardWasmCombination,
     slots: &[i64],
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     // Union set ids across all candidate slots while keeping ascending order.
     let mut merged = HashSet::<i64>::new();
@@ -1524,7 +1524,7 @@ fn safeguard_resolve_set_candidates_for_slots(
 fn safeguard_resolve_main_stat_candidates_for_slot(
     combination: &SafeguardWasmCombination,
     slot: i64,
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     let allowed = safeguard_domain_allowed_mains_for_slot(domain, slot);
     if allowed.is_empty() {
@@ -1549,7 +1549,7 @@ fn safeguard_resolve_main_stat_candidates_for_slot(
 fn safeguard_resolve_main_stat_candidates_for_slots(
     combination: &SafeguardWasmCombination,
     slots: &[i64],
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     // Union main-stat variants across the slot candidates.
     let mut merged = HashSet::<i64>::new();
@@ -1566,7 +1566,7 @@ fn safeguard_resolve_main_stat_candidates_for_slots(
 fn safeguard_resolve_faction_candidates_for_slot(
     combination: &SafeguardWasmCombination,
     slot: i64,
-    domain: &SafeguardWasmExpectedGroupDomainIn,
+    domain: &SafeguardWasmExpectedBucketDomainIn,
 ) -> Vec<i64> {
     let mut selection = combination.factions.to_vec();
     selection.sort_unstable();
@@ -1592,11 +1592,11 @@ fn safeguard_resolve_slot_samples(slots: &[i64], count_mode: SafeguardWasmCountM
     if count_mode.per_slot {
         return slots.to_vec();
     }
-    // Without faction grouping, one slot sample is enough.
+    // Without faction bucketing, one slot sample is enough.
     if !count_mode.per_faction {
         return slots.first().copied().map(|slot| vec![slot]).unwrap_or_default();
     }
-    // Faction grouping needs one accessory and one artifact sample when available.
+    // Faction bucketing needs one accessory and one artifact sample when available.
     let accessory = slots.iter().copied().find(|slot| safeguard_is_accessory_slot(*slot));
     let artifact = slots.iter().copied().find(|slot| !safeguard_is_accessory_slot(*slot));
     let mut samples = Vec::<i64>::new();
@@ -1613,11 +1613,11 @@ fn safeguard_resolve_slot_samples(slots: &[i64], count_mode: SafeguardWasmCountM
     }
 }
 
-fn safeguard_build_expected_groups_for_rule(
+fn safeguard_build_expected_buckets_for_rule(
     combination: &SafeguardWasmCombination,
     count_mode: SafeguardWasmCountMode,
-    domain: &SafeguardWasmExpectedGroupDomainIn,
-) -> Vec<SafeguardWasmExpectedGroupIn> {
+    domain: &SafeguardWasmExpectedBucketDomainIn,
+) -> Vec<SafeguardWasmExpectedBucketIn> {
     // Per-rule mode does not split by any count-key dimension.
     if count_mode.per_rule {
         return Vec::new();
@@ -1639,7 +1639,7 @@ fn safeguard_build_expected_groups_for_rule(
     };
     // Preserve insertion order while deduping by count key.
     let mut seen = HashSet::<SafeguardCountKey>::new();
-    let mut expected = Vec::<SafeguardWasmExpectedGroupIn>::new();
+    let mut expected = Vec::<SafeguardWasmExpectedBucketIn>::new();
     for slot in slot_samples {
         let set_candidates = if count_mode.per_set {
             if count_mode.per_slot {
@@ -1673,7 +1673,7 @@ fn safeguard_build_expected_groups_for_rule(
         if count_mode.per_main_stat && main_stat_candidates.is_empty() {
             continue;
         }
-        // Cartesian product across the active grouped dimensions.
+        // Cartesian product across the active bucketed dimensions.
         for set_id in &set_candidates {
             for faction in &faction_candidates {
                 for main_stat in &main_stat_candidates {
@@ -1687,7 +1687,7 @@ fn safeguard_build_expected_groups_for_rule(
                     if !seen.insert(key.clone()) {
                         continue;
                     }
-                    expected.push(SafeguardWasmExpectedGroupIn {
+                    expected.push(SafeguardWasmExpectedBucketIn {
                         key: safeguard_count_key_to_string(&key),
                         sample: SafeguardWasmExpectedSampleIn {
                             slot,
@@ -2066,7 +2066,7 @@ pub(super) fn safeguard_combinations(pool: &[i64], k: usize) -> Vec<Vec<i64>> {
     result
 }
 
-fn safeguard_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRaw> {
+fn safeguard_build_placeholder_substats_bucket(variants: &[i64]) -> Vec<RuleSubRaw> {
     let mut cloned = safeguard_clone_any_substats();
     let mut seen = HashSet::<i64>::new();
     let mut idx = 0usize;
@@ -2293,7 +2293,7 @@ fn safeguard_build_placeholder_base_rules(
     };
     let faction_values = safeguard_sorted_unique_i64(&combination.factions);
     // Consolidate consecutive rank/rarity chains ending at the maximum value into
-    // a single GTE anchor so each placeholder group emits the fewest HSF rules.
+    // a single GTE anchor so each placeholder bucket emits the fewest HSF rules.
     let rank_values = safeguard_consolidate_rank_options(&combination.ranks);
     let rarity_codes = safeguard_consolidate_rarity_codes(&combination.rarities);
     let main_options = safeguard_sorted_unique_i64(&combination.main_stats);
@@ -2440,7 +2440,7 @@ fn safeguard_build_placeholder_rules(
             .clone();
         let hash = safeguard_hash_combination(&combination);
         if placeholder.missing <= 0 {
-            // Satisfied groups emit ONLY improvement-watch corner rules. A zero-missing
+            // Satisfied buckets emit ONLY improvement-watch corner rules. A zero-missing
             // placeholder without corners means nothing viable can clear the chance bar
             // (or the rule is not in watch mode) — no rule, fresh drops sell normally.
             let Some(corners) = placeholder
@@ -2562,9 +2562,9 @@ fn safeguard_build_placeholder_rules(
                         rules.push(substat_rule);
                     }
                 } else if min_count >= possible_substats.len() {
-                    // All required: one grouped rule with every possible substat.
+                    // All required: one bucketed rule with every possible substat.
                     let mut substat_rule = base_rule.clone();
-                    substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(
+                    substat_rule.Substats = Some(safeguard_build_placeholder_substats_bucket(
                         &possible_substats,
                     ));
                     safeguard_apply_rule_meta(
@@ -2580,14 +2580,14 @@ fn safeguard_build_placeholder_rules(
                     rules.push(substat_rule);
                 } else {
                     // ≥N (1 < N < total): enumerate C(possible, N) combinations and emit
-                    // one AND-style grouped rule per combination. Each rule keeps a piece
+                    // one AND-style bucketed rule per combination. Each rule keeps a piece
                     // only when it has all N substats in that specific combination, so the
                     // union of all rules correctly keeps any piece with at least N matches.
                     let combos = safeguard_combinations(&possible_substats, min_count);
                     if combos.len() <= SAFEGUARD_SUBSTAT_COMBINATION_CAP {
                         for combo in &combos {
                             let mut substat_rule = base_rule.clone();
-                            substat_rule.Substats = Some(safeguard_build_placeholder_substats_group(combo));
+                            substat_rule.Substats = Some(safeguard_build_placeholder_substats_bucket(combo));
                             safeguard_apply_rule_meta(
                                 &mut substat_rule,
                                 normalized_rule_id,
@@ -2602,7 +2602,7 @@ fn safeguard_build_placeholder_rules(
                         }
                     } else {
                         // Fallback: too many combinations to enumerate — emit the base rule
-                        // with no substat constraint (keep-anything for this group).
+                        // with no substat constraint (keep-anything for this bucket).
                         let mut substat_rule = base_rule.clone();
                         safeguard_apply_rule_meta(
                             &mut substat_rule,
@@ -2639,7 +2639,7 @@ fn safeguard_build_placeholder_rules(
 // pub(super) so improvement_chance can skip disabled rules using the shared token check.
 // SSOT cap for substat-combination enumeration: C(8, 4) = 70 covers the widest
 // legitimate focus set (8 substats, ≥4 match). Shared by the deficit-placeholder
-// emission above (skip AND-group expansion beyond the cap) and the improvement-watch
+// emission above (skip AND-bucket expansion beyond the cap) and the improvement-watch
 // subset ranking (keep the top-weighted subsets) so the two paths can never drift.
 pub(super) const SAFEGUARD_SUBSTAT_COMBINATION_CAP: usize = 70;
 
@@ -2821,11 +2821,11 @@ pub fn build_safeguard_rules_core_typed(
     build_safeguard_rules_core(&rules, detection.as_ref(), recipe_id_base)
 }
 
-fn safeguard_group_sample_from_artifact(artifact: &SafeguardWasmArtifactIn) -> SafeguardWasmGroupSample {
-    // Only accessories keep their faction dimension for grouping.
+fn safeguard_bucket_sample_from_artifact(artifact: &SafeguardWasmArtifactIn) -> SafeguardWasmBucketSample {
+    // Only accessories keep their faction dimension for bucketing.
     let faction = safeguard_normalized_faction_for_slot(artifact.slot, artifact.faction);
-    // Copy shape used by placeholder synthesis and expected-group comparison.
-    SafeguardWasmGroupSample {
+    // Copy shape used by placeholder synthesis and expected-bucket comparison.
+    SafeguardWasmBucketSample {
         slot: artifact.slot,
         set: artifact.set,
         faction,
@@ -2835,16 +2835,16 @@ fn safeguard_group_sample_from_artifact(artifact: &SafeguardWasmArtifactIn) -> S
 
 // pub(super) so improvement_watch can fall back to the same deterministic sample
 // when a legacy zero-missing placeholder arrives without a detection-attached sample.
-pub(super) fn safeguard_default_group_sample(combination: &SafeguardWasmCombination) -> SafeguardWasmGroupSample {
+pub(super) fn safeguard_default_bucket_sample(combination: &SafeguardWasmCombination) -> SafeguardWasmBucketSample {
     // Fallback sample uses first selected slot when present.
     // Otherwise use weapon slot so placeholders stay deterministic.
-    SafeguardWasmGroupSample {
+    SafeguardWasmBucketSample {
         slot: combination
             .slots
             .first()
             .copied()
             .unwrap_or(SAFEGUARD_DEFAULT_SAMPLE_SLOT),
-        // Default set/faction/main describe "unknown concrete group".
+        // Default set/faction/main describe "unknown concrete bucket".
         set: SAFEGUARD_DEFAULT_SAMPLE_SET,
         faction: 0,
         main_stat: SAFEGUARD_MAIN_ANY,
@@ -2854,46 +2854,46 @@ pub(super) fn safeguard_default_group_sample(combination: &SafeguardWasmCombinat
 fn safeguard_build_placeholder_combination(
     base: &SafeguardWasmCombination,
     mode: SafeguardWasmCountMode,
-    sample: Option<&SafeguardWasmGroupSample>,
+    sample: Option<&SafeguardWasmBucketSample>,
 ) -> SafeguardWasmCombination {
-    let Some(group_sample) = sample else {
-        // No group sample means no dimension projection is possible.
+    let Some(bucket_sample) = sample else {
+        // No bucket sample means no dimension projection is possible.
         return base.clone();
     };
-    // Start from full rule combination and project only grouped dimensions.
+    // Start from full rule combination and project only bucketed dimensions.
     let mut clone = base.clone();
     if mode.per_slot {
-        clone.slots = vec![group_sample.slot];
+        clone.slots = vec![bucket_sample.slot];
     }
     if mode.per_set {
         clone.sets = vec![SafeguardWasmSetSelection {
-            id: group_sample.set,
+            id: bucket_sample.set,
             excluded: false,
         }];
     }
     // Main-stat wildcard is encoded as empty list in placeholder combination.
     if mode.per_main_stat {
-        clone.main_stats = if group_sample.main_stat == SAFEGUARD_MAIN_ANY {
+        clone.main_stats = if bucket_sample.main_stat == SAFEGUARD_MAIN_ANY {
             Vec::new()
         } else {
-            vec![group_sample.main_stat]
+            vec![bucket_sample.main_stat]
         };
     }
     if mode.per_faction {
-        // Non-accessory groups normalize faction to zero -> empty factions selection.
-        clone.factions = if group_sample.faction > 0 {
-            vec![group_sample.faction]
+        // Non-accessory buckets normalize faction to zero -> empty factions selection.
+        clone.factions = if bucket_sample.faction > 0 {
+            vec![bucket_sample.faction]
         } else {
             Vec::new()
         };
-        // Narrow slots to the class implied by the group sample so accessory-faction
+        // Narrow slots to the class implied by the bucket sample so accessory-faction
         // placeholders never bleed into artifact and the faction=0 artifact placeholder never
         // matches accessories. Without this, a faction=0 placeholder with an empty slots
         // list would match any slot (including all accessories with any SPD).
-        let is_accessory_group = safeguard_is_accessory_slot(group_sample.slot);
+        let is_accessory_bucket = safeguard_is_accessory_slot(bucket_sample.slot);
         let narrowed: Vec<i64> = if clone.slots.is_empty() {
             // No explicit slot constraint: widen to the full slot class.
-            if is_accessory_group {
+            if is_accessory_bucket {
                 vec![ARTIFACT_TYPE_RING, ARTIFACT_TYPE_AMULET, ARTIFACT_TYPE_BANNER]
             } else {
                 vec![
@@ -2910,7 +2910,7 @@ fn safeguard_build_placeholder_combination(
             clone.slots
                 .iter()
                 .copied()
-                .filter(|s| safeguard_is_accessory_slot(*s) == is_accessory_group)
+                .filter(|s| safeguard_is_accessory_slot(*s) == is_accessory_bucket)
                 .collect()
         };
         clone.slots = narrowed;
@@ -2923,9 +2923,9 @@ fn safeguard_build_placeholder(
     missing: i64,
     reason: &str,
     substat_variants: Option<Vec<i64>>,
-    // Group sample carried only by zero-missing improvement-watch placeholders;
+    // Bucket sample carried only by zero-missing improvement-watch placeholders;
     // deficit placeholders always pass None (corner synthesis never probes them).
-    sample: Option<SafeguardWasmGroupSample>,
+    sample: Option<SafeguardWasmBucketSample>,
 ) -> SafeguardWasmPlaceholderOut {
     // Keep placeholder payload construction centralized for consistency.
     SafeguardWasmPlaceholderOut {
@@ -3437,9 +3437,9 @@ fn safeguard_compare_scored_candidate_identity(
     if left_id != right_id {
         return left_id.cmp(&right_id);
     }
-    // Group key keeps cross-group output deterministic for mixed payloads.
-    if left_candidate.group_key != right_candidate.group_key {
-        return left_candidate.group_key.cmp(&right_candidate.group_key);
+    // Bucket key keeps cross-bucket output deterministic for mixed payloads.
+    if left_candidate.bucket_key != right_candidate.bucket_key {
+        return left_candidate.bucket_key.cmp(&right_candidate.bucket_key);
     }
     // Keep remaining scalar fields sorted so duplicate ids stay deterministic.
     if left_artifact.main_stat != right_artifact.main_stat {
@@ -3456,16 +3456,16 @@ fn safeguard_compare_scored_candidate_identity(
 
 fn safeguard_select_top_scored_candidates(
     entries: &[SafeguardWasmScoredCandidate],
-    required_per_group: i64,
+    required_per_bucket: i64,
     candidates: &[SafeguardWasmCandidateIn],
 ) -> Vec<SafeguardWasmScoredCandidate> {
     // Non-positive requirement or empty input means no selected candidates.
-    if required_per_group <= 0 || entries.is_empty() {
+    if required_per_bucket <= 0 || entries.is_empty() {
         return Vec::new();
     }
     // Eligibility is order-independent: keep candidates that are not out-ranked
-    // by `required_per_group` strictly-better peers.
-    let required = required_per_group as usize;
+    // by `required_per_bucket` strictly-better peers.
+    let required = required_per_bucket as usize;
     let mut selected = Vec::<SafeguardWasmScoredCandidate>::new();
     for candidate in entries {
         let mut better_count = 0usize;
@@ -3517,7 +3517,7 @@ pub(super) fn safeguard_count_key_from_parts(
     if mode.per_rule {
         return SafeguardCountKey::Global;
     }
-    // Normalize grouped dimensions into one typed key payload.
+    // Normalize bucketed dimensions into one typed key payload.
     let normalized_faction = safeguard_normalized_faction_for_slot(slot, faction_raw);
     let scoped = SafeguardCountKey::Scoped {
         slot: if mode.per_slot { Some(slot) } else { None },
@@ -3570,8 +3570,8 @@ pub(super) fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
     }
 }
 
-// Expose safeguard count-key derivation so JS expected-group precomputation
-// uses the exact same grouping semantics as Rust detection scans.
+// Expose safeguard count-key derivation so JS expected-bucket precomputation
+// uses the exact same bucketing semantics as Rust detection scans.
 pub fn safeguard_count_key_core(parsed_artifact: SafeguardWasmCountKeyArtifactIn, parsed_mode: SafeguardWasmCountMode) -> String {
     // Sanitize count-mode flags before key computation.
     let mode = safeguard_sanitize_count_mode(parsed_mode);
@@ -3603,11 +3603,11 @@ pub fn safeguard_item_key_core(parsed_artifact: SafeguardWasmItemKeyArtifactIn) 
     artifact_id.or(gear_inspector_preview_id).or(gear_inspector_item_id).unwrap_or(0)
 }
 
-// Expose group-key derivation so TS reuses Rust accessory-faction normalization.
-pub fn safeguard_group_key_core(parsed_artifact: SafeguardWasmGroupKeyArtifactIn) -> String {
+// Expose bucket-key derivation so TS reuses Rust accessory-faction normalization.
+pub fn safeguard_bucket_key_core(parsed_artifact: SafeguardWasmBucketKeyArtifactIn) -> String {
     let main_stat = safeguard_main_stat_from_fast_payload(parsed_artifact.main_stat);
-    // Delegate to shared formatter so all group-key callers stay in lockstep.
-    safeguard_group_key_from_parts(
+    // Delegate to shared formatter so all bucket-key callers stay in lockstep.
+    safeguard_bucket_key_from_parts(
         parsed_artifact.slot,
         parsed_artifact.set,
         main_stat,
@@ -3663,7 +3663,7 @@ fn safeguard_sort_candidate_indices(indices: &mut [usize], candidates: &[Safegua
         if left_id != right_id {
             return left_id.cmp(&right_id);
         }
-        left.group_key.cmp(&right.group_key)
+        left.bucket_key.cmp(&right.bucket_key)
     });
 }
 
@@ -3707,7 +3707,7 @@ fn safeguard_build_entry_for_substats(
     // Ranking mode is active only when substats are selected.
     let use_ranking = has_substat_filter;
     // Required count is always at least 1, mirroring TS coercion.
-    let required_per_group = prepared_rule.required_per_group.max(1);
+    let required_per_bucket = prepared_rule.required_per_bucket.max(1);
     // Improvement-watch mode (anticipateImprovements WITH a chance threshold) keeps
     // zero-missing placeholders alive so fresh drops that clear the improvement-chance
     // bar stay protected until the next sync re-ranks them. Without a threshold the
@@ -3715,29 +3715,29 @@ fn safeguard_build_entry_for_substats(
     let improvement_watch =
         safeguard_is_activation_anticipate_improvements(&prepared_rule.activation)
             && prepared_rule.improvement_chance_threshold.is_some();
-    // Resolve expected-group payload into internal sample struct once.
-    let expected_groups = prepared_rule
-        .expected_groups
+    // Resolve expected-bucket payload into internal sample struct once.
+    let expected_buckets = prepared_rule
+        .expected_buckets
         .iter()
-        .map(|group| SafeguardWasmExpectedGroupResolved {
+        .map(|bucket| SafeguardWasmExpectedBucketResolved {
             // Keep the parsed payload key read so dead-code checks stay quiet.
-            // Group lookups use typed keys derived from the canonical sample.
+            // Bucket lookups use typed keys derived from the canonical sample.
             key: {
-                let _provided_key = group.key.trim();
+                let _provided_key = bucket.key.trim();
             // Derive typed keys from sample dimensions so lookups stay typed.
                 safeguard_count_key_from_parts(
-                    group.sample.slot,
-                    group.sample.set,
-                    group.sample.faction,
-                    group.sample.main_stat,
+                    bucket.sample.slot,
+                    bucket.sample.set,
+                    bucket.sample.faction,
+                    bucket.sample.main_stat,
                     prepared_rule.count_mode,
                 )
             },
-            sample: SafeguardWasmGroupSample {
-                slot: group.sample.slot,
-                set: group.sample.set,
-                faction: group.sample.faction,
-                main_stat: group.sample.main_stat,
+            sample: SafeguardWasmBucketSample {
+                slot: bucket.sample.slot,
+                set: bucket.sample.set,
+                faction: bucket.sample.faction,
+                main_stat: bucket.sample.main_stat,
             },
         })
         .collect::<Vec<_>>();
@@ -3786,37 +3786,37 @@ fn safeguard_build_entry_for_substats(
             })
             .collect::<Vec<_>>();
 
-        // Bucket scored entries by count key for grouped counting modes.
-        let mut groups = BTreeMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
+        // Bucket scored entries by count key for bucketed counting modes.
+        let mut buckets = BTreeMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
         let mut group_order = Vec::<SafeguardCountKey>::new();
         if prepared_rule.count_mode.per_rule {
             // Per-rule mode uses one global bucket.
             if !scored.is_empty() {
-                groups.insert(SafeguardCountKey::Global, scored);
+                buckets.insert(SafeguardCountKey::Global, scored);
                 group_order.push(SafeguardCountKey::Global);
             }
         } else {
-            // Grouped mode routes each scored candidate to its group key.
+            // Bucketed mode routes each scored candidate to its bucket key.
             for entry in scored {
                 let key = safeguard_count_key(&candidates[entry.candidate_idx].artifact, prepared_rule.count_mode);
-                if let Some(bucket) = groups.get_mut(&key) {
+                if let Some(bucket) = buckets.get_mut(&key) {
                     bucket.push(entry);
                 } else {
-                    groups.insert(key.clone(), vec![entry]);
+                    buckets.insert(key.clone(), vec![entry]);
                     group_order.push(key);
                 }
             }
         }
 
-        // Expected-groups override observed group count when provided.
-        let groups_tracked = if !expected_groups.is_empty() {
-            expected_groups.len() as i64
+        // Expected-buckets override observed bucket count when provided.
+        let buckets_tracked = if !expected_buckets.is_empty() {
+            expected_buckets.len() as i64
         } else {
-            groups.len() as i64
+            buckets.len() as i64
         };
-        // At least one group is assumed for required-count math.
-        let effective_group_count = if groups_tracked > 0 { groups_tracked } else { 1 };
-        let required_total = required_per_group * effective_group_count;
+        // At least one bucket is assumed for required-count math.
+        let effective_bucket_count = if buckets_tracked > 0 { buckets_tracked } else { 1 };
+        let required_total = required_per_bucket * effective_bucket_count;
         // Aggregate counters feed the final entry payload.
         let mut current_count = 0i64;
         let mut kept_count = 0i64;
@@ -3828,26 +3828,26 @@ fn safeguard_build_entry_for_substats(
         // Tracks ALL candidates that are within quota (kept + sold top-N) for is_within_quota output.
         let mut within_quota_indices = HashSet::<usize>::new();
         let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
-        // Collect all scored candidates across groups for rank/quota output.
+        // Collect all scored candidates across buckets for rank/quota output.
         let mut raw_candidates_for_output: Vec<SafeguardWasmScoredCandidate> = Vec::new();
-        // Per-bucket (count-group) rank by candidate_idx: 1-based position within the candidate's
+        // Per-bucket (bucket) rank by candidate_idx: 1-based position within the candidate's
         // own bucket. candidate_rank below is the GLOBAL rank across buckets; bucket_rank is local.
         // BTreeMap (not HashMap): wasm/ uses BTreeMap throughout to avoid talc fragmentation.
         let mut bucket_rank_by_idx: BTreeMap<usize, u32> = BTreeMap::new();
 
-        // Use explicit expected list when present, otherwise derive from observed groups.
-        let expected_list = if !expected_groups.is_empty() {
-            expected_groups
+        // Use explicit expected list when present, otherwise derive from observed buckets.
+        let expected_list = if !expected_buckets.is_empty() {
+            expected_buckets
         } else {
             group_order
                 .iter()
                 .map(|key| {
-                    let sample = groups
+                    let sample = buckets
                         .get(key)
                         .and_then(|bucket| bucket.first())
-                        .map(|entry| safeguard_group_sample_from_artifact(&candidates[entry.candidate_idx].artifact))
-                        .unwrap_or_else(|| safeguard_default_group_sample(&prepared_rule.combination));
-                    SafeguardWasmExpectedGroupResolved {
+                        .map(|entry| safeguard_bucket_sample_from_artifact(&candidates[entry.candidate_idx].artifact))
+                        .unwrap_or_else(|| safeguard_default_bucket_sample(&prepared_rule.combination));
+                    SafeguardWasmExpectedBucketResolved {
                         key: key.clone(),
                         sample,
                     }
@@ -3855,29 +3855,29 @@ fn safeguard_build_entry_for_substats(
                 .collect::<Vec<_>>()
         };
 
-        // Process each expected group independently.
+        // Process each expected bucket independently.
         for expected in &expected_list {
-            let bucket = groups.get(&expected.key).cloned().unwrap_or_default();
+            let bucket = buckets.get(&expected.key).cloned().unwrap_or_default();
             if bucket.is_empty() {
-                // Missing group contributes full per-group deficit placeholder.
-                let deficit_group = required_per_group;
+                // Missing bucket contributes full per-bucket deficit placeholder.
+                let deficit_bucket = required_per_bucket;
                 placeholders.push(safeguard_build_placeholder(
                     safeguard_build_placeholder_combination(
                         &prepared_rule.combination,
                         prepared_rule.count_mode,
                         Some(&expected.sample),
                     ),
-                    deficit_group,
-                    SAFEGUARD_REASON_GROUP,
+                    deficit_bucket,
+                    SAFEGUARD_REASON_BUCKET,
                     placeholder_substats.clone(),
                     None,
                 ));
-                deficit += deficit_group;
+                deficit += deficit_bucket;
                 continue;
             }
             // Per-bucket rank: 1 + count of strictly-better peers in THIS bucket. Uses the same
-            // tie-only comparator as top-N selection, so bucket_rank <= required_per_group exactly
-            // matches is_within_quota. This is the in-group position (vs the global candidate_rank).
+            // tie-only comparator as top-N selection, so bucket_rank <= required_per_bucket exactly
+            // matches is_within_quota. This is the in-bucket position (vs the global candidate_rank).
             for entry in bucket.iter() {
                 let mut better = 0u32;
                 for challenger in bucket.iter() {
@@ -3893,7 +3893,7 @@ fn safeguard_build_entry_for_substats(
                 bucket_rank_by_idx.insert(entry.candidate_idx, better + 1);
             }
             // Always select top-N by current-value score with tie-boundary extension.
-            let top_n = safeguard_select_top_scored_candidates(&bucket, required_per_group, candidates);
+            let top_n = safeguard_select_top_scored_candidates(&bucket, required_per_bucket, candidates);
             // When a threshold is set, additionally keep any items outside the top-N
             // whose improvement_chance meets the bar — the threshold expands the keep-list
             // rather than replacing the current-value selection.
@@ -3954,44 +3954,44 @@ fn safeguard_build_entry_for_substats(
                     group_kept += 1;
                 }
             }
-            // Accumulate per-group within-quota sets for the global is_within_quota output.
+            // Accumulate per-bucket within-quota sets for the global is_within_quota output.
             within_quota_indices.extend(within_quota_set);
-            // Group totals roll into overall counters.
+            // Bucket totals roll into overall counters.
             current_count += group_total;
             kept_count += group_kept;
             sold_count += group_sold;
             // Deficit uses bucket size (before tie extension) like TS semantics.
-            let deficit_group = (required_per_group - bucket.len() as i64).max(0);
+            let deficit_bucket = (required_per_bucket - bucket.len() as i64).max(0);
             // Improvement-watch emits a zero-missing placeholder even when the quota is met.
-            if deficit_group > 0 || improvement_watch {
-                // Zero-missing watch placeholders carry the group sample so corner
+            if deficit_bucket > 0 || improvement_watch {
+                // Zero-missing watch placeholders carry the bucket sample so corner
                 // synthesis can probe the concrete slot/set/faction/main dimensions.
-                let watch_sample = (deficit_group == 0).then(|| expected.sample.clone());
+                let watch_sample = (deficit_bucket == 0).then(|| expected.sample.clone());
                 placeholders.push(safeguard_build_placeholder(
                     safeguard_build_placeholder_combination(
                         &prepared_rule.combination,
                         prepared_rule.count_mode,
                         Some(&expected.sample),
                     ),
-                    deficit_group,
-                    SAFEGUARD_REASON_GROUP,
+                    deficit_bucket,
+                    SAFEGUARD_REASON_BUCKET,
                     placeholder_substats.clone(),
                     watch_sample,
                 ));
             }
-            deficit += deficit_group;
+            deficit += deficit_bucket;
         }
 
-        // No groups observed still emits global placeholder when needed.
-        if groups_tracked == 0 && required_per_group > 0 {
+        // No buckets observed still emits global placeholder when needed.
+        if buckets_tracked == 0 && required_per_bucket > 0 {
             placeholders.push(safeguard_build_placeholder(
                 prepared_rule.combination.clone(),
-                required_per_group,
+                required_per_bucket,
                 SAFEGUARD_REASON_GLOBAL,
                 placeholder_substats.clone(),
                 None,
             ));
-            deficit = required_per_group;
+            deficit = required_per_bucket;
         }
 
         // Projected count includes sold artifacts only when rule is active.
@@ -4022,8 +4022,8 @@ fn safeguard_build_entry_for_substats(
                 rule_ordinal: None, // stamped by outer loop
                 rule_activation: prepared_rule.activation.clone(),
                 count_mode: prepared_rule.count_mode,
-                per_group_required_count: required_per_group,
-                groups_tracked,
+                per_bucket_required_count: required_per_bucket,
+                buckets_tracked,
                 required_count: required_total,
                 current_count,
                 projected_count: projected,
@@ -4054,8 +4054,8 @@ fn safeguard_build_entry_for_substats(
         }
         // Per-rule needed count is relative to kept artifacts only.
         let sold_count = sold_indices.len() as i64;
-        let required_total = required_per_group;
-        let needed = (required_per_group - kept_count).max(0);
+        let required_total = required_per_bucket;
+        let needed = (required_per_bucket - kept_count).max(0);
         // Without substat filters there is no quality basis to choose among sold items.
         // When the quota is unmet, protect every sold candidate rather than picking arbitrarily.
         // When the quota is already met (needed=0), sold items need no protection.
@@ -4079,11 +4079,11 @@ fn safeguard_build_entry_for_substats(
         let deficit = (required_total - (kept_count + sold_count)).max(0);
         let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
         // Global shortfall emits one global placeholder; improvement-watch also emits at
-        // zero deficit. Per-rule mode has no group sample, so the watch placeholder falls
+        // zero deficit. Per-rule mode has no bucket sample, so the watch placeholder falls
         // back to the deterministic combination-derived default sample for corner probes.
         if deficit > 0 || improvement_watch {
             let watch_sample =
-                (deficit == 0).then(|| safeguard_default_group_sample(&prepared_rule.combination));
+                (deficit == 0).then(|| safeguard_default_bucket_sample(&prepared_rule.combination));
             placeholders.push(safeguard_build_placeholder(
                 prepared_rule.combination.clone(),
                 deficit,
@@ -4127,8 +4127,8 @@ fn safeguard_build_entry_for_substats(
                 rule_ordinal: None, // stamped by outer loop
                 rule_activation: prepared_rule.activation.clone(),
                 count_mode: prepared_rule.count_mode,
-                per_group_required_count: required_per_group,
-                groups_tracked: if matching_indices.is_empty() { 0 } else { 1 },
+                per_bucket_required_count: required_per_bucket,
+                buckets_tracked: if matching_indices.is_empty() { 0 } else { 1 },
                 required_count: required_total,
                 current_count: kept_count + sold_count,
                 projected_count: projected,
@@ -4146,46 +4146,46 @@ fn safeguard_build_entry_for_substats(
         };
     }
 
-    // Grouped non-ranking path: split matching candidates into group buckets.
-    let mut group_counts = BTreeMap::<SafeguardCountKey, SafeguardWasmGroupBucket>::new();
+    // Bucketed non-ranking path: split matching candidates into bucket buckets.
+    let mut bucket_tallies = BTreeMap::<SafeguardCountKey, SafeguardWasmBucketTally>::new();
     let mut group_order = Vec::<SafeguardCountKey>::new();
     for candidate_idx in matching_indices {
         let candidate = &candidates[candidate_idx];
         let key = safeguard_count_key(&candidate.artifact, prepared_rule.count_mode);
-        if let Some(bucket) = group_counts.get_mut(&key) {
+        if let Some(bucket) = bucket_tallies.get_mut(&key) {
             if candidate_sold_state[candidate_idx] {
                 bucket.sold.push(candidate_idx);
             } else {
                 bucket.kept.push(candidate_idx);
             }
             if bucket.sample.is_none() {
-                bucket.sample = Some(safeguard_group_sample_from_artifact(&candidate.artifact));
+                bucket.sample = Some(safeguard_bucket_sample_from_artifact(&candidate.artifact));
             }
         } else {
-            let mut bucket = SafeguardWasmGroupBucket {
+            let mut bucket = SafeguardWasmBucketTally {
                 kept: Vec::new(),
                 sold: Vec::new(),
-                sample: Some(safeguard_group_sample_from_artifact(&candidate.artifact)),
+                sample: Some(safeguard_bucket_sample_from_artifact(&candidate.artifact)),
             };
             if candidate_sold_state[candidate_idx] {
                 bucket.sold.push(candidate_idx);
             } else {
                 bucket.kept.push(candidate_idx);
             }
-            group_counts.insert(key.clone(), bucket);
+            bucket_tallies.insert(key.clone(), bucket);
             group_order.push(key);
         }
     }
 
-    // Expected groups override observed group cardinality.
-    let groups_tracked = if !prepared_rule.expected_groups.is_empty() {
-        prepared_rule.expected_groups.len() as i64
+    // Expected buckets override observed bucket cardinality.
+    let buckets_tracked = if !prepared_rule.expected_buckets.is_empty() {
+        prepared_rule.expected_buckets.len() as i64
     } else {
-        group_counts.len() as i64
+        bucket_tallies.len() as i64
     };
-    // At least one group is assumed for required-count math.
-    let effective_group_count = if groups_tracked > 0 { groups_tracked } else { 1 };
-    let required_total = required_per_group * effective_group_count;
+    // At least one bucket is assumed for required-count math.
+    let effective_bucket_count = if buckets_tracked > 0 { buckets_tracked } else { 1 };
+    let required_total = required_per_bucket * effective_bucket_count;
     // Aggregate counters and output buffers for final payload.
     let mut deficit = 0i64;
     let mut kept_total = 0i64;
@@ -4194,31 +4194,31 @@ fn safeguard_build_entry_for_substats(
     let mut at_risk = Vec::<usize>::new();
     let mut placeholders = Vec::<SafeguardWasmPlaceholderOut>::new();
 
-    // Use explicit expected list when present, else derive from observed groups.
-    let expected_list = if !prepared_rule.expected_groups.is_empty() {
+    // Use explicit expected list when present, else derive from observed buckets.
+    let expected_list = if !prepared_rule.expected_buckets.is_empty() {
         prepared_rule
-            .expected_groups
+            .expected_buckets
             .iter()
-            .map(|group| SafeguardWasmExpectedGroupResolved {
+            .map(|bucket| SafeguardWasmExpectedBucketResolved {
                 // Keep the parsed payload key read so dead-code checks stay quiet.
-                // Group lookups use typed keys derived from the canonical sample.
-                // Keep expected-group lookups typed and derive key dimensions
+                // Bucket lookups use typed keys derived from the canonical sample.
+                // Keep expected-bucket lookups typed and derive key dimensions
                 // from the canonical sample payload.
                 key: {
-                    let _provided_key = group.key.trim();
+                    let _provided_key = bucket.key.trim();
                     safeguard_count_key_from_parts(
-                        group.sample.slot,
-                        group.sample.set,
-                        group.sample.faction,
-                        group.sample.main_stat,
+                        bucket.sample.slot,
+                        bucket.sample.set,
+                        bucket.sample.faction,
+                        bucket.sample.main_stat,
                         prepared_rule.count_mode,
                     )
                 },
-                sample: SafeguardWasmGroupSample {
-                    slot: group.sample.slot,
-                    set: group.sample.set,
-                    faction: group.sample.faction,
-                    main_stat: group.sample.main_stat,
+                sample: SafeguardWasmBucketSample {
+                    slot: bucket.sample.slot,
+                    set: bucket.sample.set,
+                    faction: bucket.sample.faction,
+                    main_stat: bucket.sample.main_stat,
                 },
             })
             .collect::<Vec<_>>()
@@ -4226,11 +4226,11 @@ fn safeguard_build_entry_for_substats(
         group_order
             .iter()
             .map(|key| {
-                let sample = group_counts
+                let sample = bucket_tallies
                     .get(key)
-                    .and_then(|group| group.sample.clone())
-                    .unwrap_or_else(|| safeguard_default_group_sample(&prepared_rule.combination));
-                SafeguardWasmExpectedGroupResolved {
+                    .and_then(|bucket| bucket.sample.clone())
+                    .unwrap_or_else(|| safeguard_default_bucket_sample(&prepared_rule.combination));
+                SafeguardWasmExpectedBucketResolved {
                     key: key.clone(),
                     sample,
                 }
@@ -4238,32 +4238,32 @@ fn safeguard_build_entry_for_substats(
             .collect::<Vec<_>>()
     };
 
-    // Evaluate each expected group independently.
+    // Evaluate each expected bucket independently.
     for expected in &expected_list {
-        let Some(group) = group_counts.get(&expected.key).cloned() else {
-            // Missing expected group contributes full group deficit.
-            let deficit_group = required_per_group;
+        let Some(bucket) = bucket_tallies.get(&expected.key).cloned() else {
+            // Missing expected bucket contributes full bucket deficit.
+            let deficit_bucket = required_per_bucket;
             placeholders.push(safeguard_build_placeholder(
                 safeguard_build_placeholder_combination(
                     &prepared_rule.combination,
                     prepared_rule.count_mode,
                     Some(&expected.sample),
                 ),
-                deficit_group,
-                SAFEGUARD_REASON_GROUP,
+                deficit_bucket,
+                SAFEGUARD_REASON_BUCKET,
                 placeholder_substats.clone(),
                 None,
             ));
-            deficit += deficit_group;
+            deficit += deficit_bucket;
             continue;
         };
-        // Count kept/sold and derive projected/deficit metrics for this group.
-        let kept_count = group.kept.len() as i64;
-        let sold_count = group.sold.len() as i64;
+        // Count kept/sold and derive projected/deficit metrics for this bucket.
+        let kept_count = bucket.kept.len() as i64;
+        let sold_count = bucket.sold.len() as i64;
         kept_total += kept_count;
         sold_total += sold_count;
-        let needed = (required_per_group - kept_count).max(0);
-        let projected_group = kept_count
+        let needed = (required_per_bucket - kept_count).max(0);
+        let projected_bucket = kept_count
             + if prepared_rule.rule_active {
                 if has_substat_filter { sold_count.min(needed) }
                 else if needed > 0 { sold_count }
@@ -4271,49 +4271,49 @@ fn safeguard_build_entry_for_substats(
             } else {
                 0
             };
-        projected_total += projected_group;
+        projected_total += projected_bucket;
         let total_count = kept_count + sold_count;
-        let deficit_group = (required_per_group - total_count).max(0);
+        let deficit_bucket = (required_per_bucket - total_count).max(0);
         // Without substat filters there is no quality basis to choose among sold items.
         // When the quota is unmet, protect every sold candidate rather than picking arbitrarily.
         // When the quota is already met (needed=0), sold items need no protection.
         if !has_substat_filter && needed > 0 {
-            at_risk.extend(group.sold.iter().copied());
+            at_risk.extend(bucket.sold.iter().copied());
         } else if has_substat_filter && needed > 0 {
-            let mut sorted_sold = group.sold.clone();
+            let mut sorted_sold = bucket.sold.clone();
             safeguard_sort_candidate_indices(&mut sorted_sold, candidates);
             at_risk.extend(sorted_sold.into_iter().take(needed as usize));
         }
-        if deficit_group > 0 || improvement_watch {
-            // Gaps mode only emits placeholders when this group is truly under-covered
+        if deficit_bucket > 0 || improvement_watch {
+            // Gaps mode only emits placeholders when this bucket is truly under-covered
             // (zero-missing placeholders create noisy/empty rows in UI tables);
             // improvement-watch intentionally emits them to keep qualifying drops protected.
-            let watch_sample = (deficit_group == 0).then(|| expected.sample.clone());
+            let watch_sample = (deficit_bucket == 0).then(|| expected.sample.clone());
             placeholders.push(safeguard_build_placeholder(
                 safeguard_build_placeholder_combination(
                     &prepared_rule.combination,
                     prepared_rule.count_mode,
                     Some(&expected.sample),
                 ),
-                deficit_group,
-                SAFEGUARD_REASON_GROUP,
+                deficit_bucket,
+                SAFEGUARD_REASON_BUCKET,
                 placeholder_substats.clone(),
                 watch_sample,
             ));
         }
-        deficit += deficit_group;
+        deficit += deficit_bucket;
     }
 
-    // No observed groups still yields a global placeholder shortfall.
-    if groups_tracked == 0 && required_per_group > 0 {
+    // No observed buckets still yields a global placeholder shortfall.
+    if buckets_tracked == 0 && required_per_bucket > 0 {
         placeholders.push(safeguard_build_placeholder(
             prepared_rule.combination.clone(),
-            required_per_group,
+            required_per_bucket,
             SAFEGUARD_REASON_GLOBAL,
             placeholder_substats.clone(),
             None,
         ));
-        deficit = required_per_group;
+        deficit = required_per_bucket;
     }
 
     // item_keys tracks only at-risk (sold) items selected for protection.
@@ -4321,26 +4321,26 @@ fn safeguard_build_entry_for_substats(
         .iter()
         .map(|idx| candidates[*idx].item_key)
         .collect::<Vec<_>>();
-    // Non-ranking grouped: emit all matching candidates with rank=0.
+    // Non-ranking bucketed: emit all matching candidates with rank=0.
     // Within-quota: already kept OR in at-risk selection.
     let at_risk_set: HashSet<usize> = at_risk.iter().copied().collect();
     // Artifact metadata covers ALL matching candidates (kept + sold) so the UI can look up
     // slot/set for every candidate in the list, not just the at-risk sold ones.
-    let artifacts: Vec<SafeguardWasmArtifactOut> = group_counts
+    let artifacts: Vec<SafeguardWasmArtifactOut> = bucket_tallies
         .values()
-        .flat_map(|group| group.kept.iter().chain(group.sold.iter()).copied())
+        .flat_map(|bucket| bucket.kept.iter().chain(bucket.sold.iter()).copied())
         .map(|idx| safeguard_to_detection_artifact(&candidates[idx]))
         .collect();
-    let candidates_out: Vec<SafeguardWasmCandidateOut> = group_counts
+    let candidates_out: Vec<SafeguardWasmCandidateOut> = bucket_tallies
         .values()
-        .flat_map(|group| group.kept.iter().chain(group.sold.iter()).copied())
+        .flat_map(|bucket| bucket.kept.iter().chain(bucket.sold.iter()).copied())
         .map(|idx| SafeguardWasmCandidateOut {
             item_key: candidates[idx].item_key,
             score: 0.0,
             candidate_rank: 0,
             bucket_rank: 0,
             is_within_quota: !candidate_sold_state[idx] || at_risk_set.contains(&idx),
-            // Non-ranking grouped path never feeds the perSubstat merge.
+            // Non-ranking bucketed path never feeds the perSubstat merge.
             substat_buckets: Vec::new(),
         })
         .collect();
@@ -4352,8 +4352,8 @@ fn safeguard_build_entry_for_substats(
             rule_ordinal: None, // stamped by outer loop
             rule_activation: prepared_rule.activation.clone(),
             count_mode: prepared_rule.count_mode,
-            per_group_required_count: required_per_group,
-            groups_tracked,
+            per_bucket_required_count: required_per_bucket,
+            buckets_tracked,
             required_count: required_total,
             current_count: kept_total + sold_total,
             projected_count: projected_total,
@@ -4373,7 +4373,7 @@ fn safeguard_build_entry_for_substats(
 
 fn safeguard_merge_substat_entries(
     prepared_rule: &SafeguardWasmPreparedRule,
-    required_per_group: i64,
+    required_per_bucket: i64,
     entries: Vec<SafeguardWasmEntryEvalOut>,
 ) -> SafeguardWasmEntryEvalOut {
     // Merge per-substat entries into one aggregate rule entry.
@@ -4392,7 +4392,7 @@ fn safeguard_merge_substat_entries(
     let mut current_count = 0i64;
     let mut projected_count = 0i64;
     let mut deficit = 0i64;
-    let mut groups_tracked = 0i64;
+    let mut buckets_tracked = 0i64;
     for mut eval in entries {
         // The single substat this entry ranked by (perSubstat merge always feeds single-variant
         // entries; None would leave sub-bucket attribution empty, which is a safe no-op).
@@ -4403,7 +4403,7 @@ fn safeguard_merge_substat_entries(
         current_count += entry.current_count;
         projected_count += entry.projected_count;
         deficit += entry.deficit;
-        groups_tracked += entry.groups_tracked;
+        buckets_tracked += entry.buckets_tracked;
         // Cascade state needs the union of selected sold candidates.
         for candidate_idx in eval.selected_candidate_indices.drain(..) {
             if selected_candidate_set.insert(candidate_idx) {
@@ -4426,7 +4426,7 @@ fn safeguard_merge_substat_entries(
         }
         // Merge candidate rows across per-substat entries. First sighting of an item creates its
         // merged row; later sightings append this entry's substat sub-bucket to the SAME row so
-        // the flyout can restrict a focus click to one (count-group × substat) sub-bucket. The
+        // the flyout can restrict a focus click to one (bucket × substat) sub-bucket. The
         // top-level bucket_rank / is_within_quota track the item's BEST substat (lowest bucket
         // rank; within-quota if within-quota for ANY substat) so the unfocused list stays coherent.
         for candidate in entry.candidates {
@@ -4469,8 +4469,8 @@ fn safeguard_merge_substat_entries(
             rule_ordinal: None, // stamped by outer loop
             rule_activation: prepared_rule.activation.clone(),
             count_mode: prepared_rule.count_mode,
-            per_group_required_count: required_per_group,
-            groups_tracked,
+            per_bucket_required_count: required_per_bucket,
+            buckets_tracked,
             required_count,
             current_count,
             projected_count,
@@ -4489,20 +4489,20 @@ fn safeguard_merge_substat_entries(
     }
 }
 
-// Expected-group payload uses the canonical wrapper shape from app-side callers.
+// Expected-bucket payload uses the canonical wrapper shape from app-side callers.
 // Core version accepts typed input (JsValue parsing is done in the wasm crate).
-fn parse_safeguard_expected_groups_payload(
-    expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
-) -> SafeguardWasmExpectedGroupsPayloadIn {
-    // None means no explicit expected-group metadata was supplied.
-    expected_groups_payload.unwrap_or_default()
+fn parse_safeguard_expected_buckets_payload(
+    expected_buckets_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
+) -> SafeguardWasmExpectedBucketsPayloadIn {
+    // None means no explicit expected-bucket metadata was supplied.
+    expected_buckets_payload.unwrap_or_default()
 }
 
 // Safeguard protection core evaluates prepared rules against candidate rows.
 fn compute_safeguard_protection_core(
     parsed_candidates: Vec<SafeguardWasmCandidateIn>,
     parsed_rules: Vec<SafeguardWasmRuleIn>,
-    expected_payload: SafeguardWasmExpectedGroupsPayloadIn,
+    expected_payload: SafeguardWasmExpectedBucketsPayloadIn,
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by (artifact id, 1-based rule ordinal). Each rule
@@ -4586,7 +4586,7 @@ fn compute_safeguard_protection_core(
                 .clone()
                 .map(|v| v.into_slots_clamped());
             // Required count is clamped to at least one.
-            let required_per_group = rule.required_count.unwrap_or(1).max(1);
+            let required_per_bucket = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
             let normalized_match = safeguard_normalize_substat_match(
                 rule.substat_match.as_deref().unwrap_or(""),
@@ -4606,23 +4606,23 @@ fn compute_safeguard_protection_core(
             }
             // Pre-split set filters into include/exclude lookup sets.
             let (set_includes, set_excludes) = safeguard_split_set_selections(&combination.sets);
-            // Resolve expected groups with explicit maps first, then domain enum.
-            let expected_groups = expected_payload
-                .expected_groups_by_rule_id
+            // Resolve expected buckets with explicit maps first, then domain enum.
+            let expected_buckets = expected_payload
+                .expected_buckets_by_rule_id
                 .get(&rule_id)
                 .cloned()
                 .or_else(|| {
                     expected_payload
-                        .expected_group_domain
+                        .expected_bucket_domain
                         .as_ref()
-                        .map(|domain| safeguard_build_expected_groups_for_rule(&combination, count_mode, domain))
+                        .map(|domain| safeguard_build_expected_buckets_for_rule(&combination, count_mode, domain))
                 })
                 .unwrap_or_default();
             SafeguardWasmPreparedRule {
                 id: rule_id,
                 hash: combination_hash,
                 combination,
-                required_per_group,
+                required_per_bucket,
                 activation: activation.clone(),
                 // Activation off disables sold-item projection contribution.
                 rule_active: enabled && !safeguard_is_activation_off(&activation),
@@ -4638,7 +4638,7 @@ fn compute_safeguard_protection_core(
                 main_stat_rank_weight_factor,
                 set_includes,
                 set_excludes,
-                expected_groups,
+                expected_buckets,
             }
         })
         .collect::<Vec<_>>();
@@ -4681,7 +4681,7 @@ fn compute_safeguard_protection_core(
                 .collect::<Vec<_>>();
             safeguard_merge_substat_entries(
                 prepared_rule,
-                prepared_rule.required_per_group,
+                prepared_rule.required_per_bucket,
                 per_substat_entries,
             )
         } else {
@@ -4736,7 +4736,7 @@ fn compute_safeguard_protection_core(
 pub fn compute_safeguard_protection_core_pub(
     fast_candidates: Vec<SafeguardWasmCandidateFastIn>,
     rules: Vec<SafeguardWasmRuleIn>,
-    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    expected_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
@@ -4747,8 +4747,8 @@ pub fn compute_safeguard_protection_core_pub(
     let parsed_candidates = safeguard_parse_candidates_payload(fast_candidates);
     // Parse rules (identity in core; parsing done in wasm crate).
     let parsed_rules = safeguard_parse_rules_payload(rules);
-    // Resolve expected groups payload (None = empty default).
-    let resolved_payload = parse_safeguard_expected_groups_payload(expected_payload);
+    // Resolve expected buckets payload (None = empty default).
+    let resolved_payload = parse_safeguard_expected_buckets_payload(expected_payload);
     // Run the shared protection core.
     let mut detection = compute_safeguard_protection_core(
         parsed_candidates,
@@ -4773,15 +4773,15 @@ pub fn collect_and_compute_safeguard_protection_core(
     recipe_modes: Vec<String>,
     ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     parsed_rules: Vec<SafeguardWasmRuleIn>,
-    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    expected_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
     // Empty map disables threshold gating entirely.
     improvement_chances: BTreeMap<(i64, i64), f64>,
 ) -> Result<SafeguardCollectedAndProtectedSnapshotOut, String> {
-    // Resolve expected groups payload (None = empty default).
-    let expected_payload = parse_safeguard_expected_groups_payload(expected_payload);
+    // Resolve expected buckets payload (None = empty default).
+    let expected_payload = parse_safeguard_expected_buckets_payload(expected_payload);
 
     // Prepare and bucket base rules; collect-core uses slot-aware evaluation per row.
     let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
@@ -4801,7 +4801,7 @@ pub fn collect_and_compute_safeguard_protection_core(
         .iter()
         .map(|candidate| SafeguardWasmCandidateIn {
             item_key: candidate.item_key,
-            group_key: candidate.group_key.clone(),
+            bucket_key: candidate.bucket_key.clone(),
             is_sold: candidate.is_sold,
             artifact: rows[candidate.row_index].artifact.clone(),
         })
@@ -4846,22 +4846,22 @@ pub fn compute_safeguard_protection_from_collected_core(
     candidates: &[crate::SafeguardCollectedCandidateOut],
     rows: &[crate::SafeguardCollectRowIn],
     safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    expected_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).
     // Empty map disables threshold gating entirely.
     improvement_chances: BTreeMap<(i64, i64), f64>,
 ) -> SafeguardWasmSnapshotOut {
-    // Resolve expected groups payload (None = empty default).
-    let expected = parse_safeguard_expected_groups_payload(expected_payload);
+    // Resolve expected buckets payload (None = empty default).
+    let expected = parse_safeguard_expected_buckets_payload(expected_payload);
     // Rebuild inner candidate list from already-typed row artifacts.
     // row_index is validated by collect_safeguard_candidates_core so this cannot OOB.
     let protection_candidates = candidates
         .iter()
         .map(|candidate| SafeguardWasmCandidateIn {
             item_key: candidate.item_key,
-            group_key: candidate.group_key.clone(),
+            bucket_key: candidate.bucket_key.clone(),
             is_sold: candidate.is_sold,
             artifact: rows[candidate.row_index].artifact.clone(),
         })
@@ -4920,7 +4920,7 @@ pub struct SafeguardWasmScorePreviewIn {
     // Tunable main-stat rank bonus multiplier so the preview matches detection. Absent = 1.0.
     #[serde(default = "safeguard_default_main_stat_rank_weight_factor")]
     pub main_stat_rank_weight_factor: f64,
-    // Required count per group: same field consumed by detection so isWithinQuota
+    // Required count per bucket: same field consumed by detection so isWithinQuota
     // bucketing produces the same partition seen on first open.
     pub required_count: i64,
     // Optional bucket-mode flags. When omitted defaults to the canonical per-rule mode
@@ -4936,7 +4936,7 @@ pub struct SafeguardWasmScorePreviewIn {
 }
 
 // Score a candidate set by the given substats/weights, bucket by count_mode, and return the
-// per-bucket rank (1-based within each count-group) and the union of per-group top-N selections
+// per-bucket rank (1-based within each bucket) and the union of per-bucket top-N selections
 // (isWithinQuota). SSOT for the preview ranking partition — used once for the combined-score
 // preview and once per substat when the rule is `perSubstat`, so both stay in lockstep with the
 // detection-side tie-boundary top-N semantics.
@@ -4947,7 +4947,7 @@ fn score_and_bucket_preview_candidates(
     weight_main_stat_by_rank: bool,
     main_stat_rank_weight_factor: f64,
     count_mode: SafeguardWasmCountMode,
-    required_per_group: i64,
+    required_per_bucket: i64,
 ) -> (HashSet<usize>, BTreeMap<usize, u32>) {
     // Score and drop zero-score entries; matches detection's `score <= 0` filter.
     let scored: Vec<SafeguardWasmScoredCandidate> = candidates
@@ -4966,27 +4966,27 @@ fn score_and_bucket_preview_candidates(
         })
         .collect();
     // Bucket scored entries the same way detection does for the ranking path.
-    let mut groups = BTreeMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
+    let mut buckets = BTreeMap::<SafeguardCountKey, Vec<SafeguardWasmScoredCandidate>>::new();
     if count_mode.per_rule {
         // per_rule collapses every candidate into a single global bucket.
         if !scored.is_empty() {
-            groups.insert(SafeguardCountKey::Global, scored.clone());
+            buckets.insert(SafeguardCountKey::Global, scored.clone());
         }
     } else {
         for entry in &scored {
             // Route by the same count_key helper detection uses so bucket identity
             // (slot/set/faction/main_stat selection) stays SSOT.
             let key = safeguard_count_key(&candidates[entry.candidate_idx].artifact, count_mode);
-            groups.entry(key).or_default().push(entry.clone());
+            buckets.entry(key).or_default().push(entry.clone());
         }
     }
-    // Accumulate the union of per-group top-N selections — this drives is_within_quota.
+    // Accumulate the union of per-bucket top-N selections — this drives is_within_quota.
     let mut within_quota_indices = HashSet::<usize>::new();
     // Per-bucket rank by candidate_idx (mirrors the detection path). BTreeMap per wasm/ convention.
     let mut bucket_rank_by_idx: BTreeMap<usize, u32> = BTreeMap::new();
-    for bucket in groups.values() {
+    for bucket in buckets.values() {
         // Reuse the detection top-N picker so tie-boundary expansion stays identical.
-        let selected = safeguard_select_top_scored_candidates(bucket, required_per_group, candidates);
+        let selected = safeguard_select_top_scored_candidates(bucket, required_per_bucket, candidates);
         for entry in selected {
             within_quota_indices.insert(entry.candidate_idx);
         }
@@ -5010,9 +5010,9 @@ fn score_and_bucket_preview_candidates(
 }
 
 // Score and rank candidates with the given substats/weights for live popover preview.
-// Mirrors the detection-side ranking partition: groups by count_mode, picks top-N per group
+// Mirrors the detection-side ranking partition: buckets by count_mode, picks top-N per bucket
 // with the same tie-boundary extension used by safeguard_build_entry_for_substats, then
-// unions per-group selections into isWithinQuota. The output therefore matches what the
+// unions per-bucket selections into isWithinQuota. The output therefore matches what the
 // candidate list shows on first open of the popover — the cutoff stays anchored across
 // weight nudges instead of snapping to `rank < requiredCount`.
 //
@@ -5026,22 +5026,22 @@ pub fn score_safeguard_candidates_for_preview_core(
     // Honor the same sanitization detection applies so per-rule fallback and
     // mutually-exclusive flag handling stay in lockstep.
     let count_mode = safeguard_resolve_count_mode(input.count_mode);
-    // Detection clamps required-count up to 1; replicate so the per-group quota
+    // Detection clamps required-count up to 1; replicate so the per-bucket quota
     // here matches the detection-side partition exactly.
-    let required_per_group = input.required_count.max(1);
+    let required_per_bucket = input.required_count.max(1);
     // Wrap each input artifact in a synthetic candidate so we can reuse the detection
     // helpers (count-key, tie-extension top-N) without forking ranking semantics.
     let candidates: Vec<SafeguardWasmCandidateIn> = input
         .artifacts
         .into_iter()
         .map(|artifact| {
-            let group_key = safeguard_group_key_from_artifact(&artifact);
+            let bucket_key = safeguard_bucket_key_from_artifact(&artifact);
             // item_key resolves from artifact.id when present; UI maps look up by this
             // value, so missing ids fall back to a stable but unique sentinel later.
             let item_key = artifact.id.unwrap_or(0);
             SafeguardWasmCandidateIn {
                 item_key,
-                group_key,
+                bucket_key,
                 // Preview never represents the sold/kept axis — it only ranks.
                 is_sold: false,
                 artifact,
@@ -5052,10 +5052,10 @@ pub fn score_safeguard_candidates_for_preview_core(
     // ordered list. This is the SSOT for the cutoff divider position, unchanged from before.
     let (within_quota_indices, bucket_rank_by_idx) = score_and_bucket_preview_candidates(
         &candidates, &input.substats, &input.weights, input.weight_main_stat_by_rank,
-        input.main_stat_rank_weight_factor, count_mode, required_per_group,
+        input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
     );
 
-    // perSubstat rules keep the best substat's quota per group, so compute one sub-bucket per
+    // perSubstat rules keep the best substat's quota per bucket, so compute one sub-bucket per
     // selected substat — mirroring the detection merge — and attach them to each candidate. Each
     // pass scores by exactly one substat (weight 1.0, matching detection's per-substat evaluation
     // which passes SAFEGUARD_SUBSTAT_ANY with the lone variant).
@@ -5075,7 +5075,7 @@ pub fn score_safeguard_candidates_for_preview_core(
                 input.weights.get(&variant).map(|&w| (variant, w)).into_iter().collect();
             let (sub_within, sub_bucket_rank) = score_and_bucket_preview_candidates(
                 &candidates, &[variant], &single_weight, input.weight_main_stat_by_rank,
-                input.main_stat_rank_weight_factor, count_mode, required_per_group,
+                input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
             );
             for (&idx, &bucket_rank) in &sub_bucket_rank {
                 sub_buckets_by_idx.entry(idx).or_default().push(SafeguardWasmSubstatBucketOut {
@@ -5575,7 +5575,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         assert!(kept.contains(&2));
     }
 
-    // perSet bucketing — with 3 sets and N=1 per group, each set's top item is
+    // perSet bucketing — with 3 sets and N=1 per bucket, each set's top item is
     // in_quota even though required_count is 1: this is exactly the case where
     // the legacy preview function placed the cutoff at row 1 by mistake.
     #[test]
@@ -5719,7 +5719,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         assert!((out[2].score - 2.0 / max6).abs() < 1e-9);
     }
 
-    // required_count <= 0 collapses to 1 (mirrors detection's required_per_group.max(1)).
+    // required_count <= 0 collapses to 1 (mirrors detection's required_per_bucket.max(1)).
     // Without this guard the preview would emit zero kept items, which would
     // contradict what detection reports on first open.
     #[test]
@@ -5870,7 +5870,7 @@ mod no_substat_protect_all_tests {
     fn sold(id: i64, slot: i64, set: i64, rank: i64, rarity: i64, faction: i64) -> SafeguardWasmCandidateIn {
         SafeguardWasmCandidateIn {
             item_key: id,
-            group_key: safeguard_group_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
+            bucket_key: safeguard_bucket_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
             is_sold: true,
             artifact: make_artifact(id, slot, set, rank, rarity, faction),
         }
@@ -5880,14 +5880,14 @@ mod no_substat_protect_all_tests {
     fn kept(id: i64, slot: i64, set: i64, rank: i64, rarity: i64, faction: i64) -> SafeguardWasmCandidateIn {
         SafeguardWasmCandidateIn {
             item_key: id,
-            group_key: safeguard_group_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
+            bucket_key: safeguard_bucket_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
             is_sold: false,
             artifact: make_artifact(id, slot, set, rank, rarity, faction),
         }
     }
 
-    // Minimal prepared-rule for the grouped no-substat path (perSet + perFaction).
-    fn make_grouped_rule(required_per_group: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
+    // Minimal prepared-rule for the bucketed no-substat path (perSet + perFaction).
+    fn make_bucketed_rule(required_per_bucket: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
         SafeguardWasmPreparedRule {
             weight_main_stat_by_rank: false,
             main_stat_rank_weight_factor: 1.0,
@@ -5902,7 +5902,7 @@ mod no_substat_protect_all_tests {
                 main_stats: vec![],
                 factions: vec![],
             },
-            required_per_group,
+            required_per_bucket,
             activation: SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS.to_string(),
             rule_active: true,
             count_mode: SafeguardWasmCountMode {
@@ -5921,13 +5921,13 @@ mod no_substat_protect_all_tests {
             weights: BTreeMap::new(),
             set_includes: std::iter::once(set).collect(),
             set_excludes: std::collections::HashSet::new(),
-            expected_groups: vec![],
+            expected_buckets: vec![],
         }
     }
 
     // Minimal prepared-rule for the per-rule no-substat path.
-    fn make_per_rule_rule(required_per_group: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
-        let mut r = make_grouped_rule(required_per_group, slot, set);
+    fn make_per_rule_rule(required_per_bucket: i64, slot: i64, set: i64) -> SafeguardWasmPreparedRule {
+        let mut r = make_bucketed_rule(required_per_bucket, slot, set);
         r.count_mode = SafeguardWasmCountMode {
             per_rule: true,
             per_set: false,
@@ -5938,7 +5938,7 @@ mod no_substat_protect_all_tests {
         r
     }
 
-    // ── grouped path ──────────────────────────────────────────────────────────
+    // ── bucketed path ──────────────────────────────────────────────────────────
 
     #[test]
     fn grouped_no_substat_all_sold_protected_when_below_quota() {
@@ -5954,7 +5954,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(5, slot, set);
+        let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -5977,7 +5977,7 @@ mod no_substat_protect_all_tests {
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(5, slot, set);
+        let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6005,7 +6005,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(3, slot, set);
+        let rule = make_bucketed_rule(3, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6030,7 +6030,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(5, slot, set);
+        let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6056,7 +6056,7 @@ mod no_substat_protect_all_tests {
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         // requiredCount=5, kept=1 → needed=4 > 0 → all 3 sold are protected.
-        let rule = make_grouped_rule(5, slot, set);
+        let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6081,7 +6081,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(2, slot, set); // kept=3 satisfies requiredCount=2
+        let rule = make_bucketed_rule(2, slot, set); // kept=3 satisfies requiredCount=2
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6104,7 +6104,7 @@ mod no_substat_protect_all_tests {
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         // requiredCount=5, kept=1 → needed=4 > 0 → all sold protected.
-        let rule = make_grouped_rule(5, slot, set);
+        let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6130,7 +6130,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(1, slot, set); // kept=2 satisfies requiredCount=1
+        let rule = make_bucketed_rule(1, slot, set); // kept=2 satisfies requiredCount=1
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6191,7 +6191,7 @@ mod no_substat_protect_all_tests {
     fn grouped_with_substat_selects_only_top_scored() {
         // Confirm the fix did not break the substat (ranking) path: with a
         // substat filter and distinct scores the engine selects only the top-N
-        // (required_per_group = 3), not all 6.  Items need distinct scores to
+        // (required_per_bucket = 3), not all 6.  Items need distinct scores to
         // avoid the intentional tie-boundary extension in the ranking path.
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
@@ -6213,7 +6213,7 @@ mod no_substat_protect_all_tests {
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(3, slot, set);
+        let rule = make_bucketed_rule(3, slot, set);
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
@@ -6259,7 +6259,7 @@ mod no_substat_protect_all_tests {
         let mut protected_state: Vec<bool> = vec![false; candidates.len()];
         protected_state[4] = true;
         protected_state[5] = true;
-        let mut rule = make_grouped_rule(3, slot, set);
+        let mut rule = make_bucketed_rule(3, slot, set);
         rule.ignore_previous_safeguards = true;
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
@@ -6300,7 +6300,7 @@ mod no_substat_protect_all_tests {
         let mut protected_state: Vec<bool> = vec![false; candidates.len()];
         protected_state[4] = true;
         protected_state[5] = true;
-        let mut rule = make_grouped_rule(3, slot, set);
+        let mut rule = make_bucketed_rule(3, slot, set);
         rule.ignore_previous_safeguards = false;
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
@@ -6331,7 +6331,7 @@ mod no_substat_protect_all_tests {
         let mut protected_state: Vec<bool> = vec![false; candidates.len()];
         protected_state[4] = true;
         protected_state[5] = true;
-        let mut rule = make_grouped_rule(3, slot, set);
+        let mut rule = make_bucketed_rule(3, slot, set);
         rule.ignore_previous_safeguards = true;
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
@@ -6361,7 +6361,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let rule = make_grouped_rule(2, slot, set);
+        let rule = make_bucketed_rule(2, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
@@ -6384,7 +6384,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let mut rule = make_grouped_rule(2, slot, set);
+        let mut rule = make_bucketed_rule(2, slot, set);
         rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
         rule.improvement_chance_threshold = None;
         let improvement_chances = BTreeMap::new();
@@ -6401,7 +6401,7 @@ mod no_substat_protect_all_tests {
     #[test]
     fn grouped_quota_met_improvements_mode_with_threshold_emits_zero_missing_placeholder() {
         // Same satisfied-quota fixture, but a configured improvement-chance threshold
-        // keeps a zero-missing "improvement watch" placeholder alive per group.
+        // keeps a zero-missing "improvement watch" placeholder alive per bucket.
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -6412,7 +6412,7 @@ mod no_substat_protect_all_tests {
         ];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let mut rule = make_grouped_rule(2, slot, set);
+        let mut rule = make_bucketed_rule(2, slot, set);
         rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
         rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
         let improvement_chances = BTreeMap::new();
@@ -6420,11 +6420,11 @@ mod no_substat_protect_all_tests {
             &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
-        assert_eq!(result.entry.placeholders.len(), 1, "improvement watch must emit one placeholder per observed group");
+        assert_eq!(result.entry.placeholders.len(), 1, "improvement watch must emit one placeholder per observed bucket");
         let placeholder = &result.entry.placeholders[0];
         assert_eq!(placeholder.missing, 0, "satisfied quota reports missing=0, not a fake deficit");
-        // Watch placeholders must carry the group sample so corner probing has concrete dims.
-        let sample = placeholder.sample.as_ref().expect("watch placeholder must carry a group sample");
+        // Watch placeholders must carry the bucket sample so corner probing has concrete dims.
+        let sample = placeholder.sample.as_ref().expect("watch placeholder must carry a bucket sample");
         assert_eq!(sample.slot, slot);
         assert_eq!(sample.set, set);
         assert_eq!(sample.faction, faction);
@@ -6433,7 +6433,7 @@ mod no_substat_protect_all_tests {
     #[test]
     fn ranking_quota_met_improvements_mode_emits_zero_missing_placeholder() {
         // Ranking path (substats selected): quota met by kept top-N, improvements
-        // mode WITH a threshold still emits the watch placeholder for the group.
+        // mode WITH a threshold still emits the watch placeholder for the bucket.
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -6453,7 +6453,7 @@ mod no_substat_protect_all_tests {
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let mut rule = make_grouped_rule(2, slot, set);
+        let mut rule = make_bucketed_rule(2, slot, set);
         rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
         rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
         rule.selected_substats = vec![spd];
@@ -6465,14 +6465,14 @@ mod no_substat_protect_all_tests {
         assert_eq!(result.entry.deficit, 0);
         assert_eq!(result.entry.placeholders.len(), 1);
         assert_eq!(result.entry.placeholders[0].missing, 0);
-        // Ranking path also stamps the concrete group sample onto the watch placeholder.
-        assert!(result.entry.placeholders[0].sample.is_some(), "ranking watch placeholder must carry the group sample");
+        // Ranking path also stamps the concrete bucket sample onto the watch placeholder.
+        assert!(result.entry.placeholders[0].sample.is_some(), "ranking watch placeholder must carry the bucket sample");
     }
 
     #[test]
     fn ranking_quota_met_improvements_mode_without_threshold_emits_no_placeholders() {
         // Ranking path: without a threshold the improvements mode must degrade to
-        // anticipateGaps semantics — a satisfied group emits no placeholder at all.
+        // anticipateGaps semantics — a satisfied bucket emits no placeholder at all.
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
@@ -6492,7 +6492,7 @@ mod no_substat_protect_all_tests {
             .collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
-        let mut rule = make_grouped_rule(2, slot, set);
+        let mut rule = make_bucketed_rule(2, slot, set);
         rule.activation = SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS.to_string();
         rule.improvement_chance_threshold = None;
         rule.selected_substats = vec![spd];
@@ -6532,7 +6532,7 @@ mod no_substat_protect_all_tests {
         assert_eq!(result.entry.placeholders.len(), 1);
         assert_eq!(result.entry.placeholders[0].missing, 0);
         assert_eq!(result.entry.placeholders[0].reason, SAFEGUARD_REASON_GLOBAL);
-        // Per-rule mode has no observed group sample; the deterministic combination
+        // Per-rule mode has no observed bucket sample; the deterministic combination
         // default (first selected slot) must be attached for corner probing instead.
         let sample = result.entry.placeholders[0].sample.as_ref().expect("per-rule watch placeholder must carry the default sample");
         assert_eq!(sample.slot, slot, "default sample uses the first combination slot");
@@ -6552,7 +6552,7 @@ mod no_substat_protect_all_tests {
             main_stats: vec![],
             factions: vec![],
         };
-        let sample = SafeguardWasmGroupSample {
+        let sample = SafeguardWasmBucketSample {
             slot: ARTIFACT_TYPE_AMULET,
             set: 42,
             faction: 7,
@@ -6562,7 +6562,7 @@ mod no_substat_protect_all_tests {
         let make_placeholder = |watch_corners: Option<Vec<SafeguardWatchCornerOut>>| SafeguardWasmPlaceholderOut {
             combination: combination.clone(),
             missing: 0,
-            reason: SAFEGUARD_REASON_GROUP.to_string(),
+            reason: SAFEGUARD_REASON_BUCKET.to_string(),
             substat_variants: None,
             sample: Some(sample.clone()),
             watch_corners,
@@ -6580,8 +6580,8 @@ mod no_substat_protect_all_tests {
                 per_main_stat: false,
                 per_slot: false,
             },
-            per_group_required_count: 1,
-            groups_tracked: 1,
+            per_bucket_required_count: 1,
+            buckets_tracked: 1,
             required_count: 1,
             current_count: 1,
             projected_count: 1,

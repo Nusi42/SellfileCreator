@@ -51,7 +51,7 @@ pub struct SafeguardWasmArtifactIn {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct SafeguardWasmCandidateIn {
     pub(super) item_key: i64,
-    pub(super) group_key: String,
+    pub(super) bucket_key: String,
     pub(super) is_sold: bool,
     pub(super) artifact: SafeguardWasmArtifactIn,
 }
@@ -168,7 +168,7 @@ pub struct SafeguardWasmCandidateFastIn {
     #[serde(default)]
     pub item_key: Option<i64>,
     #[serde(default)]
-    pub group_key: Option<String>,
+    pub bucket_key: Option<String>,
     #[serde(default)]
     pub is_sold: bool,
     pub artifact: SafeguardWasmArtifactRawIn,

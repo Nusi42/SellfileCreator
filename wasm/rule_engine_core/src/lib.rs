@@ -43,7 +43,7 @@ pub mod rule_postprocess;
 // `use` (not `pub use`) — these types are internal to the core crate only.
 use hsf_builder_core::*;
 pub use safeguards::{
-    safeguard_group_key_from_parts,
+    safeguard_bucket_key_from_parts,
     safeguard_hash_combination,
     safeguard_normalize_set_selections,
     safeguard_normalize_substat_match,
@@ -61,7 +61,7 @@ pub use safeguards::{
     SafeguardWasmSnapshotOut,
     SafeguardWasmCombination,
     SafeguardWasmCountMode,
-    SafeguardWasmExpectedGroupsPayloadIn,
+    SafeguardWasmExpectedBucketsPayloadIn,
     ImprovementChanceThresholdIn,
 };
 pub use matcher_evaluator::{
@@ -98,21 +98,21 @@ pub use auto_rarity_runtime::{
 };
 pub use safeguards::{
     build_safeguard_rules_core,
-    SafeguardWasmExpectedGroupDomainIn,
+    SafeguardWasmExpectedBucketDomainIn,
     SafeguardWasmCountKeyArtifactIn,
     SafeguardWasmItemKeyArtifactIn,
-    SafeguardWasmGroupKeyArtifactIn,
+    SafeguardWasmBucketKeyArtifactIn,
     compute_safeguard_protection_core_pub,
     compute_safeguard_protection_from_collected_core,
     collect_and_compute_safeguard_protection_core,
-    normalize_safeguard_expected_group_domain_core,
+    normalize_safeguard_expected_bucket_domain_core,
     hash_safeguard_combination_core,
     sort_safeguard_substats_core,
     sort_safeguard_combination_core,
     build_safeguard_rules_core_typed,
     safeguard_count_key_core,
     safeguard_item_key_core,
-    safeguard_group_key_core,
+    safeguard_bucket_key_core,
 };
 pub use safeguards::fast_path_types::{
     SafeguardCollectRowFastIn,
@@ -1343,7 +1343,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
     options: EvaluateOptionsRaw,
     ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     parsed_safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    expected_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    expected_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     enabled: bool,
     now: f64,
     // Pre-computed improvement chances keyed by (artifact_id, 1-based rule_ordinal).

@@ -20,7 +20,7 @@
 import { buildPipelineContext } from './gearInspectorProbe.js'
 import {
   safeguardEffectiveCountModeForDisplay,
-  safeguardFocusGroupKeyFor,
+  safeguardFocusBucketKeyFor,
   type SafeguardDetectionEntry,
 } from '../../src/lib/safeguards.js'
 import { SafeguardSubstatMatch } from '../../src/lib/safeguards.js'
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   for (const c of candidates) {
     const art = artByKey.get(c.itemKey)
     if (!art) continue
-    const key = safeguardFocusGroupKeyFor(art, effMode) ?? '(none)'
+    const key = safeguardFocusBucketKeyFor(art, effMode) ?? '(none)'
     byFocusKey.set(key, (byFocusKey.get(key) ?? 0) + 1)
   }
   console.log(`\n[current focus buckets] (substat-blind — the bug: no substat segment)`)
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
       const art = artByKey.get(c.itemKey)
       if (!art) continue
       for (const b of c.substatBuckets ?? []) {
-        const key = `${safeguardFocusGroupKeyFor(art, rule.countMode, b.variant as never)}`
+        const key = `${safeguardFocusBucketKeyFor(art, rule.countMode, b.variant as never)}`
         subTotal.set(key, (subTotal.get(key) ?? 0) + 1)
         if (b.bucketRank > 0 && b.bucketRank <= req) subRankProtected.set(key, (subRankProtected.get(key) ?? 0) + 1)
         else if (b.isWithinQuota) subChanceProtected.set(key, (subChanceProtected.get(key) ?? 0) + 1)
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
         const rows = candidates
           .map((c) => {
             const art = artByKey.get(c.itemKey)
-            const b = c.substatBuckets?.find((x) => art && `${safeguardFocusGroupKeyFor(art, rule.countMode, x.variant as never)}` === sampleKey)
+            const b = c.substatBuckets?.find((x) => art && `${safeguardFocusBucketKeyFor(art, rule.countMode, x.variant as never)}` === sampleKey)
             return b && art ? { c, art, b } : null
           })
           .filter((x): x is NonNullable<typeof x> => x != null)

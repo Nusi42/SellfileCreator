@@ -255,7 +255,7 @@ const run = async (): Promise<void> => {
     }
     if (entry?.debug) {
       const d = entry.debug
-      console.log(`  debug: selectedSubstats=[${d.selectedSubstats.join(',')}] substatMatch=${d.substatMatch} requiredPerGroup=${d.requiredPerGroup}`)
+      console.log(`  debug: selectedSubstats=[${d.selectedSubstats.join(',')}] substatMatch=${d.substatMatch} requiredPerBucket=${d.requiredPerBucket}`)
       console.log(`  debug: bucketCandidateCount=${d.bucketCandidateCount} betterCandidateCount=${d.betterCandidateCount}`)
       console.log(`  debug: matchedSelectedNow=${d.matchedSelectedNow} maxAdditionEventsTo16=${d.maxAdditionEventsTo16} viableScenarioCount=${d.viableScenarioCount}`)
     }
@@ -323,7 +323,7 @@ const run = async (): Promise<void> => {
     const rank1Based = bucket.findIndex((b) => b.id === targetId) + 1
     const reqPerGroup = Number(TOP_ROW.requiredCount)
     console.log(`\n  -- Rule #112 "Protect: Artifacts (Top Row)" current-score ranking --`)
-    console.log(`  countKey=${targetCk}  requiredPerGroup=${reqPerGroup}  bucketSize=${bucket.length}`)
+    console.log(`  countKey=${targetCk}  requiredPerBucket=${reqPerGroup}  bucketSize=${bucket.length}`)
     console.log(`  TARGET current score=${(bucket.find((b) => b.id === targetId)?.score ?? 0).toFixed(4)}  rank=${rank1Based}/${bucket.length}  -> ${rank1Based > 0 && rank1Based <= reqPerGroup ? 'INSIDE top-N (protected)' : 'OUTSIDE top-N'}`)
     const lo = Math.max(0, reqPerGroup - 2)
     const hi = Math.min(bucket.length, reqPerGroup + 2)

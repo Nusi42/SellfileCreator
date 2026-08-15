@@ -75,7 +75,8 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   | sell file (the file) | Sellfile | one word, no space — never "Sell File"/"Sell-Datei" |
   | rolls / drops | Rolls / Drops | **intentional loanwords** |
   | safeguard mode buttons (Off / Protect / Anticipate / Improve) | Aus / Schützen / Vorbeugen / Verbessern (`safeguardsRuleMode*Short`) | long forms in `safeguardsRuleMode*`; README quotes the short button labels |
-  | group (safeguards sharing one required count) | Gruppe (`safeguardsGroup*`) | Note the collision with the count-scope wording ("group rank") — the same collision exists in English, where the product decision was to call the feature "group" anyway. |
+  | group (safeguards sharing one required count) | Gruppe (`safeguardsGroup*`) | |
+  | bucket (the per-slot/set/faction/main-stat slice a safeguard counts separately) | Topf (`*Bucket*` keys, "Topf-Rang") | Renamed from "Gruppe" so the word is free for safeguard groups. |
 
   de-DE **intentional loanwords** (do NOT "correct" to German): Set, SPD, Banner, Slot, Rolls, Drops. **"Gear" is NOT a loanword in de-DE** — it is translated to "Ausrüstung" everywhere (catalog, README, preset prose); the lone exception is the proper-noun series title "Gear-Cleanse-Videos". The whole **stat** family is also translated: stat→Wert, substat→Unterwert, main stat→Hauptwert (`statSPD` / `gear*` etc. TS **keys** stay English; `[[stat:…]]` tokens are untouched).
 

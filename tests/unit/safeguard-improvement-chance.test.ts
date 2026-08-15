@@ -154,7 +154,7 @@ test('returns a non-binary safeguard selection chance for upgradable gear', () =
   assert.equal(Boolean(chance?.hasMatchingSafeguard), true)
   // Single rule at index 0 → ordinal 1.
   assert.equal(chance?.ruleOrdinal, 1)
-  assert.equal(chance?.debug?.requiredPerGroup, 1)
+  assert.equal(chance?.debug?.requiredPerBucket, 1)
   assert.equal(chance?.debug?.selectedSubstats.join(','), String(StatVariant.SPD))
   assert.ok((chance?.chancePercent ?? 0) > 0, `expected > 0, got ${String(chance?.chancePercent)}`)
   assert.ok((chance?.chancePercent ?? 0) < 100, `expected < 100, got ${String(chance?.chancePercent)}`)

@@ -49,7 +49,7 @@ fn sold(id: i64, slot: i64, set: i64, faction: i64) -> SafeguardWasmCandidateIn 
     }];
     SafeguardWasmCandidateIn {
         item_key: id,
-        group_key: safeguard_group_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
+        bucket_key: safeguard_bucket_key_from_parts(slot, set, SAFEGUARD_MAIN_ANY, faction),
         is_sold: true,
         artifact: art,
     }
@@ -128,7 +128,7 @@ fn scan(
     compute_safeguard_protection_core(
         candidates,
         rules,
-        SafeguardWasmExpectedGroupsPayloadIn::default(),
+        SafeguardWasmExpectedBucketsPayloadIn::default(),
         true,
         0.0,
         // No improvement-chance gating: these tests are about the shared decision.
@@ -312,7 +312,7 @@ fn members_keep_their_own_filters_substats_and_counts() {
     ];
     let entries = scan(candidates, rules);
     // Its own count of 5 still shapes its feed; the group then keeps 1 of what arrived.
-    assert_eq!(entries[0].per_group_required_count, 5, "a member keeps its own count");
+    assert_eq!(entries[0].per_bucket_required_count, 5, "a member keeps its own count");
     assert_eq!(protected(&entries[0]), vec![1], "and never offers gear outside its filter");
 }
 

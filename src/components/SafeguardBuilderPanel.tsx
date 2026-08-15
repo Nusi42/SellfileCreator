@@ -175,7 +175,7 @@ import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import ClearIconButton, { CLEAR_BUTTON_STRUT_SX } from './ClearIconButton'
 import { ColorField } from './ColorField'
-import SafeguardCandidateRankList, { computeSafeguardFocusGroupLabel, SafeguardFocusGroupChip } from './SafeguardCandidateRankList'
+import SafeguardCandidateRankList, { computeSafeguardFocusBucketLabel, SafeguardFocusBucketChip } from './SafeguardCandidateRankList'
 import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { StatLabel } from './StatLabel'
@@ -325,10 +325,10 @@ export type SafeguardBuilderPanelProps = {
   // When provided, candidates whose itemKey is absent from this set are dimmed in the list
   // (they are currently hidden by the Gear Inspector filter).
   visibleItemKeys?: ReadonlySet<number> | null
-  // Controlled focus group for the weights flyout candidate list — App owns it so the focus persists
+  // Controlled focus bucket for the weights flyout candidate list — App owns it so the focus persists
   // across opens while the rule stays selected, and clears on selection change. Forwarded as-is.
-  candidateFocusGroupKey?: string | null
-  onCandidateFocusGroupKeyChange?: (key: string | null) => void
+  candidateFocusBucketKey?: string | null
+  onCandidateFocusBucketKeyChange?: (key: string | null) => void
   // Improvement chance percent (current rule) keyed by safeguard item key — shown left of the score.
   improvementChanceByItemKey?: ReadonlyMap<number, number> | null
   // Override instructions from the current note's safeguard-overrides block.
@@ -379,8 +379,8 @@ export default function SafeguardBuilderPanel({
   visibleItemKeys,
   safeguardOverridesInstructions,
   scoreCandidates,
-  candidateFocusGroupKey,
-  onCandidateFocusGroupKeyChange,
+  candidateFocusBucketKey,
+  onCandidateFocusBucketKeyChange,
   improvementChanceByItemKey,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
@@ -3272,7 +3272,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
             <IconButton
               size="small"
               // Attention target: App pulses this button after a gear-chip jump selects a safeguard,
-              // pointing the user at the weights flyout for the focused group. Mirrors note.toggle.
+              // pointing the user at the weights flyout for the focused bucket. Mirrors note.toggle.
               data-attention-id="safeguard.weights"
               aria-label={t('safeguardsSubstatWeightsLabel')}
               disabled={!hasSubstatSelection && !multiEditActive}
@@ -4166,7 +4166,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
           {/* Right column: candidate rank list — width computed from measured cell widths so it
               fits the list content without wasted space or clipping. */}
           <Box sx={{ flexShrink: 0, pl: 1.5 }}>
-            {/* Header row: "Candidates" label plus the focus-group chip. The chip sits here (outside
+            {/* Header row: "Candidates" label plus the focus-bucket chip. The chip sits here (outside
                 the list's scroll container) so it stays visible while the candidate list scrolls;
                 clearing it routes through the controlled focus handler. */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, minHeight: 24 }}>
@@ -4175,9 +4175,9 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                   {t('safeguardsCandidatesLabel')}
                 </Typography>
               </MarkdownTooltip>
-              <SafeguardFocusGroupChip
-                label={computeSafeguardFocusGroupLabel(
-                  candidateFocusGroupKey ?? null,
+              <SafeguardFocusBucketChip
+                label={computeSafeguardFocusBucketLabel(
+                  candidateFocusBucketKey ?? null,
                   popoverCandidates,
                   artifactsByItemKey,
                   // Match mode: must equal the mode App built the focus key with, or the lookup misses.
@@ -4189,7 +4189,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                   // no accessory slot is targeted, so the chip never names a meaningless faction.
                   effectiveCountMode,
                 )}
-                onClear={() => onCandidateFocusGroupKeyChange?.(null)}
+                onClear={() => onCandidateFocusBucketKeyChange?.(null)}
               />
               {/* Group view toggle — members only. Swaps the list for the whole group's pool
                   (every member's feed, ranked together, cut at the group's count) so "why was my
@@ -4237,8 +4237,8 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               {...(!hasAccessorySlot ? { suppressPerFactionInLabel: true } : {})}
               {...(onSelectCandidate ? { onSelectCandidate } : {})}
               {...(improvementChanceByItemKey != null ? { improvementChanceByItemKey } : {})}
-              {...(onCandidateFocusGroupKeyChange
-                ? { focusedGroupKey: candidateFocusGroupKey ?? null, onFocusedGroupKeyChange: onCandidateFocusGroupKeyChange }
+              {...(onCandidateFocusBucketKeyChange
+                ? { focusedBucketKey: candidateFocusBucketKey ?? null, onFocusedBucketKeyChange: onCandidateFocusBucketKeyChange }
                 : {})}
               // Members: sold-yet-in-quota rows read as "trimmed by the group" in the group's colour;
               // in the group view each pooled row also names the member that fed it.

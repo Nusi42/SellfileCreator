@@ -160,7 +160,7 @@ const main = async (): Promise<void> => {
   // Invariant: placeholders must represent real deficits only. Placeholder OBJECTS are
   // wasm-resident now (entries expose only placeholderCount/-Fingerprint), so the old
   // per-placeholder zero-missing scan cannot run in JS; the emission gate itself
-  // (`deficit_group > 0 || improvement_watch` in rule_engine_core safeguards/mod.rs)
+  // (`deficit_bucket > 0 || improvement_watch` in rule_engine_core safeguards/mod.rs)
   // structurally prevents the historic regression. What JS can still verify: a fully
   // covered entry (deficit 0) of a non-watch rule must carry no placeholders at all.
   for (const entry of detection.entries) {

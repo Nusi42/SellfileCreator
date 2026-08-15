@@ -126,7 +126,7 @@ export const AUTOSAVE_CUSTOM_GEAR_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted Recipe Builder / Safeguard Builder toggle selection
 export const BUILDER_MODE_STORAGE_KEY = 'sellfileCreator.builderMode.v1'
-// Per-group colour SCOPE (off / labels / everything) for stat-name, rarity, and slot colouring.
+// Per-bucket colour SCOPE (off / labels / everything) for stat-name, rarity, and slot colouring.
 // Replaces the former single colorStatsSlotsRarity boolean; no migration from old keys (default
 // 'everything'). The theme-menu master toggle just flips all three between off and everything.
 export const COLOR_SCOPE_STAT_KEY = 'sellfileCreator.colorScope.stat.v1'
@@ -148,10 +148,10 @@ export const COLOR_BLIND_MODE_KEY = 'sellfileCreator.colorBlindMode.v1'
 export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
 // Safeguard-rank overlay modes for the Gear Inspector grid cycle button.
-// 'off' hides the chip; 'rank' shows the global rank across the whole rule (#N); 'groupRank'
-// shows the rank within the piece's own count-group (slot/set/faction/main-stat scope); 'both'
-// shows global · group (#N · #M).
-export type SafeguardRankMode = 'off' | 'rank' | 'groupRank' | 'both'
+// 'off' hides the chip; 'rank' shows the global rank across the whole rule (#N); 'bucketRank'
+// shows the rank within the piece's own bucket (slot/set/faction/main-stat scope); 'both'
+// shows global · bucket (#N · #M).
+export type SafeguardRankMode = 'off' | 'rank' | 'bucketRank' | 'both'
 
 // MUI's mode key — MUI's ThemeProvider reads this synchronously at init. The STORED value is
 // only ever 'light' | 'dark' (MUI owns it). RSLH is layered on the dark base via a separate
@@ -757,10 +757,10 @@ export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips
 // Separate from BUILDER_SHOW_TAG_CHIPS_KEY (builder form) so the two can be toggled independently.
 // Toggled from the chips right-click context menu in both recipe and safeguard panels.
 export const BUILDER_SHOW_TAGS_IN_CHIPS_KEY = 'sellfileCreator.builder.showTagsInChips.v1'
-// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// Builder: persisted collapsed state for the 7 per-bucket collapsible sections
 // in the recipe builder panel.
 export const BUILDER_RECIPE_COLLAPSED_KEY = 'sellfileCreator.builder.recipeCollapsed.v1'
-// Builder: persisted collapsed state for the 7 per-group collapsible sections
+// Builder: persisted collapsed state for the 7 per-bucket collapsible sections
 // in the safeguard builder panel.
 export const BUILDER_SAFEGUARD_COLLAPSED_KEY = 'sellfileCreator.builder.safeguardCollapsed.v1'
 // Sellfile export: when enabled, dedupe merged rules before exporting/pushing the .hsf.

@@ -422,7 +422,7 @@ pub struct SafeguardCollectRowIn {
 pub struct SafeguardCollectedCandidateOut {
     pub row_index: usize,
     pub item_key: i64,
-    pub group_key: String,
+    pub bucket_key: String,
     pub is_sold: bool,
 }
 
@@ -955,7 +955,7 @@ pub fn collect_safeguard_candidates_core(
         // Keep item-key derivation aligned with rule-item matching semantics.
         let item_key = resolve_collect_row_item_key(row);
         // Group key formatting is shared with safeguard parser/wasm exports.
-        let group_key = safeguard_group_key_from_parts(
+        let bucket_key = safeguard_bucket_key_from_parts(
             row.artifact.slot,
             row.artifact.set,
             row.artifact.main_stat,
@@ -969,7 +969,7 @@ pub fn collect_safeguard_candidates_core(
         candidates.push(SafeguardCollectedCandidateOut {
             row_index: idx,
             item_key,
-            group_key,
+            bucket_key,
             is_sold,
         });
     }

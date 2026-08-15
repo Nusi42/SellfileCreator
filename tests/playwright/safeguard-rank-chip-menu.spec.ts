@@ -6,7 +6,7 @@
 //
 // Ground-truth (from the headless gearInspectorProbe pipeline against the same fixtures):
 //   artifact 128768, lategame.sfc defaults (Lategame difficulty), um109288203_RSLHelper.db
-//   → the ranked "Protect: Speed" row is safeguardRules[1] (ordinal 2), group rank #46,
+//   → the ranked "Protect: Speed" row is safeguardRules[1] (ordinal 2), bucket rank #46,
 //     global rank #1636. Index 1: the Safeguards array opens with the "Speed" separator
 //     entry (index 0); this artifact ranks in the second Speed rule after it.
 import { test, expect, type Page } from './fixtures'
@@ -23,7 +23,7 @@ const TARGET_ARTIFACT_ID = 128768
 // the leading "Speed" separator entry occupies index 0 (separators keep their array slot
 // so rule indices stay aligned across the WASM boundary).
 const SPEED_RULE_IDX = 1
-// In groupRank mode the chip/menu show the count-group rank (#46), not the global rank (#2286).
+// In bucketRank mode the chip/menu show the bucket rank (#46), not the global rank (#2286).
 const EXPECTED_GROUP_RANK = '46'
 
 // Scroll the target card into the virtualized grid by sorting so it is near the top, then
@@ -45,9 +45,9 @@ const findTargetChip = async (page: Page) => {
 test('right-click rank menu jumps to the exact rule index and undims the chip', async ({ page }) => {
   // Loading the ~1.4 MB DB + running the full safeguard pipeline needs the heavy budget.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  // Seed the rank overlay ON (group-rank mode) before the app boots.
+  // Seed the rank overlay ON (bucket-rank mode) before the app boots.
   await page.addInitScript(([key]) => {
-    window.localStorage.setItem(key as string, 'groupRank')
+    window.localStorage.setItem(key as string, 'bucketRank')
   }, [GEAR_INSPECTOR_GRID_SAFEGUARD_RANK_MODE_KEY])
 
   await prepareApp(page)
@@ -77,7 +77,7 @@ test('right-click rank menu jumps to the exact rule index and undims the chip', 
 
   const menuItem = page.getByTestId(`safeguard-rank-menu-item-${SPEED_RULE_IDX}`)
   await expect(menuItem).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  // Sanity: this row is the Speed rule at group rank #46 (guards against rule-order drift).
+  // Sanity: this row is the Speed rule at bucket rank #46 (guards against rule-order drift).
   await expect(menuItem).toContainText('Protect: Speed')
   await expect(menuItem).toContainText(EXPECTED_GROUP_RANK)
 
@@ -87,6 +87,6 @@ test('right-click rank menu jumps to the exact rule index and undims the chip', 
   await expect(chip).toHaveAttribute('data-chip-dimmed', 'false', {
     timeout: PLAYWRIGHT_TIMEOUTS.expectDefault,
   })
-  // And it should now display the selected rule's group rank (#46).
+  // And it should now display the selected rule's bucket rank (#46).
   await expect(chip).toContainText(EXPECTED_GROUP_RANK)
 })

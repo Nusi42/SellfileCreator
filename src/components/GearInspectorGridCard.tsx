@@ -342,7 +342,7 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   recipeNames: Array<string | null>
   recipeFgColors?: Array<string | null>
   // Primary match chip jump. artifactId lets a safeguard primary match seed the weights-flyout focus
-  // group (so it behaves like the rank / improvement-chance chips).
+  // bucket (so it behaves like the rank / improvement-chance chips).
   onJumpToRule?: ((ruleIndex: number, recipeIdx: number | null, artifactId?: number) => void) | undefined
   // "Other matches" recipe chip jump — routes to THAT recipe, independent of the primary match.
   onJumpToRecipeMatch?: ((recipeIdx: number) => void) | undefined
@@ -435,12 +435,12 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const allowRecipeMatchJump = Boolean(!matchDetailsFrozen && typeof onJumpToRecipeMatch === 'function')
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
-    // Pass the card's artifactId so a safeguard primary match seeds the weights-flyout focus group.
+    // Pass the card's artifactId so a safeguard primary match seeds the weights-flyout focus bucket.
     const artifactId = Number(artifact?.id)
     onJumpToRule?.(primaryRuleIndex, primaryRecipeIndex ?? null, Number.isFinite(artifactId) ? artifactId : undefined)
   }
   // Wrapper for the primary GearInspectorRuleReferenceChip's onJump (signature has no artifactId):
-  // injects the card's artifactId so a safeguard primary match seeds the weights-flyout focus group,
+  // injects the card's artifactId so a safeguard primary match seeds the weights-flyout focus bucket,
   // matching the rank / improvement-chance chips. undefined when no handler so the chip stays inert.
   const handleRuleReferenceJump = onJumpToRule
     ? (ruleIndex: number, recipeIdx: number | null) => {

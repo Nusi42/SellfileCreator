@@ -200,10 +200,10 @@ export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE = -2 as const
 export const GEAR_INSPECTOR_SORT_KEY_NEWEST = -3 as const
 // Sorts by safeguard candidate rank: most-protected items (rank #1) sort first; unranked items last.
 export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK = -4 as const
-// Sorts by safeguard candidate group rank: best rank within the piece's own count-group
+// Sorts by safeguard candidate bucket rank: best rank within the piece's own bucket
 // (slot / set / faction / main-stat scope) first; unranked items last. Distinct from the global
 // safeguard rank above, which ranks across the whole rule rather than within each group.
-export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK = -5 as const
+export const GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK = -5 as const
 
 export type GearInspectorSortKey =
   | StatVariant
@@ -211,14 +211,14 @@ export type GearInspectorSortKey =
   | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE
   | typeof GEAR_INSPECTOR_SORT_KEY_NEWEST
   | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
-  | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK
+  | typeof GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK
 
 export const isGearInspectorSyntheticSortKey = (key: number): boolean => (
   key === GEAR_INSPECTOR_SORT_KEY_LAST_USAGE
   || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE
   || key === GEAR_INSPECTOR_SORT_KEY_NEWEST
   || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK
-  || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK
+  || key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK
 )
 
 export type GearInspectorSubstatSortSpec = {
@@ -242,9 +242,9 @@ export type GearInspectorSubstatSortSpec = {
   // Optional artifact-id keyed safeguard rank map used by GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK.
   // Value is the best (lowest) safeguard candidate rank across active rules; null = not ranked.
   safeguardRankByArtifactId?: ReadonlyMap<number, number | null>
-  // Optional artifact-id keyed safeguard group rank map used by GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK.
-  // Value is the best (lowest) candidate rank within the piece's own count-group; null = not ranked.
-  safeguardGroupRankByArtifactId?: ReadonlyMap<number, number | null>
+  // Optional artifact-id keyed safeguard bucket rank map used by GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK.
+  // Value is the best (lowest) candidate rank within the piece's own bucket; null = not ranked.
+  safeguardBucketRankByArtifactId?: ReadonlyMap<number, number | null>
 }
 
 // Weighting constants are exported so UI + persistence + sort logic share a single source of truth.
@@ -505,16 +505,16 @@ export function compareGearInspectorPreviewRowsBySubstats(
       return (left - right) * perKeyMultiplier
     }
 
-    if (key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK) {
-      // Same semantics as the global rank, but scoped to the piece's own count-group.
-      // Reuse the rank helper since group ranks share the "lower is better, 0/missing = null" contract.
-      const left = safeguardRankValueForSort(a, spec.safeguardGroupRankByArtifactId)
-      const right = safeguardRankValueForSort(b, spec.safeguardGroupRankByArtifactId)
+    if (key === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK) {
+      // Same semantics as the global rank, but scoped to the piece's own bucket.
+      // Reuse the rank helper since bucket ranks share the "lower is better, 0/missing = null" contract.
+      const left = safeguardRankValueForSort(a, spec.safeguardBucketRankByArtifactId)
+      const right = safeguardRankValueForSort(b, spec.safeguardBucketRankByArtifactId)
       if (left == null && right == null) continue
       if (left == null) return 1
       if (right == null) return -1
       if (left === right) continue
-      // Group rank #1 = best within its group. Ascending by rank value; direction/flip still apply.
+      // Bucket rank #1 = best within its group. Ascending by rank value; direction/flip still apply.
       return (left - right) * perKeyMultiplier
     }
 

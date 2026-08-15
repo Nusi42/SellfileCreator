@@ -16,7 +16,7 @@ export function makeSafeguardRankCycleOptions(t: (key: string) => string): Reado
   return [
     // Order defines the click-through cycle: Off → Group → Safeguard → Both → Off.
     { value: 'off',       label: t('gearInspectorGridSafeguardRankModeOff')       },
-    { value: 'groupRank', label: t('gearInspectorGridSafeguardRankModeGroupRank') },
+    { value: 'bucketRank', label: t('gearInspectorGridSafeguardRankModeBucketRank') },
     { value: 'rank',      label: t('gearInspectorGridSafeguardRankModeRank')      },
     { value: 'both',      label: t('gearInspectorGridSafeguardRankModeBoth')      },
   ]
@@ -24,11 +24,11 @@ export function makeSafeguardRankCycleOptions(t: (key: string) => string): Reado
 
 /**
  * SSOT mapping from active rank mode to the tooltip-title i18n key. The tooltip
- * title states what the rows actually list (group rank, safeguard rank, or both),
+ * title states what the rows actually list (bucket rank, safeguard rank, or both),
  * distinct from the short button labels above. 'off' has no overlay/tooltip.
  */
 export const SAFEGUARD_RANK_TITLE_KEY_BY_MODE: Readonly<Record<Exclude<SafeguardRankMode, 'off'>, string>> = {
-  groupRank: 'safeguardRankTooltipTitleGroup',
+  bucketRank: 'safeguardRankTooltipTitleBucket',
   rank: 'safeguardRankTooltipTitleSafeguard',
   both: 'safeguardRankTooltipTitleBoth',
 }

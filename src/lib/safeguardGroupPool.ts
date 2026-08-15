@@ -13,7 +13,7 @@
  * own scope chips through the same focus-key helper the flyout's focus chip uses).
  */
 import {
-  safeguardFocusGroupKeyFor,
+  safeguardFocusBucketKeyFor,
   type SafeguardCandidateOut,
   type SafeguardDetectionArtifact,
   type SafeguardDetectionEntry,
@@ -84,7 +84,7 @@ export const buildSafeguardGroupPool = (
   const feederOrdinalByItemKey = new Map<number, number>()
   const candidates: SafeguardCandidateOut[] = ordered.map((piece, index) => {
     const artifact = artifacts.get(piece.itemKey)
-    const bucketKey = artifact ? (safeguardFocusGroupKeyFor(artifact, groupCountMode) ?? '') : ''
+    const bucketKey = artifact ? (safeguardFocusBucketKeyFor(artifact, groupCountMode) ?? '') : ''
     const bucketRank = (bucketCounters.get(bucketKey) ?? 0) + 1
     bucketCounters.set(bucketKey, bucketRank)
     feederOrdinalByItemKey.set(piece.itemKey, piece.feederOrdinal)

@@ -176,9 +176,9 @@ pub struct ComputeSafeguardProtectionInWire {
     pub candidates: Vec<SafeguardWasmCandidateFastIn>,
     // Resolved safeguard rules (per-level thresholds already collapsed to [f64; 4]).
     pub rules: Vec<SafeguardWasmRuleIn>,
-    // Optional expected-group wrapper (None when caller passes no precomputed groups).
+    // Optional expected-bucket wrapper (None when caller passes no precomputed buckets).
     #[serde(default)]
-    pub expected_groups_by_rule_id: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_buckets_by_rule_id: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     // Master toggle — when false the snapshot is built without scoring.
     pub enabled: bool,
     // Snapshot timestamp surfaced to the caller; sanitised downstream.
@@ -230,9 +230,9 @@ pub struct CollectAndComputeSafeguardProtectionInWire {
     pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     // Canonical safeguard rules (per-level thresholds already collapsed to [f64; 4]).
     pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    // Optional expected-group wrapper payload (None when caller passes no precomputed groups).
+    // Optional expected-bucket wrapper payload (None when caller passes no precomputed buckets).
     #[serde(default)]
-    pub expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_buckets_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     // Master toggle — when false the snapshot is built without scoring.
     pub enabled: bool,
     // Snapshot timestamp surfaced to the caller; sanitised downstream.
@@ -324,7 +324,7 @@ pub struct MergeSafeguardInjectedRulesInWire {
 
 // Top-level JSON-string payload accepted by evaluate_and_collect_safeguard_protection_value.
 // Bundles the five prior JsValue arguments (options, ignore-recipe list, safeguard rules,
-// expected-group wrapper, improvement-chance entries) into a single struct so the parse
+// expected-bucket wrapper, improvement-chance entries) into a single struct so the parse
 // is one serde_json::from_str call and deny_unknown_fields gates every top-level key.
 // `enabled` (bool) and `now` (f64) stay as separate primitive wasm-bindgen arguments
 // because wasm-bindgen marshals primitives natively without any JSON round-trip —
@@ -342,9 +342,9 @@ pub struct EvaluateAndCollectSafeguardProtectionInWire {
     pub ignore_safeguard_recipe_indices: Option<Vec<i64>>,
     // Canonical safeguard rules consumed by protection scoring.
     pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
-    // Optional expected-group wrapper (None when caller passes no precomputed groups).
+    // Optional expected-bucket wrapper (None when caller passes no precomputed buckets).
     #[serde(default)]
-    pub expected_groups_payload: Option<SafeguardWasmExpectedGroupsPayloadIn>,
+    pub expected_buckets_payload: Option<SafeguardWasmExpectedBucketsPayloadIn>,
     // Per-artifact / per-rule improvement-chance entries (None disables thresholding).
     #[serde(default)]
     pub improvement_chances: Option<Vec<ImprovementChanceInput>>,
@@ -386,7 +386,7 @@ impl<T: BTreeMapOutput> BTreeMapOutput for Option<T> {}
 // Register every output type that contains BTreeMap fields (directly or nested).
 impl BTreeMapOutput for rule_engine_core::PrepareHsfBuilderRecipeOut {}
 impl BTreeMapOutput for rule_engine_core::AutoFlexRarityRecipeIn {}
-impl BTreeMapOutput for rule_engine_core::SafeguardWasmExpectedGroupDomainIn {}
+impl BTreeMapOutput for rule_engine_core::SafeguardWasmExpectedBucketDomainIn {}
 
 // Shared serializer used for all wasm outputs that contain BTreeMap fields.
 // serialize_maps_as_objects ensures BTreeMap<K, V> round-trips as a plain JS
@@ -448,14 +448,14 @@ pub fn expand_auto_flex_rarity_branches_value(
 
 // --- Safeguard wasm exports (originally in safeguards/mod.rs) ---
 
-// Normalize safeguard expected-group domain arrays/maps in Rust so sorting,
+// Normalize safeguard expected-bucket domain arrays/maps in Rust so sorting,
 // de-duplication, and slot ordering remain single-sourced with matcher logic.
 #[wasm_bindgen]
-pub fn normalize_safeguard_expected_group_domain_value(payload: &str) -> Result<JsValue, JsValue> {
+pub fn normalize_safeguard_expected_bucket_domain_value(payload: &str) -> Result<JsValue, JsValue> {
     prewarm_for_json_parse(payload.len());
-    let parsed: SafeguardWasmExpectedGroupDomainIn = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid normalize-safeguard-expected-group-domain payload: {error}")))?;
-    let normalized = normalize_safeguard_expected_group_domain_core(parsed);
+    let parsed: SafeguardWasmExpectedBucketDomainIn = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid normalize-safeguard-expected-bucket-domain payload: {error}")))?;
+    let normalized = normalize_safeguard_expected_bucket_domain_core(parsed);
     // Use maps-as-objects so allowed_main_by_slot (BTreeMap<String, Vec<i64>>) emits plain JS object.
     wasm_to_js(&normalized)
 }
@@ -547,8 +547,8 @@ pub struct SafeguardCountKeyInWire {
     pub count_mode: SafeguardWasmCountMode,
 }
 
-// Expose safeguard count-key derivation so JS expected-group precomputation
-// uses the exact same grouping semantics as Rust detection scans.
+// Expose safeguard count-key derivation so JS expected-bucket precomputation
+// uses the exact same bucketing semantics as Rust detection scans.
 //
 // PERF NOTE (hot path): skip prewarm_for_json_parse — the payload is ~100 B,
 // far below the threshold where pre-warming helps.  See SafeguardCountKeyInWire
@@ -599,15 +599,15 @@ pub fn safeguard_item_key_value(payload: &str) -> Result<i64, JsValue> {
     Ok(safeguard_item_key_core(parsed_artifact))
 }
 
-// Expose group-key derivation so TS reuses Rust accessory-faction normalization.
+// Expose bucket-key derivation so TS reuses Rust accessory-faction normalization.
 //
 // PERF NOTE (hot path): skip prewarm_for_json_parse — the payload is ~80 B.
 // See SafeguardCountKeyInWire comment above for the broader perf rationale.
 #[wasm_bindgen]
-pub fn safeguard_group_key_value(payload: &str) -> Result<String, JsValue> {
-    let parsed_artifact: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard group-key artifact payload: {error}")))?;
-    Ok(safeguard_group_key_core(parsed_artifact))
+pub fn safeguard_bucket_key_value(payload: &str) -> Result<String, JsValue> {
+    let parsed_artifact: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid safeguard bucket-key artifact payload: {error}")))?;
+    Ok(safeguard_bucket_key_core(parsed_artifact))
 }
 
 // Run safeguard protection scoring against pre-collected candidates.
@@ -620,7 +620,7 @@ pub fn safeguard_group_key_value(payload: &str) -> Result<String, JsValue> {
 pub fn compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
-    // Single parse covers candidates / rules / expected-groups / improvement-chances.
+    // Single parse covers candidates / rules / expected-buckets / improvement-chances.
     let input: ComputeSafeguardProtectionInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid compute-safeguard-protection payload: {error}")))?;
     // Per-rule keying means each safeguard rule's threshold expansion consults
@@ -633,7 +633,7 @@ pub fn compute_safeguard_protection_value(payload: &str) -> Result<JsValue, JsVa
     let snapshot = compute_safeguard_protection_core_pub(
         input.candidates,
         input.rules,
-        input.expected_groups_by_rule_id,
+        input.expected_buckets_by_rule_id,
         input.enabled,
         input.now,
         improvement_chances,
@@ -670,7 +670,7 @@ pub fn collect_and_compute_safeguard_protection_value(payload: &str) -> Result<J
         input.recipe_modes,
         input.ignore_safeguard_recipe_indices,
         input.safeguard_rules,
-        input.expected_groups_payload,
+        input.expected_buckets_payload,
         input.enabled,
         input.now,
         improvement_chances,
@@ -1366,7 +1366,7 @@ pub fn evaluate_and_collect_safeguard_protection_value(
     // Pre-warm so the Vec growth during deserialization stays in a clean block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers options + ignored-recipes + safeguard rules + expected
-    // groups + improvement chances; deny_unknown_fields rejects extra fields from the TS side.
+    // buckets + improvement chances; deny_unknown_fields rejects extra fields from the TS side.
     let parsed: EvaluateAndCollectSafeguardProtectionInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-and-collect payload: {error}")))?;
     // Default options when caller omits the field entirely (null on the wire).
@@ -1382,7 +1382,7 @@ pub fn evaluate_and_collect_safeguard_protection_value(
         parsed_options,
         parsed.ignore_safeguard_recipe_indices,
         parsed.safeguard_rules,
-        parsed.expected_groups_payload,
+        parsed.expected_buckets_payload,
         enabled,
         now,
         improvement_chances,
@@ -1500,7 +1500,7 @@ mod compute_safeguard_protection_wire_tests {
     const FIXTURE: &str = r#"{
       "candidates": [{
         "itemKey": 1,
-        "groupKey": "5:19:1:0",
+        "bucketKey": "5:19:1:0",
         "isSold": false,
         "artifact": {
           "id": 1, "slot": 5, "set": 19, "rank": 6, "rarity": 6, "level": 16,
@@ -1522,9 +1522,9 @@ mod compute_safeguard_protection_wire_tests {
         "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
         "improvementChanceThreshold": null, "tags": []
       }],
-      "expectedGroupsByRuleId": {
-        "expectedGroupsByRuleId": {},
-        "expectedGroupDomain": null
+      "expectedBucketsByRuleId": {
+        "expectedBucketsByRuleId": {},
+        "expectedBucketDomain": null
       },
       "enabled": true,
       "now": 1234567890.0,
@@ -1547,7 +1547,7 @@ mod compute_safeguard_protection_wire_tests {
         // -- ComputeSafeguardProtectionInWire (wrapper) ----------------------
         assert_eq!(parsed.candidates.len(), 1, "candidates");
         assert_eq!(parsed.rules.len(), 1, "rules");
-        assert!(parsed.expected_groups_by_rule_id.is_some(), "expected_groups_by_rule_id");
+        assert!(parsed.expected_buckets_by_rule_id.is_some(), "expected_buckets_by_rule_id");
         assert!(parsed.enabled, "enabled");
         assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
         let chances = parsed.improvement_chances.as_ref().expect("improvement_chances populated");
@@ -1556,7 +1556,7 @@ mod compute_safeguard_protection_wire_tests {
         // -- SafeguardWasmCandidateFastIn (candidates[0]) --------------------
         let cand = &parsed.candidates[0];
         assert_eq!(cand.item_key, Some(1), "candidate.itemKey");
-        assert_eq!(cand.group_key.as_deref(), Some("5:19:1:0"), "candidate.groupKey");
+        assert_eq!(cand.bucket_key.as_deref(), Some("5:19:1:0"), "candidate.bucketKey");
         assert!(!cand.is_sold, "candidate.isSold");
 
         // -- SafeguardWasmArtifactRawIn (candidates[0].artifact) -------------
@@ -1681,14 +1681,14 @@ mod collect_safeguard_candidates_wire_tests {
 
 // Conformance tests for the collect_and_compute_safeguard_protection_value JSON wire shape.
 // Same pattern as the two sibling modules above; the fixture mirrors the combined
-// pipeline's payload (collect inputs + protection rules + expected groups + improvement chances).
+// pipeline's payload (collect inputs + protection rules + expected buckets + improvement chances).
 #[cfg(test)]
 mod collect_and_compute_safeguard_protection_wire_tests {
     use super::*;
 
     // Fully-populated fixture exercises every Option-bearing field: a collect row
     // with artifact + gearInspectorItem + baseMatch, a base RuleRaw, a resolved
-    // safeguard rule, an expectedGroupsPayload wrapper, and one improvement-chance entry.
+    // safeguard rule, an expectedBucketsPayload wrapper, and one improvement-chance entry.
     const FIXTURE: &str = r#"{
       "rows": [{
         "artifact": {
@@ -1717,9 +1717,9 @@ mod collect_and_compute_safeguard_protection_wire_tests {
         "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
         "improvementChanceThreshold": null, "tags": []
       }],
-      "expectedGroupsPayload": {
-        "expectedGroupsByRuleId": {},
-        "expectedGroupDomain": null
+      "expectedBucketsPayload": {
+        "expectedBucketsByRuleId": {},
+        "expectedBucketDomain": null
       },
       "enabled": true,
       "now": 1234567890.0,
@@ -1743,7 +1743,7 @@ mod collect_and_compute_safeguard_protection_wire_tests {
             .expect("ignoreSafeguardRecipeIndices populated");
         assert_eq!(ignored, &vec![0i64], "ignoreSafeguardRecipeIndices");
         assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules");
-        assert!(parsed.expected_groups_payload.is_some(), "expectedGroupsPayload");
+        assert!(parsed.expected_buckets_payload.is_some(), "expectedBucketsPayload");
         assert!(parsed.enabled, "enabled");
         assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
         let chances = parsed.improvement_chances.as_ref().expect("improvementChances populated");
@@ -1896,14 +1896,14 @@ mod sort_safeguard_combination_value_wire_tests {
 }
 
 #[cfg(test)]
-mod normalize_safeguard_expected_group_domain_value_wire_tests {
+mod normalize_safeguard_expected_bucket_domain_value_wire_tests {
     use super::*;
 
     const FIXTURE: &str = r#"{"slotOrder": [1, 2, 3], "accessoryCompatibleSetIds": [10, 20], "artifactCompatibleSetIds": [30, 40], "allowedMainBySlot": {"1": [1, 2], "2": [3, 4]}, "allFactionIds": [100, 200]}"#;
 
     #[test]
     fn full_fixture_deserializes() {
-        let _parsed: SafeguardWasmExpectedGroupDomainIn = serde_json::from_str(FIXTURE)
+        let _parsed: SafeguardWasmExpectedBucketDomainIn = serde_json::from_str(FIXTURE)
             .expect("fixture must deserialize");
         // Fields are private; fixture validity is confirmed by successful parse.
     }
@@ -1911,7 +1911,7 @@ mod normalize_safeguard_expected_group_domain_value_wire_tests {
     #[test]
     fn unknown_top_level_field_rejected() {
         let bad = r#"{"slotOrder": [], "accessoryCompatibleSetIds": [], "artifactCompatibleSetIds": [], "allowedMainBySlot": {}, "allFactionIds": [], "bogus": 1}"#;
-        let r: Result<SafeguardWasmExpectedGroupDomainIn, _> = serde_json::from_str(bad);
+        let r: Result<SafeguardWasmExpectedBucketDomainIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
@@ -2171,8 +2171,8 @@ mod build_safeguard_rules_value_wire_tests {
         assert_eq!(entry.get("ri").and_then(|v| v.as_str()), Some("demo"), "entry.ri (ruleId)");
         assert_eq!(entry.get("ro").and_then(|v| v.as_i64()), Some(1), "entry.ro (ruleOrdinal)");
         assert_eq!(entry.get("ra").and_then(|v| v.as_str()), Some("protectExisting"), "entry.ra (ruleActivation)");
-        assert_eq!(entry.get("pgc").and_then(|v| v.as_i64()), Some(1), "entry.pgc (perGroupRequiredCount)");
-        assert_eq!(entry.get("gt").and_then(|v| v.as_i64()), Some(1), "entry.gt (groupsTracked)");
+        assert_eq!(entry.get("pgc").and_then(|v| v.as_i64()), Some(1), "entry.pgc (perBucketRequiredCount)");
+        assert_eq!(entry.get("gt").and_then(|v| v.as_i64()), Some(1), "entry.gt (bucketsTracked)");
         assert_eq!(entry.get("rc").and_then(|v| v.as_i64()), Some(1), "entry.rc (requiredCount)");
         assert_eq!(entry.get("cc").and_then(|v| v.as_i64()), Some(1), "entry.cc (currentCount)");
         assert_eq!(entry.get("pc").and_then(|v| v.as_i64()), Some(1), "entry.pc (projectedCount)");
@@ -2419,7 +2419,7 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
     use super::*;
 
     // Fully-populated fixture covers every wrapper field plus the nested wire
-    // structs (EvaluateOptionsRaw, SafeguardWasmRuleIn, SafeguardWasmExpectedGroupsPayloadIn,
+    // structs (EvaluateOptionsRaw, SafeguardWasmRuleIn, SafeguardWasmExpectedBucketsPayloadIn,
     // ImprovementChanceInput).  When a field is added to any nested type, this
     // fixture AND the assertions below MUST be updated in lockstep.
     const FIXTURE: &str = r#"{
@@ -2439,9 +2439,9 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
         "substats": [5], "substatMatch": "any", "substatWeights": { "5": 1.0 },
         "improvementChanceThreshold": null, "tags": []
       }],
-      "expectedGroupsPayload": {
-        "expectedGroupsByRuleId": {},
-        "expectedGroupDomain": {
+      "expectedBucketsPayload": {
+        "expectedBucketsByRuleId": {},
+        "expectedBucketDomain": {
           "slotOrder": [1, 2, 3, 4, 5, 6],
           "accessoryCompatibleSetIds": [],
           "artifactCompatibleSetIds": [19],
@@ -2469,7 +2469,7 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
 
         assert_eq!(parsed.ignore_safeguard_recipe_indices.as_ref().map(|v| v.as_slice()), Some([4i64, 5].as_slice()), "ignoreSafeguardRecipeIndices");
         assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules length");
-        assert!(parsed.expected_groups_payload.is_some(), "expectedGroupsPayload populated");
+        assert!(parsed.expected_buckets_payload.is_some(), "expectedBucketsPayload populated");
 
         // -- safeguardRules[0] (SafeguardWasmRuleIn) -----------------------
         let rule = &parsed.safeguard_rules[0];
@@ -2709,16 +2709,16 @@ mod safeguard_item_key_value_wire_tests {
     }
 }
 
-// Conformance tests for the safeguard_group_key_value JSON wire shape.  Payload
-// deserializes directly into SafeguardWasmGroupKeyArtifactIn.  Field accessors
+// Conformance tests for the safeguard_bucket_key_value JSON wire shape.  Payload
+// deserializes directly into SafeguardWasmBucketKeyArtifactIn.  Field accessors
 // are private to the safeguards module so value-level asserts route through
-// safeguard_group_key_core, which formats the deterministic group-key string.
+// safeguard_bucket_key_core, which formats the deterministic bucket-key string.
 #[cfg(test)]
-mod safeguard_group_key_value_wire_tests {
+mod safeguard_bucket_key_value_wire_tests {
     use super::*;
 
     // Fully-populated fixture covers every declared field on
-    // SafeguardWasmGroupKeyArtifactIn.  Slot 7 (Ring) is an accessory slot so
+    // SafeguardWasmBucketKeyArtifactIn.  Slot 7 (Ring) is an accessory slot so
     // the faction stays in the key; non-accessory slots collapse faction to 0.
     const FIXTURE: &str = r#"{
       "slot": 7,
@@ -2729,33 +2729,33 @@ mod safeguard_group_key_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(FIXTURE)
+        let parsed: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(FIXTURE)
             .expect("fully-populated fixture must deserialize");
         // Round-trip via the SSOT helper so the test catches drift in either the
-        // wire shape OR the group-key formatter.  Format is "slot:set:main:faction".
-        assert_eq!(safeguard_group_key_core(parsed), "7:19:1:1", "ring slot keeps faction in group key");
+        // wire shape OR the bucket-key formatter.  Format is "slot:set:main:faction".
+        assert_eq!(safeguard_bucket_key_core(parsed), "7:19:1:1", "ring slot keeps faction in bucket key");
 
         // Cross-check the non-accessory faction-collapse path (helmet = slot 1).
         let artifact = r#"{ "slot": 1, "set": 1, "faction": 1, "mainStat": 0 }"#;
-        let parsed2: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(artifact)
+        let parsed2: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(artifact)
             .expect("artifact fixture (variant-number mainStat) must deserialize");
         // Helmet slot 1 collapses faction to 0 inside safeguard_normalized_faction_for_slot.
-        assert_eq!(safeguard_group_key_core(parsed2), "1:1:0:0", "artifact slot collapses faction to 0");
+        assert_eq!(safeguard_bucket_key_core(parsed2), "1:1:0:0", "artifact slot collapses faction to 0");
 
         // Cross-check the omitted-mainStat path (defaults to None → SAFEGUARD_MAIN_ANY).
         // Ring (slot 7) keeps faction so the test confirms BOTH the faction
         // pass-through AND the absent-mainStat fallback at the same time.
         let no_main = r#"{ "slot": 7, "set": 19, "faction": 2 }"#;
-        let parsed3: SafeguardWasmGroupKeyArtifactIn = serde_json::from_str(no_main)
+        let parsed3: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(no_main)
             .expect("omitted-mainStat fixture must deserialize");
-        assert_eq!(safeguard_group_key_core(parsed3), "7:19:-1:2", "omitted mainStat falls back to SAFEGUARD_MAIN_ANY");
+        assert_eq!(safeguard_bucket_key_core(parsed3), "7:19:-1:2", "omitted mainStat falls back to SAFEGUARD_MAIN_ANY");
     }
 
     // deny_unknown_fields gate — strict struct rejects unknown top-level keys.
     #[test]
     fn unknown_top_level_field_rejected() {
         let bad = r#"{"slot":1,"set":1,"bogus":1}"#;
-        let r: Result<SafeguardWasmGroupKeyArtifactIn, _> = serde_json::from_str(bad);
+        let r: Result<SafeguardWasmBucketKeyArtifactIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
@@ -2763,7 +2763,7 @@ mod safeguard_group_key_value_wire_tests {
 // Conformance tests for the safeguard_count_key_value JSON wire shape.  Payload
 // is wrapped in SafeguardCountKeyInWire { artifact, count_mode } because the
 // historical signature took two JsValue args.  Wrapper carries deny_unknown_fields;
-// value-level asserts round-trip via safeguard_count_key_core (group-key formatter).
+// value-level asserts round-trip via safeguard_count_key_core (bucket-key formatter).
 #[cfg(test)]
 mod safeguard_count_key_value_wire_tests {
     use super::*;

@@ -1,7 +1,7 @@
 // Improvement-watch corner synthesis for `anticipateImprovements` safeguards that carry
 // an improvement-chance threshold.
 //
-// Detection leaves zero-missing "watch" placeholders on quota-satisfied count-groups.
+// Detection leaves zero-missing "watch" placeholders on quota-satisfied buckets.
 // Emitted as-is those would over-protect: the merged HSF rules would keep EVERY
 // pattern-matching drop regardless of its improvement chance. This module post-processes
 // the detection snapshot instead: for each watch placeholder it searches the minimal
@@ -14,7 +14,7 @@
 // Perf history (measured 2026-07-04 on the reference workload account-d, lategame tier,
 // all rules on anticipateImprovements; instrumentation since removed): attach cost went
 // 36.2 s → 34.0 s with the value-independent synthetic gains + shared per-cell memo and
-// the cross-group corner cache (the cross-group dedupe ceiling was only 2.2% — 519k of
+// the cross-bucket corner cache (the cross-bucket dedupe ceiling was only 2.2% — 519k of
 // 530.7k probed cells were genuinely distinct), then → 25.1 s after skipping the
 // redundant d=1 lead profile, coarsening the λ search to 4 iterations and switching the
 // integer descent to per-component binary search (total chance recursions 7.09M → 4.50M;
@@ -36,11 +36,11 @@ use super::{
         SyntheticBoundaries, UpgradeScenario, ROLL_MILESTONES,
     },
     // Wire structs and SSOT helpers from mod.rs.
-    safeguard_combinations, safeguard_default_group_sample,
+    safeguard_combinations, safeguard_default_bucket_sample,
     safeguard_is_activation_anticipate_improvements, safeguard_normalize_substat_match,
     safeguard_placeholder_substat_possible, safeguard_slot_substat_filter,
     safeguard_substat_min_count, safeguard_threshold_slot_for_level, safeguard_variant_to_sub,
-    safeguard_weight_for_variant, SafeguardWasmCombination, SafeguardWasmGroupSample,
+    safeguard_weight_for_variant, SafeguardWasmCombination, SafeguardWasmBucketSample,
     SafeguardWasmPlaceholderOut, SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
     SafeguardWatchCornerOut, SafeguardWatchCornerSubstatOut,
 };
@@ -87,11 +87,11 @@ use super::SAFEGUARD_SUBSTAT_COMBINATION_CAP as WATCH_SUBSET_CAP;
 const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
 // Keep-biased boundary-quantization dial (normalized-score units; 0.0 = bit-exact path).
 // The boundary challenger's projected score is FLOORED onto this grid before it feeds
-// both the reduced probe scenario and the cross-group cache signature (see
+// both the reduced probe scenario and the cross-bucket cache signature (see
 // extract_synthetic_boundaries for why quantizing the probe input itself keeps cache
 // sharing sound, and why flooring is keep-biased: lower boundary → easier selection →
 // corner floors equal-or-lower → equal-or-more keeps, never extra sells). Coarser values
-// collapse more groups onto shared cache cells at the cost of a slightly wider keep-net.
+// collapse more buckets onto shared cache cells at the cost of a slightly wider keep-net.
 // Default from the 2026-07-04 coarseness study (account-d + um12345678, lategame,
 // all-improve; boundary-score distribution n=17.5k, min 1.0 / median 4.06 / p95 10.8):
 // 0.05 ≈ 1.2% of the median is the coarsest grid whose kept-drift stays single-digit on
@@ -100,22 +100,22 @@ const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
 // bar. Finer grids (0.005–0.02) showed no measurable speedup.
 const WATCH_BOUNDARY_QUANTUM: f64 = 0.05;
 
-// ─── cross-group probe planning ──────────────────────────────────────────────
+// ─── cross-bucket probe planning ──────────────────────────────────────────────
 
 // Probe context key: everything OUTSIDE the boundary axis and the (rarity, level,
 // subset) cell axes that can change a probe's outcome — the owning rule (its scenarios
 // carry the weights, count modes, substat gates, required counts; its thresholds are
-// level-indexed), the group's slot/main (legal substat pools, scoring, tie-breaks) and
-// the candidate rank (fallback gains, tie-breaks, boundary extraction). The group
+// level-indexed), the bucket's slot/main (legal substat pools, scoring, tie-breaks) and
+// the candidate rank (fallback gains, tie-breaks, boundary extraction). The bucket
 // sample's set/faction are deliberately absent: the multi-boundary leaf never consults
 // challenger buckets by count key, and nothing else in the recursion reads them.
 type WatchContextKey = (i64, i64, i64, i64); // (rule_ordinal, slot, main_stat, rank)
 
-// Per-scenario boundary signature of one group at one rank — the triple form
+// Per-scenario boundary signature of one bucket at one rank — the triple form
 // (projected-score thousandths, main_stat, rank; None = bucket below quota → always
 // selected) produced by extract_synthetic_boundaries. Selection depends on the full
 // challenger bucket ONLY through the boundary (equivalence argument documented at
-// extract_synthetic_boundaries), so groups with different challenger lists but equal
+// extract_synthetic_boundaries), so buckets with different challenger lists but equal
 // signatures share one boundary INDEX below — and therefore every probe result.
 type WatchBoundarySignature = Vec<Option<(i64, i64, i64)>>;
 
@@ -124,16 +124,16 @@ type WatchCellAxes = (i64, Vec<i64>, i64);
 
 // All probe work sharing one context: the distinct boundary vectors (indexed, with the
 // first-seen extraction as the representative — its exact challenger scores serve every
-// signature-equal group, the same sub-milli tolerance the signature rounding always
+// signature-equal bucket, the same sub-milli tolerance the signature rounding always
 // implied) and the cells each boundary index needs. The probe phase walks `cells` once
 // per cell, evaluating ALL needed boundary indices in one traversal via
 // compute_synthetic_chance_multi — the boundary axis costs vector lanes, not tree walks.
 struct WatchContext<'a> {
     // Scenario refs of the owning rule (the probe leaf reads gates/weights from these).
     scenarios: &'a [&'a UpgradeScenario],
-    // First-seen group sample: the probe artifact template for every cell in this
+    // First-seen bucket sample: the probe artifact template for every cell in this
     // context (set/faction are inert here — see WatchContextKey).
-    sample: SafeguardWasmGroupSample,
+    sample: SafeguardWasmBucketSample,
     // Rule-scoped per-level thresholds (the context key pins the rule ordinal).
     thresholds: [f64; 4],
     // Distinct boundary vectors in first-seen order + the signature intern map.
@@ -158,14 +158,14 @@ struct PlaceholderPlan {
 
 struct PlaceholderProbePlan {
     rule_ordinal: i64,
-    // Context-key dims (slot/main from the group sample) to relocate the contexts.
+    // Context-key dims (slot/main from the bucket sample) to relocate the contexts.
     sample_slot: i64,
     sample_main: i64,
     weights: BTreeMap<i64, f64>,
     subsets: Vec<Vec<i64>>,
     ranks: Vec<i64>,
     rarities: Vec<i64>,
-    // Boundary index of this group within each rank's context.
+    // Boundary index of this bucket within each rank's context.
     boundary_index_by_rank: BTreeMap<i64, usize>,
 }
 
@@ -321,10 +321,10 @@ fn resolve_watch_axis(selection: &[i64], min: i64, max: i64, defaults: &[i64]) -
     axis
 }
 
-// Physically-possible probe substat pool for the group's dimensions: dedupe, drop
+// Physically-possible probe substat pool for the bucket's dimensions: dedupe, drop
 // wildcard/roll-count sentinels, exclude the concrete mainstat, and respect the
 // slot's legal substat table (sample slots are always concrete → single-slot filter).
-fn resolve_watch_substat_pool(source: &[i64], sample: &SafeguardWasmGroupSample) -> Vec<i64> {
+fn resolve_watch_substat_pool(source: &[i64], sample: &SafeguardWasmBucketSample) -> Vec<i64> {
     let slot_filter = safeguard_slot_substat_filter(&[sample.slot]);
     let mut pool = Vec::<i64>::new();
     for &variant in source {
@@ -367,12 +367,12 @@ fn plan_watch_placeholder<'a>(
     if scenarios.is_empty() {
         return unviable;
     }
-    // Group dimensions: prefer the detection-attached sample; legacy zero-missing
+    // Bucket dimensions: prefer the detection-attached sample; legacy zero-missing
     // placeholders without one fall back to the deterministic combination default.
     let sample = placeholder
         .sample
         .clone()
-        .unwrap_or_else(|| safeguard_default_group_sample(combination));
+        .unwrap_or_else(|| safeguard_default_bucket_sample(combination));
     // Rank/rarity probe axes from the rule combination, clamped to the watch windows.
     let ranks = resolve_watch_axis(
         &combination.ranks,
@@ -416,8 +416,8 @@ fn plan_watch_placeholder<'a>(
     let weights = rule.substat_weights.clone().unwrap_or_default();
     // Keep only the top-priority subsets so probe cost and export size stay bounded.
     let subsets = rank_and_cap_subsets(subsets, &weights, WATCH_SUBSET_CAP);
-    // Per rank: extract this group's boundary signature, intern it in the rank's
-    // context (creating the context with this group's sample as the probe template on
+    // Per rank: extract this bucket's boundary signature, intern it in the rank's
+    // context (creating the context with this bucket's sample as the probe template on
     // first sight) and register every (level, subset, rarity) cell under the index.
     let mut boundary_index_by_rank = BTreeMap::<i64, usize>::new();
     for &rank in &ranks {
@@ -608,7 +608,7 @@ fn assemble_watch_corners(
         };
         for &level in &WATCH_LEVELS {
             for subset in &probe.subsets {
-                // Collect this cell's reachable rarities under the group's boundary.
+                // Collect this cell's reachable rarities under the bucket's boundary.
                 let per_rarity: Vec<(i64, Vec<Vec<i64>>)> = probe
                     .rarities
                     .iter()
@@ -927,7 +927,7 @@ mod improvement_watch_tests {
     };
     use crate::{
         TestItemRaw, ARTIFACT_TYPE_BOOTS, SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
-        SAFEGUARD_REASON_GROUP, STAT_VARIANT_ACC, STAT_VARIANT_CR, STAT_VARIANT_HP_PERCENT,
+        SAFEGUARD_REASON_BUCKET, STAT_VARIANT_ACC, STAT_VARIANT_CR, STAT_VARIANT_HP_PERCENT,
         STAT_VARIANT_RES, STAT_VARIANT_SPD,
     };
 
@@ -936,7 +936,7 @@ mod improvement_watch_tests {
     // Synthetic probe artifact factory shared by the test oracles (mirrors the
     // production template in probe_watch_context).
     fn make_probe_artifact(
-        sample: &SafeguardWasmGroupSample,
+        sample: &SafeguardWasmBucketSample,
         rank: i64,
         rarity: i64,
         level: i64,
@@ -972,7 +972,7 @@ mod improvement_watch_tests {
     // single-boundary reduced scenarios (reference path for equivalence assertions).
     fn probe_floors_scalar(
         subset: &[i64],
-        sample: &SafeguardWasmGroupSample,
+        sample: &SafeguardWasmBucketSample,
         rank: i64,
         rarity: i64,
         level: i64,
@@ -1078,7 +1078,7 @@ mod improvement_watch_tests {
     // Snapshot factory: one entry (ordinal 1) holding one zero-missing watch placeholder.
     fn make_snapshot(rule: &SafeguardWasmRuleIn, extra_placeholders: Vec<SafeguardWasmPlaceholderOut>) -> SafeguardWasmSnapshotOut {
         let combination = rule.combination.clone().unwrap_or_default();
-        let sample = SafeguardWasmGroupSample {
+        let sample = SafeguardWasmBucketSample {
             slot: ARTIFACT_TYPE_BOOTS,
             set: TEST_SET,
             faction: 0,
@@ -1087,7 +1087,7 @@ mod improvement_watch_tests {
         let mut placeholders = vec![SafeguardWasmPlaceholderOut {
             combination: combination.clone(),
             missing: 0,
-            reason: SAFEGUARD_REASON_GROUP.to_string(),
+            reason: SAFEGUARD_REASON_BUCKET.to_string(),
             substat_variants: Some(vec![STAT_VARIANT_SPD]),
             sample: Some(sample),
             watch_corners: None,
@@ -1109,8 +1109,8 @@ mod improvement_watch_tests {
                     per_main_stat: false,
                     per_slot: false,
                 },
-                per_group_required_count: 1,
-                groups_tracked: 1,
+                per_bucket_required_count: 1,
+                buckets_tracked: 1,
                 required_count: 1,
                 current_count: 1,
                 projected_count: 1,
@@ -1385,7 +1385,7 @@ mod improvement_watch_tests {
         let deficit_placeholder = SafeguardWasmPlaceholderOut {
             combination: rules[0].combination.clone().unwrap_or_default(),
             missing: 2,
-            reason: SAFEGUARD_REASON_GROUP.to_string(),
+            reason: SAFEGUARD_REASON_BUCKET.to_string(),
             substat_variants: Some(vec![STAT_VARIANT_SPD]),
             sample: None,
             watch_corners: None,
@@ -1540,7 +1540,7 @@ mod improvement_watch_tests {
         let rows = vec![make_row(1, 6, 5, 16, 20.7)];
         let (scenarios, _) = build_scenarios(&rows, &prepared);
         let refs: Vec<&UpgradeScenario> = scenarios.iter().collect();
-        let sample = SafeguardWasmGroupSample {
+        let sample = SafeguardWasmBucketSample {
             slot: ARTIFACT_TYPE_BOOTS,
             set: TEST_SET,
             faction: 0,
@@ -1620,9 +1620,9 @@ mod improvement_watch_tests {
         }
     }
 
-    // Plan → probe → assemble harness over explicit per-group scenario sets sharing one
-    // contexts map — the direct pipeline surface for cross-group sharing assertions.
-    // Returns (corners per group, total interned boundary vectors, total probe results).
+    // Plan → probe → assemble harness over explicit per-bucket scenario sets sharing one
+    // contexts map — the direct pipeline surface for cross-bucket sharing assertions.
+    // Returns (corners per bucket, total interned boundary vectors, total probe results).
     fn run_watch_pipeline<'a>(
         rule: &SafeguardWasmRuleIn,
         placeholder: &SafeguardWasmPlaceholderOut,
@@ -1656,7 +1656,7 @@ mod improvement_watch_tests {
 
     #[test]
     fn boundary_indices_collapse_equal_boundaries_only() {
-        // Cross-group sharing keys on the BOUNDARY challenger, not the full list: with
+        // Cross-bucket sharing keys on the BOUNDARY challenger, not the full list: with
         // required 1 the boundary is the strongest challenger, so pool [20], pool
         // [20, 15] (the 15 lies strictly inside the boundary's beats-region) and an
         // exact repeat of pool [20] all intern to ONE boundary index; pool [25] adds a
@@ -1688,7 +1688,7 @@ mod improvement_watch_tests {
         assert_eq!(probed, 10, "shared indices must not multiply probe results");
         assert!(!corners[0].is_empty(), "fixture must produce corners");
         assert_eq!(corners[0], corners[1], "equal boundaries must yield identical corners");
-        assert_eq!(corners[0], corners[2], "identical groups must yield identical corners");
+        assert_eq!(corners[0], corners[2], "identical buckets must yield identical corners");
         // Deterministic level-16 tie points: 20 for the shared boundary, 25 for the new.
         let tie_16 = |list: &Vec<SafeguardWatchCornerOut>| {
             list.iter()
@@ -1703,9 +1703,9 @@ mod improvement_watch_tests {
 
     #[test]
     fn shared_context_probes_match_isolated_runs_exactly() {
-        // Bit-exactness of the multi-boundary probe path: groups with DIFFERENT
+        // Bit-exactness of the multi-boundary probe path: buckets with DIFFERENT
         // boundaries planned into one shared context must get exactly the corners an
-        // isolated single-group run produces — the vector lanes may share traversals
+        // isolated single-bucket run produces — the vector lanes may share traversals
         // but never leak across indices. Two rarities exercise the merge path too.
         let rules = vec![make_watch_rule(50.0, vec![4, 5])];
         let thresholds = [50.0, 50.0, 50.0, 50.0];
@@ -1724,18 +1724,18 @@ mod improvement_watch_tests {
             .iter()
             .map(|list| list.iter().collect())
             .collect();
-        // Shared run: all three groups in one contexts map.
+        // Shared run: all three buckets in one contexts map.
         let (shared, boundary_vecs, _) =
             run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
         assert_eq!(boundary_vecs, 3, "three distinct boundaries expected");
-        // Isolated runs: one group per pipeline.
+        // Isolated runs: one bucket per pipeline.
         for (idx, set) in sets.iter().enumerate() {
             let single = vec![set.clone()];
             let (isolated, _, _) =
                 run_watch_pipeline(&rules[0], &placeholder, &single, &thresholds);
             assert_eq!(
                 shared[idx], isolated[0],
-                "group {idx} corners must be identical to its isolated run",
+                "bucket {idx} corners must be identical to its isolated run",
             );
         }
     }

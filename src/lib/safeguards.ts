@@ -61,7 +61,7 @@ import {
   getSafeguardItemKeyWithLoadedWasm,
   getSafeguardCountKeyWithLoadedWasm,
   hashSafeguardCombinationWithLoadedWasm,
-  normalizeSafeguardExpectedGroupDomainWithLoadedWasm,
+  normalizeSafeguardExpectedBucketDomainWithLoadedWasm,
   resolveSafeguardRulesWithMetasetsWithLoadedWasm,
   sortSafeguardCombinationWithLoadedWasm,
   sortSafeguardSubstatsWithLoadedWasm,
@@ -831,20 +831,20 @@ export type SafeguardDetectionSubstat = {
   value: number
 }
 
-// Stable identifier for the count-group an artifact belongs to under a given effective count mode.
+// Stable identifier for the bucket an artifact belongs to under a given effective count mode.
 // Mirrors how WASM buckets candidates: only dimensions active in `effectiveCountMode` participate,
 // so two artifacts share a key iff they would share a quota bucket. Each segment is prefixed so
 // values from different dimensions can never collide (e.g. a set id equal to a faction id).
 //
 // `substatVariant` adds a `substat:X` segment for `perSubstat` rules: those score each substat
-// independently, so the true quota bucket is (count-group × substat). Passing a variant scopes the
+// independently, so the true quota bucket is (bucket × substat). Passing a variant scopes the
 // key to that substat's sub-bucket. A substat segment alone is a valid focus target even when no
 // count dimension is active (per-rule mode still splits by substat), so the null-guard only fires
 // when NO segment of any kind was produced.
 //
-// Returns null when no per-group dimension AND no substat is active — every candidate is then one
-// global group and focusing would be a no-op (callers hide the focus control in that case).
-export function safeguardFocusGroupKeyFor(
+// Returns null when no per-bucket dimension AND no substat is active — every candidate is then one
+// global bucket and focusing would be a no-op (callers hide the focus control in that case).
+export function safeguardFocusBucketKeyFor(
   artifact: SafeguardDetectionArtifact,
   effectiveCountMode: SafeguardRuleCountMode,
   substatVariant?: StatVariant,
@@ -857,17 +857,17 @@ export function safeguardFocusGroupKeyFor(
   if (effectiveCountMode.perMainStat) segments.push(`main:${artifact.mainStat}`)
   // Per-substat sub-bucket dimension: appended last so the label reads "…faction · DEF%".
   if (substatVariant != null) segments.push(`substat:${substatVariant}`)
-  // No active dimension of any kind → single global group; signal "no focus possible".
+  // No active dimension of any kind → single global bucket; signal "no focus possible".
   if (segments.length === 0) return null
   return segments.join('|')
 }
 
-// Parse the substat variant out of a focus-group key produced with a `substat:X` segment, or null
+// Parse the substat variant out of a focus-bucket key produced with a `substat:X` segment, or null
 // when the key has none. SSOT so the flyout list and the focus chip label read the substat back the
 // same way they wrote it (avoids a second, drifting parser).
-export function safeguardFocusGroupSubstatVariant(focusGroupKey: string | null): StatVariant | null {
-  if (focusGroupKey == null) return null
-  for (const seg of focusGroupKey.split('|')) {
+export function safeguardFocusBucketSubstatVariant(focusBucketKey: string | null): StatVariant | null {
+  if (focusBucketKey == null) return null
+  for (const seg of focusBucketKey.split('|')) {
     if (seg.startsWith('substat:')) {
       const v = Number(seg.slice('substat:'.length))
       return Number.isFinite(v) ? (v as StatVariant) : null
@@ -884,12 +884,12 @@ import type { SafeguardWasmCandidateOut } from './wasm/generated/rust-types/Safe
 export type SafeguardCandidateOut = SafeguardWasmCandidateOut
 
 // One rule's candidacy for a piece in the gear-inspector rank overlay: its global rank
-// across the whole rule, its group (count-bucket) rank, quota membership, and whether the
+// across the whole rule, its bucket rank, quota membership, and whether the
 // rule is in the current selection. Shared numeric fields; `ruleOrdinal` nullability differs
 // between the primary entry and the tooltip "other rules" (see below).
 type SafeguardRankRuleFields = {
   rank: number
-  groupRank: number
+  bucketRank: number
   isWithinQuota: boolean
   inSelection: boolean
 }
@@ -906,7 +906,7 @@ export type SafeguardRankOtherRuleEntry = SafeguardRankRuleFields & {
   ruleOrdinal: number
 }
 
-// The rank overlay for a single artifact: its winning (primary) rule's rank/group/quota,
+// The rank overlay for a single artifact: its winning (primary) rule's rank/bucket/quota,
 // plus every OTHER applicable rule's rank (sorted best-first) for the tooltip. Single
 // definition of the overlay value shape — the App memo that builds it, the grid prop that
 // consumes it, and the gear-diff baseline snapshot all reference this one type.
@@ -926,8 +926,8 @@ export type SafeguardDetectionEntry = {
   ruleActivation: SafeguardRuleActivation
   // Carry the scope metadata so the UI can explain how totals were derived.
   countMode: SafeguardRuleCountMode
-  perGroupRequiredCount: number
-  groupsTracked: number
+  perBucketRequiredCount: number
+  bucketsTracked: number
   requiredCount: number
   currentCount: number
   projectedCount: number
@@ -936,7 +936,7 @@ export type SafeguardDetectionEntry = {
   itemKeys: number[]
   artifacts: SafeguardDetectionArtifact[]
   // Placeholder requests stay WASM-RESIDENT (they number in the hundreds of thousands
-  // on large accounts — rules × expected-group domain — and were the dominant wasm→JS
+  // on large accounts — rules × expected-bucket domain — and were the dominant wasm→JS
   // materialization + retention cost; see docs/technical/pipeline-memory.md). JS only
   // sees their count plus a Rust-computed fingerprint; merge-time rule emission
   // rehydrates the actual objects inside the engine via the snapshot's
@@ -962,7 +962,7 @@ export type SafeguardCandidate = {
   row: GearInspectorPreviewRow
   artifact: NormalizedGearArtifact
   itemKey: number
-  groupKey: SafeguardGroupKey
+  bucketKey: SafeguardGroupKey
   isSold: boolean
 }
 
@@ -1690,7 +1690,7 @@ type SafeguardWasmExpectedGroupDomainPayload = {
 // Build a compact domain payload so wasm can enumerate expected scope groups
 // without duplicating TS-only catalogs or runtime set expansion logic.
 // Returns the normalized domain as an opaque wire object (short field names) for WASM consumption.
-const buildSafeguardExpectedGroupDomain = (): Record<string, unknown> => {
+const buildSafeguardExpectedBucketDomain = (): Record<string, unknown> => {
   // Serialize slot->main map as plain arrays so wasm can normalize ordering.
   const allowedMainBySlot: Record<string, StatVariant[]> = {}
   for (const [slotKey, allowed] of Object.entries(ALLOWED_MAIN_BY_SLOT)) {
@@ -1704,7 +1704,7 @@ const buildSafeguardExpectedGroupDomain = (): Record<string, unknown> => {
     allowedMainBySlot,
     allFactionIds: ALL_FACTION_IDS.slice(),
   }
-  return normalizeSafeguardExpectedGroupDomainWithLoadedWasm(rawDomain)
+  return normalizeSafeguardExpectedBucketDomainWithLoadedWasm(rawDomain)
 }
 
 const isSafeguardDetectionSnapshot = (value: unknown): value is SafeguardDetectionSnapshot => (
@@ -1741,7 +1741,7 @@ export function collectSafeguardCandidates(params: {
         row,
         artifact: row.artifact,
         itemKey: entry.itemKey,
-        groupKey: entry.groupKey,
+        bucketKey: entry.bucketKey,
         isSold: entry.isSold === true,
       }
     })
@@ -1783,7 +1783,7 @@ export function collectAndComputeSafeguardProtection(
     ...(ignoreRecipeSet ? { ignoreSafeguardRecipeIndices: ignoreRecipeSet } : {}),
     safeguardRules: rules,
     improvementChances,
-    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
+    expectedBucketDomain: buildSafeguardExpectedBucketDomain(),
     enabled,
     now: timestamp,
   })
@@ -1794,7 +1794,7 @@ export function collectAndComputeSafeguardProtection(
       row,
       artifact: row.artifact,
       itemKey: entry.itemKey,
-      groupKey: entry.groupKey,
+      bucketKey: entry.bucketKey,
       isSold: entry.isSold === true,
     }
   })
@@ -1944,7 +1944,7 @@ export const computeArtifactSetContentHash = (artifacts: readonly NormalizedGear
 // the payload because of the extra `row` key.
 export const toWasmSafeguardCandidate = (candidate: SafeguardCandidate): WasmSafeguardCandidateInput => ({
   itemKey: candidate.itemKey,
-  groupKey: candidate.groupKey,
+  bucketKey: candidate.bucketKey,
   isSold: candidate.isSold,
   artifact: toWasmArtifactStoreInput(candidate.artifact),
 })
@@ -2039,7 +2039,7 @@ export function evaluateAndCollectSafeguardProtection(params: {
     ...(params.ignoreSafeguardRecipeIndices !== undefined ? { ignoreSafeguardRecipeIndices: params.ignoreSafeguardRecipeIndices } : {}),
     safeguardRules: rules,
     improvementChances,
-    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
+    expectedBucketDomain: buildSafeguardExpectedBucketDomain(),
     enabled,
     now: timestamp,
   })
@@ -2054,11 +2054,11 @@ export function evaluateAndCollectSafeguardProtection(params: {
 export function computeSafeguardProtection(params: SafeguardDetectionParams): SafeguardDetectionSnapshot {
   const { candidates, rules, enabled, now } = params
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
-  // Wasm derives expected groups from the shared domain payload (SSOT path).
+  // Wasm derives expected buckets from the shared domain payload (SSOT path).
   const wasmSnapshot = computeSafeguardProtectionWithLoadedWasm({
     candidates,
     rules,
-    expectedGroupDomain: buildSafeguardExpectedGroupDomain(),
+    expectedBucketDomain: buildSafeguardExpectedBucketDomain(),
     enabled,
     now: timestamp,
   })

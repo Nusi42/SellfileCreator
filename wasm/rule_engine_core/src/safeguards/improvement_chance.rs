@@ -81,7 +81,7 @@ pub struct ImprovementChanceDebug {
     // Original match mode for the preferred scenario's rule.
     pub substat_match: String,
     // Required keeps for the safeguard count bucket.
-    pub required_per_group: i64,
+    pub required_per_bucket: i64,
     // Number of challengers currently in the same count bucket (excl. self).
     pub bucket_candidate_count: u32,
     // Number of challengers whose projected +16 score strictly beats this artifact.
@@ -169,7 +169,7 @@ pub struct ImprovementChancePerfDiag {
 pub(super) struct PreparedUpgradeRule {
     rule_order: usize,
     combination: SafeguardWasmCombination,
-    required_per_group: i64,
+    required_per_bucket: i64,
     count_mode: SafeguardWasmCountMode,
     selected_substats: Vec<i64>,
     // "any" | "all" | "perSubstat" after normalization.
@@ -197,7 +197,7 @@ pub(super) struct UpgradeScenario {
     rule_substat_match: String,
     selected_substats: Vec<i64>,
     substat_match: String,
-    required_per_group: i64,
+    required_per_bucket: i64,
     count_mode: SafeguardWasmCountMode,
     weights: BTreeMap<i64, f64>,
     // "Weight by Rank" toggle propagated from the rule (applies the main-stat rank bonus).
@@ -214,11 +214,11 @@ pub(super) struct UpgradeScenario {
 // Reduce every scenario of one rule to its BOUNDARY challenger for a fixed synthetic
 // candidate context (count-key dims + candidate main/rank). Returns the reduced
 // scenarios plus, per scenario, the boundary triple (projected-score in thousandths,
-// main_stat, rank) — or None when the bucket cannot reach required_per_group — which
-// improvement_watch uses as its collapsed cross-group cache signature.
+// main_stat, rank) — or None when the bucket cannot reach required_per_bucket — which
+// improvement_watch uses as its collapsed cross-bucket cache signature.
 //
 // Exact-equivalence argument (the reduced scenario reuses the leaf comparator VERBATIM):
-//   * The leaf selects a state iff better_count < required_per_group (N), where
+//   * The leaf selects a state iff better_count < required_per_bucket (N), where
 //     better_count counts challengers with is_challenger_strictly_better(ch, cand).
 //     For a FIXED (cand_main, cand_rank), each challenger's "beats" region as a function
 //     of the candidate score is DOWNWARD-CLOSED: with delta = ch_score − cand_score the
@@ -230,7 +230,7 @@ pub(super) struct UpgradeScenario {
 //                           false, so beating needs delta strictly above ε).
 //   * Downward-closed regions are totally ordered by inclusion, so for every candidate
 //     score s: better_count(s) < N  ⟺  the N-th strongest region does NOT contain s.
-//     Keeping ONLY that N-th strongest challenger with required_per_group = 1 therefore
+//     Keeping ONLY that N-th strongest challenger with required_per_bucket = 1 therefore
 //     selects exactly the same candidate scores, through the same code path:
 //     original selects ⟺ better_count < N ⟺ boundary does not beat ⟺ reduced selects.
 //   * Fewer than N challengers: better_count ≤ len < N → always selected. The reduced
@@ -254,7 +254,7 @@ pub(super) struct UpgradeScenario {
 // SELECTED boundary's projected score onto the quantum grid — (score / q).floor() * q —
 // before it enters BOTH the boundary the probes run against AND the returned
 // signature triple. Quantizing the actual probe input (not just the cache key) keeps
-// key ↔ behavior consistent by construction: every group whose boundary lands in one
+// key ↔ behavior consistent by construction: every bucket whose boundary lands in one
 // grid bucket is genuinely evaluated against the shared bucket-floor boundary, so cache
 // cell sharing stays sound. Keep-bias: a floored (lower) boundary score strictly shrinks
 // the boundary's downward-closed beats-region, so selection can only get EASIER — probed
@@ -264,7 +264,7 @@ pub(super) struct UpgradeScenario {
 // ±ε tie window around the — now floored — score).
 
 // Per-scenario boundary challengers for ONE synthetic probe context — the complete
-// leaf-decision input for that group's probes: selection of a candidate state depends
+// leaf-decision input for that bucket's probes: selection of a candidate state depends
 // on the full challenger buckets only through these boundaries (equivalence argument
 // above). Owned clones so improvement_watch can retain one representative per distinct
 // signature without borrowing scenario internals; deliberately opaque outside this
@@ -292,7 +292,7 @@ pub(super) fn extract_synthetic_boundaries(
             .challengers_by_count_key
             .get(&key)
             .and_then(|bucket| {
-                let required = scenario.required_per_group.max(1) as usize;
+                let required = scenario.required_per_bucket.max(1) as usize;
                 // Fewer than N challengers → always selected → no boundary.
                 if bucket.len() < required {
                     return None;
@@ -378,7 +378,7 @@ pub(super) fn reduce_scenarios_for_synthetic(
                 selected_substats: scenario.selected_substats.clone(),
                 substat_match: scenario.substat_match.clone(),
                 // The boundary alone decides selection (equivalence argument above).
-                required_per_group: 1,
+                required_per_bucket: 1,
                 count_mode: scenario.count_mode,
                 weights: scenario.weights.clone(),
                 weight_main_stat_by_rank: scenario.weight_main_stat_by_rank,
@@ -978,12 +978,12 @@ fn scenario_selects_state(
             ctx.artifact_rank,
         ) {
             better_count += 1;
-            if better_count >= scenario.required_per_group {
+            if better_count >= scenario.required_per_bucket {
                 break;
             }
         }
     }
-    better_count < scenario.required_per_group
+    better_count < scenario.required_per_bucket
 }
 
 // Test-only since the grouped-lane conversion: production paths partition scenarios
@@ -1058,7 +1058,7 @@ impl ChanceLeaf for ScalarSelectionLeaf {
 
 // Grouped-lane leaf for the real (full-bucket) chance pass: scenarios are partitioned
 // into lanes via `lane_by_scenario`, and a lane is selected when ANY of its scenarios
-// selects the state — the same within-group union the scalar leaf applies to one rule.
+// selects the state — the same within-bucket union the scalar leaf applies to one rule.
 // Two production groupings, one leaf:
 //   * per-rule lanes (compute_artifact_chance_percent) — lane = owning rule, so ONE
 //     traversal replaces the old per-rule recursion loop (the tree is artifact-scoped
@@ -1104,10 +1104,10 @@ impl ChanceLeaf for GroupedSelectionLeaf {
 
 // Synthetic multi-boundary leaf: evaluates the state against ONE boundary challenger
 // per (scenario × probe context) — the boundary-reduction equivalence argument above
-// guarantees each element equals the full-bucket outcome for its group. Per element
+// guarantees each element equals the full-bucket outcome for its bucket. Per element
 // this replays the reduced-scenario leaf exactly: state substat gate, scenario score,
 // score > 0 gate, then a single is_challenger_strictly_better comparison (None = the
-// group's bucket sits below quota → always selected). The candidate's self-skip is
+// bucket's bucket sits below quota → always selected). The candidate's self-skip is
 // irrelevant here: synthetic probes carry id −1, which matches no real challenger.
 struct MultiBoundaryLeaf<'a> {
     // Flat [scenario-major] boundary grid: entry s * width + i is scenario s's
@@ -1453,7 +1453,7 @@ fn round_chance_percent(prob: f64) -> f64 {
 }
 
 // Chance (0–100, one decimal) that `artifact` lands in the safeguard top-N at +16 under
-// the given scenario set (all scenarios must belong to ONE group — the scalar leaf is an
+// the given scenario set (all scenarios must belong to ONE bucket — the scalar leaf is an
 // any-scenario union). Kept as the reference implementation the grouped-lane equivalence
 // tests compare against; production goes through compute_artifact_chance_percent's
 // grouped lanes (one traversal for every rule) instead.
@@ -1792,7 +1792,7 @@ pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<Prepar
         prepared.push(PreparedUpgradeRule {
             rule_order,
             combination,
-            required_per_group: rule.required_count.unwrap_or(1).max(1),
+            required_per_bucket: rule.required_count.unwrap_or(1).max(1),
             count_mode,
             selected_substats: selected,
             substat_match,
@@ -1967,7 +1967,7 @@ pub(super) fn build_scenarios(
                 rule_substat_match: rule.substat_match.clone(),
                 selected_substats: def.selected_substats,
                 substat_match: def.substat_match,
-                required_per_group: rule.required_per_group,
+                required_per_bucket: rule.required_per_bucket,
                 count_mode: rule.count_mode,
                 weights: rule.weights.clone(),
                 weight_main_stat_by_rank: rule.weight_main_stat_by_rank,
@@ -2114,7 +2114,7 @@ fn build_chance_debug(
         viable_scenario_count,
         selected_substats: debug_substats,
         substat_match: scenario.rule_substat_match.clone(),
-        required_per_group: scenario.required_per_group,
+        required_per_bucket: scenario.required_per_bucket,
         bucket_candidate_count: bucket_count,
         better_candidate_count: better_count,
         matched_selected_now: matched_now.min(255) as u8,
@@ -2285,7 +2285,7 @@ mod boundary_reduction_tests {
             rule_substat_match: "1".to_string(),
             selected_substats: vec![STAT_VARIANT_SPD],
             substat_match: "1".to_string(),
-            required_per_group: required,
+            required_per_bucket: required,
             count_mode: mode,
             weights: BTreeMap::new(),
             weight_main_stat_by_rank: false,
@@ -2604,11 +2604,11 @@ mod boundary_reduction_tests {
     #[test]
     fn multi_boundary_chance_matches_scalar_reduced_chance() {
         // One traversal, many lanes: element i of the multi-boundary probe must be
-        // BIT-identical to the scalar synthetic chance over group i's reduced
+        // BIT-identical to the scalar synthetic chance over bucket i's reduced
         // scenario — the recursion tree, branch weights and accumulation order are
-        // lane-independent. Groups cover a weak boundary, a strong one, a below-quota
+        // lane-independent. Buckets cover a weak boundary, a strong one, a below-quota
         // bucket (no boundary → always selected) and a flat-main tie case.
-        let groups: Vec<(Vec<StaticChallenger>, i64)> = vec![
+        let buckets: Vec<(Vec<StaticChallenger>, i64)> = vec![
             (vec![make_challenger(1, 5.5, STAT_VARIANT_SPD, 6)], 1),
             (
                 vec![
@@ -2620,7 +2620,7 @@ mod boundary_reduction_tests {
             (vec![make_challenger(4, 12.0, STAT_VARIANT_SPD, 6)], 3),
             (vec![make_challenger(5, 4.0, STAT_VARIANT_HP_FLAT, 5)], 1),
         ];
-        let scenarios: Vec<UpgradeScenario> = groups
+        let scenarios: Vec<UpgradeScenario> = buckets
             .iter()
             .map(|(bucket, required)| make_scenario(bucket.clone(), *required))
             .collect();
@@ -2629,7 +2629,7 @@ mod boundary_reduction_tests {
         let probe_scenarios: Vec<&UpgradeScenario> = vec![&scenarios[0]];
         for &rank in &[5i64, 6] {
             for &quantum in &[0.0f64, 0.5] {
-                // Per group: extract the boundary AND build the legacy reduced scenario.
+                // Per bucket: extract the boundary AND build the legacy reduced scenario.
                 let extracted: Vec<SyntheticBoundaries> = scenarios
                     .iter()
                     .map(|scenario| {
@@ -2650,7 +2650,7 @@ mod boundary_reduction_tests {
                             &boundary_refs,
                             &mut memo_multi,
                         );
-                        assert_eq!(multi.len(), groups.len());
+                        assert_eq!(multi.len(), buckets.len());
                         for (idx, scenario) in scenarios.iter().enumerate() {
                             let (reduced, _) = reduce_scenarios_for_synthetic(
                                 &[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum,
@@ -2677,7 +2677,7 @@ mod boundary_reduction_tests {
     fn multi_boundary_lanes_handle_multi_scenario_rules() {
         // perSubstat rules expand into several scenarios per rule; a lane is selected
         // when ANY scenario clears its boundary (within-rule union). Each lane must
-        // still match the scalar probe over the group's fully-reduced scenario list.
+        // still match the scalar probe over the bucket's fully-reduced scenario list.
         let spd_scenario = make_scenario(vec![make_challenger(1, 6.0, STAT_VARIANT_SPD, 6)], 1);
         // Second scenario of the same rule, ACC-focused, with its own bucket; the
         // required count parameterizes the below-quota lane variant.
@@ -2687,7 +2687,7 @@ mod boundary_reduction_tests {
             rule_substat_match: "perSubstat".to_string(),
             selected_substats: vec![STAT_VARIANT_ACC],
             substat_match: "any".to_string(),
-            required_per_group: required,
+            required_per_bucket: required,
             count_mode: per_rule_mode(),
             weights: BTreeMap::new(),
             weight_main_stat_by_rank: false,

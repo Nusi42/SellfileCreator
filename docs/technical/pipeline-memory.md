@@ -104,7 +104,7 @@ Secondary contributors (not the root cause):
    inside the engine (`rehydrate_detection_placeholders`), validating the state id +
    per-entry hashes — a stale store fails the merge loudly instead of silently dropping
    placeholder rules. Composition note: on the reference account ALL 210,279 placeholders
-   are deficit placeholders (`missing > 0`, mostly-empty expected groups) that legitimately
+   are deficit placeholders (`missing > 0`, mostly-empty expected buckets) that legitimately
    drive merge-time keep rules — so "drop dead weight" was not an option; removing the
    boundary crossing was. Side effects: the worker's `detectionKey` fold is now
    O(entries) instead of O(placeholders), the merge payload no longer serializes the

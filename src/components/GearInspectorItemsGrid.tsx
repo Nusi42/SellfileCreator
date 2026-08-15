@@ -89,7 +89,7 @@ import {
   isDefaultGearInspectorGroupingState,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_IMPROVEMENT_CHANCE,
   GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK,
-  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK,
+  GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK,
   type GearInspectorGroupingState,
   type GearInspectorSubstatSortSpec,
 } from '../lib/gearInspectorSort'
@@ -170,7 +170,7 @@ type GearInspectorItemsGridProps = {
   // "Other matches" recipe chip jump — routes to THAT recipe, independent of the primary match.
   onJumpToRecipeMatch?: ((recipeIdx: number) => void) | undefined
   // Navigate to the safeguard rule at this 0-based index in the Safeguard Builder.
-  // artifactId (2nd arg) lets App seed the weights flyout's default focus group to the clicked gear.
+  // artifactId (2nd arg) lets App seed the weights flyout's default focus bucket to the clicked gear.
   onJumpToSafeguardRule?: ((ruleIdx: number, artifactId?: number) => void) | undefined
   onCreateRuleTemplate?: ((row: GearInspectorPreviewRow, intent: GearInspectorRuleTemplateIntent) => void) | undefined
   variant?: GearInspectorItemsGridVariant
@@ -204,7 +204,7 @@ type GearInspectorItemsGridProps = {
   // When present, ranked items show "#N" bottom chip.
   // ruleOrdinal (1-based): the rule that gave this artifact its best rank (click-to-jump + tooltip).
   // otherRules: every other rule where this artifact is also a candidate (rank + ruleOrdinal).
-  // rank = global rank across the whole rule; groupRank = rank within the piece's count-group.
+  // rank = global rank across the whole rule; bucketRank = rank within the piece's bucket.
   // inSelection: false when the rank comes from a rule outside the current safeguard selection — the
   // chip is dimmed in that case so it reads as "ranked elsewhere, not in your selected rule".
   safeguardRankByArtifactId?: SafeguardRankByArtifactId | null
@@ -545,9 +545,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_RANK),
     [effectiveSubstatSort?.priorities],
   )
-  // Whether the safeguard group rank synthetic sort key is active in the current sort spec.
-  const safeguardGroupRankSortEnabled = useMemo(
-    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_GROUP_RANK),
+  // Whether the safeguard bucket rank synthetic sort key is active in the current sort spec.
+  const safeguardBucketRankSortEnabled = useMemo(
+    () => (effectiveSubstatSort?.priorities ?? []).some((key) => Number(key) === GEAR_INSPECTOR_SORT_KEY_SAFEGUARD_BUCKET_RANK),
     [effectiveSubstatSort?.priorities],
   )
   // Pre-computed by the WASM worker; coalesce null to a stable empty map so downstream memo deps don't thrash.
@@ -578,7 +578,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         return { ...effectiveSubstatSort, safeguardImprovementChanceByArtifactId: chanceMap }
       })()
       : effectiveSubstatSort
-    // Thread the safeguard rank / group rank maps only when their sort keys are active.
+    // Thread the safeguard rank / bucket rank maps only when their sort keys are active.
     let withRanks = withChance
     if (safeguardRankSortEnabled && safeguardRankByArtifactId) {
       // Flatten { rank } to just rank (null = not ranked) for the comparator.
@@ -588,20 +588,20 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       })
       withRanks = { ...withRanks, safeguardRankByArtifactId: rankMap }
     }
-    if (safeguardGroupRankSortEnabled && safeguardRankByArtifactId) {
-      // Flatten { groupRank } to just groupRank (null = not ranked) for the comparator.
-      const groupRankMap = new Map<number, number | null>()
-      safeguardRankByArtifactId.forEach(({ groupRank }, artifactId) => {
-        groupRankMap.set(artifactId, groupRank > 0 ? groupRank : null)
+    if (safeguardBucketRankSortEnabled && safeguardRankByArtifactId) {
+      // Flatten { bucketRank } to just bucketRank (null = not ranked) for the comparator.
+      const bucketRankMap = new Map<number, number | null>()
+      safeguardRankByArtifactId.forEach(({ bucketRank }, artifactId) => {
+        bucketRankMap.set(artifactId, bucketRank > 0 ? bucketRank : null)
       })
-      withRanks = { ...withRanks, safeguardGroupRankByArtifactId: groupRankMap }
+      withRanks = { ...withRanks, safeguardBucketRankByArtifactId: bucketRankMap }
     }
     return withRanks
   }, [
     effectiveSubstatSort,
     safeguardChanceSortEnabled,
     safeguardRankSortEnabled,
-    safeguardGroupRankSortEnabled,
+    safeguardBucketRankSortEnabled,
     safeguardImprovementChanceByArtifactId,
     safeguardRankByArtifactId,
     levelByArtifactId,
@@ -723,7 +723,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       const tooltipRequirementTemplate = tooltipRequirementTemplateBase
       const tooltipRequirementTemplateParts = tooltipRequirementTemplate.split(requirementSubstatsToken)
       const tooltipRequiredCount = debug
-        ? `${t('gearInspectorGridSafeguardChanceTooltipRequiredCount', { count: numberFormatter.format(debug.requiredPerGroup) })}${requiredCountScopeSuffix}`
+        ? `${t('gearInspectorGridSafeguardChanceTooltipRequiredCount', { count: numberFormatter.format(debug.requiredPerBucket) })}${requiredCountScopeSuffix}`
         : null
       const debugTooltipLines = debug
         ? [
@@ -842,20 +842,20 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     if (safeguardRankMode === 'off' || !safeguardRankByArtifactId || safeguardRankByArtifactId.size === 0) {
       return null
     }
-    // Tooltip title states what the rows actually list (Group Rank / Safeguard Rank /
+    // Tooltip title states what the rows actually list (Bucket Rank / Safeguard Rank /
     // Group + Safeguard Rank); resolved from the cycle-options SSOT so it tracks the mode.
     const tooltipTitle = t(SAFEGUARD_RANK_TITLE_KEY_BY_MODE[safeguardRankMode])
-    // Group rank is "shown" in groupRank + both modes; the tooltip sort and the click target
-    // sort by the displayed rank — group rank when shown, else global safeguard rank.
-    const groupRankShown = safeguardRankMode === 'groupRank' || safeguardRankMode === 'both'
+    // Bucket rank is "shown" in bucketRank + both modes; the tooltip sort and the click target
+    // sort by the displayed rank — bucket rank when shown, else global safeguard rank.
+    const groupRankShown = safeguardRankMode === 'bucketRank' || safeguardRankMode === 'both'
     // SSOT badge formatter for BOTH the chip and every tooltip row, so their numbers always match.
-    // groupRank: "#group" (falls back to global when a rule has no group). rank: "#global".
+    // bucketRank: "#group" (falls back to global when a rule has no group). rank: "#global".
     // both: "#group · #global" (group first — matches the tooltip title order). Optional per-column
     // padding widths right-align the tooltip table; pass 0/0 for the unpadded chip text.
     const formatRankBadge = (globalRank: number, gRank: number, globalPad = 0, groupPad = 0): string => {
       const g = `#${String(globalRank).padStart(globalPad, ' ')}`
       const grp = gRank > 0 ? `#${String(gRank).padStart(groupPad, ' ')}` : ''
-      if (safeguardRankMode === 'groupRank') return gRank > 0 ? grp : g
+      if (safeguardRankMode === 'bucketRank') return gRank > 0 ? grp : g
       if (safeguardRankMode === 'both' && gRank > 0) {
         // Pad the empty global column so the · stays aligned across rows (tooltip only).
         return `${grp} · ${g}`
@@ -864,7 +864,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     }
     // Entry shape: chip data + JSX tooltipRender (MarkdownTooltip custom parser has no table support).
     const overlays = new Map<number, { text: string; color?: string; dimmed?: boolean; testId?: string; onClick?: () => void; onContextMenu?: (event: React.MouseEvent<HTMLElement>) => void; tooltipRender: React.ReactNode }>()
-    safeguardRankByArtifactId.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules }, artifactId) => {
+    safeguardRankByArtifactId.forEach(({ rank, bucketRank, isWithinQuota, ruleOrdinal, inSelection, otherRules }, artifactId) => {
       if (rank <= 0) return
       // Collect named rows: primary rule bold, other rules plain — each with a rank badge.
       // ruleOrdinal is 1-based; safeguardRules array is 0-based.
@@ -875,15 +875,15 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       // global and group numbers vary in width independently, e.g. #445·#7 vs #1367·#11).
       // ruleOrdinal (1-based) lets the chip click jump to the top-sorted row's rule; isWithinQuota +
       // inSelection let the chip colour and dim by the rule it actually displays (the top row).
-      type RankRow = { rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean; ruleOrdinal: number | null; name: string; isPrimary: boolean; fgColor: string | undefined }
+      type RankRow = { rank: number; bucketRank: number; isWithinQuota: boolean; inSelection: boolean; ruleOrdinal: number | null; name: string; isPrimary: boolean; fgColor: string | undefined }
       const rankRows: RankRow[] = []
       if (primaryRuleName) {
-        rankRows.push({ rank, groupRank, isWithinQuota, inSelection, ruleOrdinal, name: primaryRuleName, isPrimary: true, fgColor: primaryRule?.appearance?.fgColor ?? undefined })
+        rankRows.push({ rank, bucketRank, isWithinQuota, inSelection, ruleOrdinal, name: primaryRuleName, isPrimary: true, fgColor: primaryRule?.appearance?.fgColor ?? undefined })
       }
       for (const other of otherRules) {
         const otherRule = safeguardRules?.[other.ruleOrdinal - 1]
         const otherName = (otherRule?.appearance?.name ?? '').trim() || undefined
-        if (otherName) rankRows.push({ rank: other.rank, groupRank: other.groupRank, isWithinQuota: other.isWithinQuota, inSelection: other.inSelection, ruleOrdinal: other.ruleOrdinal, name: otherName, isPrimary: false, fgColor: otherRule?.appearance?.fgColor ?? undefined })
+        if (otherName) rankRows.push({ rank: other.rank, bucketRank: other.bucketRank, isWithinQuota: other.isWithinQuota, inSelection: other.inSelection, ruleOrdinal: other.ruleOrdinal, name: otherName, isPrimary: false, fgColor: otherRule?.appearance?.fgColor ?? undefined })
       }
       // Sort rows so the chip (rankRows[0]) and tooltip order match the App's primary-choice rule:
       //  1. Selection tier FIRST — an in-selection candidacy always outranks an out-of-selection one,
@@ -892,13 +892,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       //     dimmed. When nothing is selected every row is inSelection=true, so this tier is inert.
       //  2. Then the number actually shown for the active mode (lower rank = more protected):
       //     - rank / both: by global safeguard rank.
-      //     - groupRank: by group rank; rules without a group show their global rank instead, so they
+      //     - bucketRank: by bucket rank; rules without a group show their global rank instead, so they
       //       sort AFTER all grouped rows (sentinel) and among themselves by that global fallback.
       const rowSortKey = (r: RankRow): [number, number, number] => {
         // 0 = in-selection (sorts first), 1 = outside the current selection.
         const selTier = r.inSelection ? 0 : 1
-        const [rankTier, rankKey] = groupRankShown && safeguardRankMode === 'groupRank'
-          ? (r.groupRank > 0 ? [0, r.groupRank] : [1, r.rank])
+        const [rankTier, rankKey] = groupRankShown && safeguardRankMode === 'bucketRank'
+          ? (r.bucketRank > 0 ? [0, r.bucketRank] : [1, r.rank])
           : [0, r.rank]
         return [selTier, rankTier, rankKey]
       }
@@ -907,9 +907,9 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         const kb = rowSortKey(b)
         return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2]
       })
-      // Per-column width: longest global-rank and longest group-rank digit string across rows.
+      // Per-column width: longest global-rank and longest bucket-rank digit string across rows.
       const globalDigits = rankRows.reduce((max, r) => Math.max(max, String(r.rank).length), 1)
-      const groupDigits = rankRows.reduce((max, r) => Math.max(max, r.groupRank > 0 ? String(r.groupRank).length : 0), 0)
+      const groupDigits = rankRows.reduce((max, r) => Math.max(max, r.bucketRank > 0 ? String(r.bucketRank).length : 0), 0)
       // JSX table: localized title + rank badge column (monospace, fixed width) + name column.
       const tooltipRender = rankRows.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -917,13 +917,13 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
             {tooltipTitle}
           </Typography>
           {rankRows.map((row) => (
-            <Box key={`${row.rank}-${row.groupRank}-${row.name}`} sx={{ display: 'flex', gap: 1, alignItems: 'baseline' }}>
+            <Box key={`${row.rank}-${row.bucketRank}-${row.name}`} sx={{ display: 'flex', gap: 1, alignItems: 'baseline' }}>
               <Typography
                 variant="body2"
                 component="span"
                 sx={{ fontFamily: FONT_FAMILY_MONO, whiteSpace: 'pre', fontWeight: row.isPrimary ? 700 : 400, flexShrink: 0 }}
               >
-                {formatRankBadge(row.rank, row.groupRank, globalDigits, groupDigits)}
+                {formatRankBadge(row.rank, row.bucketRank, globalDigits, groupDigits)}
               </Typography>
               <Typography
                 variant="body2"
@@ -944,7 +944,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       ) : null
       // The chip mirrors the TOP row of the sorted tooltip list (best displayed rank), so the chip
       // number, colour, and click target all refer to the same rule.
-      const topRow = rankRows[0] ?? { rank, groupRank, isWithinQuota, inSelection, ruleOrdinal }
+      const topRow = rankRows[0] ?? { rank, bucketRank, isWithinQuota, inSelection, ruleOrdinal }
       // Chip colour follows the displayed (top) row's quota: green = that rule keeps the piece in
       // its group, red = it would be sold. Using the top row (not the primary) keeps the colour in
       // step with the number the chip shows and the rule the click jumps to.
@@ -964,7 +964,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
         .map((r) => ({
           ruleIdx: r.ruleOrdinal! - 1,
           name: r.name,
-          badge: formatRankBadge(r.rank, r.groupRank, globalDigits, groupDigits),
+          badge: formatRankBadge(r.rank, r.bucketRank, globalDigits, groupDigits),
           isPrimary: r.isPrimary,
           isWithinQuota: r.isWithinQuota,
           inSelection: r.inSelection,
@@ -978,7 +978,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           }
         : undefined
       // Chip text per mode: group #M, global #N, or both (#M · #N) — same SSOT formatter, top row.
-      const chipText = formatRankBadge(topRow.rank, topRow.groupRank)
+      const chipText = formatRankBadge(topRow.rank, topRow.bucketRank)
       // Dim when the displayed (top) rank comes from a rule outside the current selection.
       overlays.set(artifactId, { text: chipText, color, dimmed: !topRow.inSelection, testId: `safeguard-rank-chip-${artifactId}`, tooltipRender, ...(onClick ? { onClick } : {}), ...(onContextMenu ? { onContextMenu } : {}) })
     })

@@ -188,7 +188,7 @@
     },
     "placeholderReason": {
       "global": "global",
-      "group": "group"
+      "bucket": "bucket"
     },
     "weight": {
       "step": 0.05,

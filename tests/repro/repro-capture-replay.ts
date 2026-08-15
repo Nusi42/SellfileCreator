@@ -375,7 +375,7 @@ export function buildRulesFor(label: string, dataset: GearDbRawDataset): ExportR
     console.log(`[improv-probe] ${label} nonzeroPerRule=${nonzeroPerRule} ` + JSON.stringify(buckets))
   }
   // IMPORTANT: use the high-level safeguards.ts entry point (same as the worker), not the
-  // raw WASM wrapper. It injects buildSafeguardExpectedGroupDomain() — the expected universe
+  // raw WASM wrapper. It injects buildSafeguardExpectedBucketDomain() — the expected universe
   // of slots/sets/factions that drives anticipateGaps placeholder deficits. Calling the raw
   // wrapper without it under-counts placeholders ~3.4x.
   const det = evaluateAndCollectSafeguardProtection({

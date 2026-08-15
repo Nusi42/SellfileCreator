@@ -143,7 +143,7 @@ import {
   normalizeSafeguardFactionSlotScope,
   computeArtifactSetContentHash,
   safeguardEffectiveCountModeForDisplay,
-  safeguardFocusGroupKeyFor,
+  safeguardFocusBucketKeyFor,
   normalizeSafeguardSubstatMatch,
   firstSelectableSafeguardIndex,
 } from './lib/safeguards'
@@ -1261,8 +1261,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [builderMode, scheduleMeasurement])
   // Which safeguard rule is selected in the builder (transient — not persisted); stored as list index.
   const [selectedSafeguardRuleIdx, setSelectedSafeguardRuleIdx] = useState<number | null>(() => null)
-  // Default focus group for the weights flyout candidate list. Seeded when the user clicks a rank /
-  // improvement-chance chip in the Gear Inspector (focuses that gear's count-group). Carries the rule
+  // Default focus bucket for the weights flyout candidate list. Seeded when the user clicks a rank /
+  // improvement-chance chip in the Gear Inspector (focuses that gear's bucket). Carries the rule
   // index it was seeded for so it auto-invalidates when a different rule is selected or the selection
   // goes multi/empty — the effective key (derived below) only applies while that exact rule is the
   // sole selection, so no scattered clears or clobber-races are needed.
@@ -5674,7 +5674,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return selectedSafeguardRuleIdx !== null ? (safeguardRuleCounts.get(selectedSafeguardRuleIdx) ?? 0) : 0
   }, [safeguardRuleCounts, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
   // Maps between safeguard item-key space (used by the candidate list) and Gear Inspector artifact ids
-  // (used by overlay chips + the improvement-chance map). Declared here so the focus-group and chance
+  // (used by overlay chips + the improvement-chance map). Declared here so the focus-bucket and chance
   // memos below can consume them.
   const gearInspectorArtifactIdBySafeguardItemKey = useMemo(() => {
     const byItemKey = new Map<number, number>()
@@ -5698,10 +5698,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return byArtifactId
   }, [gearInspectorArtifactIdBySafeguardItemKey])
-  // Effective candidate-list focus group: the seeded key applies only while its rule is the sole
+  // Effective candidate-list focus bucket: the seeded key applies only while its rule is the sole
   // selection (single-select, same index). A different rule, multi-select, or empty selection makes
   // it inert without any explicit clear — the seed simply no longer matches.
-  const safeguardCandidateFocusGroupKey = useMemo<string | null>(() => {
+  const safeguardCandidateFocusBucketKey = useMemo<string | null>(() => {
     if (safeguardCandidateFocusGroup == null) return null
     if (safeguardMultiselectActive) return null
     if (safeguardCandidateFocusGroup.ruleIdx !== selectedSafeguardRuleIdx) return null
@@ -5709,7 +5709,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardCandidateFocusGroup, safeguardMultiselectActive, selectedSafeguardRuleIdx])
   // Handler the weights flyout uses to push manual focus changes (toggle/clear) back up, tagged with
   // the current rule so it persists across reopens on the same selection.
-  const handleSafeguardCandidateFocusGroupKeyChange = useCallback((key: string | null) => {
+  const handleSafeguardCandidateFocusBucketKeyChange = useCallback((key: string | null) => {
     if (selectedSafeguardRuleIdx === null) { setSafeguardCandidateFocusGroup(null); return }
     setSafeguardCandidateFocusGroup({ ruleIdx: selectedSafeguardRuleIdx, key })
   }, [selectedSafeguardRuleIdx])
@@ -5746,14 +5746,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Always rank against ALL active entries so a piece ranked only by an UNSELECTED rule still
     // surfaces (dimmed) instead of vanishing. inSelection records whether the chosen primary rank
     // comes from a currently-selected rule; the overlay dims chips where it does not.
-    // rank = global rank across the whole rule; groupRank = rank within the piece's count-group.
-    type RankRec = { rank: number; groupRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean }
+    // rank = global rank across the whole rule; bucketRank = rank within the piece's bucket.
+    type RankRec = { rank: number; bucketRank: number; isWithinQuota: boolean; ruleOrdinal: number | null; inSelection: boolean }
     const result = new Map<number, RankRec>()
     // Track all other applicable rule ordinals per artifact (sorted by rank ascending) for tooltip extras.
-    // groupRank is carried per entry so the tooltip can show each rule's own global · group ranks.
+    // bucketRank is carried per entry so the tooltip can show each rule's own global · bucket ranks.
     // isWithinQuota + inSelection are carried per entry so the chip can colour and dim by the rule
     // it actually displays (the top-sorted row), keeping colour, number, dim, and click on one rule.
-    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean; ruleOrdinal: number | null }>>()
+    const otherRulesPerArtifact = new Map<number, Array<{ rank: number; bucketRank: number; isWithinQuota: boolean; inSelection: boolean; ruleOrdinal: number | null }>>()
     for (const entry of activeEntries) {
       // Only entries with scored candidates carry rank data.
       if (!entry.candidates?.length) continue
@@ -5761,7 +5761,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       for (const candidate of entry.candidates) {
         if (candidate.candidateRank <= 0) continue
         const existing = result.get(candidate.itemKey)
-        const candRec: RankRec = { rank: candidate.candidateRank, groupRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, ruleOrdinal: entry.ruleOrdinal, inSelection: entryInSelection }
+        const candRec: RankRec = { rank: candidate.candidateRank, bucketRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, ruleOrdinal: entry.ruleOrdinal, inSelection: entryInSelection }
         // Primary preference: a selected-rule candidacy always wins over an unselected one, so a
         // selected piece shows ITS rank in the selected rule (not a better rank elsewhere). Within the
         // same selection tier, keep the best (lowest) rank. The displaced record drops into otherRules.
@@ -5771,30 +5771,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (candWins) {
           if (existing) {
             const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-            others.push({ rank: existing.rank, groupRank: existing.groupRank, isWithinQuota: existing.isWithinQuota, inSelection: existing.inSelection, ruleOrdinal: existing.ruleOrdinal })
+            others.push({ rank: existing.rank, bucketRank: existing.bucketRank, isWithinQuota: existing.isWithinQuota, inSelection: existing.inSelection, ruleOrdinal: existing.ruleOrdinal })
             otherRulesPerArtifact.set(candidate.itemKey, others)
           }
           result.set(candidate.itemKey, candRec)
         } else {
           const others = otherRulesPerArtifact.get(candidate.itemKey) ?? []
-          others.push({ rank: candidate.candidateRank, groupRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, inSelection: entryInSelection, ruleOrdinal: entry.ruleOrdinal })
+          others.push({ rank: candidate.candidateRank, bucketRank: candidate.bucketRank, isWithinQuota: candidate.isWithinQuota, inSelection: entryInSelection, ruleOrdinal: entry.ruleOrdinal })
           otherRulesPerArtifact.set(candidate.itemKey, others)
         }
       }
     }
     // Merge otherRules (sorted by rank, deduplicated by ordinal, excluding primary) into the result.
     const merged = new Map<number, SafeguardRankOverlayEntry>()
-    result.forEach(({ rank, groupRank, isWithinQuota, ruleOrdinal, inSelection }, artifactId) => {
+    result.forEach(({ rank, bucketRank, isWithinQuota, ruleOrdinal, inSelection }, artifactId) => {
       const others = otherRulesPerArtifact.get(artifactId) ?? []
       const seen = new Set<number>()
-      const otherRules: Array<{ ruleOrdinal: number; rank: number; groupRank: number; isWithinQuota: boolean; inSelection: boolean }> = []
+      const otherRules: Array<{ ruleOrdinal: number; rank: number; bucketRank: number; isWithinQuota: boolean; inSelection: boolean }> = []
       for (const o of others.sort((a, b) => a.rank - b.rank)) {
         if (typeof o.ruleOrdinal !== 'number' || o.ruleOrdinal === ruleOrdinal) continue
         if (seen.has(o.ruleOrdinal)) continue
         seen.add(o.ruleOrdinal)
-        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, groupRank: o.groupRank, isWithinQuota: o.isWithinQuota, inSelection: o.inSelection })
+        otherRules.push({ ruleOrdinal: o.ruleOrdinal, rank: o.rank, bucketRank: o.bucketRank, isWithinQuota: o.isWithinQuota, inSelection: o.inSelection })
       }
-      merged.set(artifactId, { rank, groupRank, isWithinQuota, ruleOrdinal, inSelection, otherRules })
+      merged.set(artifactId, { rank, bucketRank, isWithinQuota, ruleOrdinal, inSelection, otherRules })
     })
     return merged.size > 0 ? merged : null
   }, [safeguardsActive, safeguardDetection, safeguardMultiselectActive, selectedSafeguardRuleIndices, selectedSafeguardRuleIdx])
@@ -6007,10 +6007,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfRulesForTableRef = useRef(hsfRulesForTable)
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || gearInspectorRecipeFilterActive || safeguardOrdinalFilterSet !== null) && mergedRules.length > 0 && hsfRulesForTable.length === 0
-  // Resolve the count-group key for a clicked artifact under a given rule — so the weights flyout can
-  // default-focus that gear's group. Returns null when the rule has no per-group dimension, the gear
+  // Resolve the bucket key for a clicked artifact under a given rule — so the weights flyout can
+  // default-focus that gear's bucket. Returns null when the rule has no per-bucket dimension, the gear
   // has no detection record, or anything is missing (focus simply stays unset).
-  const resolveSafeguardFocusGroupKey = useCallback((ruleIdx: number, artifactId: number): string | null => {
+  const resolveSafeguardFocusBucketKey = useCallback((ruleIdx: number, artifactId: number): string | null => {
     const rule = safeguardRules[ruleIdx]
     if (!rule) return null
     // Detection entry for this specific rule (1-based ordinal) holds the scored artifacts.
@@ -6021,9 +6021,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (artifact == null) return null
     // Use the same effective (redundancy-suppressed) count mode the list uses for its cutoff label.
     const effectiveMode = safeguardEffectiveCountModeForDisplay(rule.combination, rule.countMode)
-    // perSubstat rules bucket per (count-group × substat). Seed the focus to the gear's BEST substat
+    // perSubstat rules bucket per (bucket × substat). Seed the focus to the gear's BEST substat
     // sub-bucket (lowest bucketRank) so the flyout opens on the substat this piece is most relevant
-    // to — matching how the row's own focus buttons scope. Falls back to the count-group key when
+    // to — matching how the row's own focus buttons scope. Falls back to the bucket key when
     // the rule isn't perSubstat or the candidate carries no sub-buckets.
     const isMultiPerSubstat = normalizeSafeguardSubstatMatch(rule.substatMatch) === SafeguardSubstatMatch.PerSubstat
       && (rule.substats?.length ?? 0) > 1
@@ -6036,9 +6036,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (acc == null || b.bucketRank < acc.bucketRank) return b
         return acc
       }, null)
-      if (best != null) return safeguardFocusGroupKeyFor(artifact, effectiveMode, best.variant as StatVariant)
+      if (best != null) return safeguardFocusBucketKeyFor(artifact, effectiveMode, best.variant as StatVariant)
     }
-    return safeguardFocusGroupKeyFor(artifact, effectiveMode)
+    return safeguardFocusBucketKeyFor(artifact, effectiveMode)
   }, [safeguardRules, safeguardDetection, safeguardItemKeyByArtifactId])
   const openLogicHubSafeguardRule = useCallback((ruleIdx: number, artifactId?: number): boolean => {
     if (ruleIdx < 0 || ruleIdx >= safeguardRules.length) return false
@@ -6048,22 +6048,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setBuilderMode('safeguard')
     // Load the rule into the draft builder so controls update immediately;
     // handleSelectSafeguardRule also auto-applies any pending draft changes first.
-    // (handleSelectSafeguardRule clears any prior candidate focus group as part of selecting.)
+    // (handleSelectSafeguardRule clears any prior candidate focus bucket as part of selecting.)
     handleSelectSafeguardRule(ruleIdx)
     // When the jump came from a concrete gear chip, seed the weights flyout's default focus to that
-    // gear's count-group so opening the flyout lands on the relevant group. Tagged with ruleIdx so it
+    // gear's bucket so opening the flyout lands on the relevant group. Tagged with ruleIdx so it
     // only applies while this rule stays the sole selection.
     if (typeof artifactId === 'number' && Number.isFinite(artifactId)) {
-      setSafeguardCandidateFocusGroup({ ruleIdx, key: resolveSafeguardFocusGroupKey(ruleIdx, artifactId) })
+      setSafeguardCandidateFocusGroup({ ruleIdx, key: resolveSafeguardFocusBucketKey(ruleIdx, artifactId) })
     }
-    // Pulse the substat-weights button to point the user at the flyout for the focused group.
+    // Pulse the substat-weights button to point the user at the flyout for the focused bucket.
     // Bumped on every qualifying jump so repeat clicks re-blink; the effect runs after the panel renders.
     setSafeguardWeightsPulseToken((token) => token + 1)
     // Request SafeguardChipsPanel to scroll the targeted chip into view.
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleIdx, token })
     return true
-  }, [handleSelectSafeguardRule, safeguardRules, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusGroupKey])
+  }, [handleSelectSafeguardRule, safeguardRules, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusBucketKey])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
     // safeguardRuleOrdinal is 1-based; convert to 0-based index for openLogicHubSafeguardRule.
     const ruleOrdinal = selection.safeguardRuleOrdinal
@@ -6131,7 +6131,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ? targetRule.__safeguardRuleOrdinal
         : 0
       // Safeguard matches should switch to Safeguard Builder mode instead of opening LogicHub.
-      // Forward the clicked card's artifactId so the jump seeds the weights-flyout focus group —
+      // Forward the clicked card's artifactId so the jump seeds the weights-flyout focus bucket —
       // making a primary safeguard-match chip behave like the rank / improvement-chance chips.
       if (openLogicHubSafeguardRule(safeguardRuleOrdinal - 1, artifactId)) return
       // Malformed safeguard rows can miss ordinals; still route into Safeguard Builder.
@@ -7269,8 +7269,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       multiSelectedRules={multiSelectedSafeguardRules}
       onApplyMultiEdit={safeguardMultiselectActive ? applySafeguardMultiEditDraft : null}
       safeguardOverridesInstructions={effectiveSafeguardInstructions}
-      candidateFocusGroupKey={safeguardCandidateFocusGroupKey}
-      onCandidateFocusGroupKeyChange={handleSafeguardCandidateFocusGroupKeyChange}
+      candidateFocusBucketKey={safeguardCandidateFocusBucketKey}
+      onCandidateFocusBucketKeyChange={handleSafeguardCandidateFocusBucketKeyChange}
       {...(safeguardCandidateImprovementChanceByItemKey != null ? { improvementChanceByItemKey: safeguardCandidateImprovementChanceByItemKey } : {})}
     />
   )
@@ -8352,7 +8352,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Task: when a Gear Inspector chip jump selects a safeguard (openLogicHubSafeguardRule bumps
   // safeguardWeightsPulseToken), pulse the substat-weights button so the user notices the flyout for
-  // the focused group. Reuses the shared attention pulse (same as the note toggle). The jump also
+  // the focused bucket. Reuses the shared attention pulse (same as the note toggle). The jump also
   // sets builderMode='safeguard', so the panel mounts this render; a rAF defers the pulse until after
   // the button paints. Skips the initial mount (token 0) and missing/disabled buttons.
   const prevWeightsPulseTokenRef = useRef(safeguardWeightsPulseToken)

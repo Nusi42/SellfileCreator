@@ -167,7 +167,7 @@ const run = async (): Promise<void> => {
   if (entry?.debug) {
     const d = entry.debug
     console.log(`debug: bucketCandidates=${d.bucketCandidateCount}, betterCandidates=${d.betterCandidateCount}`)
-    console.log(`debug: requiredPerGroup=${d.requiredPerGroup}`)
+    console.log(`debug: requiredPerBucket=${d.requiredPerBucket}`)
     console.log(`debug: matchedSelectedNow=${d.matchedSelectedNow}`)
     console.log(`debug: selectedSubstats=${JSON.stringify(d.selectedSubstats)}`)
     console.log(`debug: viableScenarioCount=${d.viableScenarioCount}`)
@@ -262,7 +262,7 @@ const run = async (): Promise<void> => {
 
     if (survivabilityEntry) {
       console.log(`\n"Protect: Survivability Top Row" entry:`)
-      console.log(`  requiredCount=${survivabilityEntry.requiredCount}, perGroupRequired=${survivabilityEntry.perGroupRequiredCount}, groupsTracked=${survivabilityEntry.groupsTracked}`)
+      console.log(`  requiredCount=${survivabilityEntry.requiredCount}, perGroupRequired=${survivabilityEntry.perBucketRequiredCount}, bucketsTracked=${survivabilityEntry.bucketsTracked}`)
       console.log(`  currentCount=${survivabilityEntry.currentCount}, projectedCount=${survivabilityEntry.projectedCount}, deficit=${survivabilityEntry.deficit}`)
       console.log(`  itemKeys protected (${survivabilityEntry.itemKeys.length}): [${survivabilityEntry.itemKeys.join(', ')}]`)
       // Find items in the same bucket as target (matching countKey)

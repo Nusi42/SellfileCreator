@@ -28,14 +28,14 @@ import type { SafeguardWasmSnapshotOut } from './generated/rust-types/SafeguardW
 import type { SafeguardWasmEntryOut } from './generated/rust-types/SafeguardWasmEntryOut'
 import type { SafeguardWasmCombination } from './generated/rust-types/SafeguardWasmCombination'
 import type { SafeguardWasmArtifactOut } from './generated/rust-types/SafeguardWasmArtifactOut'
-import type { SafeguardWasmExpectedGroupDomainIn } from './generated/rust-types/SafeguardWasmExpectedGroupDomainIn'
+import type { SafeguardWasmExpectedBucketDomainIn } from './generated/rust-types/SafeguardWasmExpectedBucketDomainIn'
 import type { AutoFlexRarityRecipeIn } from './generated/rust-types/AutoFlexRarityRecipeIn'
 import type { AutoFlexRarityBoundsIn } from './generated/rust-types/AutoFlexRarityBoundsIn'
 
 // ─── Wire shapes (aliases of the generated Rust types) ───────────────────────
 
-// SafeguardWasmExpectedGroupDomainIn (so/acs/ams/amb/afi) — generated type used directly.
-export type SafeguardExpectedGroupDomainWire = SafeguardWasmExpectedGroupDomainIn
+// SafeguardWasmExpectedBucketDomainIn (so/acs/ams/amb/afi) — generated type used directly.
+export type SafeguardExpectedGroupDomainWire = SafeguardWasmExpectedBucketDomainIn
 
 // Rust declares every field as Option<T> with #[serde(default)], so the PROJECTION side may
 // omit keys entirely (serde fills the defaults) — hence Partial, applied to the nested
@@ -145,10 +145,10 @@ export const expandRuleRawFromWire = (rule: object): Record<string, unknown> => 
   return top
 }
 
-// ─── SafeguardWasmExpectedGroupDomainIn projection ───────────────────────────
+// ─── SafeguardWasmExpectedBucketDomainIn projection ───────────────────────────
 
 // Project long-name domain to short-name wire form (input to WASM).
-export const projectSafeguardExpectedGroupDomainForWire = (domain: {
+export const projectSafeguardExpectedBucketDomainForWire = (domain: {
   slotOrder: number[]
   accessoryCompatibleSetIds: number[]
   artifactCompatibleSetIds: number[]
@@ -189,8 +189,8 @@ function expandSafeguardEntryFromWire(wire: SafeguardWasmEntryOut): SafeguardDet
     ruleActivation: wire.ra as SafeguardRuleActivation,
     // SafeguardRuleCountMode is a pure alias of the generated type — plain assignment.
     countMode: wire.cm,
-    perGroupRequiredCount: wire.pgc,
-    groupsTracked: wire.gt,
+    perBucketRequiredCount: wire.pgc,
+    bucketsTracked: wire.gt,
     requiredCount: wire.rc,
     currentCount: wire.cc,
     projectedCount: wire.pc,
@@ -227,8 +227,8 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
     ra: entry.ruleActivation,
     // SafeguardRuleCountMode is a pure alias of the generated type — plain assignment.
     cm: entry.countMode,
-    pgc: entry.perGroupRequiredCount,
-    gt: entry.groupsTracked,
+    pgc: entry.perBucketRequiredCount,
+    gt: entry.bucketsTracked,
     rc: entry.requiredCount,
     cc: entry.currentCount,
     pc: entry.projectedCount,

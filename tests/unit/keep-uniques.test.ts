@@ -372,8 +372,8 @@ test('per combination mode multiplies targets and deficits', () => {
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.countMode.perRule, false)
-  assert.strictEqual(entry.groupsTracked, 2, 'tracks each set/main tuple separately')
-  assert.strictEqual(entry.perGroupRequiredCount, 2, 'preserves the base requirement for tooltips')
+  assert.strictEqual(entry.bucketsTracked, 2, 'tracks each set/main tuple separately')
+  assert.strictEqual(entry.perBucketRequiredCount, 2, 'preserves the base requirement for tooltips')
   assert.strictEqual(entry.requiredCount, 4, 'aggregated requirement scales by the number of tuples')
   assert.strictEqual(entry.deficit, 2, 'missing one artifact per tuple yields two deficits total')
 })
@@ -401,7 +401,7 @@ test('per rule mode keeps a single aggregate quota', () => {
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.countMode.perRule, true)
-  assert.strictEqual(entry.groupsTracked, 1)
+  assert.strictEqual(entry.bucketsTracked, 1)
   assert.strictEqual(entry.requiredCount, 2)
   assert.strictEqual(entry.deficit, 0, 'no deficit because available artifacts can satisfy the quota')
 })
@@ -429,7 +429,7 @@ test('custom grouping honors the selected dimensions only', () => {
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
-  assert.strictEqual(entry.groupsTracked, 2, 'groups only by set when faction/main toggles are off')
+  assert.strictEqual(entry.bucketsTracked, 2, 'groups only by set when faction/main toggles are off')
   assert.strictEqual(entry.requiredCount, 2, 'requirement multiplies per set')
 })
 
@@ -457,7 +457,7 @@ test('per-slot grouping splits quotas by slot and avoids zero-missing placeholde
   const snapshot = computeSafeguardProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
-  assert.strictEqual(entry.groupsTracked, 2, 'slot grouping should track one group per selected slot')
+  assert.strictEqual(entry.bucketsTracked, 2, 'slot grouping should track one group per selected slot')
   assert.strictEqual(entry.requiredCount, 2, 'required total should scale with the two slot groups')
   assert.strictEqual(entry.deficit, 0, 'no deficit is expected when both slot groups are covered')
   assert.strictEqual(entry.placeholderCount, 0, 'covered slot groups must not emit zero-missing placeholders')

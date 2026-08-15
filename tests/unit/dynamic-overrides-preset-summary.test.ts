@@ -61,7 +61,7 @@ test('slider safeguard questions surface their numeric value', () => {
 
 test('mixed radio+slider safeguard: radio answer resolves to its LABEL, not the raw option id (regression)', () => {
   // The safeguard count cards carry BOTH a `single` activation radio group AND a `slider`
-  // count group. The summary used to treat any question containing a slider as slider-only,
+  // bucket. The summary used to treat any question containing a slider as slider-only,
   // dumping the radio's raw option id (e.g. "q_xxx:plus missing slots#2") verbatim instead of
   // resolving it to "Plus missing slots". Assert both group answers surface correctly.
   const sg = resolveNoteSafeguardOverridesTags(note)

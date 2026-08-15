@@ -12,13 +12,13 @@
  *   • GROUP RANK    — the rank/#group shown and which safeguard wins it
  *                     (best candidateRank across active rules; selection-aware).
  *   • FIRST-MATCH CHIP — the jump target on click (= the improvement-chance rule)
- *                     and the substat-weights focus-group key it seeds.
+ *                     and the substat-weights focus-bucket key it seeds.
  *
  * This is the single source of truth used both by ad-hoc gear-inspector questions
  * (run as a script) and by unit tests (import resolveGearInspectorChips). It re-uses
  * the same lib entry points the App/worker use — no chip logic is re-implemented here;
  * the resolution rules are read straight from the WASM detection output and the same
- * selection helpers the UI consumes (safeguardFocusGroupKeyFor, etc.).
+ * selection helpers the UI consumes (safeguardFocusBucketKeyFor, etc.).
  *
  * Script usage:
  *   PROBE_DB=examples/um109288203_RSLHelper.db \
@@ -63,7 +63,7 @@ import {
   evaluateAndCollectSafeguardProtection,
   getSafeguardItemKey,
   safeguardEffectiveCountModeForDisplay,
-  safeguardFocusGroupKeyFor,
+  safeguardFocusBucketKeyFor,
   type SafeguardRule,
   type SafeguardsMergeInput,
   type SafeguardDetectionEntry,
@@ -151,10 +151,10 @@ export type ChipResolution = {
   improvementChance: { percent: number; ruleOrdinal: number; ruleName: string } | null
   // GROUP RANK: the best-rank candidacy across active rules (selection-agnostic here —
   // no rule is selected, so the global lowest rank wins, matching the App's default).
-  groupRank: { rank: number; groupRank: number; ruleOrdinal: number; ruleName: string } | null
+  bucketRank: { rank: number; bucketRank: number; ruleOrdinal: number; ruleName: string } | null
   // IMPROV-CHANCE CHIP click: the rule the improvement-chance overlay jumps to and the
-  // substat-weights focus-group key it seeds for that rule.
-  improvChanceChipJump: { jumpRuleOrdinal: number; ruleName: string; substatWeightsFocusGroupKey: string | null } | null
+  // substat-weights focus-bucket key it seeds for that rule.
+  improvChanceChipJump: { jumpRuleOrdinal: number; ruleName: string; substatWeightsFocusBucketKey: string | null } | null
   // MATCH ROW "first match" chip: the lowest-index rule in the FINAL ruleset the item matches.
   // This is the GearInspectorRuleReferenceChip — a recipe match OR an injected safeguard
   // keep-rule. For safeguard-source rules it shows that safeguard's name (even when the
@@ -313,7 +313,7 @@ export async function buildPipelineContext(opts: {
     ? (computeImprovementChanceWithLoadedWasm({ rules: safeguardRules, enabled: parsed.safeguardsEnabled ?? false })?.entries ?? [])
     : []
 
-  // ── detection (high-level entry point — injects expectedGroupDomain) ──
+  // ── detection (high-level entry point — injects expectedBucketDomain) ──
   const det = evaluateAndCollectSafeguardProtection({
     rules: safeguardRules,
     enabled: parsed.safeguardsEnabled ?? false,
@@ -337,19 +337,19 @@ export async function buildPipelineContext(opts: {
 }
 
 // Rank-chip display mode (matches SafeguardRankMode minus 'off'). Governs which rule wins
-// the GROUP RANK chip when an item is scored by several: 'groupRank'/'both' sort by the
+// the GROUP RANK chip when an item is scored by several: 'bucketRank'/'both' sort by the
 // per-group bucket rank (rules without a group fall back to global), 'rank' by global rank.
 // Mirrors GearInspectorItemsGrid rowSortKey (line ~893).
-export type RankChipMode = 'rank' | 'groupRank' | 'both'
+export type RankChipMode = 'rank' | 'bucketRank' | 'both'
 
 // Resolve the four Gear Inspector chips for one artifact within a built context.
 // All four use the SAME selection logic the UI uses — read here, never re-derived.
-// `rankMode` defaults to 'groupRank' (the mode that shows a group rank; the user's question
-// is about the group-rank chip). It only affects the GROUP RANK winner's tie-break.
+// `rankMode` defaults to 'bucketRank' (the mode that shows a bucket rank; this probe's question
+// is about the bucket-rank chip). It only affects the GROUP RANK winner's tie-break.
 export function resolveGearInspectorChips(
   ctx: PipelineContext,
   artifactId: number,
-  rankMode: RankChipMode = 'groupRank',
+  rankMode: RankChipMode = 'bucketRank',
 ): ChipResolution {
   const art = ctx.artifacts.find((a) => Number(a.id) === artifactId)
   if (!art) throw new Error(`artifact ${artifactId} not in dataset`)
@@ -379,15 +379,15 @@ export function resolveGearInspectorChips(
   }
 
   // GROUP RANK — the rule whose candidacy sorts FIRST for this item, using the grid's
-  // rowSortKey: in groupRank/both mode sort by bucket rank ([0, groupRank]) with grouped
+  // rowSortKey: in bucketRank/both mode sort by bucket rank ([0, bucketRank]) with grouped
   // rules ahead of ungrouped ([1, globalRank]); in rank mode sort by global rank ([0, rank]).
   // No rule is selected in this headless probe, so selection-tier preference is inert.
-  const groupRankShown = rankMode === 'groupRank' || rankMode === 'both'
+  const groupRankShown = rankMode === 'bucketRank' || rankMode === 'both'
   const sortKeyFor = (rank: number, bucket: number): [number, number] =>
-    (groupRankShown && rankMode === 'groupRank'
+    (groupRankShown && rankMode === 'bucketRank'
       ? (bucket > 0 ? [0, bucket] : [1, rank])
       : [0, rank])
-  let groupRank: ChipResolution['groupRank'] = null
+  let bucketRank: ChipResolution['bucketRank'] = null
   let bestSort: [number, number] | null = null
   for (const e of entries) {
     if (e.ruleOrdinal == null || !e.candidates) continue
@@ -398,9 +398,9 @@ export function resolveGearInspectorChips(
     const wins = bestSort == null || sk[0] < bestSort[0] || (sk[0] === bestSort[0] && sk[1] < bestSort[1])
     if (wins) {
       bestSort = sk
-      groupRank = {
+      bucketRank = {
         rank: cand.candidateRank,
-        groupRank: cand.bucketRank,
+        bucketRank: cand.bucketRank,
         ruleOrdinal: e.ruleOrdinal,
         ruleName: ruleNameOf(ctx.safeguardRules, e.ruleOrdinal),
       }
@@ -408,7 +408,7 @@ export function resolveGearInspectorChips(
   }
 
   // IMPROV-CHANCE CHIP click — clicking the improvement-chance overlay jumps to its rule and
-  // seeds the substat-weights flyout focus to this item's count-group.
+  // seeds the substat-weights flyout focus to this item's bucket.
   let improvChanceChipJump: ChipResolution['improvChanceChipJump'] = null
   if (improvementChance != null) {
     const rule = ctx.safeguardRules[improvementChance.ruleOrdinal - 1]
@@ -419,12 +419,12 @@ export function resolveGearInspectorChips(
       // Locate this item's detection artifact to read its slot/set/faction/main for the key.
       const entry = entries.find((e) => e.ruleOrdinal === improvementChance!.ruleOrdinal) ?? null
       const detArt = entry?.artifacts.find((a) => a.itemKey === itemKey) ?? null
-      if (detArt) focusKey = safeguardFocusGroupKeyFor(detArt, effectiveMode)
+      if (detArt) focusKey = safeguardFocusBucketKeyFor(detArt, effectiveMode)
     }
     improvChanceChipJump = {
       jumpRuleOrdinal: improvementChance.ruleOrdinal,
       ruleName: improvementChance.ruleName,
-      substatWeightsFocusGroupKey: focusKey,
+      substatWeightsFocusBucketKey: focusKey,
     }
   }
 
@@ -457,7 +457,7 @@ export function resolveGearInspectorChips(
     }
   }
 
-  return { artifactId, itemKey, protection, improvementChance, groupRank, improvChanceChipJump, matchRowFirstMatch }
+  return { artifactId, itemKey, protection, improvementChance, bucketRank, improvChanceChipJump, matchRowFirstMatch }
 }
 
 // ── candidate-optimization index-consistency check ───────────────────────────────
@@ -563,13 +563,13 @@ async function main(): Promise<void> {
   console.log(`\n=== GEAR INSPECTOR CHIPS (id=${chips.artifactId}, itemKey=${chips.itemKey}) ===`)
   console.log(`PROTECTION:       ${chips.protection ? `safeguard #${chips.protection.ruleOrdinal} "${chips.protection.ruleName}"` : '(none)'}`)
   console.log(`IMPROV CHANCE:    ${chips.improvementChance ? `${chips.improvementChance.percent}% from safeguard #${chips.improvementChance.ruleOrdinal} "${chips.improvementChance.ruleName}"` : '(none)'}`)
-  console.log(`GROUP RANK:       ${chips.groupRank ? `rank #${chips.groupRank.rank} (group #${chips.groupRank.groupRank}) from safeguard #${chips.groupRank.ruleOrdinal} "${chips.groupRank.ruleName}"` : '(none)'}`)
+  console.log(`GROUP RANK:       ${chips.bucketRank ? `rank #${chips.bucketRank.rank} (group #${chips.bucketRank.bucketRank}) from safeguard #${chips.bucketRank.ruleOrdinal} "${chips.bucketRank.ruleName}"` : '(none)'}`)
   // The MATCH-ROW "first match" chip — what the app shows as the item's first matched rule.
   console.log(`FIRST MATCH CHIP: ${chips.matchRowFirstMatch
     ? `"${chips.matchRowFirstMatch.label}" (${chips.matchRowFirstMatch.isSafeguard ? `safeguard #${chips.matchRowFirstMatch.safeguardRuleOrdinal}` : 'recipe'}, ${chips.matchRowFirstMatch.keep ? 'KEEP' : 'SELL'}, ruleIndex=${chips.matchRowFirstMatch.ruleIndex})`
       + (chips.matchRowFirstMatch.otherMatchCount > 0 ? ` +${chips.matchRowFirstMatch.otherMatchCount}` : '')
     : '(no match)'}`)
-  console.log(`  improv-chance chip jump → ${chips.improvChanceChipJump ? `safeguard #${chips.improvChanceChipJump.jumpRuleOrdinal} "${chips.improvChanceChipJump.ruleName}", weights focus group ${chips.improvChanceChipJump.substatWeightsFocusGroupKey ?? '(none)'}` : '(none)'}`)
+  console.log(`  improv-chance chip jump → ${chips.improvChanceChipJump ? `safeguard #${chips.improvChanceChipJump.jumpRuleOrdinal} "${chips.improvChanceChipJump.ruleName}", weights focus bucket ${chips.improvChanceChipJump.substatWeightsFocusBucketKey ?? '(none)'}` : '(none)'}`)
 
   // Candidate-optimization index-consistency check (the Banner-on-Weapon regression guard).
   const ic = checkFirstMatchIndexConsistency(ctx, targetId)
@@ -609,16 +609,16 @@ async function main(): Promise<void> {
 
     // Reproduce the App's safeguardRankByArtifactId tooltip EXACTLY (App.tsx ~5764-5806):
     // primary = lowest GLOBAL candidateRank; otherRules = up to 3 more rules sorted by global
-    // rank, deduped by ordinal; the tooltip then displays groupRank (bucketRank) per row. This is
-    // the authoritative "Group Rank" tooltip list — compare it against the in-app tooltip.
-    type Rec = { rank: number; groupRank: number; ruleOrdinal: number; withinQuota: boolean }
+    // rank, deduped by ordinal; the tooltip then displays bucketRank (bucketRank) per row. This is
+    // the authoritative "Bucket Rank" tooltip list — compare it against the in-app tooltip.
+    type Rec = { rank: number; bucketRank: number; ruleOrdinal: number; withinQuota: boolean }
     let primary: Rec | null = null
     const others: Rec[] = []
     for (const e of entries) {
       if (e.ruleOrdinal == null || !e.candidates) continue
       const c = e.candidates.find((x) => x.itemKey === chips.itemKey && x.candidateRank > 0)
       if (!c) continue
-      const rec: Rec = { rank: c.candidateRank, groupRank: c.bucketRank, ruleOrdinal: e.ruleOrdinal, withinQuota: c.isWithinQuota }
+      const rec: Rec = { rank: c.candidateRank, bucketRank: c.bucketRank, ruleOrdinal: e.ruleOrdinal, withinQuota: c.isWithinQuota }
       // No rule selected → primary preference is purely lowest global rank.
       if (primary == null || rec.rank < primary.rank) { if (primary) others.push(primary); primary = rec }
       else others.push(rec)
@@ -631,10 +631,10 @@ async function main(): Promise<void> {
         seen.add(o.ruleOrdinal); top3.push(o)
         if (top3.length === 3) break
       }
-      console.log(`  [group-rank tooltip] (primary by global rank, others top-3 by global rank; shows groupRank)`)
+      console.log(`  [bucket-rank tooltip] (primary by global rank, others top-3 by global rank; shows bucketRank)`)
       for (const r of [primary, ...top3]) {
         const nm = ctx.safeguardRules[r.ruleOrdinal - 1]?.appearance?.name ?? `#${r.ruleOrdinal}`
-        console.log(`    #${r.groupRank} (global #${r.rank}) ord=${r.ruleOrdinal} "${nm}"`)
+        console.log(`    #${r.bucketRank} (global #${r.rank}) ord=${r.ruleOrdinal} "${nm}"`)
       }
     }
   }
