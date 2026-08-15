@@ -190,14 +190,14 @@ Stacking the scope chips changes who gets their own quota. Leave `Per safeguard`
 #### Groups: several safeguards sharing one Required Count
 Two safeguards can end up describing the *same* promise without meaning to. One keeps 3 good rings, another keeps 2 — but you only ever wanted 3 rings in total, and now you are keeping 5.
 
-A **group** fixes that. Select the safeguards (click, then Ctrl-click) and pick `Group selected safeguards` from the right-click menu. Every member now shows a coloured edge in the list, and a small group strip appears right beside its `Required Count` in the form: the group's own count and its own scope buttons.
+A **group** fixes that. Select the safeguards (click, then Ctrl-click) and pick `Create Group` from the right-click menu. Every member now shows a coloured edge in the list, and a small group strip appears right beside its `Required Count` in the form: the group's own count and its own scope buttons.
 
 - Every safeguard in a group still looks for **exactly** what it always did — its own slots, sets, substats, weights and mode. A group never changes what they search for.
 - What changes is where their finds go. A safeguard in a group no longer keeps gear on its own: it **offers** its finds to the group, and its own `Required Count` decides how many it offers.
 - The group's count (the `⊚ ≥` field next to `Required Count`) is the number that actually decides. Type it straight in — that is how much the group keeps out of everything its safeguards offered it. It starts as the smallest of the members' counts. Editing it on any member edits the group.
 - The group's own scope buttons decide what counts as the same pool. Put `faction` on the group and each faction gets its own count, however the safeguards inside are split up.
 - When several safeguards offer pieces for the same pool, the **best pieces win**. Each piece is judged by the substats and weights of the safeguard that offered it, so a piece from the second safeguard can absolutely beat one from the first. The candidates flyout marks pieces the group sold in the group's colour, and its `Group` toggle shows the whole pool ranked together.
-- Groups are contiguous: drag a safeguard into a group (drop it inside the coloured bracket) or out of it (drop it flush), or use the right-click menu — `Remove from group`, `Join group above/below`, `Ungroup`. Moving a safeguard up or down never changes its group; a whole group moves as one block.
+- Groups are contiguous: drag a safeguard into a group (drop it inside the coloured bracket) or out of it (drop it flush), or use the right-click menu — `Remove from Group`, `Join Group Above/Below`, `Ungroup`. Moving a safeguard up or down never changes its group; a whole group moves as one block.
 
 **Example.** You want five good SPD accessories per faction, but "good" means two different things: `SPD + CR + CDMG` for damage dealers, `SPD + HP + DEF` for tanks. Make one safeguard for each profile, group them, and set the group to `5` with `faction`. Each safeguard offers its best pieces, and the group keeps the five that came out best between them — instead of five of each.
 

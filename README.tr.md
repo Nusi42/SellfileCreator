@@ -184,7 +184,7 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 #### Gruplar: tek bir gerekli sayıyı paylaşan korumalar
 İki koruma farkında olmadan *aynı* sözü tarif edebilir. Biri 3 iyi yüzük tutar, diğeri 2 — ama siz toplamda yalnızca 3 yüzük istiyordunuz ve şimdi 5 tutuyorsunuz.
 
-Bir **grup** bunu çözer. Korumaları seçin (tıklayın, sonra Ctrl+tıklayın) ve sağ tık menüsünden `Seçili korumaları grupla` seçeneğini seçin. Her üye listede artık renkli bir kenar gösterir ve formda `Gerekli Sayı` alanının hemen yanında küçük bir grup şeridi belirir: grubun kendi sayısı ve kendi kapsam düğmeleri.
+Bir **grup** bunu çözer. Korumaları seçin (tıklayın, sonra Ctrl+tıklayın) ve sağ tık menüsünden `Grup oluştur` seçeneğini seçin. Her üye listede artık renkli bir kenar gösterir ve formda `Gerekli Sayı` alanının hemen yanında küçük bir grup şeridi belirir: grubun kendi sayısı ve kendi kapsam düğmeleri.
 
 - Bir gruptaki her koruma **tam olarak** eskiden aradığını aramaya devam eder — kendi yuvaları, setleri, alt statları, ağırlıkları ve modu. Grup, ne aradıklarını asla değiştirmez.
 - Değişen şey buldukların nereye gittiğidir. Gruptaki bir koruma artık kendi başına eşya tutmaz: buldukların grubu **sunar** ve kendi `Gerekli Sayı`sı kaç tane sunacağını belirler.

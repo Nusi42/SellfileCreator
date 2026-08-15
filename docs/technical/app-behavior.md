@@ -322,16 +322,19 @@ colour on every chip in all three themes and never looks like a state tint.
 **UI.** Member chips carry a coloured left edge (`SAFEGUARD_GROUP_EDGE_PX`, squared where it meets
 the neighbouring member so a run reads as one bracket) and, beside their own `Protect ≥ N`, a
 `SafeguardGroupBadge` (`⊚ ≥ M` in the group's colour, tooltip naming the group's chips). No chevron,
-no collapse, no indentation. The builder form is an ordinary rule form; the **group strip** sits
-directly beside Required Count as one visual pill in the group's colour (always mounted — dimmed and
-inert on an ungrouped draft so the row never shifts)
-— `⊚ ≥ [M]` plus the four scope toggles (`slot · set · faction · main stat`) — and edits the group
+no collapse, no indentation. The builder form is an ordinary rule form; the **group strip** is butted
+against Required Count so the two read as ONE segmented control (like a toggle-button group): the
+rule's `Required Count` field, then a `Group`-labelled count field (`⊚ ≥ M`), followed by a
+*Buckets:* row of four glyph chips (`KEEP_OVERRIDE_SCOPE_GLYPHS`, the same glyphs the candidate
+flyout's cutoff label and group-view chip use; styled exactly like the *Ignore:* chips). The
+builder stays in the theme's neutral colours — the group colour is the list's job. Always mounted — dimmed and inert on an ungrouped
+draft so the row never shifts. Editing the group segments edits the group
 (the draft's copy changes; the funnel's normalizer fans it out to the run). In multi-edit the strip
 shows whenever any selected rule is grouped and stages `groupRequiredCount` / `groupCountMode` onto
 every grouped member (ungrouped ones ignore them — multi-edit never creates a group); with several
 groups selected the strip is neutral-coloured and mixed states hatch like every other mixed
-control. Context menu: *Group selected safeguards* (≥ 2 rules; the block is gathered at its first
-member's slot), *Ungroup* (whole run), *Remove from group* (one member), *Join group above/below*.
+control. Context menu: *Create Group* (≥ 2 rules; the block is gathered at its first
+member's slot), *Ungroup* (whole run), *Remove from Group* (one member), *Join Group Above/Below*.
 
 **Moves — one rule: a position move never changes membership; only join/leave/drag-into-bracket
 do.** `resolveSafeguardDirectionalMove` (all four directional actions, through

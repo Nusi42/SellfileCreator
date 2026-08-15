@@ -183,7 +183,7 @@ Sellfile Creator simplifica la creación de Sellfiles para RSL Helper — define
 #### Grupos: varias salvaguardas compartiendo un recuento necesario
 Dos salvaguardas pueden acabar describiendo la *misma* promesa sin querer. Una conserva 3 buenos anillos, otra conserva 2, pero tú solo querías 3 anillos en total y ahora conservas 5.
 
-Un **grupo** lo resuelve. Selecciona las salvaguardas (clic y luego Ctrl+clic) y elige `Agrupar salvaguardas seleccionadas` en el menú contextual. Cada miembro muestra ahora un borde de color en la lista, y en el formulario aparece una pequeña franja de grupo justo al lado de su `Recuento necesario`: el recuento propio del grupo y sus propios botones de ámbito.
+Un **grupo** lo resuelve. Selecciona las salvaguardas (clic y luego Ctrl+clic) y elige `Crear grupo` en el menú contextual. Cada miembro muestra ahora un borde de color en la lista, y en el formulario aparece una pequeña franja de grupo justo al lado de su `Recuento necesario`: el recuento propio del grupo y sus propios botones de ámbito.
 
 - Cada salvaguarda de un grupo sigue buscando **exactamente** lo que buscaba siempre: sus propias ranuras, sets, subestadísticas, pesos y modo. Un grupo nunca cambia lo que buscan.
 - Lo que cambia es adónde van sus hallazgos. Una salvaguarda dentro de un grupo ya no conserva equipo por su cuenta: **ofrece** sus hallazgos al grupo, y su propio `Recuento necesario` decide cuántos ofrece.

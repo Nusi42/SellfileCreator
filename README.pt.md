@@ -184,7 +184,7 @@ Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por sal
 #### Grupos: várias proteções a partilhar uma quantidade necessária
 Duas proteções podem acabar por descrever a *mesma* promessa sem querer. Uma mantém 3 bons anéis, outra mantém 2 — mas só querias 3 anéis no total, e agora estás a manter 5.
 
-Um **grupo** resolve isso. Seleciona as proteções (clique e depois Ctrl+clique) e escolhe `Agrupar salvaguardas selecionadas` no menu de contexto. Cada membro mostra agora uma margem colorida na lista, e no formulário aparece uma pequena faixa de grupo mesmo ao lado da sua `Quantidade necessária`: a quantidade própria do grupo e os seus botões de âmbito.
+Um **grupo** resolve isso. Seleciona as proteções (clique e depois Ctrl+clique) e escolhe `Criar grupo` no menu de contexto. Cada membro mostra agora uma margem colorida na lista, e no formulário aparece uma pequena faixa de grupo mesmo ao lado da sua `Quantidade necessária`: a quantidade própria do grupo e os seus botões de âmbito.
 
 - Cada proteção num grupo continua a procurar **exatamente** o que sempre procurou — os seus próprios slots, sets, substats, pesos e modo. Um grupo nunca muda o que elas procuram.
 - O que muda é para onde vão os achados. Uma proteção num grupo já não mantém equipamento por conta própria: **oferece** os seus achados ao grupo, e a sua própria `Quantidade necessária` decide quantos oferece.

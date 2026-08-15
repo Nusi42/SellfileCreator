@@ -184,7 +184,7 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um
 #### Gruppen: mehrere Schutzregeln teilen sich eine benötigte Anzahl
 Zwei Schutzregeln können ungewollt dasselbe Versprechen beschreiben. Eine behält 3 gute Ringe, eine andere 2 — gewollt waren aber nur 3 Ringe insgesamt, und jetzt behältst du 5.
 
-Eine **Gruppe** löst das. Wähle die Schutzregeln aus (Klick, dann Strg-Klick) und nimm `Ausgewählte Schutzregeln gruppieren` aus dem Rechtsklick-Menü. Jedes Mitglied zeigt in der Liste jetzt eine farbige Kante, und im Formular erscheint direkt neben seiner `Benötigten Anzahl` eine kleine Gruppenleiste: die eigene Anzahl der Gruppe und ihre eigenen Bereichs-Schalter.
+Eine **Gruppe** löst das. Wähle die Schutzregeln aus (Klick, dann Strg-Klick) und nimm `Gruppe erstellen` aus dem Rechtsklick-Menü. Jedes Mitglied zeigt in der Liste jetzt eine farbige Kante, und im Formular erscheint direkt neben seiner `Benötigten Anzahl` eine kleine Gruppenleiste: die eigene Anzahl der Gruppe und ihre eigenen Bereichs-Schalter.
 
 - Jede Schutzregel in einer Gruppe sucht **genau** weiter wie zuvor — eigene Slots, Sets, Unterwerte, Gewichtungen und Modus. Eine Gruppe ändert nie, wonach sie suchen.
 - Was sich ändert, ist, wohin ihre Funde gehen. Eine Schutzregel in einer Gruppe behält nichts mehr selbst: sie **bietet** ihre Funde der Gruppe an, und ihre eigene `Benötigte Anzahl` legt fest, wie viele sie anbietet.

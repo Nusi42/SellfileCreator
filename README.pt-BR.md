@@ -184,7 +184,7 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salv
 #### Grupos: várias proteções compartilhando uma quantidade necessária
 Duas proteções podem acabar descrevendo a *mesma* promessa sem querer. Uma mantém 3 bons anéis, outra mantém 2 — mas você só queria 3 anéis no total, e agora está mantendo 5.
 
-Um **grupo** resolve isso. Selecione as proteções (clique e depois Ctrl+clique) e escolha `Agrupar salvaguardas selecionadas` no menu de contexto. Cada membro agora mostra uma borda colorida na lista, e no formulário aparece uma pequena faixa de grupo bem ao lado da sua `Quantidade necessária`: a quantidade própria do grupo e seus próprios botões de escopo.
+Um **grupo** resolve isso. Selecione as proteções (clique e depois Ctrl+clique) e escolha `Criar grupo` no menu de contexto. Cada membro agora mostra uma borda colorida na lista, e no formulário aparece uma pequena faixa de grupo bem ao lado da sua `Quantidade necessária`: a quantidade própria do grupo e seus próprios botões de escopo.
 
 - Cada proteção em um grupo continua procurando **exatamente** o que sempre procurou — seus próprios slots, sets, substats, pesos e modo. Um grupo nunca muda o que elas procuram.
 - O que muda é para onde vão os achados. Uma proteção em um grupo não mantém mais equipamento por conta própria: ela **oferece** seus achados ao grupo, e a sua própria `Quantidade necessária` decide quantos ela oferece.

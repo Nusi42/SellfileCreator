@@ -80,7 +80,6 @@ import {
 import { resolveLabelColor } from '../lib/labelColors'
 import { useReservedLabelHues } from '../lib/themeContrastHooks'
 import GroupWorkOutlinedIcon from '@mui/icons-material/GroupWorkOutlined'
-import { describeSafeguardGroupScope } from './SafeguardGroupBadge'
 // Group view of the candidate flyout: the members' feeds pooled and ranked the way the engine
 // ranks them, built from the detection entries the members already carry.
 import { buildSafeguardGroupPool } from '../lib/safeguardGroupPool'
@@ -151,8 +150,10 @@ import {
   getMainStatOptionsForSlots,
 } from './keepOverrides/keepOverrideRuleUtils'
 import {
-  // Display order for the four scope toggles inside the group strip.
+  // Display order + glyphs for the four scope toggles inside the group strip.
   KEEP_OVERRIDE_SCOPE_KEYS,
+  KEEP_OVERRIDE_SCOPE_GLYPHS,
+  describeKeepOverrideScopeGlyphs,
   resolveKeepOverrideScopeActive,
   toggleKeepOverrideCountMode,
   type KeepOverrideScopeKey,
@@ -181,7 +182,7 @@ import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { StatLabel } from './StatLabel'
 import { SlotTintControlScope } from '../lib/slotTintContext'
-import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
+import { useTheme, useColorScheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
 import {
@@ -223,7 +224,7 @@ import {
 } from '../lib/noteSafeguardOverrides'
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { MenuToggleRow } from './MenuToggleRow'
-import { ALPHA, TINT } from '../lib/colorTints'
+import { TINT } from '../lib/colorTints'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -705,16 +706,8 @@ export default function SafeguardBuilderPanel({
   const groupStripVisible = multiEditActive
     ? Boolean(multiSelectedRules?.some((entry) => isSafeguardGrouped(entry)))
     : draftGroup !== null
-  // The colour identifying the group everywhere (chip edge, badge, strip): derived from the
-  // id and adapted to the builder's paper. In multi-edit with several groups selected the strip
-  // is neutral, since it edits more than one group at once.
-  const multiGroupIds = multiEditActive
-    ? Array.from(new Set((multiSelectedRules ?? []).map((entry) => entry.group?.id).filter((id): id is string => Boolean(id))))
-    : []
-  const stripGroupId = multiEditActive ? (multiGroupIds.length === 1 ? multiGroupIds[0] ?? null : null) : (draftGroup?.id ?? null)
   // Semantic hues the active scheme reserves; group colours steer clear of them.
   const reservedHues = useReservedLabelHues()
-  const stripColor = stripGroupId ? resolveLabelColor(stripGroupId, schemePalette.background.paper, reservedHues) : null
   // Displayed group count: the staged value in multi-edit (blank while mixed), else the draft's.
   const groupCountMixed = multiEditActive && multiGroupCountField?.status === 'mixed' && !multiGroupCountField.dirty
   const displayGroupCount = multiEditActive
@@ -722,9 +715,14 @@ export default function SafeguardBuilderPanel({
     : (draftGroup?.requiredCount ?? 1)
   // Displayed group chips: staged in multi-edit, else the draft's; per-chip mixed state is
   // derived across the grouped members exactly like the rule's own chips below.
-  const displayGroupCountMode: SafeguardRuleCountMode = multiEditActive
-    ? ((multiGroupCountModeField?.value as SafeguardRuleCountMode | null | undefined) ?? draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
-    : (draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+  // On an ungrouped draft the (inert) chips show NO scope rather than the default chips, so a
+  // dimmed strip never looks like it still carries the previous member's buckets.
+  const NO_GROUP_SCOPE: SafeguardRuleCountMode = { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false }
+  const displayGroupCountMode: SafeguardRuleCountMode = !groupStripVisible
+    ? NO_GROUP_SCOPE
+    : multiEditActive
+      ? ((multiGroupCountModeField?.value as SafeguardRuleCountMode | null | undefined) ?? draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+      : (draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const groupScopeMixed = useMemo(() => {
     const none = { perSlot: false, perSet: false, perFaction: false, perMainStat: false }
     if (!multiEditActive || !multiSelectedRules || multiGroupCountModeField?.dirty) return none
@@ -1136,10 +1134,11 @@ export default function SafeguardBuilderPanel({
     )
   }
 
-  // One glyph-only ignore toggle chip: the visible label is just the glyph (the same
-  // glyph the rule-chip mode badge shows), so the full label + hint live in the tooltip.
-  // Shared by all three ignore toggles — field-specific state/handlers come in as params.
-  const renderIgnoreGlyphChip = ({ glyph, label, hint, active, mixed, overrideActive, storedOn, effectiveOn, onToggle }: {
+  // One glyph-only toggle chip: the visible label is just the glyph (the same glyph the
+  // rule-chip mode badge shows), so the full label + hint live in the tooltip. Shared by the
+  // three ignore toggles AND the four group scope toggles — state/handlers come in as params, so
+  // the two rows are pixel-identical by construction.
+  const renderGlyphToggleChip = ({ glyph, label, hint, active, mixed, overrideActive, storedOn, effectiveOn, onToggle }: {
     glyph: string
     label: string
     hint: string
@@ -1157,6 +1156,7 @@ export default function SafeguardBuilderPanel({
           variant="filled"
           label={glyph}
           aria-label={label}
+          aria-pressed={active}
           clickable
           onClick={onToggle}
           sx={{
@@ -2282,7 +2282,22 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
           </Box>
         </FormControl>
 
-        {/* Required count */}
+        {/* Required Count + group strip — ONE joined control, like a toggle-button group: the rule's
+            own Required Count field, then (butted against it, sharing the border) the group's own
+            count field labelled "Group" and the four scope toggles that define its merged buckets.
+            The builder controls stay in the theme's neutral colours — the group's colour is the
+            list's job (chip edge + badge). The rule's own count sizes what it
+            FEEDS the group; the group's count is what the group keeps out of each bucket. Editing
+            the group segments edits the group: the draft's copy changes and the funnel's normalizer
+            fans it out to every member of the run. In multi-edit they stage the same two fields
+            onto every grouped member of the selection.
+
+            The group segments are always MOUNTED so the row keeps one layout whether or not the
+            selected chip is a member: on an ungrouped draft they are dimmed + non-interactive (the
+            same `separatorDisabledSectionSx` treatment every other inert section gets) instead of
+            being removed, so switching between grouped and ungrouped chips never shifts the
+            controls beside them. */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', flex: '0 0 auto' }}>
         <Box sx={(theme) => ({ position: 'relative', flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
           {/* Override badge: shown when a safeguard-overrides block changes the required count. */}
           {requiredCountOverrideActive && renderSafeguardOverrideBadge(
@@ -2338,24 +2353,15 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
             sx={(themeInner) => ({
               width: 130,
               ...HIDE_NATIVE_NUMBER_SPINNER_SX,
+              // The group segments butt against this field's right edge, so it is squared there.
+              // All three segments share the divider colour at rest so the joined control has one
+              // border weight/colour end to end (MUI's input outline is a different tint).
+              '& .MuiOutlinedInput-root': { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: themeInner.vars?.palette.divider ?? themeInner.palette.divider },
               '& input': { textAlign: 'right', paddingRight: themeInner.spacing(1), paddingLeft: themeInner.spacing(0.5) },
             })}
           />
         </Box>
-
-        {/* Group strip — members only. Sits directly beside the rule's own Required Count as ONE
-            visual unit in the group's colour (a bordered pill, like the mode toggle group): the
-            group's count, then the four scope toggles that define its merged buckets. The rule's
-            own count sizes what it FEEDS the group; the group's count is what the group keeps out
-            of each bucket. Editing here edits the group: the draft's copy changes and the funnel's
-            normalizer fans it out to every member of the run. In multi-edit the strip stages the
-            same two fields onto every grouped member of the selection.
-
-            Always MOUNTED so the row keeps one layout whether or not the selected chip is a
-            member: on an ungrouped draft the strip is dimmed + non-interactive (the same
-            `separatorDisabledSectionSx` treatment every other inert section gets) instead of being
-            removed, so switching between grouped and ungrouped chips never shifts the controls
-            beside it. */}
         {(
           <Box
             data-tour-id="safeguards.builder.group-strip"
@@ -2364,97 +2370,82 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               display: 'flex',
               alignItems: 'stretch',
               flex: '0 0 auto',
-              alignSelf: 'flex-end',
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: stripColor ?? (themeInner.vars?.palette.divider ?? themeInner.palette.divider),
-              overflow: 'hidden',
+              // Overlap the shared border with the Required Count field so the seam is one line.
+              ml: '-1px',
               ...(groupStripVisible ? {} : separatorDisabledSectionSx(themeInner)),
             })}
           >
             <MarkdownTooltip placement="top" markdown={t('safeguardsGroupStripHint')}>
-              <Box sx={{ display: 'flex', alignItems: 'center', pl: 0.75, pr: 0.25, color: stripColor ?? 'text.secondary', gap: 0.25 }}>
-                <GroupWorkOutlinedIcon sx={{ fontSize: 16 }} />
-                <Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>≥</Box>
-              </Box>
+              <TextField
+                size="small"
+                type="number"
+                label={t('safeguardsGroupKeepsLabel')}
+                value={groupCountMixed || !groupStripVisible ? '' : displayGroupCount}
+                disabled={!groupStripVisible}
+                {...(groupCountMixed ? { placeholder: t('builderMultiEditMixedPlaceholder') } : {})}
+                onChange={(event) => commitGroupCount(Number(event.target.value))}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start" sx={{ gap: 0.25 }}>
+                        <GroupWorkOutlinedIcon sx={{ fontSize: 16 }} />≥
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <NumberSpinnerAdornment
+                        ariaLabel={t('safeguardsGroupKeepsLabel')}
+                        onStep={(delta) => commitGroupCount(displayGroupCount + delta)}
+                      />
+                    ),
+                  },
+                  htmlInput: { min: 1, step: 1, max: 9999 },
+                }}
+                sx={(themeInner) => ({
+                  width: 118,
+                  ...HIDE_NATIVE_NUMBER_SPINNER_SX,
+                  // Last segment: squared against the Required Count field, rounded on the right;
+                  // same rest border as its neighbour so the joined control reads as one.
+                  '& .MuiOutlinedInput-root': { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: themeInner.vars?.palette.divider ?? themeInner.palette.divider },
+                  '& input': { textAlign: 'right', paddingRight: themeInner.spacing(0.5), paddingLeft: themeInner.spacing(0.25) },
+                })}
+              />
             </MarkdownTooltip>
-            <TextField
-              size="small"
-              type="number"
-              value={groupCountMixed || !groupStripVisible ? '' : displayGroupCount}
-              disabled={!groupStripVisible}
-              {...(groupCountMixed ? { placeholder: t('builderMultiEditMixedPlaceholder') } : {})}
-              onChange={(event) => commitGroupCount(Number(event.target.value))}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <NumberSpinnerAdornment
-                      ariaLabel={t('safeguardsGroupKeepsLabel')}
-                      onStep={(delta) => commitGroupCount(displayGroupCount + delta)}
-                    />
-                  ),
-                },
-                // The accessible name lives on the input itself (the strip has no visible label).
-                htmlInput: { min: 1, step: 1, max: 9999, 'aria-label': t('safeguardsGroupKeepsLabel') },
-              }}
-              sx={(themeInner) => ({
-                width: 78,
-                ...HIDE_NATIVE_NUMBER_SPINNER_SX,
-                // The strip's own border frames the field; the field's outline is dropped so the
-                // pill reads as one control.
-                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '& .MuiOutlinedInput-root': { height: '100%', borderRadius: 0 },
-                '& input': { textAlign: 'right', paddingRight: themeInner.spacing(0.5), paddingLeft: themeInner.spacing(0.25), fontWeight: 600, color: stripColor ?? undefined },
-              })}
-            />
-            <ToggleButtonGroup
-              size="small"
-              value={KEEP_OVERRIDE_SCOPE_KEYS.filter((scope) => displayGroupCountMode[scope])}
-              sx={(themeInner) => ({
-                // Flush against the count field: no outer radius, a hairline between buttons.
-                '& .MuiToggleButtonGroup-grouped': {
-                  border: 0,
-                  borderLeft: '1px solid',
-                  borderColor: stripColor ?? (themeInner.vars?.palette.divider ?? themeInner.palette.divider),
-                  borderRadius: 0,
-                  px: 1,
-                  textTransform: 'capitalize',
-                  // Selected = the group colour as text plus a faint fill of it, so the pressed
-                  // chips read as "on" the way the mode toggle does.
-                  '&.Mui-selected': stripColor ? { color: stripColor, backgroundColor: alpha(stripColor, ALPHA.a15) } : {},
-                },
-              })}
-            >
-              {KEEP_OVERRIDE_SCOPE_KEYS.map((scope) => {
-                const label = {
-                  perSlot: t('safeguardsCountModeScopeSlot'),
-                  perSet: t('safeguardsCountModeScopeSet'),
-                  perFaction: t('safeguardsCountModeScopeFaction'),
-                  perMainStat: t('safeguardsCountModeScopeMain'),
-                }[scope]
-                return (
-                  <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
-                    <ToggleButton
-                      value={scope}
-                      selected={displayGroupCountMode[scope]}
-                      onChange={() => toggleGroupScope(scope)}
-                      sx={(themeInner) => (groupScopeMixed[scope] ? {
-                        // Mixed across the selection: dashed border + hatch, like every other
-                        // mixed control in this form.
-                        border: `1px dashed ${mixedBorderColor}`,
-                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                        color: themeInner.custom.multiEditMixedText,
-                      } : {})}
-                    >
-                      {label}
-                    </ToggleButton>
-                  </MarkdownTooltip>
-                )
-              })}
-            </ToggleButtonGroup>
+            {/* Group scope chips: the four bucket dimensions the group merges by, as glyph chips
+                styled exactly like the Ignore chips to their right (same renderer, same size),
+                under their own caption. Full label + hint live in each chip's tooltip. */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', ml: 1.5 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+                {t('safeguardsGroupScopeLabel')}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {KEEP_OVERRIDE_SCOPE_KEYS.map((scope) => {
+                  const label = {
+                    perSlot: t('safeguardsCountModePerSlot'),
+                    perSet: t('safeguardsCountModePerSet'),
+                    perFaction: t('safeguardsCountModePerFaction'),
+                    perMainStat: t('safeguardsCountModePerMain'),
+                  }[scope]
+                  // The scope hints open with their own bold title; the chip renderer adds the label
+                  // itself, so hand it the body only.
+                  const hint = safeguardScopeChipTooltips[scope].split('\n').slice(1).join('\n')
+                  return renderGlyphToggleChip({
+                    glyph: KEEP_OVERRIDE_SCOPE_GLYPHS[scope],
+                    label,
+                    hint,
+                    active: displayGroupCountMode[scope],
+                    mixed: groupScopeMixed[scope],
+                    overrideActive: false,
+                    storedOn: displayGroupCountMode[scope],
+                    effectiveOn: displayGroupCountMode[scope],
+                    onToggle: () => toggleGroupScope(scope),
+                  })
+                })}
+              </Box>
+            </Box>
           </Box>
         )}
-
+        </Box>
         {/* Ignore toggles — right of required count, compact two-line group: the
             `Ignore:` caption sits above one row of glyph-only chips [»] [♛] [⌂]
             (the same glyphs the rule-chip mode badge shows, so the pairing is already
@@ -2468,7 +2459,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
           </Typography>
           {/* Derived values (ignPrevMixed, ignPrevValue, …) are computed before the return statement. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {renderIgnoreGlyphChip({
+          {renderGlyphToggleChip({
             glyph: GLYPH_IGNORE_PREVIOUS,
             label: t('safeguardsIgnorePreviousSafeguards'),
             hint: t('safeguardsIgnorePreviousSafeguardsHint'),
@@ -2485,7 +2476,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               }
             },
           })}
-          {renderIgnoreGlyphChip({
+          {renderGlyphToggleChip({
             glyph: GLYPH_IGNORE_COLLECTION,
             label: t('safeguardsIgnoreEquippedInCollection'),
             hint: t('safeguardsIgnoreEquippedInCollectionHint'),
@@ -2502,7 +2493,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               }
             },
           })}
-          {renderIgnoreGlyphChip({
+          {renderGlyphToggleChip({
             glyph: GLYPH_IGNORE_VAULT,
             label: t('safeguardsIgnoreEquippedInVault'),
             hint: t('safeguardsIgnoreEquippedInVaultHint'),
@@ -4212,16 +4203,10 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                     size="small"
                     variant={groupViewActive ? 'filled' : 'outlined'}
                     icon={<GroupWorkOutlinedIcon />}
-                    label={`${t('safeguardsCandidatesGroupView')} · ≥${draftGroup.requiredCount} · ${describeSafeguardGroupScope(draftGroup, t)}`}
+                    label={`${t('safeguardsCandidatesGroupView')} · ≥${draftGroup.requiredCount}${describeKeepOverrideScopeGlyphs(draftGroup.countMode) ? ` · ${describeKeepOverrideScopeGlyphs(draftGroup.countMode)}` : ''}`}
                     onClick={() => setGroupViewOnKey((prev) => (prev === groupViewKey ? null : groupViewKey))}
                     data-tour-id="safeguards.builder.candidates.group-view"
-                    sx={{
-                      ml: 'auto',
-                      color: groupTrimColor ?? undefined,
-                      borderColor: groupTrimColor ?? undefined,
-                      '& .MuiChip-icon': { color: groupTrimColor ?? undefined },
-                      ...(groupViewActive && groupTrimColor ? { backgroundColor: alpha(groupTrimColor, ALPHA.a15) } : {}),
-                    }}
+                    sx={{ ml: 'auto' }}
                   />
                 </MarkdownTooltip>
               ) : null}

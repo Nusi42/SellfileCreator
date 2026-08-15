@@ -46,6 +46,7 @@ import { useRarityGlyphColor, useRarityTextColor } from '../lib/rarityColorConte
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
+import { describeKeepOverrideScopeGlyphs } from '../lib/keepOverrideScope'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
@@ -413,13 +414,13 @@ export default function SafeguardCandidateRankList({
   // Collect active per-bucket dimensions in display order (slot → set → faction → main).
   // suppressPerFactionInLabel hides the faction dimension from the quota label when faction is not
   // meaningful for this rule (no accessory slot targeted).
-  const cutoffScopeParts: string[] = []
-  if (effectiveCutoffMode?.perSlot) cutoffScopeParts.push(t('safeguardsCountModeScopeSlot'))
-  if (effectiveCutoffMode?.perSet) cutoffScopeParts.push(t('safeguardsCountModeScopeSet'))
-  if (effectiveCutoffMode?.perFaction && !suppressPerFactionInLabel) cutoffScopeParts.push(t('safeguardsCountModeScopeFaction'))
-  if (effectiveCutoffMode?.perMainStat) cutoffScopeParts.push(t('safeguardsCountModeScopeMain'))
+  // Active bucket dimensions as glyphs (the shared scope-glyph SSOT), so the cutoff line reads
+  // "quota: 5 per ⚙ ⚑" — the same symbols the group strip toggles and the rule chips use.
+  const cutoffScopeParts: string[] = effectiveCutoffMode
+    ? describeKeepOverrideScopeGlyphs(effectiveCutoffMode, suppressPerFactionInLabel ? ['perFaction'] : []).split(' ').filter(Boolean)
+    : []
   const cutoffLabel = cutoffScopeParts.length > 0
-    ? t('safeguardsCandidateCutoffPerBucket', { n: quota, scope: cutoffScopeParts.join(' · ') })
+    ? t('safeguardsCandidateCutoffPerBucket', { n: quota, scope: cutoffScopeParts.join(' ') })
     : t('safeguardsCandidateCutoff', { n: quota })
 
   // perSubstat rules score each substat independently, so a candidate can belong to several

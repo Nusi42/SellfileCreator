@@ -2741,7 +2741,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (normalized) effectiveDefaults = { ...factory, ...normalized }
       }
     } catch {}
-    setSafeguardBuilder({ ...effectiveDefaults })
+    // Reset clears the rule's SETTINGS, not its place in the list: a member stays a member of its
+    // group (membership is structure, edited through the chip list, not a field of the form).
+    setSafeguardBuilder((prev) => ({ ...effectiveDefaults, ...(prev.group ? { group: prev.group } : {}) }))
   }, [setSafeguardBuilder])
 
   // Select a rule chip: auto-apply the current draft, then load the new rule into the draft.

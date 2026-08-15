@@ -36,7 +36,7 @@ const groupChips = async (page: Page, from: number, to: number): Promise<void> =
   await chip(page, from).click()
   for (let i = from + 1; i <= to; i += 1) await chip(page, i).click({ modifiers: ['Control'] })
   const menu = await openContextMenu(page, chip(page, to))
-  await menu.getByRole('menuitem', { name: 'Group selected safeguards' }).click()
+  await menu.getByRole('menuitem', { name: 'Create Group' }).click()
 }
 
 test.beforeAll(async ({ browser }) => {
@@ -99,14 +99,14 @@ test('a group scope toggle in the strip reaches the badge tooltip scope', async 
   await chip(page, 0).click()
   const strip = page.locator('[data-tour-id="safeguards.builder.group-strip"]')
   await expect(strip).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  // The four scope toggles are one visual unit inside the strip; "slot" is the first.
-  await strip.getByRole('button', { name: /^slot$/i }).click()
+  // The four scope glyph chips sit inside the strip (Per Slot is the first).
+  await strip.getByRole('button', { name: 'Per Slot' }).click()
   await page.getByRole('button', { name: /Apply (Safeguard|as Safeguard)/i }).first().click()
   // The rule's OWN chips are separate controls and stay unchanged: the summary shows no scope.
   await expect(chip(page, 0)).not.toContainText('Per Slot')
   // Selecting the other member shows the strip's toggle pressed — the run shares the chips.
   await chip(page, 1).click()
-  await expect(strip.getByRole('button', { name: /^slot$/i })).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(strip.getByRole('button', { name: 'Per Slot' })).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
 test('a directional move keeps the run together and hops an outsider over it', async ({ page }) => {
@@ -131,7 +131,7 @@ test('ungrouping restores the flat list; removing one member dissolves a pair', 
   await expect(chip(page, 2)).toHaveAttribute('data-safeguard-chip-group', /.+/, { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Remove one member: the other two stay a group.
   const leaveMenu = await openContextMenu(page, chip(page, 2))
-  await leaveMenu.getByRole('menuitem', { name: 'Remove from group' }).click()
+  await leaveMenu.getByRole('menuitem', { name: 'Remove from Group' }).click()
   await expect(chip(page, 2)).not.toHaveAttribute('data-safeguard-chip-group', /.+/, { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   await expect(chip(page, 1)).toHaveAttribute('data-safeguard-chip-group', /.+/)
   // Ungroup the rest: no chip carries an id, and the list is untouched otherwise.

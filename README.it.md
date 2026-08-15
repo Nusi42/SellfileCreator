@@ -173,7 +173,7 @@ Sellfile Creator semplifica la creazione di Sellfile per RSL Helper — definisc
 #### Gruppi: più protezioni che condividono un numero richiesto
 Due protezioni possono finire per descrivere la *stessa* promessa senza volerlo. Una tiene 3 buoni anelli, un’altra ne tiene 2 — ma tu volevi solo 3 anelli in totale, e ora ne tieni 5.
 
-Un **gruppo** risolve la cosa. Seleziona le protezioni (clic, poi Ctrl+clic) e scegli `Raggruppa le salvaguardie selezionate` dal menu contestuale. Ogni membro mostra ora un bordo colorato nell’elenco, e nel modulo compare una piccola striscia di gruppo proprio accanto al suo `Numero richiesto`: il numero proprio del gruppo e i suoi pulsanti di ambito.
+Un **gruppo** risolve la cosa. Seleziona le protezioni (clic, poi Ctrl+clic) e scegli `Crea gruppo` dal menu contestuale. Ogni membro mostra ora un bordo colorato nell’elenco, e nel modulo compare una piccola striscia di gruppo proprio accanto al suo `Numero richiesto`: il numero proprio del gruppo e i suoi pulsanti di ambito.
 
 - Ogni protezione in un gruppo continua a cercare **esattamente** ciò che ha sempre cercato — i propri slot, set, sottostatistiche, pesi e modalità. Un gruppo non cambia mai cosa cercano.
 - Cambia dove finiscono i loro risultati. Una protezione in un gruppo non tiene più pezzi per conto suo: **offre** i suoi risultati al gruppo, e il suo `Numero richiesto` decide quanti ne offre.

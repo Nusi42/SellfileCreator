@@ -190,7 +190,7 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 #### Groupes : plusieurs protections partageant un nombre requis
 Deux protections peuvent finir par décrire la *même* promesse sans le vouloir. L’une garde 3 bons anneaux, l’autre en garde 2 — mais vous ne vouliez que 3 anneaux au total, et vous en gardez maintenant 5.
 
-Un **groupe** règle cela. Sélectionnez les protections (clic, puis Ctrl+clic) et choisissez `Grouper les sauvegardes sélectionnées` dans le menu contextuel. Chaque membre affiche désormais une bordure colorée dans la liste, et une petite bande de groupe apparaît juste à côté de son `Nombre requis` dans le formulaire : le nombre propre au groupe et ses propres boutons de portée.
+Un **groupe** règle cela. Sélectionnez les protections (clic, puis Ctrl+clic) et choisissez `Créer un groupe` dans le menu contextuel. Chaque membre affiche désormais une bordure colorée dans la liste, et une petite bande de groupe apparaît juste à côté de son `Nombre requis` dans le formulaire : le nombre propre au groupe et ses propres boutons de portée.
 
 - Chaque protection d’un groupe continue de chercher **exactement** ce qu’elle a toujours cherché — ses propres emplacements, sets, sous-stats, poids et mode. Un groupe ne change jamais ce qu’elles recherchent.
 - Ce qui change, c’est où vont leurs trouvailles. Une protection dans un groupe ne garde plus d’équipement seule : elle **propose** ses trouvailles au groupe, et son propre `Nombre requis` décide combien elle en propose.
