@@ -60,7 +60,7 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
-  NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES,
   NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX,
 } from './noteSafeguardOverrides'
 import { type DraftSelectorBlock, type DraftStructuredBody, type OverridesDomain } from './overridesDraftTypes'
@@ -377,21 +377,20 @@ const COUNT_RANGE: NumberValueRange = { min: NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
 // Substat weights share the Gear-Inspector sort-weight bounds/step.
 const WEIGHT_RANGE: NumberValueRange = { min: GEAR_INSPECTOR_SORT_WEIGHT_MIN, max: GEAR_INSPECTOR_SORT_WEIGHT_MAX, step: GEAR_INSPECTOR_SORT_WEIGHT_STEP }
 
-// Qualifier label per `group.per*` entry: the SAME chip terms the ungrouped `per*` fields use,
-// so "per slot" is named once for both the rule's own scope and its group's bucket scope.
-// Keyed by the fully-qualified DSL token and built from the grammar's suffix SSOT, so a new
-// chip cannot reach the dropdown without a label (the lookup below would be `undefined`).
-const GROUP_SCOPE_CHIP_LABEL_KEYS: Record<string, I18nKey> = {
+/**
+ * Catalog key per bucket-scope chip, keyed by the chip's DSL suffix. THE one place a scope
+ * dimension is named for the overrides editor: the rule's own `per*` fields take it as their
+ * dropdown label, and the `group.per*` entries take it as their qualifier, so "per slot" is
+ * spelled exactly once for both. (Note `perMainStat`'s shorter `…PerMain` key — precisely the
+ * mismatch a second, hand-copied map gets wrong.)
+ */
+const SCOPE_CHIP_LABEL_KEYS = {
   perfaction: 'safeguardsCountModePerFaction',
   permainstat: 'safeguardsCountModePerMain',
   perslot: 'safeguardsCountModePerSlot',
   perset: 'safeguardsCountModePerSet',
   perrule: 'safeguardsCountModePerRule',
-}
-const GROUP_SCOPE_DETAIL_KEYS: Record<string, I18nKey> = Object.fromEntries(
-  Object.entries(GROUP_SCOPE_CHIP_LABEL_KEYS)
-    .map(([suffix, key]) => [`${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${suffix}`, key]),
-)
+} as const satisfies Record<string, I18nKey>
 
 type RecipeAssignmentField = (typeof NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS)[number]
@@ -463,11 +462,13 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
   ignprev: [boolOp('ignprev', 'safeguardsIgnorePreviousSafeguards')],
   igncoll: [boolOp('igncoll', 'safeguardsIgnoreEquippedInCollection')],
   ignvault: [boolOp('ignvault', 'safeguardsIgnoreEquippedInVault')],
-  perfaction: [boolOp('perfaction', 'safeguardsCountModePerFaction')],
-  permainstat: [boolOp('permainstat', 'safeguardsCountModePerMain')],
-  perslot: [boolOp('perslot', 'safeguardsCountModePerSlot')],
-  perset: [boolOp('perset', 'safeguardsCountModePerSet')],
-  perrule: [boolOp('perrule', 'safeguardsCountModePerRule')],
+  // The rule's own bucket-scope chips — labelled from the shared scope-term SSOT above, which
+  // the `group.per*` qualifiers below read from the same entry.
+  perfaction: [boolOp('perfaction', SCOPE_CHIP_LABEL_KEYS.perfaction)],
+  permainstat: [boolOp('permainstat', SCOPE_CHIP_LABEL_KEYS.permainstat)],
+  perslot: [boolOp('perslot', SCOPE_CHIP_LABEL_KEYS.perslot)],
+  perset: [boolOp('perset', SCOPE_CHIP_LABEL_KEYS.perset)],
+  perrule: [boolOp('perrule', SCOPE_CHIP_LABEL_KEYS.perrule)],
   substats: [listOp('substats', dslSubstatKeys(), 'safeguardsSubstatLabel', undefined, 'substats')],
   substatmatch: [enumOp('substatmatch', NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS, 'noteOverridesEditorFieldSubstatMatch', { valueLabelKeys: SUBSTAT_MATCH_VALUE_LABEL_KEYS })],
   weight: [{ id: 'weight.stat', field: 'weight', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '1.5', labelKey: 'safeguardsSubstatWeightsLabel', range: WEIGHT_RANGE }],
@@ -480,20 +481,24 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
   // The dotted `group.*` family retunes the GROUP a matched rule belongs to, never the rule.
   // One dropdown entry per fully-qualified token, built from the grammar's own suffix SSOT so
   // the editor can never offer a spelling the parser would reject (or miss a new suffix).
-  group: NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS.map((field) => (
-    field === `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}count`
-      // The group's own required count — same widget and clamp as a rule's `count`.
-      ? numberOp(field, 'noteOverridesEditorFieldGroupCount', COUNT_RANGE)
-      // One bucket-scope chip. The label pairs the shared "group buckets" term with the chip's
-      // own term, so the dropdown reads e.g. "Group bucket scope · Per slot".
-      : {
-        ...boolOp(field, 'noteOverridesEditorFieldGroupScope'),
-        // exactOptionalPropertyTypes: only materialize the qualifier when one is defined.
-        // A chip with no entry still renders (under the shared base label) rather than
-        // vanishing from the dropdown; the completeness suite pins that every chip has one.
-        ...(GROUP_SCOPE_DETAIL_KEYS[field] ? { labelDetailKey: GROUP_SCOPE_DETAIL_KEYS[field] } : {}),
-      }
-  )),
+  // Keyed by the grammar's own suffix so the editor can never offer a spelling the parser would
+  // reject, and a new suffix cannot slip in without an entry here.
+  group: Object.keys(NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES).map((suffix) => {
+    const field = `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${suffix}`
+    // `group.count` is the only non-boolean suffix — same widget and clamp as a rule's `count`.
+    if (NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES[suffix] == null) {
+      return numberOp(field, 'noteOverridesEditorFieldGroupCount', COUNT_RANGE)
+    }
+    // One bucket-scope chip. The label pairs the shared "group buckets" term with the chip's
+    // own term, so the dropdown reads e.g. "Group bucket scope · Per slot".
+    const detailKey = SCOPE_CHIP_LABEL_KEYS[suffix as keyof typeof SCOPE_CHIP_LABEL_KEYS]
+    return {
+      ...boolOp(field, 'noteOverridesEditorFieldGroupScope'),
+      // exactOptionalPropertyTypes: only materialize the qualifier when one is defined. A chip
+      // with no scope term still renders under the shared base label rather than vanishing.
+      ...(detailKey ? { labelDetailKey: detailKey } : {}),
+    }
+  }),
 }
 
 /** Assignment dropdown entries for a block of the given domain. The order follows

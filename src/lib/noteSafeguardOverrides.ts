@@ -296,7 +296,11 @@ export const safeguardOverridesOpFieldToken = (op: SafeguardOverridesOperation):
   // own dotted suffix here — `group` alone is a prefix the parser would not recognize.
   if (op.kind === 'groupCount') return `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}count`
   if (op.kind === 'groupCountMode') {
-    return `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${GROUP_CHIP_SUFFIX.get(op.chip) ?? ''}`
+    const suffix = GROUP_CHIP_SUFFIX.get(op.chip)
+    // Every chip in SafeguardRuleCountMode must have a DSL spelling; without one the emitted
+    // `group.=on` would not re-parse, so fail loudly rather than serialize a broken note.
+    if (!suffix) throw new Error(`No DSL suffix for group count-mode chip '${String(op.chip)}'.`)
+    return `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${suffix}`
   }
   return SAFEGUARD_OVERRIDES_OP_FIELD[op.kind]
 }
@@ -358,7 +362,9 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'metaSetNames': return op.mode === 'replace'
       ? op.values.join(',')
       : formatOverridesMutateList(op.add, op.remove)
-    // group.* mirrors the spelling of its ungrouped twin (count → number or $count, chips → on/off).
+    // group.* mirrors the DISPLAY spelling of its ungrouped twin above: a count shows as its
+    // number or `$count`, a chip as `true`/`false` exactly like the rule's own `per*` ops. (The
+    // serializer emits the canonical `on`/`off` DSL instead; this formatter feeds the tooltip.)
     case 'groupCount': return op.value != null ? String(op.value) : '$count'
     case 'groupCountMode': return String(op.value)
   }
@@ -372,9 +378,9 @@ export type SafeguardOverridesSelectorBlock = {
 /**
  * Boolean-valued assignment fields → the operation kind each produces. One table instead of a
  * chain of `if (field === …)`, so the parse branch reports a bad VALUE against the right field
- * and every boolean field is guaranteed a branch. Keys are grammar tokens (asserted against
- * NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS by the completeness suite); values are narrowed to
- * the op kinds that actually carry a plain boolean.
+ * and every boolean field is guaranteed a branch. Keys are grammar tokens drawn from
+ * NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS; values are narrowed to the op kinds that actually
+ * carry a plain boolean, so an entry can never name a kind with a non-boolean payload.
  */
 const BOOLEAN_FIELD_OP_KIND: Record<string, Exclude<Extract<SafeguardOverridesOperation, { value: boolean }>, { chip: unknown }>['kind'] | undefined> = {
   ignprev: 'ignPrev',
@@ -557,12 +563,16 @@ const parseOperations = (
       }
       // group.per* — one bucket chip; same boolean vocabulary as the member's own chips.
       const chipToken = cursor.peek()
-      if (chipToken && (chipToken.kind === 'word' || chipToken.kind === 'string')) {
-        cursor.next()
-        const parsed = parseOverridesBooleanValue(chipToken.value.trim().toLowerCase())
-        if (parsed !== null) operations.push({ kind: 'groupCountMode', chip, value: parsed })
-        else reportInvalidEnumValue(field, chipToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset)
+      // A missing or non-word value (`group.perslot=,`) is as much a bad value as `=yess`, so it
+      // gets the same diagnostic against the FIELD rather than being dropped without a trace.
+      if (!chipToken || (chipToken.kind !== 'word' && chipToken.kind !== 'string')) {
+        reportUnknownField(token, diags, absoluteOffset)
+        continue
       }
+      cursor.next()
+      const parsed = parseOverridesBooleanValue(chipToken.value.trim().toLowerCase())
+      if (parsed !== null) operations.push({ kind: 'groupCountMode', chip, value: parsed })
+      else reportInvalidEnumValue(field, chipToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset)
       continue
     }
 
