@@ -515,8 +515,7 @@ const enUS: Catalog = {
   safeguardsRuleCountsMissing: "({missing} missing)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Bundle",
-  safeguardsBundleToggleHint: "Turn this entry into a **bundle**: it takes the safeguards you nest inside it and makes them share one promise instead of each keeping its own.\n\nEvery safeguard inside keeps working exactly as before — its own filters, substats and count. The bundle only merges their counting: pieces that land in the same bucket (by the bundle's own scope chips) share one **Required Count**, taken from the best of theirs. Safeguards higher in the list fill it first.\n\nBundles can sit inside bundles.",
-  safeguardsBundleUnnamed: "Unnamed bundle",
+  safeguardsBundleToggleHint: "Turn this entry into a **bundle**: it takes the safeguards you nest inside it and makes them share one promise instead of each keeping its own.\n\nEvery safeguard inside keeps working exactly as before — its own filters, substats and count — but its count now sizes what it FEEDS the bundle rather than what it keeps. The bundle merges those feeds into buckets by its own scope chips, ranks each bucket by the score every piece got from the safeguard that fed it, and keeps its own **Required Count** out of it. The rest is sold.\n\nA bundle matches no gear itself, so it has no filters, no substats and no mode — only a count and its scope chips.\n\nBundles can sit inside bundles.",
   safeguardsBundleMemberCountOne: "{count} safeguard",
   safeguardsBundleMemberCountMany: "{count} safeguards",
   safeguardsBundleEmpty: "empty — drag safeguards inside",

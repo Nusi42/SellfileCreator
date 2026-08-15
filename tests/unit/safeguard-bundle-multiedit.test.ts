@@ -4,22 +4,25 @@
  *
  * Multi-edit across a mixed selection of rules and bundle headers.
  *
- * The distinction that has to hold: a bundle carries every quota/ranking/mode field a rule
- * does — which is precisely what makes editing them together useful — but it has NO gear
- * filter, because its candidates are whatever its members match. So a staged filter edit must
- * skip bundles rather than write a combination the entry can never apply, while every other
- * staged field lands on them normally.
+ * The distinction that has to hold: a bundle owns its COUNT, its SCOPE CHIPS, its name and its
+ * tags — and nothing else. It matches no gear (its candidates are whatever its members matched)
+ * and scores none (the pooled feed is ranked by the score each member gave), so a staged
+ * filter/ranking/mode edit must skip it rather than write a setting the scan never reads. The
+ * fields it does own are exactly the ones worth editing in bulk, which is what makes mixed
+ * selections useful at all.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createFactorySafeguardBuilderDefaults,
   SafeguardRuleActivation,
+  SAFEGUARD_BUNDLE_INERT_FIELDS,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
 import {
   applyMultiEditFieldsToSafeguardRule,
   createSafeguardMultiEditDraft,
+  SAFEGUARD_BUNDLE_INERT_FIELD_KEYS,
   SAFEGUARD_COMBINATION_FIELD_KEYS,
   SAFEGUARD_FIELD_KEYS,
 } from '../../src/lib/safeguardMultiEditDraft.js'
@@ -42,18 +45,18 @@ const stage = (
   }
 }
 
-test('quota, mode and ranking edits apply to bundles just like rules', () => {
-  // This is the reason mixed selections are useful at all: a bundle owns exactly these fields.
+test('quota and scope edits apply to bundles just like rules', () => {
+  // The two fields a header actually owns — and the reason mixed selections are useful.
   const rules = [plainRule(), bundleHeader()]
+  const countMode = { perRule: false, perSet: false, perFaction: false, perMainStat: false, perSlot: true }
   for (const [key, value] of [
     ['requiredCount', 7],
-    ['activation', SafeguardRuleActivation.AnticipateGaps],
-    ['weightMainStatByRank', false],
+    ['countMode', countMode],
   ] as const) {
     const fields = stage(rules, key, value)
     for (const rule of rules) {
       const applied = applyMultiEditFieldsToSafeguardRule(rule, fields, [key]) as Record<string, unknown>
-      assert.equal(applied[key], value, `${key} must apply to ${rule.bundle ? 'a bundle' : 'a rule'}`)
+      assert.deepEqual(applied[key], value, `${key} must apply to ${rule.bundle ? 'a bundle' : 'a rule'}`)
     }
   }
 })
@@ -69,6 +72,24 @@ test('a staged filter edit lands on rules and skips bundles', () => {
   assert.deepEqual(editedBundle.combination.slots, [], 'a bundle must not take a gear filter')
 })
 
+test('staged ranking and mode edits skip bundles too', () => {
+  // A header neither scores gear nor carries an activation the engine reads, so writing either
+  // would leave a setting the form no longer shows and the scan never consults.
+  const rules = [plainRule(), bundleHeader()]
+  for (const [key, value] of [
+    ['activation', SafeguardRuleActivation.AnticipateGaps],
+    ['weightMainStatByRank', false],
+    ['ignorePreviousSafeguards', false],
+  ] as const) {
+    const fields = stage(rules, key, value)
+    const editedRule = applyMultiEditFieldsToSafeguardRule(rules[0] as SafeguardRule, fields, [key]) as Record<string, unknown>
+    assert.deepEqual(editedRule[key], value, `${key} must still apply to a plain rule`)
+    const editedBundle = applyMultiEditFieldsToSafeguardRule(rules[1] as SafeguardRule, fields, [key]) as Record<string, unknown>
+    const before = (bundleHeader() as Record<string, unknown>)[key]
+    assert.deepEqual(editedBundle[key], before, `${key} must not be written onto a bundle`)
+  }
+})
+
 test('every combination field is covered by the skip set', () => {
   // Guard against a new filter field being added to the editable set without being registered
   // here — it would silently start writing filters onto bundles.
@@ -76,10 +97,31 @@ test('every combination field is covered by the skip set', () => {
     ['slots', 'sets', 'metaSetNames', 'ranks', 'rarities', 'mainStats', 'factions'].includes(key)
   ))
   for (const key of combinationKeys) {
-    assert.ok(SAFEGUARD_COMBINATION_FIELD_KEYS.has(key), `${key} must be in the bundle skip set`)
+    assert.ok(SAFEGUARD_COMBINATION_FIELD_KEYS.has(key), `${key} must be in the combination key set`)
   }
-  // …and nothing non-filter crept into the skip set, which would make bundles uneditable.
+  // …and nothing non-filter crept into that set, which drives the combination routing.
   for (const key of SAFEGUARD_COMBINATION_FIELD_KEYS) {
     assert.ok(combinationKeys.includes(key), `${key} is not a combination field`)
+  }
+})
+
+test('the bundle skip set is exactly the inert fields plus the filter keys', () => {
+  // The skip set is DERIVED from the rule-level SSOT; this pins the derivation so a field added
+  // to SAFEGUARD_BUNDLE_INERT_FIELDS without a matching edit key is noticed here rather than by
+  // a bundle silently taking an edit it does not own.
+  for (const key of SAFEGUARD_COMBINATION_FIELD_KEYS) {
+    assert.ok(SAFEGUARD_BUNDLE_INERT_FIELD_KEYS.has(key), `${key} must be skipped on a bundle`)
+  }
+  for (const field of SAFEGUARD_BUNDLE_INERT_FIELDS) {
+    // `combination` has no edit key of its own — it is exploded into the seven filter keys above.
+    if (field === 'combination') continue
+    assert.ok(
+      SAFEGUARD_BUNDLE_INERT_FIELD_KEYS.has(field as (typeof SAFEGUARD_FIELD_KEYS)[number]),
+      `${field} is inert on a bundle but has no matching edit key in the skip set`,
+    )
+  }
+  // The owned fields must stay editable, or bulk-editing a bundle becomes impossible.
+  for (const key of ['requiredCount', 'countMode', 'tags', 'appearanceName', 'appearanceFgColor'] as const) {
+    assert.ok(!SAFEGUARD_BUNDLE_INERT_FIELD_KEYS.has(key), `${key} is owned by a bundle and must stay editable`)
   }
 })

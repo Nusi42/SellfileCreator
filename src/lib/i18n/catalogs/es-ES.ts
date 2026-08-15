@@ -515,8 +515,7 @@ const overrides: Catalog = {
   safeguardsRuleCountsMissing: "({missing} faltan)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Grupo",
-  safeguardsBundleToggleHint: "Convierte esta entrada en un **grupo**: las salvaguardas que anides dentro comparten una única promesa en lugar de mantener cada una la suya.\n\nCada salvaguarda de dentro sigue funcionando igual que antes — sus filtros, subestadísticas y recuento propios. El grupo solo unifica el conteo: las piezas que caen en el mismo grupo (según los chips de alcance del grupo) comparten un **Recuento necesario**, el mejor de los suyos. Las salvaguardas más arriba en la lista lo llenan primero.\n\nLos grupos pueden ir dentro de otros grupos.",
-  safeguardsBundleUnnamed: "Grupo sin nombre",
+  safeguardsBundleToggleHint: "Convierte esta entrada en un **grupo**: las salvaguardas que anides dentro comparten una única promesa en lugar de mantener cada una la suya.\n\nCada salvaguarda de dentro sigue funcionando igual que antes — sus filtros, subestadísticas y recuento propios —, pero ahora su recuento mide lo que APORTA al grupo, no lo que se queda. El grupo une esas aportaciones en cubos definidos por sus propios chips de alcance, ordena cada cubo por la puntuación que cada pieza obtuvo de la salvaguarda que la aportó y se queda con su propio **Recuento necesario**. El resto se vende.\n\nUn grupo no coincide con ningún equipo por sí mismo: no tiene filtros, ni subestadísticas, ni modo — solo un recuento y sus chips de alcance.\n\nLos grupos pueden ir dentro de otros grupos.",
   safeguardsBundleMemberCountOne: "{count} salvaguarda",
   safeguardsBundleMemberCountMany: "{count} salvaguardas",
   safeguardsBundleEmpty: "vacío — arrastra salvaguardas dentro",

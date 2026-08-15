@@ -49,7 +49,10 @@ import {
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,
   normalizeSafeguardRule,
-  // Entry-kind discriminator: the SSOT for rule vs bundle vs separator at every branch.
+  // Entry-kind discriminator: the SSOT for rule vs bundle vs separator at every branch, plus
+  // the depth/collapsed accessors so persistence never re-derives outline state inline.
+  isSafeguardBundleCollapsed,
+  safeguardEntryDepth,
   safeguardEntryKind,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
@@ -61,6 +64,8 @@ import {
 // Outline repair runs on the whole parsed array — the structural invariant is a property of
 // the sequence, not of any single entry.
 import { normalizeSafeguardOutline } from './safeguardOutline'
+// Top-level outline depth: the value at which the field carries no information and is omitted.
+import { SAFEGUARD_OUTLINE_DEFAULT_DEPTH } from './generated/domainConstants'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
@@ -1304,11 +1309,11 @@ export const buildReadableSafeguardRuleEntry = (
   // no bundles serializes exactly as it did before the feature existed. The tri-state
   // own-quota flag is written only when explicitly set — see ReadableSafeguardOutlineFields.
   const kind = safeguardEntryKind(rule)
-  const depth = rule.depth ?? 0
+  const depth = safeguardEntryDepth(rule)
   const outlineFields: ReadableSafeguardOutlineFields = {
     ...(kind === 'bundle' ? { Bundle: true as const } : {}),
-    ...(depth > 0 ? { depth } : {}),
-    ...(kind === 'bundle' && rule.collapsed === true ? { collapsed: true as const } : {}),
+    ...(depth > SAFEGUARD_OUTLINE_DEFAULT_DEPTH ? { depth } : {}),
+    ...(isSafeguardBundleCollapsed(rule) ? { collapsed: true as const } : {}),
   }
   // Separators persist minimally — appearance + marker + outline level, nothing else (see the
   // ReadableSeparatorEntry doc). Applies to every persistence path
@@ -1317,7 +1322,7 @@ export const buildReadableSafeguardRuleEntry = (
     return {
       ...appearancePersistField(rule.appearance),
       Separator: true,
-      ...(depth > 0 ? { depth } : {}),
+      ...(depth > SAFEGUARD_OUTLINE_DEFAULT_DEPTH ? { depth } : {}),
     }
   }
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.

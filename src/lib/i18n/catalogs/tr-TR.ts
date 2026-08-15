@@ -515,8 +515,7 @@ const overrides: Catalog = {
   safeguardsRuleCountsMissing: "({missing} eksik)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Grup",
-  safeguardsBundleToggleHint: "Bu kaydı bir **gruba** dönüştürür: içine yerleştirdiğin korumalar her biri kendi sözünü tutmak yerine tek bir sözü paylaşır.\n\nİçindeki her koruma eskisi gibi çalışmaya devam eder — kendi filtreleri, alt statları ve sayısı. Grup yalnızca saymayı birleştirir: aynı kovaya düşen parçalar (grubun kendi kapsam çiplerine göre) tek bir **Gerekli Sayı** paylaşır ve bu, onlarınkinin en iyisidir. Listede daha yukarıdaki korumalar onu önce doldurur.\n\nGruplar grupların içinde yer alabilir.",
-  safeguardsBundleUnnamed: "Adsız grup",
+  safeguardsBundleToggleHint: "Bu kaydı bir **gruba** dönüştürür: içine yerleştirdiğin korumalar her biri kendi sözünü tutmak yerine tek bir sözü paylaşır.\n\nİçindeki her koruma eskisi gibi çalışmaya devam eder — kendi filtreleri, alt statları ve sayısı — ama sayısı artık gruba ne kadar BESLEDİĞİNİ belirler, kendine ne ayırdığını değil. Grup bu beslemeleri kendi kapsam çiplerinin tanımladığı kovalarda toplar, her kovayı parçanın kendi korumasından aldığı puana göre sıralar ve içinden kendi **Gerekli Sayı** kadarını tutar. Gerisi satılır.\n\nGrubun kendisi hiçbir ekipmanla eşleşmez: filtresi, alt statı ve modu yoktur — yalnızca bir sayısı ve kapsam çipleri vardır.\n\nGruplar grupların içinde yer alabilir.",
   safeguardsBundleMemberCountOne: "{count} koruma",
   safeguardsBundleMemberCountMany: "{count} koruma",
   safeguardsBundleEmpty: "boş — korumaları içine sürükle",

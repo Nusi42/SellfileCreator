@@ -515,8 +515,7 @@ const overrides: Catalog = {
   safeguardsRuleCountsMissing: "({missing} fehlen)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Gruppe",
-  safeguardsBundleToggleHint: "Macht diesen Eintrag zu einer **Gruppe**: Die darin verschachtelten Schutzregeln teilen sich ein Versprechen, statt dass jede ihr eigenes behält.\n\nJede Schutzregel darin arbeitet unverändert weiter — eigene Filter, Unterwerte und Anzahl. Die Gruppe führt nur ihr Zählen zusammen: Teile, die im selben Topf landen (nach den Bereichs-Chips der Gruppe), teilen sich eine **Benötigte Anzahl**, und zwar die beste der beteiligten. Weiter oben stehende Schutzregeln füllen sie zuerst.\n\nGruppen können in Gruppen liegen.",
-  safeguardsBundleUnnamed: "Unbenannte Gruppe",
+  safeguardsBundleToggleHint: "Macht diesen Eintrag zu einer **Gruppe**: Die darin verschachtelten Schutzregeln teilen sich ein Versprechen, statt dass jede ihr eigenes behält.\n\nJede Schutzregel darin arbeitet unverändert weiter — eigene Filter, Unterwerte und Anzahl —, aber ihre Anzahl bestimmt jetzt, wie viel sie der Gruppe ZULIEFERT, nicht mehr, wie viel sie selbst behält. Die Gruppe führt diese Zulieferungen in Töpfen nach ihren eigenen Bereichs-Chips zusammen, sortiert jeden Topf nach der Wertung, die jedes Teil von seiner eigenen Schutzregel bekommen hat, und behält daraus ihre eigene **Benötigte Anzahl**. Der Rest wird verkauft.\n\nEine Gruppe trifft selbst auf keine Ausrüstung zu: Sie hat keine Filter, keine Unterwerte und keinen Modus — nur eine Anzahl und ihre Bereichs-Chips.\n\nGruppen können in Gruppen liegen.",
   safeguardsBundleMemberCountOne: "{count} Schutzregel",
   safeguardsBundleMemberCountMany: "{count} Schutzregeln",
   safeguardsBundleEmpty: "leer — Schutzregeln hineinziehen",

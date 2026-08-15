@@ -29,6 +29,7 @@
 import {
   cloneSafeguardRule,
   isSafeguardBundle,
+  safeguardEntryDepth,
   safeguardEntryKind,
   type SafeguardRule,
 } from './safeguards'
@@ -43,10 +44,10 @@ export type SafeguardOutline = SafeguardOutlineOut
 /** Sentinel `parents[i]` value for an entry that sits at the top level. */
 export const SAFEGUARD_OUTLINE_NO_PARENT = -1
 
-/** The stored outline level of one entry, with the absent case resolved once, here. */
-export const safeguardEntryDepth = (rule: SafeguardRule): number => (
-  rule.depth ?? SAFEGUARD_OUTLINE_DEFAULT_DEPTH
-)
+// The per-entry depth accessor is defined in lib/safeguards.ts (beside the kind discriminator,
+// where it cannot import-cycle back into this module) and re-exported here so outline consumers
+// still reach every structural question through this one facade.
+export { safeguardEntryDepth } from './safeguards'
 
 // Minimal per-entry projection the Rust resolver consumes. Deliberately tiny: the outline
 // needs no filters or substats, so the payload stays ~25 bytes per entry.
@@ -214,8 +215,9 @@ export const groupSafeguardSelection = (
     .map((index) => rules[index] as SafeguardRule)
     .find((rule) => safeguardEntryKind(rule) !== 'separator')
     ?? (rules[insertAt] as SafeguardRule)
-  // Strip the seed's identity and structural markers: a header starts unnamed (the chip shows
-  // a placeholder), is never also a divider, and starts expanded. Omitting rather than
+  // Strip the seed's identity and structural markers: a header starts unnamed (the chip falls
+  // back to the same untitled-entry label a nameless rule gets), is never also a divider, and
+  // starts expanded. Omitting rather than
   // assigning `undefined` is required by exactOptionalPropertyTypes.
   const {
     appearance: seedAppearance,

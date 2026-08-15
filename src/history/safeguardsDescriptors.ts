@@ -7,7 +7,7 @@
 // safeguardsDescriptors keeps safeguard history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { SafeguardRule, SafeguardRuleActivation, SafeguardRuleCountMode, SafeguardImprovementChanceLevelThresholds } from '../lib/safeguards'
-import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, safeguardActivationLabelKey, parseMainStatRankWeightFactor } from '../lib/safeguards'
+import { SafeguardSubstatMatch, normalizeSafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, safeguardActivationLabelKey, parseMainStatRankWeightFactor, isSafeguardBundle, safeguardEntryDepth } from '../lib/safeguards'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -282,8 +282,8 @@ function buildSafeguardRuleSignature(rule: SafeguardRule): SafeguardRuleSignatur
     // an edit as a no-op and silently drops it, leaving the control dead. `collapsed` is
     // deliberately absent: it is presentation state, and its changes travel through the
     // funnel's explicit `displayOnly` path instead.
-    bundle: rule.bundle === true,
-    depth: rule.depth ?? 0,
+    bundle: isSafeguardBundle(rule),
+    depth: safeguardEntryDepth(rule),
     // Keep toggle fields in the signature so history detects their edits.
     ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,

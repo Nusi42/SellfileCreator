@@ -45,12 +45,19 @@ import {
   SAFEGUARD_OUTLINE_INDENT_PX,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
+// Top-level outline depth — the floor every depth clamp in this panel measures from.
+import { SAFEGUARD_OUTLINE_DEFAULT_DEPTH } from '../lib/generated/domainConstants'
 import {
   cloneSafeguardRule,
   isSafeguardBundle,
+  isSafeguardBundleCollapsed,
   normalizeSafeguardRule,
   safeguardActivationShortLabelKey,
+  safeguardEntryDepth,
+  safeguardEntryEffectiveActivation,
   safeguardEntryKind,
+  stripInertSafeguardFields,
+  withSafeguardBundleCollapsed,
   type SafeguardEntryKind,
   type SafeguardRule,
 } from '../lib/safeguards'
@@ -245,15 +252,21 @@ const SafeguardChip = React.memo(function SafeguardChip({
     ? ensureContrastOnBg(rawFgColor, chipBg)
     : 'inherit'
   const displayName = rawName || fallbackName
+  // Badge state reads the entry as it BEHAVES, not as it stores: a bundle's activation and ignore
+  // flags are retained baggage the scan never reads, so both come from the shared projection
+  // instead of the raw rule (a header seeded from an Off rule would otherwise render as disabled
+  // while its cap keeps running).
+  const behavingRule = stripInertSafeguardFields(rule)
   // Activation badge color and label text. Adapt Protect/Anticipate to the actual chip surface
   // (chipBg already composites the selection tint over paper) so it stays legible in both schemes.
-  const actColor = resolveSafeguardActivationTextColor(rule.activation, schemePalette, chipBg)
-  const actText = t(safeguardActivationShortLabelKey(rule.activation))
+  const effectiveActivation = safeguardEntryEffectiveActivation(rule)
+  const actColor = resolveSafeguardActivationTextColor(effectiveActivation, schemePalette, chipBg)
+  const actText = t(safeguardActivationShortLabelKey(effectiveActivation))
   // Ignore-flag glyphs shown after ≥ N in the mode badge.
   const flagParts: string[] = []
-  if (rule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)
-  if (rule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
-  if (rule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
+  if (behavingRule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)
+  if (behavingRule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
+  if (behavingRule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
   const perDimSuffix = flagParts.length > 0 ? NBSP + flagParts.join('') : ''
   // Separator rows render as a pure divider (shared decoration with the recipe list):
   // no index, no mode badge, no summary, no tag chips, no inline action buttons.
@@ -396,10 +409,13 @@ const SafeguardChip = React.memo(function SafeguardChip({
             sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
             slotProps={{ htmlInput: { style: { fontSize: '0.75rem', padding: '2px 6px' } } }}
           />
-          {/* Separators have no mode badge — the field edits only the divider label. */}
+          {/* Separators have no mode badge — the field edits only the divider label. The
+              bundle/rule split matches the non-editing badge below: a header shows its count
+              alone (no activation of its own), and through the outline so it cannot disagree
+              with the engine. */}
           {!isSeparator ? (
             <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
-              {actText}{NBSP}≥{NBSP}{rule.requiredCount ?? 1}{perDimSuffix}
+              {isBundle ? null : <>{actText}{NBSP}</>}≥{NBSP}{badgeCount}{perDimSuffix}
             </Box>
           ) : null}
         </>
@@ -557,7 +573,10 @@ export default function SafeguardChipsPanel({
       if (visibleRuleIndices && !visibleRuleIndices.has(index)) continue
       // Hide anything inside a collapsed bundle, at any depth.
       const collapsedAncestor = safeguardAncestorIndices(rules, index)
-        .some((ancestor) => rules[ancestor]?.collapsed === true)
+        .some((ancestor) => {
+          const owner = rules[ancestor]
+          return owner !== undefined && isSafeguardBundleCollapsed(owner)
+        })
       if (collapsedAncestor) continue
       visible.add(index)
     }
@@ -847,13 +866,10 @@ export default function SafeguardChipsPanel({
 
   // Collapse or expand every bundle at once (context menu).
   const handleSetAllCollapsed = useCallback((collapsed: boolean) => {
-    mutateRules(rules.map((rule) => {
-      if (!isSafeguardBundle(rule)) return rule
-      if (collapsed) return { ...rule, collapsed: true }
-      const { collapsed: previous, ...rest } = rule
-      void previous
-      return rest
-    }), { displayOnly: true })
+    // Only bundles carry the flag; withSafeguardBundleCollapsed owns the omit-vs-store rule.
+    mutateRules(rules.map((rule) => (
+      isSafeguardBundle(rule) ? withSafeguardBundleCollapsed(rule, collapsed) : rule
+    )), { displayOnly: true })
   }, [mutateRules, rules])
 
   // Collapse/expand one bundle. Ctrl/right-click applies to every bundle at once, matching the
@@ -862,17 +878,12 @@ export default function SafeguardChipsPanel({
     const target = rules[ruleIdx]
     if (!target || !isSafeguardBundle(target)) return
     const applyToAll = event.ctrlKey || event.metaKey || event.type === 'contextmenu'
-    const nextCollapsed = target.collapsed !== true
+    const nextCollapsed = !isSafeguardBundleCollapsed(target)
     mutateRules(rules.map((rule, index) => {
       // Only bundles carry the flag; a plain rule has nothing to collapse.
       if (!isSafeguardBundle(rule)) return rule
       if (!applyToAll && index !== ruleIdx) return rule
-      return nextCollapsed ? { ...rule, collapsed: true } : (() => {
-        // Drop the key rather than storing false, so the persisted shape stays minimal.
-        const { collapsed, ...rest } = rule
-        void collapsed
-        return rest
-      })()
+      return withSafeguardBundleCollapsed(rule, nextCollapsed)
     }), { displayOnly: true })
   }, [mutateRules, rules])
 
@@ -928,12 +939,15 @@ export default function SafeguardChipsPanel({
     // guide never promises a nesting the normalizer would immediately undo.
     resolveDropDepth: (insertIndex: number, pointerOffsetX: number) => {
       const previous = insertIndex > 0 ? rules[insertIndex - 1] : undefined
-      if (!previous) return 0
-      const previousDepth = previous.depth ?? 0
+      if (!previous) return SAFEGUARD_OUTLINE_DEFAULT_DEPTH
+      // Read the REPAIRED depth from the resolved outline, not the stored field: a hand-edited
+      // or pasted entry can carry a level the resolver pulls back, and the drop guide must
+      // promise the level the list actually renders.
+      const previousDepth = outline.depths[insertIndex - 1] ?? safeguardEntryDepth(previous)
       // Only a bundle can adopt a child, so anything else caps the level at its own.
       const maxDepth = isSafeguardBundle(previous) ? previousDepth + 1 : previousDepth
       const requested = Math.floor(Math.max(0, pointerOffsetX) / SAFEGUARD_OUTLINE_INDENT_PX)
-      return Math.max(0, Math.min(requested, maxDepth))
+      return Math.max(SAFEGUARD_OUTLINE_DEFAULT_DEPTH, Math.min(requested, maxDepth))
     },
     depthIndentPx: SAFEGUARD_OUTLINE_INDENT_PX,
     copyModeEnabled: true,
@@ -1337,10 +1351,10 @@ export default function SafeguardChipsPanel({
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}
                 showTagsInChips={showTagsInChips}
-                depth={outline.depths[index] ?? 0}
+                depth={outline.depths[index] ?? SAFEGUARD_OUTLINE_DEFAULT_DEPTH}
                 entryKind={safeguardEntryKind(rule)}
                 memberCount={outline.pools[index]?.length ?? 0}
-                isCollapsed={rule.collapsed === true}
+                isCollapsed={isSafeguardBundleCollapsed(rule)}
                 bundleDemand={outline.demands[index] ?? 0}
                 onToggleCollapse={handleToggleCollapse}
                 t={t}

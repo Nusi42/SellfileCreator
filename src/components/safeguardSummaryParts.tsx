@@ -39,7 +39,7 @@ import type { Theme } from '@mui/material/styles'
 import { adaptSubstatFgOnSurface } from '../lib/themeCustomTokens'
 
 const METASET_ICON_BOX_PX = 16
-import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay, safeguardEntryKind } from '../lib/safeguards'
+import { type SafeguardRule, SafeguardRuleActivation, SafeguardSubstatMatch, resolveImprovementChanceThresholds, detectImprovementChancePresetId, IMPROVEMENT_CHANCE_PRESETS, SAFEGUARD_DEFAULT_COUNT_MODE, safeguardEffectiveCountModeForDisplay, safeguardEntryKind, stripInertSafeguardFields } from '../lib/safeguards'
 import MarkdownTooltip from './MarkdownTooltip'
 import { slotSelectionAllowsAccessories } from '../lib/gearInspectorDomain'
 import type { Metaset } from '../lib/metasets'
@@ -133,7 +133,7 @@ export function safeguardSummaryParts(
   // A bundle never matches gear: it decides what survives out of what its members feed it. Only
   // its SCOPE CHIPS do anything, so the summary states its membership and then falls through to
   // the shared scope rendering with everything else stripped. Showing the inert
-  // substats/weights/threshold it still carries (retained so converting back to a rule is
+  // filters/substats/weights/threshold it still carries (retained so converting back to a rule is
   // lossless) would describe behaviour the entry does not have.
   const isBundleEntry = safeguardEntryKind(sourceRule) === 'bundle'
   if (isBundleEntry) {
@@ -144,15 +144,9 @@ export function safeguardSummaryParts(
     addText(count === 0 && opts.t ? opts.t('safeguardsBundleEmpty') : memberText)
   }
   // Everything below reads this local, so a bundle renders as "members + scopes" and nothing else.
-  const rule = isBundleEntry
-    ? {
-      ...sourceRule,
-      substats: [],
-      substatWeights: {},
-      weightMainStatByRank: false,
-      improvementChanceThreshold: null,
-    }
-    : sourceRule
+  // The neutralising is NOT repeated here — stripInertSafeguardFields owns which fields a header
+  // does not own, and returns rules and separators untouched.
+  const rule = stripInertSafeguardFields(sourceRule)
 
   const c = rule.combination
   // Faction scope is only meaningful when the rule can include accessory slots.

@@ -515,8 +515,7 @@ const catalog: Catalog = {
   safeguardsRuleCountsMissing: "({missing} faltando)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Grupo",
-  safeguardsBundleToggleHint: "Transforma esta entrada em um **grupo**: as proteções que você aninhar dentro passam a compartilhar uma promessa em vez de cada uma manter a sua.\n\nCada proteção lá dentro continua funcionando igual — seus próprios filtros, substats e quantidade. O grupo apenas unifica a contagem: peças que caem no mesmo balde (pelos chips de escopo do grupo) compartilham uma **Quantidade necessária**, a melhor entre as delas. Proteções mais acima na lista a preenchem primeiro.\n\nGrupos podem ficar dentro de grupos.",
-  safeguardsBundleUnnamed: "Grupo sem nome",
+  safeguardsBundleToggleHint: "Transforma esta entrada em um **grupo**: as proteções que você aninhar dentro passam a compartilhar uma promessa em vez de cada uma manter a sua.\n\nCada proteção lá dentro continua funcionando igual — seus próprios filtros, substats e quantidade —, mas agora a quantidade dela define o quanto ela ABASTECE o grupo, não o quanto ela guarda. O grupo junta esses envios em baldes definidos pelos seus próprios chips de escopo, ordena cada balde pela pontuação que cada peça recebeu da proteção que a enviou e guarda a sua própria **Quantidade necessária**. O resto é vendido.\n\nUm grupo não corresponde a nenhum equipamento por conta própria: não tem filtros, substats nem modo — apenas uma quantidade e seus chips de escopo.\n\nGrupos podem ficar dentro de grupos.",
   safeguardsBundleMemberCountOne: "{count} proteção",
   safeguardsBundleMemberCountMany: "{count} proteções",
   safeguardsBundleEmpty: "vazio — arraste proteções para dentro",

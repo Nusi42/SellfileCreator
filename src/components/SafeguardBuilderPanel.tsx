@@ -64,6 +64,13 @@ import {
   parseMainStatRankWeightFactor,
   bumpMainStatRankWeightFactor,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  // Entry-kind discriminator: the draft's kind is asked through the SSOT, not the raw flag.
+  isSafeguardBundle,
+  // "Is this entry on" — never read off the stored activation, which a bundle does not own.
+  safeguardEntryEffectiveActivation,
+  // Neutralises the fields a bundle header carries but does not own, so the quota controls read
+  // the entry the engine evaluates instead of the values it happens to retain.
+  stripInertSafeguardFields,
   type SafeguardCandidateOut,
   type SafeguardDetectionEntry,
   type SafeguardImprovementChanceLevelThresholds,
@@ -137,6 +144,8 @@ import {
   getMainStatOptionsForSlots,
 } from './keepOverrides/keepOverrideRuleUtils'
 import {
+  // Display order for the chips when they are rendered as one group (bundle drafts).
+  KEEP_OVERRIDE_SCOPE_KEYS,
   resolveKeepOverrideScopeActive,
   toggleKeepOverrideCountMode,
   type KeepOverrideScopeKey,
@@ -664,22 +673,36 @@ export default function SafeguardBuilderPanel({
   )
 
   const combination = rule.combination
-  // Which per-X scope chips are no-ops given the current combination filters.
-  const redundantDimensions = safeguardRedundantCountModeDimensions(combination)
   const activation = rule.activation
   // Separator drafts: only the name/color field and the ━ toggle stay interactive.
   // The matching/quota controls remain MOUNTED at factory defaults (stable layout when
   // switching chips) but are disabled+dimmed via separatorDisabledSectionSx on the row
   // wrappers. Multi-edit never enters separator mode; the toggle is single-edit only.
   const isSeparatorDraft = !multiEditActive && rule.separator === true
-  // Bundle drafts: everything a rule has EXCEPT the gear filters, because a bundle's candidates
-  // are whatever its members match — it never filters gear itself. The filter sections stay
-  // MOUNTED but disabled+dimmed via the same mechanism separators use, so the layout does not
-  // jump when switching chips and the retained combination is visibly inert rather than gone.
-  const isBundleDraft = !multiEditActive && rule.bundle === true
-  // The filter rows (slots / sets / ranks / rarities / main stats / factions) are inert for both
-  // structural kinds; the quota, ranking and mode rows are inert for separators only.
-  const isFilterSectionInert = isSeparatorDraft || isBundleDraft
+  // Bundle drafts: a header owns its NAME, its COUNT, its SCOPE CHIPS and its TAGS — nothing
+  // else. It never matches gear (its candidates are whatever its members already matched) and it
+  // never scores any (the pooled feed is ranked by the score each member gave), so filters,
+  // substats, weights, ranking, the mode toggle and the cascade/equipped flags are all inert on
+  // it. They stay MOUNTED but disabled+dimmed via the same mechanism separators use, so the
+  // layout does not jump when switching chips and the retained values are visibly inert rather
+  // than gone — which is also what keeps bundle ⇄ rule conversion lossless.
+  const isBundleDraft = !multiEditActive && isSafeguardBundle(rule)
+  // The one flag for "this section describes matching or scoring": inert for BOTH structural
+  // kinds. Row 1 is the exception — it mixes owned controls (count, tags) with inert ones (mode
+  // toggle, ignore chips), so its wrapper dims for separators only and the inert children inside
+  // it carry `isBundleDraft` themselves. Never stack the two: a doubly-dimmed section renders at
+  // opacity².
+  const isMatchingSectionInert = isSeparatorDraft || isBundleDraft
+  // Scope chips describe how the QUOTA is bucketed, so they read the combination the entry
+  // actually evaluates with — for a bundle, none at all. Nothing can be redundant against an
+  // empty filter, and the faction bucket stays available, which is exactly right: a header's
+  // buckets are keyed by its own chips over gear its members chose.
+  const scopeCombination = stripInertSafeguardFields(rule).combination
+  // Which per-X scope chips are no-ops given that combination.
+  const redundantDimensions = safeguardRedundantCountModeDimensions(scopeCombination)
+  // Faction only buckets when accessories can be in scope. Identical to hasAccessorySlot for a
+  // rule (same combination); for a bundle it is unconditionally true.
+  const scopeAllowsFaction = slotSelectionAllowsAccessories(scopeCombination.slots)
   // Outline position of the entry being edited. Asked of the live list rather than the draft,
   // because "which bundle contains me" is a property of where the entry sits, and answered by
   // the shared facade so the form, the chip badge and the engine gate agree.
@@ -691,8 +714,10 @@ export default function SafeguardBuilderPanel({
     ? safeguardBundleMemberIndices(allRules, editingRuleIdx).length
     : 0
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
-  // stored rule (empty instructions path above), so the guard lives in one place only.
-  const displayActivation = effectiveRule.activation
+  // stored rule (empty instructions path above), so the guard lives in one place only. Routed
+  // through the effective-activation accessor so a bundle header shows the ON state the engine
+  // gives it rather than the mode it happens to have retained from the rule it was seeded from.
+  const displayActivation = safeguardEntryEffectiveActivation(effectiveRule)
   // Mode label color: SSOT via resolveSafeguardActivationTextColor; only shown when collapsed.
   // Uses displayActivation so the collapsed color reflects the override when one is active, and
   // contrast-adapts Protect/Anticipate against the builder paper surface (parallel to the chip).
@@ -760,7 +785,9 @@ export default function SafeguardBuilderPanel({
   const isMultiPerSubstat = effectiveSubstatMatch === SafeguardSubstatMatch.PerSubstat && substatSelection.length > 1
   // Display count mode: derived from effectiveRule so scope chips reflect active overrides.
   const displayCountMode = sanitizeSafeguardCountMode(effectiveRule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
-  const effectiveCountMode = hasAccessorySlot
+  // Faction bucketing is gated on the scope combination, not the filter one — identical for a
+  // rule, and always available on a bundle (it filters no slots at all).
+  const effectiveCountMode = scopeAllowsFaction
     ? displayCountMode
     : sanitizeSafeguardCountMode({ ...displayCountMode, perFaction: false })
   const scopeActive = resolveKeepOverrideScopeActive(effectiveCountMode)
@@ -1033,6 +1060,36 @@ export default function SafeguardBuilderPanel({
       {overrideBadge}
     </span>
   )
+
+  // One definition per scope chip — label, availability gate and override badge — so the chip is
+  // identical wherever it is placed: under the filter it buckets by on a rule, and beside the
+  // count on a bundle, whose filter sections are inert but whose chips still key its merged
+  // buckets. Only the placement moves; state, handlers and badges are shared.
+  const renderScopeChipFor = (scope: KeepOverrideScopeKey) => {
+    const label = {
+      perSlot: t('safeguardsCountModePerSlot'),
+      perSet: t('safeguardsCountModePerSet'),
+      perFaction: t('safeguardsCountModePerFaction'),
+      perMainStat: t('safeguardsCountModePerMain'),
+    }[scope]
+    const overrideActive = {
+      perSlot: perSlotOverrideActive,
+      perSet: perSetOverrideActive,
+      perFaction: perFactionOverrideActive,
+      perMainStat: perMainStatOverrideActive,
+    }[scope]
+    // Faction additionally needs accessories in scope; every dimension is also inert when the
+    // combination already pins it to one value (never the case on a bundle, which filters none).
+    const disabled = (scope === 'perFaction' && !scopeAllowsFaction) || redundantDimensions[scope]
+    return renderScopeChip(scope, label, scopeActive[scope], disabled, perScopeMixed[scope],
+      overrideActive ? renderSafeguardOverrideBadge(
+        buildSafeguardOverrideBadgeTooltip(
+          rule.countMode?.[scope] ? 'on' : 'off',
+          effectiveRule.countMode?.[scope] ? 'on' : 'off',
+        ),
+      ) : undefined,
+    )
+  }
 
   // One glyph-only ignore toggle chip: the visible label is just the glyph (the same
   // glyph the rule-chip mode badge shows), so the full label + hint live in the tooltip.
@@ -1934,10 +1991,10 @@ export default function SafeguardBuilderPanel({
             })}
           />
         ) : null}
-        {/* Bundle toggle — mutually exclusive with the divider toggle beside it. A bundle keeps
-            every field a rule has EXCEPT the filters, because its candidates come from whatever
-            its members match, so switching modes preserves the draft rather than resetting it
-            (unlike the separator toggle, which persists nothing but a label). */}
+        {/* Bundle toggle — mutually exclusive with the divider toggle beside it. Converting keeps
+            the whole draft rather than resetting it (unlike the separator toggle, which persists
+            nothing but a label): the fields a header does not own stay stored but inert, which is
+            what makes bundle ⇄ rule lossless in both directions. */}
         {!multiEditActive ? (
           <MarkdownTooltip placement="top" markdown={t('safeguardsBundleToggleHint')}>
             <ToggleButton
@@ -2059,8 +2116,11 @@ export default function SafeguardBuilderPanel({
             absolutely-positioned override badges (top:-6) are not clipped by this flex row.
             Using 'clip' (not 'hidden') avoids the CSS forced-auto promotion of overflow-y. */}
         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflowX: 'clip', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
-        {/* Mode toggle — label moved to header row above */}
-        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+        {/* Mode toggle — label moved to header row above. Inert on a bundle: the engine forces a
+            header off at prepare time and applies its cap regardless, so an editable toggle here
+            would offer an off-switch nothing honours. The row wrapper already dims separators —
+            this adds the bundle case only, so the two never stack. */}
+        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isBundleDraft ? separatorDisabledSectionSx(theme) : {}) })}>
 
           {/* Relative-positioned wrapper enables the mixed-state ::before overlay pattern. */}
           <Box sx={{ position: 'relative' }}>
@@ -2229,15 +2289,24 @@ export default function SafeguardBuilderPanel({
           />
         </Box>
 
-        {/* Membership caption — bundles only. The count above is an ordinary editable number,
-            but it only means anything once safeguards feed the bundle: an empty header keeps
-            nothing however high it is set. Naming the member count here is what makes that
-            visible without a second control. */}
+        {/* Membership caption + scope chips — bundles only. The count above is an ordinary
+            editable number, but it only means anything once safeguards feed the bundle: an empty
+            header keeps nothing however high it is set. Naming the member count here is what makes
+            that visible without a second control.
+
+            The scope chips live HERE for a bundle rather than beside the filter pickers they
+            normally sit under: those sections are inert on a header, and the chips are the only
+            other thing it owns — they key the merged buckets its count is kept out of. Same
+            renderScopeChip, same handlers, same state; only the placement moves, so a header
+            reads as "≥ N, bucketed like this" with nothing else live around it. */}
         {isBundleDraft && !multiEditActive ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', alignSelf: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '1 1 auto', minWidth: 0, alignSelf: 'center' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
               {t('safeguardsBundleFedBy', { count: bundleMemberCount })}
             </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+              {KEEP_OVERRIDE_SCOPE_KEYS.map(renderScopeChipFor)}
+            </Box>
           </Box>
         ) : null}
 
@@ -2247,8 +2316,10 @@ export default function SafeguardBuilderPanel({
             familiar); the full label + hint moved into each chip's tooltip. */}
         {/* position+zIndex raise this group above the header row's zIndex:1 stacking context.
             The content flex row bleeds 14px upward into the header (mt:-½·SMALL_BUTTON_HEIGHT_PX),
-            so without elevation the header's z=1 intercepts clicks on the top strip of Row 1. */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', position: 'relative', zIndex: 2, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
+            so without elevation the header's z=1 intercepts clicks on the top strip of Row 1.
+            Inert on a bundle: all three gates act on MATCHING (which candidates a rule may claim),
+            and a header claims none of its own — its pool is what its members already matched. */}
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', position: 'relative', zIndex: 2, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isBundleDraft ? separatorDisabledSectionSx(theme) : {}) })}>
           <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1 }}>
             {t('safeguardsIgnoreGroupLabel')}
           </Typography>
@@ -2439,7 +2510,7 @@ export default function SafeguardBuilderPanel({
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
-        ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}),
+        ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}),
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
@@ -2654,15 +2725,10 @@ export default function SafeguardBuilderPanel({
               } : SELECT_BOX_HEIGHT_SX}
             />
             </Box>
+            {/* Scope chips sit under the filter they bucket by — except on a bundle, where this
+                whole section is inert and the chips are rendered live beside the count instead. */}
             <Box sx={{ mt: 0.75 }}>
-              {renderScopeChip('perFaction', t('safeguardsCountModePerFaction'), scopeActive.perFaction, !hasAccessorySlot || redundantDimensions.perFaction, perScopeMixed.perFaction,
-                perFactionOverrideActive ? renderSafeguardOverrideBadge(
-                  buildSafeguardOverrideBadgeTooltip(
-                    rule.countMode?.perFaction ? 'on' : 'off',
-                    effectiveRule.countMode?.perFaction ? 'on' : 'off',
-                  ),
-                ) : undefined,
-              )}
+              {!isBundleDraft ? renderScopeChipFor('perFaction') : null}
             </Box>
           </Collapse>
         </FormControl>
@@ -2706,7 +2772,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader
@@ -2805,14 +2871,8 @@ export default function SafeguardBuilderPanel({
               {/* Per Mainstat + Weight by Rank sit side by side on one row (the parent column
                   stacks vertically, so they must share a horizontal flex wrapper). */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                {renderScopeChip('perMainStat', t('safeguardsCountModePerMain'), scopeActive.perMainStat, redundantDimensions.perMainStat, perScopeMixed.perMainStat,
-                  perMainStatOverrideActive ? renderSafeguardOverrideBadge(
-                    buildSafeguardOverrideBadgeTooltip(
-                      rule.countMode?.perMainStat ? 'on' : 'off',
-                      effectiveRule.countMode?.perMainStat ? 'on' : 'off',
-                    ),
-                  ) : undefined,
-                )}
+                {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
+                {!isBundleDraft ? renderScopeChipFor('perMainStat') : null}
                 {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
                     same-main near-equal 5★. Disabled when no substats are selected (the rank
                     tie-break already orders ranks there, so the bonus has no effect).
@@ -2920,8 +2980,10 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
       {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
-          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
+          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content.
+          Inert on a bundle as well as a separator: the pooled feed is ranked by the score each
+          MEMBER gave its pieces, so a header's own substats, weights and threshold decide nothing. */}
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
@@ -3254,7 +3316,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4: Slots (left) + Sets (right) — flex row; each always takes 50%, collapses vertically ── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isFilterSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
@@ -3410,14 +3472,8 @@ export default function SafeguardBuilderPanel({
                 })}
               </Box>
               </SlotTintControlScope>
-              {renderScopeChip('perSlot', t('safeguardsCountModePerSlot'), scopeActive.perSlot, redundantDimensions.perSlot, perScopeMixed.perSlot,
-                perSlotOverrideActive ? renderSafeguardOverrideBadge(
-                  buildSafeguardOverrideBadgeTooltip(
-                    rule.countMode?.perSlot ? 'on' : 'off',
-                    effectiveRule.countMode?.perSlot ? 'on' : 'off',
-                  ),
-                ) : undefined,
-              )}
+              {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
+              {!isBundleDraft ? renderScopeChipFor('perSlot') : null}
             </Box>
           </Collapse>
         </FormControl>
@@ -3507,14 +3563,8 @@ export default function SafeguardBuilderPanel({
                 } : {})}
               />
               </Box>
-              {renderScopeChip('perSet', t('safeguardsCountModePerSet'), scopeActive.perSet, redundantDimensions.perSet, perScopeMixed.perSet,
-                perSetOverrideActive ? renderSafeguardOverrideBadge(
-                  buildSafeguardOverrideBadgeTooltip(
-                    rule.countMode?.perSet ? 'on' : 'off',
-                    effectiveRule.countMode?.perSet ? 'on' : 'off',
-                  ),
-                ) : undefined,
-              )}
+              {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
+              {!isBundleDraft ? renderScopeChipFor('perSet') : null}
             </Box>
           </Collapse>
         </FormControl>

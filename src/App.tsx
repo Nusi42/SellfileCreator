@@ -146,6 +146,9 @@ import {
   safeguardFocusGroupKeyFor,
   normalizeSafeguardSubstatMatch,
   firstSelectableSafeguardIndex,
+  // Bundle collapse state: read and written through the shared accessors, never inline.
+  isSafeguardBundleCollapsed,
+  withSafeguardBundleCollapsed,
 } from './lib/safeguards'
 // Bundle outline: structural facts come from the Rust authority through this facade, the repair
 // runs at the mutation funnel plus the append-import seam, and cross-panel jumps expand the
@@ -6049,16 +6052,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Gear Inspector match chip, rank-overlay chip, improvement-chance chip), rather than at
     // each of those call sites.
     const collapsedAncestors = safeguardAncestorIndices(safeguardRules, ruleIdx)
-      .filter((ancestor) => safeguardRules[ancestor]?.collapsed === true)
+      .filter((ancestor) => {
+        const owner = safeguardRules[ancestor]
+        return owner !== undefined && isSafeguardBundleCollapsed(owner)
+      })
     if (collapsedAncestors.length > 0) {
       const expand = new Set(collapsedAncestors)
-      applySafeguardRulesChange(safeguardRules.map((rule, index) => {
-        if (!expand.has(index)) return rule
-        // Drop the key rather than storing false, keeping the persisted shape minimal.
-        const { collapsed, ...rest } = rule
-        void collapsed
-        return rest
-      }))
+      // `displayOnly` is REQUIRED: expanding touches only the collapsed chevron, which is
+      // excluded from both the history signature and the content fingerprint by design, so the
+      // funnel would classify this as a no-op and drop it — leaving the target chip unrendered
+      // and the scroll request below with nothing to find.
+      applySafeguardRulesChange(
+        safeguardRules.map((rule, index) => (
+          expand.has(index) ? withSafeguardBundleCollapsed(rule, false) : rule
+        )),
+        { displayOnly: true },
+      )
     }
     // Safeguard jumps should not leave a stale Gear Inspector focus request queued.
     setGearInspectorArtifactFocusRequest(null)

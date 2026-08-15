@@ -71,6 +71,9 @@ import {
   safeguardEffectiveCountModeForDisplay,
   type SafeguardRule,
   SafeguardRuleActivation,
+  // "Is this entry on" is never read off the stored activation: separators and bundle headers
+  // both reach the scan with one the engine chose for them.
+  safeguardEntryEffectiveActivation,
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,
 } from '../lib/safeguards'
@@ -4011,7 +4014,7 @@ function SafeguardSummaryCard({
           >
             {titleLabel}
           </Typography>
-          {rule.activation === SafeguardRuleActivation.Off ? (
+          {safeguardEntryEffectiveActivation(rule) === SafeguardRuleActivation.Off ? (
             <Box
               sx={{
                 display: 'inline-flex',

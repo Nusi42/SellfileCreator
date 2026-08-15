@@ -2940,13 +2940,18 @@ pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> 
 /// This is the whole of what a bundle does. Members evaluate exactly as if ungrouped — own
 /// filters, substats, weights, count mode, ranking, required count — and produce their own
 /// `item_keys`. A bundle then MERGES their count-buckets, re-keyed by the BUNDLE's own count
-/// mode, and caps each merged bucket at one demand (the best of its members' counts, or an
-/// explicit override).
+/// mode, and keeps its own `requiredCount` out of each merged bucket (`outline.demands`, which is
+/// that number verbatim — not a max, not a sum, and with no override flag).
 ///
-/// Members fill a merged bucket in list order until it is full; a later member finds no room and
-/// keeps nothing more there. Members rank by different substats and weights, so there is no
-/// common scale to compare them on — list order is the only well-defined precedence, which makes
-/// chip order a real setting for a bundle. That is documented for users, not just here.
+/// The pooled feed is ranked by the score each piece got from its OWN member. Scores are absolute
+/// (normalized against canonical max rolls, never against one rule's own pool), so a piece fed by
+/// a later member genuinely outranks a weaker one from an earlier member. Ties break by the
+/// member's own rank, then its position in the list, then the item key, so a run is reproducible.
+/// Rules with no substats score zero throughout and fall through to that list order — exactly how
+/// they behaved before bundles existed.
+///
+/// Only the header's count and count mode are read here: a bundle owns nothing else (see
+/// SAFEGUARD_BUNDLE_INERT_FIELDS on the TypeScript side, which is what the builder form dims).
 ///
 /// Bundles are visited innermost-first (post-order), so an inner bundle's cap is already in
 /// effect when an outer one counts what survived: both constraints hold.

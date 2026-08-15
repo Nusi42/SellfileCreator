@@ -89,6 +89,31 @@ test("a bundle's own count is editable and survives a round trip", async ({ page
     .toHaveValue('4', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
+test('the header form offers only the fields a bundle owns', async ({ page }) => {
+  await addSafeguards(page, 2)
+  await chip(page, 0).click()
+  await chip(page, 1).click({ modifiers: ['Control'] })
+  const menu = await openContextMenu(page, chip(page, 1))
+  await menu.getByRole('menuitem', { name: 'Group into bundle' }).click()
+  await expect(chipCount(page)).toHaveCount(3, { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await chip(page, 0).click()
+  const builder = page.locator('[data-tour-id="safeguards.builder"]')
+  // Inert: the mode toggle is dimmed like a separator's controls. pointer-events is an INHERITED
+  // property, so the dimming applied to the section wrapper is observable on the control itself —
+  // which is also exactly why the control cannot be clicked.
+  await expect(builder.getByRole('button', { name: 'Off', exact: true }).first())
+    .toHaveCSS('pointer-events', 'none')
+  // Owned: the scope chips move up beside the count, because the filter sections they normally
+  // sit under are inert on a header. They must be live there — they key its merged buckets.
+  const perSlot = builder.getByRole('button', { name: 'Per Slot', exact: true })
+  await expect(perSlot).toHaveCSS('pointer-events', 'auto')
+  await perSlot.click()
+  await page.getByRole('button', { name: /Apply (Safeguard|as Safeguard)/i }).first().click()
+  // The summary states the bucket the header splits by — and nothing about filters or substats,
+  // which it does not have.
+  await expect(chip(page, 0)).toContainText('Per Slot', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+})
+
 test('the collapse chevron hides the subtree and the ancestors stay visible', async ({ page }) => {
   await addSafeguards(page, 2)
   await chip(page, 0).click()

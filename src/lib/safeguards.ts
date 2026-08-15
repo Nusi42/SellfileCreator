@@ -391,10 +391,69 @@ export const isSafeguardLeafEntry = (rule: SafeguardRule): boolean => safeguardE
 /** True for bundle headers — the container entries that own a shared required count. */
 export const isSafeguardBundle = (rule: SafeguardRule): boolean => safeguardEntryKind(rule) === 'bundle'
 
+// The stored outline level of ONE entry, with the absent case resolved once, here. Lives beside
+// the kind discriminator (not in safeguardOutline.ts, which would import-cycle back into this
+// module) so every consumer — persistence, history, chips, the outline resolver itself — reads
+// depth through the same accessor instead of re-writing `rule.depth ?? 0`.
+export const safeguardEntryDepth = (rule: SafeguardRule): number => (
+  rule.depth ?? SAFEGUARD_OUTLINE_DEFAULT_DEPTH
+)
+
+/**
+ * True when a bundle header's subtree is folded away in the chip list.
+ *
+ * Only bundles can carry the flag, so the kind check is part of the predicate rather than being
+ * repeated at each call site: a plain rule with a stray `collapsed` (hand-edited file, or a
+ * bundle converted back to a rule) reads as expanded everywhere.
+ */
+export const isSafeguardBundleCollapsed = (rule: SafeguardRule): boolean => (
+  safeguardEntryKind(rule) === 'bundle' && rule.collapsed === true
+)
+
+/**
+ * Returns `rule` with its collapsed chevron set (or cleared).
+ *
+ * Expanding DROPS the key rather than storing `false`, keeping the persisted shape minimal —
+ * the one behaviour every collapse entry point (chip chevron, collapse/expand-all, the
+ * bundle toggle, the cross-panel jump that reveals a nested target) must agree on. Identity is
+ * preserved when nothing changes so downstream memos are not invalidated needlessly.
+ */
+export const withSafeguardBundleCollapsed = (rule: SafeguardRule, collapsed: boolean): SafeguardRule => {
+  if (collapsed) return rule.collapsed === true ? rule : { ...rule, collapsed: true }
+  if (rule.collapsed === undefined) return rule
+  // Omit rather than assign `undefined`: exactOptionalPropertyTypes forbids the latter.
+  const { collapsed: previous, ...rest } = rule
+  void previous
+  return rest
+}
+
+/**
+ * The activation the ENGINE gives this entry, which is not always the one it stores.
+ *
+ * Two kinds never reach the scan with their own value: a separator is projected to `off` before
+ * the rules are built, and a bundle header is forced `off` at prepare time
+ * (`build_safeguard_rules_core`) because it has no combination and would otherwise match — and
+ * protect — everything. A bundle's cap runs regardless: `resolve_demands` never looks at
+ * activation, so the promise it keeps is unconditional. It therefore reads as ON here, so no
+ * surface can offer an off-switch the engine does not honour.
+ *
+ * Every consumer that asks "is this entry on" must go through this, never through
+ * `rule.activation` — the stored value on a bundle is retained baggage (see
+ * SAFEGUARD_BUNDLE_INERT_FIELDS), not a setting.
+ */
+export const safeguardEntryEffectiveActivation = (rule: SafeguardRule): SafeguardRuleActivation => {
+  const kind = safeguardEntryKind(rule)
+  // Dividers structure the list; they never protect anything.
+  if (kind === 'separator') return SafeguardRuleActivation.Off
+  // "Protect" is the canonical ON for a header: it keeps gear out of the sell list, like a rule.
+  if (kind === 'bundle') return SafeguardRuleActivation.ProtectExisting
+  return rule.activation
+}
+
 export const isSafeguardRuleActive = (rule: SafeguardRule): boolean => (
-  // Separators are pure list dividers — never active, whatever their activation says.
-  // Bundles ARE active: their quota is a promise the scanner keeps like any other.
-  safeguardEntryKind(rule) !== 'separator' && rule.activation !== SafeguardRuleActivation.Off
+  // Separators are inert and bundles are unconditionally on — both resolved by the shared accessor
+  // rather than by testing the stored activation, which lies for those two kinds.
+  safeguardEntryEffectiveActivation(rule) !== SafeguardRuleActivation.Off
 )
 
 // First selectable rule index for load-time selection: separators are list dividers,
@@ -516,6 +575,65 @@ export const createEmptySafeguardCombination = (): SafeguardCombination => ({
   factions: [],
 })
 
+/**
+ * The fields a BUNDLE header carries but does not own.
+ *
+ * The engine reads exactly two things off a header — its `requiredCount` (what it keeps out of
+ * each merged bucket) and its `countMode` (the key that defines those buckets); see
+ * `safeguard_apply_bundle_caps`. Ranking inside the pool uses the score each piece got from its
+ * OWN member, so the header's substats and weights decide nothing either. Everything listed here
+ * is retained purely so bundle ⇄ rule conversion is lossless — it must never be presented as a
+ * setting, or the form promises behaviour the scan does not have.
+ *
+ * Listed once so the builder form, the chip summary and multi-edit agree on what is inert;
+ * `stripInertSafeguardFields` is the projection built from it, and the pairing is pinned by
+ * tests/unit/safeguard-bundle-inert-fields.test.ts.
+ */
+export const SAFEGUARD_BUNDLE_INERT_FIELDS = [
+  // No filter: a bundle's candidates are whatever its members already matched.
+  'combination',
+  // Forced off at prepare time, and the cap applies regardless — see safeguardEntryEffectiveActivation.
+  'activation',
+  // Cascade/equipped gates act on matching, which a header never does.
+  'ignorePreviousSafeguards',
+  'ignoreEquippedInCollection',
+  'ignoreEquippedInVault',
+  // Scoring belongs to the members: the pool is sorted by the score its feeder assigned.
+  'substats',
+  'substatMatch',
+  'substatWeights',
+  'weightMainStatByRank',
+  'mainStatRankWeightFactor',
+  'improvementChanceThreshold',
+] as const satisfies readonly (keyof SafeguardRule)[]
+
+/**
+ * Returns the entry as it actually BEHAVES, with every field it does not own neutralised.
+ *
+ * Only bundle headers are affected — rules and separators come back unchanged (same reference, so
+ * memo dependencies are undisturbed). Display code calls this instead of branching on the kind,
+ * which is what keeps "a bundle has no filter/substats/ranking" a single statement rather than a
+ * condition repeated per surface.
+ */
+export const stripInertSafeguardFields = (rule: SafeguardRule): SafeguardRule => {
+  if (safeguardEntryKind(rule) !== 'bundle') return rule
+  return {
+    ...rule,
+    combination: createEmptySafeguardCombination(),
+    activation: safeguardEntryEffectiveActivation(rule),
+    // False, not the factory default: these render as glyphs on the chip, and a header shows none.
+    ignorePreviousSafeguards: false,
+    ignoreEquippedInCollection: false,
+    ignoreEquippedInVault: false,
+    substats: [],
+    substatMatch: SafeguardSubstatMatch.Min1,
+    substatWeights: {},
+    weightMainStatByRank: false,
+    mainStatRankWeightFactor: SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+    improvementChanceThreshold: null,
+  }
+}
+
 // cloneSafeguardRule keeps history snapshots isolated from live edits.
 export const cloneSafeguardRule = (rule: SafeguardRule): SafeguardRule => ({
   // Preserve all scalar fields.
@@ -633,8 +751,8 @@ export const safeguardRuleContentFingerprint = (rule: SafeguardRule): string => 
   // shared promise rather than a rule of its own, and `depth` decides which entries feed it.
   // `collapsed` is deliberately absent — it is pure display state, like appearance.fgColor,
   // and would bust the cache on every chevron click.
-  bundle: rule.bundle === true,
-  depth: rule.depth ?? 0,
+  bundle: isSafeguardBundle(rule),
+  depth: safeguardEntryDepth(rule),
   combination: rule.combination,
   requiredCount: rule.requiredCount,
   activation: rule.activation,

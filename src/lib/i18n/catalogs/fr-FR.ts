@@ -515,8 +515,7 @@ const overrides: Catalog = {
   safeguardsRuleCountsMissing: "({missing} manquants)",
   // Safeguard bundles: a container entry whose Required Count is shared by everything nested inside it.
   safeguardsBundleLabel: "Groupe",
-  safeguardsBundleToggleHint: "Transforme cette entrée en **groupe** : les protections que vous y imbriquez partagent une seule promesse au lieu de garder chacune la sienne.\n\nChaque protection à l'intérieur continue de fonctionner comme avant — ses propres filtres, sous-stats et nombre. Le groupe ne fait qu'unifier le comptage : les pièces qui tombent dans le même seau (selon les puces de portée du groupe) partagent un **Nombre requis**, le meilleur des leurs. Les protections les plus hautes dans la liste le remplissent en premier.\n\nLes groupes peuvent contenir d'autres groupes.",
-  safeguardsBundleUnnamed: "Groupe sans nom",
+  safeguardsBundleToggleHint: "Transforme cette entrée en **groupe** : les protections que vous y imbriquez partagent une seule promesse au lieu de garder chacune la sienne.\n\nChaque protection à l'intérieur continue de fonctionner comme avant — ses propres filtres, sous-stats et nombre —, mais son nombre définit désormais ce qu'elle FOURNIT au groupe, et non ce qu'elle garde. Le groupe réunit ces apports dans des seaux définis par ses propres puces de portée, trie chaque seau selon le score que chaque pièce a reçu de la protection qui l'a fournie, et en garde son propre **Nombre requis**. Le reste est vendu.\n\nUn groupe ne correspond lui-même à aucun équipement : il n'a ni filtres, ni sous-stats, ni mode — seulement un nombre et ses puces de portée.\n\nLes groupes peuvent contenir d'autres groupes.",
   safeguardsBundleMemberCountOne: "{count} protection",
   safeguardsBundleMemberCountMany: "{count} protections",
   safeguardsBundleEmpty: "vide — glissez des protections dedans",

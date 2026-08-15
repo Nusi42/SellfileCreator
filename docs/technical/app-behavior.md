@@ -302,12 +302,34 @@ three places: the mutation funnel `applySafeguardRulesChange`, the SFC parse pat
 (`Accessories` → `# Rings` / `# Amulets` / `# Banners`); inferring depth on load would silently
 turn a divider into a quota-bearing header and change what the file protects.
 
+**A header owns its count, its scope chips, its name and its tags — nothing else.**
+`SAFEGUARD_BUNDLE_INERT_FIELDS` (`lib/safeguards.ts`) names the rest: `combination`,
+`activation`, the three `ignore*` gates, and every substat/ranking/threshold field. They stay
+stored — that is what makes bundle ⇄ rule conversion lossless — but nothing reads them, so no
+surface may present them as settings. `stripInertSafeguardFields` is the projection built from
+that list (identity for rules and separators, so memo deps are undisturbed) and is what the chip
+summary, the chip's ignore glyphs and the builder's scope-chip redundancy all read.
+`safeguardEntryEffectiveActivation` is the companion scalar: a separator resolves to `off`, a
+**bundle to `protectExisting` whatever it stored**, because `resolve_demands` never looks at
+activation and the header is forced off at prepare time — the cap is unconditional, so no surface
+may render an off-switch nothing honours (`isSafeguardRuleActive` routes through it, as do the
+chip badge, the builder's mode row and the note dialog's disabled pill). Multi-edit derives its
+per-bundle skip set from the same list (`SAFEGUARD_BUNDLE_INERT_FIELD_KEYS`), so a staged
+ranking/mode/filter edit lands on rules and passes over headers; both directions are pinned by
+`tests/unit/safeguard-bundle-inert-fields.test.ts` and `safeguard-bundle-multiedit.test.ts`.
+
 **UI.** Chips indent by `SAFEGUARD_OUTLINE_INDENT_PX` per level, with a left border on nested
 chips; bundle headers carry a collapse chevron (Ctrl/right-click applies to all) and show their
-own `≥ N` like any other entry — read through the outline, so an empty header correctly reads 0.
-Members show their own count unchanged; it now reads as the size of the feed they contribute. The
-builder form shows a `fed by N safeguards` caption beside the header's count, because an empty
-bundle keeps nothing however high that number is set. Delete / duplicate / copy / drag act on whole subtrees, the four
+own `≥ N` like any other entry — read through the outline, so an empty header correctly reads 0,
+and without an activation word or ignore glyphs, since a header owns neither. Members show their
+own count unchanged; it now reads as the size of the feed they contribute. In the builder form a
+bundle draft dims every inert section the way a separator does (filters, substats/weights/
+threshold, the mode toggle, the ignore chips) and keeps only what the header owns live: the name,
+the count with its `fed by N safeguards` caption — an empty bundle keeps nothing however high the
+number is set — the tags, and **the four scope chips, which move up beside the count** because
+the sections they normally sit under are inert. Same `renderScopeChip`, same handlers; only the
+placement moves. Redundancy for those chips is resolved against the stripped entry, so a header's
+retained filters can never grey out a bucket it really does split by. Delete / duplicate / copy / drag act on whole subtrees, the four
 directional moves route through `useItemListManager.resolveDirectionalMove`, and drag-and-drop
 picks a nesting level from the pointer's horizontal position via
 `useChipListDnd.resolveDropDepth` (both optional params; the recipe list omits them and is
