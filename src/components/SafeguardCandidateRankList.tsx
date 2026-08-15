@@ -60,9 +60,17 @@ import { TINT, ALPHA } from '../lib/colorTints'
 const CANDIDATE_LIST_MAX_HEIGHT_PX = 380
 // Number of skeleton rows shown while detection is running (no candidates yet).
 const SKELETON_ROW_COUNT = 6
-// Font size for the match-source (name) column — exported so SafeguardBuilderPanel can measure
-// the same size when computing the fixed column width from candidate names.
+// Font size for the match-source (name) column. measureMatchSourceCellWidth measures candidate
+// names at exactly this size, so the two must stay in lockstep — hence the shared constant.
 export const FONT_SIZE_MATCH_SOURCE_REM = 0.68
+// Width of the feeder-ordinal column ("·3" — which group member fed a pooled row). SSOT for both
+// the rendered cell and the spacer that reserves its place while the group view is off, so
+// toggling the view never changes the row width.
+const FEEDER_ORDINAL_CELL_WIDTH_PX = 28
+// Upper bound for the measured match-source column, in multiples of the substat cell width.
+// A very long recipe name truncates to ellipsis rather than dwarfing the stat columns; this is
+// the width the column used to take unconditionally, so nothing ever grows past what it was.
+const MATCH_SOURCE_MAX_SUBSTAT_CELLS = 4
 export type StatCellWidths = {
   // Width for the mainstat column — widest label across all variants, no roll glyph.
   mainstatCellWidthPx: number
@@ -125,6 +133,57 @@ export function measureStatCellWidths(
     rarityCellWidthPx: Math.ceil(maxRarity) + buffer,
   }
 }
+// The name shown in a row's match-source column: always the actual sell-file outcome — the recipe,
+// safeguard rule, or final-sell rule that determined the result — so keep/sell/guard rows all
+// display their real reason. Null when there is no match data (unmatched or no preview yet);
+// without preview data it falls back to the rule's own name, but only for within-quota candidates.
+//
+// SSOT for the column's text: the row renders this and measureMatchSourceCellWidth sizes the column
+// from it, so a name can never be wider than the space measured for it.
+function matchSourceNameFor(
+  candidate: SafeguardCandidateOut,
+  previewRow: GearInspectorPreviewRow | undefined,
+  ruleAppearance: NameAppearance | undefined,
+  t: ReturnType<typeof useI18n>['t'],
+): string | null {
+  if (previewRow) {
+    return previewRow.match?.ruleSource === RULE_SOURCE_FINAL_SELL
+      ? t('gearInspectorFinalSell')
+      : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null)
+  }
+  return candidate.isWithinQuota ? (ruleAppearance?.name ?? null) : null
+}
+
+// Measures the match-source (name) column from the names it will actually render, in one canvas
+// pass at FONT_SIZE_MATCH_SOURCE_REM. The rendered set is bounded per document — recipe names,
+// safeguard rule labels, and the fixed final-sell string — so the widest of them is the exact
+// width the column needs. Returns 0 when no row has a name, collapsing the column entirely.
+//
+// Measuring beats the old `substatCellWidthPx * 4` guess on both ends: that heuristic was keyed to
+// stat-label metrics (unrelated to names, and inflated by anomalous substat labels) and reserved
+// the full width even when every row's name was empty. A fixed result per render still keeps the
+// anti-jitter property — scrolling to a longer name cannot resize the column mid-scroll.
+function measureMatchSourceCellWidth(
+  names: readonly string[],
+  theme: Theme,
+  maxWidthPx: number,
+): number {
+  // No names to show (no preview data yet, or nothing matched) — take no space at all.
+  if (names.length === 0) return 0
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  const rootFontSizePx = parseFloat(getComputedStyle(document.documentElement).fontSize)
+  const fontSizePx = FONT_SIZE_MATCH_SOURCE_REM * (Number.isFinite(rootFontSizePx) ? rootFontSizePx : 16)
+  // Canvas unavailable — fall back to the cap rather than risk clipping every name.
+  if (!ctx) return maxWidthPx
+  ctx.font = `${fontSizePx}px ${theme.typography.fontFamily ?? 'sans-serif'}`
+  let maxName = 0
+  for (const name of names) maxName = Math.max(maxName, ctx.measureText(name).width)
+  const buffer = 4  // px safety buffer for subpixel rounding, matching measureStatCellWidths
+  // Clamp so one pathological name cannot dominate the row; longer names ellipsize (ELLIPSIS_TEXT_SX).
+  return Math.min(Math.ceil(maxName) + buffer, maxWidthPx)
+}
+
 // Card preview uses the same column profile and scale factor as the db-update-history toast.
 const CANDIDATE_CARD_COLUMN_COUNT = CHAMPION_ICON_LARGE_THRESHOLD
 const CANDIDATE_CARD_SCALE = GEAR_DB_DIFF_TOAST_CARD_SCALE
@@ -232,6 +291,14 @@ export type SafeguardCandidateRankListProps = {
   // Group view only: which member (1-based safeguard ordinal) fed each pooled row, shown beside
   // the rank so a pooled list still tells the members apart.
   feederOrdinalByItemKey?: ReadonlyMap<number, number> | null
+  // Reserves the feeder-ordinal column even while the group view is off, so toggling it on fills
+  // space the row already had instead of widening the whole flyout under the user's cursor. Set
+  // whenever the group-view toggle is offered (i.e. the edited rule is a group member).
+  reserveFeederOrdinalSpace?: boolean
+  // Candidates of the view the group-view toggle would switch to. Their match-source names join
+  // this view's when sizing that column, so the column is wide enough for both and flipping the
+  // toggle cannot resize it. Same motivation as reserveFeederOrdinalSpace.
+  alternateViewCandidates?: readonly SafeguardCandidateOut[] | undefined
 }
 
 // Human-readable label for a focused bucket, built from a representative artifact's active
@@ -329,6 +396,8 @@ export default function SafeguardCandidateRankList({
   improvementChanceByItemKey,
   groupTrimColor,
   feederOrdinalByItemKey,
+  reserveFeederOrdinalSpace,
+  alternateViewCandidates,
 }: SafeguardCandidateRankListProps) {
   // TanStack Virtual's useVirtualizer returns functions incompatible with the React Compiler's
   // memoization model; opt out of compilation for this component to silence the warning.
@@ -339,6 +408,20 @@ export default function SafeguardCandidateRankList({
   // Uniform fixed widths for mainstat and substat cells — measured once across ALL stat variants
   // so column widths are consistent regardless of which substats the current rule selects.
   const { mainstatCellWidthPx, substatCellWidthPx, rankCellWidthPx, rarityCellWidthPx } = useMemo(() => measureStatCellWidths(t, theme), [t, theme])
+
+  // Match-source column width — measured from the names these candidates actually render, so the
+  // column is exactly as wide as it needs to be (and collapses to 0 when no row has a name)
+  // instead of always reserving four substat cells' worth of mostly-empty space.
+  const matchSourceCellWidthPx = useMemo(() => {
+    // Distinct names only — the measurement cares about the widest string, not how many rows show it.
+    // Both views' candidates feed the set, so the group-view toggle never resizes the column.
+    const names = new Set<string>()
+    for (const c of [...(candidates ?? []), ...(alternateViewCandidates ?? [])]) {
+      const name = matchSourceNameFor(c, previewRowByItemKey?.get(c.itemKey), ruleAppearance, t)
+      if (name) names.add(name)
+    }
+    return measureMatchSourceCellWidth([...names], theme, substatCellWidthPx * MATCH_SOURCE_MAX_SUBSTAT_CELLS)
+  }, [candidates, alternateViewCandidates, previewRowByItemKey, ruleAppearance, t, theme, substatCellWidthPx])
 
   // Focus state: when set, the list is scoped to a single bucket (the group of the candidate
   // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
@@ -516,6 +599,7 @@ export default function SafeguardCandidateRankList({
     substatCellWidthPx,
     rankCellWidthPx,
     rarityCellWidthPx,
+    matchSourceCellWidthPx,
     substatColumnCount: resolvedSubstatColumnCount,
     substatColors: substatColors ?? {},
     useStatButtonColors: useStatButtonColors ?? false,
@@ -524,6 +608,7 @@ export default function SafeguardCandidateRankList({
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
     groupTrimColor: groupTrimColor ?? null,
     feederOrdinalByItemKey: feederOrdinalByItemKey ?? null,
+    reserveFeederOrdinalSpace: reserveFeederOrdinalSpace ?? false,
     rowSurfacePaper,
     precomputedSubstatColors,
     improvChanceLowRgb,
@@ -700,6 +785,7 @@ function CandidateRow({
   substatCellWidthPx,
   rankCellWidthPx,
   rarityCellWidthPx,
+  matchSourceCellWidthPx,
   substatColumnCount,
   isFiltered,
   substatColors,
@@ -714,6 +800,7 @@ function CandidateRow({
   improvementChanceByItemKey,
   groupTrimColor,
   feederOrdinalByItemKey,
+  reserveFeederOrdinalSpace,
   rowSurfacePaper,
   precomputedSubstatColors,
   improvChanceLowRgb,
@@ -742,6 +829,9 @@ function CandidateRow({
   rankCellWidthPx: number
   // Uniform fixed pixel width for the rarity cell — measured from the widest rarity word.
   rarityCellWidthPx: number
+  // Uniform fixed pixel width for the match-source cell — measured from the widest name across the
+  // list (0 when no row has one, which removes the column entirely).
+  matchSourceCellWidthPx: number
   // Number of substat columns to render (real cells + placeholder pads) — from parent's max-across-candidates.
   substatColumnCount: number
   // True when the artifact is hidden by the current Gear Inspector filter — renders dimmed.
@@ -770,6 +860,8 @@ function CandidateRow({
   groupTrimColor: string | null
   // Group view: feeder ordinal per row; null outside the group view.
   feederOrdinalByItemKey: ReadonlyMap<number, number> | null
+  // Reserve the feeder-ordinal column's width even with no map to read values from.
+  reserveFeederOrdinalSpace: boolean
   // Runtime scheme paper color — hoisted from outer component (was per-row useColorScheme call).
   rowSurfacePaper: string
   // Pre-computed substat colors — eliminates per-cell adaptSubstatFgOnSurface + color math.
@@ -828,17 +920,9 @@ function CandidateRow({
     : isRecipeKept ? t('safeguardsCandidateKept') : isTrimmedByGroup ? t('safeguardsCandidateSoldByGroup') : isSold ? t('safeguardsCandidateSold') : undefined
   // Group view: the member that fed this row, shown as a small "#n" beside the pooled rank.
   const feederOrdinal = feederOrdinalByItemKey?.get(candidate.itemKey) ?? null
-  // Match source: always show the actual sell-file outcome name — the recipe, safeguard rule,
-  // or final-sell rule that determined the result — so keep/sell/guard rows all display their
-  // real reason. Show nothing when there is no match data (unmatched or no preview yet).
-  // Without preview data, fall back to the rule name only when the candidate is within quota.
-  // When no preview is available fall back to the rule's own name for within-quota candidates.
+  // Match source: the actual sell-file outcome name for this row (see matchSourceNameFor).
   const isRuleNameSource = !previewRow && candidate.isWithinQuota
-  const matchSourceRaw: string | null = previewRow
-    ? (previewRow.match?.ruleSource === RULE_SOURCE_FINAL_SELL
-        ? t('gearInspectorFinalSell')
-        : (previewRow.match?.recipeName ?? previewRow.match?.ruleLabel ?? null))
-    : (isRuleNameSource ? (ruleAppearance?.name ?? null) : null)
+  const matchSourceRaw = matchSourceNameFor(candidate, previewRow, ruleAppearance, t)
   // Color priority: rule appearance when no preview; recipe color then safeguard rule color when preview present.
   const rawMatchSourceColor = isRuleNameSource
     ? (ruleAppearance?.fgColor ?? theme.palette.common.white)
@@ -979,11 +1063,12 @@ function CandidateRow({
         {displayedRank > 0 ? `#${displayedRank}` : '—'}
       </Typography>
       {/* Group view: which safeguard fed this piece (its list ordinal), so a pooled list still
-          tells the members apart even before hovering the match-source label. */}
-      {feederOrdinalByItemKey != null && (
+          tells the members apart even before hovering the match-source label. Rendered empty (but
+          still occupying its width) when the space is merely reserved — see reserveFeederOrdinalSpace. */}
+      {(feederOrdinalByItemKey != null || reserveFeederOrdinalSpace) && (
         <Typography
           variant="caption"
-          sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.disabled', minWidth: 28, textAlign: 'right', flexShrink: 0 }}
+          sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.disabled', minWidth: FEEDER_ORDINAL_CELL_WIDTH_PX, textAlign: 'right', flexShrink: 0 }}
         >
           {feederOrdinal != null ? `·${feederOrdinal}` : ''}
         </Typography>
@@ -1174,23 +1259,27 @@ function CandidateRow({
       </Box>
       {/* Match source: rule or recipe name that explains the outcome.
           Parsed for [rrggbb] color directives; white by default. Truncates with ellipsis + OS title. */}
-      <Typography
-        component="span"
-        variant="caption"
-        title={matchSourceDecoration.displayName || undefined}
-        sx={[ELLIPSIS_TEXT_SX, {
-          fontSize: `${FONT_SIZE_MATCH_SOURCE_REM}rem`,
-          // Use parsed directive color (white fallback) instead of muted text.disabled.
-          color: matchSourceDecoration.resolvedColor,
-          fontWeight: 400,
-          // Fixed width (4× substat cell) so every row is the same total width —
-          // prevents the flyout from jumping when scrolling reveals different name lengths.
-          width: substatCellWidthPx * 4,
-          flexShrink: 0,
-        }]}
-      >
-        {matchSourceDecoration.displayName}
-      </Typography>
+      {/* Omitted entirely when no row in the list has a name — the measured width is 0 then, and an
+          empty fixed cell would just pad every row with dead space. */}
+      {matchSourceCellWidthPx > 0 && (
+        <Typography
+          component="span"
+          variant="caption"
+          title={matchSourceDecoration.displayName || undefined}
+          sx={[ELLIPSIS_TEXT_SX, {
+            fontSize: `${FONT_SIZE_MATCH_SOURCE_REM}rem`,
+            // Use parsed directive color (white fallback) instead of muted text.disabled.
+            color: matchSourceDecoration.resolvedColor,
+            fontWeight: 400,
+            // Fixed width, measured from the widest name in the list, so every row is the same total
+            // width — prevents the flyout from jumping when scrolling reveals different name lengths.
+            width: matchSourceCellWidthPx,
+            flexShrink: 0,
+          }]}
+        >
+          {matchSourceDecoration.displayName}
+        </Typography>
+      )}
       {/* Per-row focus toggles: one button per focus target. Non-perSubstat rows have a single
           unlabelled target scoping to the bucket; perSubstat rows expose one labelled target
           per substat the item ranks in, so the user picks exactly which (bucket × substat)

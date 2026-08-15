@@ -1483,6 +1483,10 @@ export default function SafeguardBuilderPanel({
       : null
   ), [draftGroup, groupMemberEntries])
   const groupViewActive = candidateGroupView && groupPool !== null
+  // The group view is on offer: the edited rule is a group member with a pooled list to show.
+  // Gates the toggle chip AND the reserved feeder-ordinal column, so the space is held exactly
+  // when the toggle that fills it exists.
+  const groupViewOffered = Boolean(draftGroup && groupPool)
   // Union of the members' substats, so the pooled rows show every member's ranking columns.
   const groupSubstatSelection = useMemo(() => {
     if (!draftGroup || editingRuleIdx === null) return []
@@ -1495,29 +1499,55 @@ export default function SafeguardBuilderPanel({
   // The colour rows use to say "trimmed by the group", adapted to the flyout surface.
   const groupTrimColor = draftGroup ? resolveLabelColor(draftGroup.id, schemePalette.background.paper, reservedHues) : null
 
+  // This rule's own candidate list: live preview (from unsaved weight edits) preferred over the
+  // detection snapshot. Named because both the shown list and the alternate view read it.
+  const ownCandidates = livePreviewCandidates ?? detectionEntry?.candidates
   // Candidate list shown in the popover right column: the group's pool when the group view is
-  // on; otherwise prefer live preview (from unsaved weight edits) over the detection snapshot.
-  const popoverCandidates = groupViewActive ? groupPool?.candidates : (livePreviewCandidates ?? detectionEntry?.candidates)
+  // on; this rule's own list otherwise.
+  const popoverCandidates = groupViewActive ? groupPool?.candidates : ownCandidates
+  // The list the group-view toggle would swap in — sized for alongside the shown one so the
+  // toggle never changes column widths. Undefined when no toggle is offered.
+  const alternateViewCandidates = !groupViewOffered
+    ? undefined
+    : (groupViewActive ? ownCandidates : groupPool?.candidates)
   // Artifacts behind those rows: the pool's merged map in group view, this rule's otherwise.
   const popoverArtifactsByItemKey = groupViewActive && groupPool ? groupPool.artifactsByItemKey : artifactsByItemKey
   // Substat columns follow the same switch.
   const popoverSubstatSelection = groupViewActive ? groupSubstatSelection : substatSelection
 
-  // Number of substat columns per row: max across candidates of how many rule-selected substats
-  // the artifact actually has. Tighter than min(substats.length, SUBSTAT_SLOT_COUNT) when not all
-  // selected substats appear on any candidate. Falls back to the rule selection count before detection runs.
+  // Number of substat columns needed by one (candidates × artifacts × selection) view: max across
+  // candidates of how many selected substats the artifact actually has. Tighter than
+  // min(substats.length, SUBSTAT_SLOT_COUNT) when not all selected substats appear on any candidate.
+  const substatColumnsFor = useCallback((
+    viewCandidates: readonly SafeguardCandidateOut[] | undefined,
+    viewArtifacts: ReadonlyMap<number, SafeguardDetectionEntry['artifacts'][number]>,
+    viewSelection: readonly StatVariant[],
+  ): number => {
+    let max = 0
+    for (const c of viewCandidates ?? []) {
+      const art = viewArtifacts.get(c.itemKey)
+      if (!art) continue
+      const count = viewSelection.filter((v) => art.substats.some((s) => Number(s.variant) === v)).length
+      if (count > max) max = count
+    }
+    return Math.min(max, SUBSTAT_SLOT_COUNT)
+  }, [])
+
+  // Number of substat columns per row. Falls back to the rule selection count before detection runs.
+  // While the group view is on offer, this takes the max over BOTH views (own list and pooled list)
+  // so flipping the toggle never adds or drops a column — the row is sized for either state up
+  // front, at the cost of a little reserved width in whichever view needs fewer columns.
   const substatColumnCount = (() => {
     if (!popoverCandidates || popoverCandidates.length === 0) {
       return Math.min(substatSelection.length, SUBSTAT_SLOT_COUNT)
     }
-    let max = 0
-    for (const c of popoverCandidates) {
-      const art = popoverArtifactsByItemKey.get(c.itemKey)
-      if (!art) continue
-      const count = popoverSubstatSelection.filter((v) => art.substats.some((s) => Number(s.variant) === v)).length
-      if (count > max) max = count
-    }
-    return Math.min(max, SUBSTAT_SLOT_COUNT)
+    const active = substatColumnsFor(popoverCandidates, popoverArtifactsByItemKey, popoverSubstatSelection)
+    if (!groupViewOffered || !groupPool) return active
+    // The view the toggle would switch TO (or back FROM), measured with its own artifacts/selection.
+    const other = groupViewActive
+      ? substatColumnsFor(ownCandidates, artifactsByItemKey, substatSelection)
+      : substatColumnsFor(groupPool.candidates, groupPool.artifactsByItemKey, groupSubstatSelection)
+    return Math.max(active, other)
   })()
 
   // ── tags state, derived values, and handlers ──────────────────────────────
@@ -4197,7 +4227,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               {/* Group view toggle — members only. Swaps the list for the whole group's pool
                   (every member's feed, ranked together, cut at the group's count) so "why was my
                   piece sold" is answered where the decision is shown. */}
-              {draftGroup && groupPool ? (
+              {groupViewOffered && draftGroup ? (
                 <MarkdownTooltip markdown={t('safeguardsCandidatesGroupViewTooltip')} placement="top">
                   <Chip
                     size="small"
@@ -4241,6 +4271,12 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               // in the group view each pooled row also names the member that fed it.
               groupTrimColor={groupViewActive ? null : groupTrimColor}
               feederOrdinalByItemKey={groupViewActive && groupPool ? groupPool.feederOrdinalByItemKey : null}
+              // Reserve the feeder column whenever the group-view toggle is offered, so flipping the
+              // view fills reserved space instead of widening the flyout mid-interaction.
+              reserveFeederOrdinalSpace={groupViewOffered}
+              // The other view's candidates, so the match-source column is measured for both and
+              // the toggle cannot resize it either.
+              alternateViewCandidates={alternateViewCandidates}
             />
           </Box>
         </Box>
