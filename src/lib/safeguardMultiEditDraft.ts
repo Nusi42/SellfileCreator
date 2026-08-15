@@ -35,10 +35,9 @@ import {
   normalizeSafeguardSubstatDependents,
   normalizeSafeguardFactionSlotScope,
   parseMainStatRankWeightFactor,
-  // Entry-kind discriminator: bundles take no filter/ranking edits (they own neither).
-  safeguardEntryKind,
-  // SSOT for which fields a bundle header carries but does not own.
-  SAFEGUARD_BUNDLE_INERT_FIELDS,
+  // Chip-by-chip count-mode equality, shared with every other scope consumer.
+  areSafeguardCountModesEqual,
+  cloneSafeguardGroupSettings,
 } from './safeguards'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
@@ -61,6 +60,11 @@ export type SafeguardEditableFields = {
   activation: SafeguardRuleActivation
   requiredCount: number
   countMode: SafeguardRuleCountMode
+  // Group settings the member carries (null on an ungrouped rule). Staged edits land on every
+  // selected member's group and the funnel's normalizer fans them out across each run; a rule
+  // that is not grouped ignores them — multi-edit never creates a group.
+  groupRequiredCount: number | null
+  groupCountMode: SafeguardRuleCountMode | null
   // Boolean ignore toggles
   ignorePreviousSafeguards: boolean
   ignoreEquippedInCollection: boolean
@@ -92,6 +96,8 @@ export const SAFEGUARD_FIELD_KEYS = [
   'activation',
   'requiredCount',
   'countMode',
+  'groupRequiredCount',
+  'groupCountMode',
   'ignorePreviousSafeguards',
   'ignoreEquippedInCollection',
   'ignoreEquippedInVault',
@@ -118,18 +124,6 @@ export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
 export const SAFEGUARD_COMBINATION_FIELD_KEYS: ReadonlySet<SafeguardFieldKey> = new Set([
   'slots', 'sets', 'metaSetNames', 'ranks', 'rarities', 'mainStats', 'factions',
 ])
-
-// The keys a multi-edit apply must SKIP on a bundle header, derived from the rule-level SSOT
-// rather than hand-listed: the seven filter keys above all project into `combination` (one entry
-// in that list), and every other inert field has an identically named edit key. A header owns only
-// its count, its scope chips, its name and its tags — staging anything else onto it would write a
-// setting the scan never reads and the form no longer shows.
-export const SAFEGUARD_BUNDLE_INERT_FIELD_KEYS: ReadonlySet<SafeguardFieldKey> = new Set(
-  SAFEGUARD_FIELD_KEYS.filter((key) => (
-    SAFEGUARD_COMBINATION_FIELD_KEYS.has(key)
-    || (SAFEGUARD_BUNDLE_INERT_FIELDS as readonly string[]).includes(key)
-  )),
-)
 
 // ── patch type mapping ────────────────────────────────────────────────────────
 
@@ -224,6 +218,8 @@ export function extractSafeguardEditableFields(rule: SafeguardRule): SafeguardEd
     activation: rule.activation,
     requiredCount: rule.requiredCount,
     countMode: { ...rule.countMode },
+    groupRequiredCount: rule.group ? rule.group.requiredCount : null,
+    groupCountMode: rule.group ? { ...rule.group.countMode } : null,
     ignorePreviousSafeguards: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
@@ -288,6 +284,15 @@ export function applyEditableFieldKeyToRule(
       delete (base as { appearance?: NameAppearance }).appearance
       return base
     }
+    case 'groupRequiredCount': {
+      // Only an existing member takes group edits; multi-edit never creates a group.
+      if (!rule.group || value == null) return rule
+      return { ...rule, group: { ...cloneSafeguardGroupSettings(rule.group), requiredCount: value as number } }
+    }
+    case 'groupCountMode': {
+      if (!rule.group || value == null) return rule
+      return { ...rule, group: { ...cloneSafeguardGroupSettings(rule.group), countMode: { ...(value as SafeguardRuleCountMode) } } }
+    }
     default:
       // All other keys map 1:1 to SafeguardRule top-level fields.
       return { ...rule, [key]: value }
@@ -326,15 +331,9 @@ export function areSafeguardFieldValuesEqual(
       return left === right
     case 'sets':
       return areSetSelectionsEqual(left, right)
-    case 'countMode': {
-      const l = left as SafeguardRuleCountMode
-      const r = right as SafeguardRuleCountMode
-      return l.perRule === r.perRule
-        && l.perSet === r.perSet
-        && l.perFaction === r.perFaction
-        && l.perMainStat === r.perMainStat
-        && l.perSlot === r.perSlot
-    }
+    case 'countMode':
+    case 'groupCountMode':
+      return areSafeguardCountModesEqual(left as SafeguardRuleCountMode, right as SafeguardRuleCountMode)
     case 'substatWeights': {
       const l = left as Record<number, number>
       const r = right as Record<number, number>
@@ -398,6 +397,7 @@ export function cloneSafeguardFieldValue(key: SafeguardFieldKey, value: unknown)
     case 'appearanceFgColor':
       return value  // primitives — no cloning needed
     case 'countMode':
+    case 'groupCountMode':
       return { ...(value as SafeguardRuleCountMode) }
     case 'substatWeights':
       return { ...(value as Record<number, number>) }
@@ -678,14 +678,7 @@ export function applyMultiEditFieldsToSafeguardRule(
 ): SafeguardRule {
   const keys = dirtyKeys && dirtyKeys.length > 0 ? dirtyKeys : SAFEGUARD_FIELD_KEYS
   let nextRule = rule
-  // A bundle owns its count, its scope chips, its name and its tags — nothing else. Its
-  // candidates come from what its members match, and the pooled feed is ranked by the score each
-  // member gave, so a staged filter/ranking/mode edit must skip it rather than write a setting
-  // the scan never reads. Mixed selections stay useful precisely because the fields a bundle DOES
-  // own are the ones people edit in bulk.
-  const skipInertFields = safeguardEntryKind(rule) === 'bundle'
   for (const key of keys) {
-    if (skipInertFields && SAFEGUARD_BUNDLE_INERT_FIELD_KEYS.has(key)) continue
     const field = fields[key]
     if (!field?.dirty) continue
     const updated = applyMultiEditFieldToSafeguardRule(nextRule, key, field)
@@ -932,6 +925,7 @@ export function cloneSafeguardRuleForSelection(source: SafeguardRule): Safeguard
     ...source,
     combination: cloneSafeguardCombination(source.combination),
     countMode: { ...source.countMode },
+    ...(source.group ? { group: cloneSafeguardGroupSettings(source.group) } : {}),
     substats: [...(source.substats ?? [])],
     substatWeights: { ...(source.substatWeights ?? {}) },
     // Detach tags so selection snapshots are isolated.

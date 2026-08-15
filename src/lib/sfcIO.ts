@@ -49,10 +49,7 @@ import {
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,
   normalizeSafeguardRule,
-  // Entry-kind discriminator: the SSOT for rule vs bundle vs separator at every branch, plus
-  // the depth/collapsed accessors so persistence never re-derives outline state inline.
-  isSafeguardBundleCollapsed,
-  safeguardEntryDepth,
+  // Entry-kind discriminator: the SSOT for rule vs separator at every branch.
   safeguardEntryKind,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
@@ -60,12 +57,11 @@ import {
   type SafeguardRule,
   SafeguardRuleActivation,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  type SafeguardGroupSettings,
 } from './safeguards'
-// Outline repair runs on the whole parsed array — the structural invariant is a property of
+// Group repair runs on the whole parsed array — which entries form a run is a property of
 // the sequence, not of any single entry.
-import { normalizeSafeguardOutline } from './safeguardOutline'
-// Top-level outline depth: the value at which the field carries no information and is omitted.
-import { SAFEGUARD_OUTLINE_DEFAULT_DEPTH } from './generated/domainConstants'
+import { normalizeSafeguardGroups } from './safeguardGroups'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
@@ -1135,11 +1131,11 @@ export function parseSfcObject(
         normalized.push(rule)
       }
     }
-    // Repair the outline once for the whole array. Per-entry normalization can only clamp a
-    // depth in isolation; the structural invariant (a level may open only under a bundle) is a
-    // property of the sequence, so it is settled here — one of exactly three call sites, all
-    // of which hand a complete list to the Rust authority.
-    return normalizeSafeguardOutline(normalized)
+    // Repair the groups once for the whole array. Per-entry normalization only carries each
+    // member's stored settings; which entries form a run (and that every member of a run
+    // agrees) is a property of the sequence, so it is settled here — one of exactly three call
+    // sites, all of which hand a complete list to the Rust authority.
+    return normalizeSafeguardGroups(normalized)
   })()
   // SFC boundary compatibility: keep legacy toggle key support on read only.
   // null when the key is absent — caller should preserve current state rather than reset.
@@ -1229,25 +1225,22 @@ type ReadableSafeguardTuple = {
 export type ReadableSeparatorEntry = {
   appearance?: NameAppearance
   Separator: true
-  // Outline level, omitted at top level. A divider nested inside a bundle keeps its slot and
-  // its indentation, so this is the one field a separator carries beyond its marker.
-  depth?: number
 }
 
-// Fields describing an entry's place in the bundle outline. Shared by the rule and separator
-// shapes; every one is omitted at its default so files without bundles re-save byte-identically.
-type ReadableSafeguardOutlineFields = {
-  // Bundle header marker (capitalised to match `Separator`). A bundle owns a shared required
-  // count over the union of what its members match and writes no `tuple` — it has no filters.
-  Bundle?: true
-  depth?: number
-  // Bundle headers only: subtree collapsed in the chip list. Display-only document state.
-  collapsed?: true
+// The group settings a member persists inline (capitalised to match `Separator`). Present on
+// every member of a group and omitted otherwise, so files without groups re-save
+// byte-identically. Adjacent entries with the same `id` form one group.
+export type ReadableSafeguardGroup = {
+  id: string
+  requiredCount: number
+  countMode: SafeguardRule['countMode']
 }
 
-export type ReadableSafeguardRuleEntry = ReadableSafeguardOutlineFields & {
+export type ReadableSafeguardRuleEntry = {
   // Nested appearance record (name + optional fgColor). Emitted first when present.
   appearance?: NameAppearance
+  // Group membership + the group's own count and chips; absent on an ungrouped rule.
+  Group?: ReadableSafeguardGroup
   // Tags for safeguard-overrides DSL targeting; omitted when empty.
   tags?: string[]
   requiredCount: number
@@ -1259,8 +1252,7 @@ export type ReadableSafeguardRuleEntry = ReadableSafeguardOutlineFields & {
   // Per-level improvement-chance thresholds; written as an object in the current format.
   // Legacy files may have a bare number (handled on import via normalizeLegacyImprovementChanceThreshold).
   improvementChanceThreshold?: { atLevel0: number; atLevel4: number | null; atLevel8: number | null; atLevel12: number | null }
-  // Absent on bundle headers: a bundle pools its members' matches instead of filtering gear.
-  tuple?: ReadableSafeguardTuple
+  tuple: ReadableSafeguardTuple
   substats?: string[]
   substatMatch?: string
   substatWeights?: Record<string, number>
@@ -1301,30 +1293,40 @@ const buildReadableSafeguardTuple = (combination: SafeguardRule['combination']):
   }
 }
 
+// The persisted shape of a member's group settings: id, the group's count and its chips.
+const buildReadableSafeguardGroup = (group: SafeguardGroupSettings): ReadableSafeguardGroup => {
+  const mode = sanitizeSafeguardCountMode(group.countMode)
+  return {
+    id: group.id,
+    requiredCount: Math.max(1, Math.floor(group.requiredCount)),
+    countMode: {
+      perRule: mode.perRule,
+      perSet: mode.perSet,
+      perFaction: mode.perFaction,
+      perMainStat: mode.perMainStat,
+      perSlot: mode.perSlot,
+    },
+  }
+}
+
 // Build a readable safeguard export entry from an in-memory rule.
 export const buildReadableSafeguardRuleEntry = (
   rule: SafeguardRule,
 ): ReadableSafeguardRuleEntry | ReadableSeparatorEntry => {
-  // Outline placement, emitted for every entry kind and omitted at its default so a file with
-  // no bundles serializes exactly as it did before the feature existed. The tri-state
-  // own-quota flag is written only when explicitly set — see ReadableSafeguardOutlineFields.
   const kind = safeguardEntryKind(rule)
-  const depth = safeguardEntryDepth(rule)
-  const outlineFields: ReadableSafeguardOutlineFields = {
-    ...(kind === 'bundle' ? { Bundle: true as const } : {}),
-    ...(depth > SAFEGUARD_OUTLINE_DEFAULT_DEPTH ? { depth } : {}),
-    ...(isSafeguardBundleCollapsed(rule) ? { collapsed: true as const } : {}),
-  }
-  // Separators persist minimally — appearance + marker + outline level, nothing else (see the
+  // Separators persist minimally — appearance + marker, nothing else (see the
   // ReadableSeparatorEntry doc). Applies to every persistence path
   // (file save, autosave, clipboard, preset snapshot) since they all funnel here.
   if (kind === 'separator') {
     return {
       ...appearancePersistField(rule.appearance),
       Separator: true,
-      ...(depth > SAFEGUARD_OUTLINE_DEFAULT_DEPTH ? { depth } : {}),
     }
   }
+  // Group membership, omitted when ungrouped so a file with no groups serializes exactly as it
+  // did before the feature existed. The chips are written in the same normalized shape as a
+  // rule's own countMode so both loaders (safeguards.ts, sfc_reader.rs) parse them alike.
+  const groupFields = rule.group ? { Group: buildReadableSafeguardGroup(rule.group) } : {}
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
   const mode = sanitizeSafeguardCountMode(rule.countMode)
   // Capture selected substats in readable form so exports stay user-friendly.
@@ -1365,7 +1367,7 @@ export const buildReadableSafeguardRuleEntry = (
   // first so it appears as the leading field of every serialized safeguard entry.
   const entry: ReadableSafeguardRuleEntry = {
     ...appearancePersistField(rule.appearance),
-    ...outlineFields,
+    ...groupFields,
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
     activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: {
@@ -1378,9 +1380,7 @@ export const buildReadableSafeguardRuleEntry = (
     ignorePreviousSafeguards_v2: rule.ignorePreviousSafeguards !== false,
     ignoreEquippedInCollection: rule.ignoreEquippedInCollection === true,
     ignoreEquippedInVault: rule.ignoreEquippedInVault === true,
-    // A bundle has no filters of its own, so it writes no tuple — its retained combination is
-    // inert. Omitting it keeps the file honest about what the entry actually does.
-    ...(kind === 'bundle' ? {} : { tuple: buildReadableSafeguardTuple(rule.combination) }),
+    tuple: buildReadableSafeguardTuple(rule.combination),
   }
   // Serialize tags when the rule has any; omit the key for backward-compat.
   const normalizedTags = normalizeTagList(rule.tags)

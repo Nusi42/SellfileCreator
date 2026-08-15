@@ -224,6 +224,13 @@ export type SafeguardCandidateRankListProps = {
   // Improvement chance percent (for the currently edited rule) keyed by safeguard item key.
   // Rendered as a column left of the score; absent keys render a blank cell.
   improvementChanceByItemKey?: ReadonlyMap<number, number> | null
+  // The rule's GROUP colour when it is a group member (already adapted to the flyout surface).
+  // A row inside this rule's own quota that the sell file nevertheless sells was trimmed by the
+  // group — its badge takes this colour and says so, which is how "the group is working" reads.
+  groupTrimColor?: string | null
+  // Group view only: which member (1-based safeguard ordinal) fed each pooled row, shown beside
+  // the rank so a pooled list still tells the members apart.
+  feederOrdinalByItemKey?: ReadonlyMap<number, number> | null
 }
 
 // Human-readable label for a focused count-group, built from a representative artifact's active
@@ -319,6 +326,8 @@ export default function SafeguardCandidateRankList({
   focusedGroupKey: controlledFocusedGroupKey,
   onFocusedGroupKeyChange,
   improvementChanceByItemKey,
+  groupTrimColor,
+  feederOrdinalByItemKey,
 }: SafeguardCandidateRankListProps) {
   // TanStack Virtual's useVirtualizer returns functions incompatible with the React Compiler's
   // memoization model; opt out of compilation for this component to silence the warning.
@@ -512,6 +521,8 @@ export default function SafeguardCandidateRankList({
     groupRankMode: activeFocusKey != null,
     quota,
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
+    groupTrimColor: groupTrimColor ?? null,
+    feederOrdinalByItemKey: feederOrdinalByItemKey ?? null,
     rowSurfacePaper,
     precomputedSubstatColors,
     improvChanceLowRgb,
@@ -700,6 +711,8 @@ function CandidateRow({
   groupRankMode,
   quota,
   improvementChanceByItemKey,
+  groupTrimColor,
+  feederOrdinalByItemKey,
   rowSurfacePaper,
   precomputedSubstatColors,
   improvChanceLowRgb,
@@ -752,6 +765,10 @@ function CandidateRow({
   quota: number
   // Improvement chance percent (current rule) keyed by item key — rendered left of the score.
   improvementChanceByItemKey: ReadonlyMap<number, number> | null
+  // Group colour for "trimmed by the group" rows (see the list prop); null when ungrouped.
+  groupTrimColor: string | null
+  // Group view: feeder ordinal per row; null outside the group view.
+  feederOrdinalByItemKey: ReadonlyMap<number, number> | null
   // Runtime scheme paper color — hoisted from outer component (was per-row useColorScheme call).
   rowSurfacePaper: string
   // Pre-computed substat colors — eliminates per-cell adaptSubstatFgOnSurface + color math.
@@ -795,13 +812,21 @@ function CandidateRow({
   const isCurrentRuleMatch = previewRow != null
     ? (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
     : candidate.isWithinQuota
+  // Trimmed by the group: inside this rule's own quota (it fed the piece) yet sold — the group
+  // kept better pieces from other members. Only meaningful with preview data, which is what
+  // tells kept from sold here; needs a group colour to render in.
+  const isTrimmedByGroup = groupTrimColor != null && previewRow != null && candidate.isWithinQuota && isSold
   const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? (isChanceProtected ? CheckCircleOutlinedIcon : CheckCircleIcon) : isSold ? SellIcon : null
   const badgeColor = isSafeguarded
     ? (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
-    : isRecipeKept ? (theme.vars?.palette.success.main ?? theme.palette.success.main) : (theme.vars?.palette.error.main ?? theme.palette.error.main)
+    : isRecipeKept
+      ? (theme.vars?.palette.success.main ?? theme.palette.success.main)
+      : isTrimmedByGroup ? groupTrimColor : (theme.vars?.palette.error.main ?? theme.palette.error.main)
   const badgeTitle = isSafeguarded
     ? t('safeguardsCandidateSafeguarded')
-    : isRecipeKept ? t('safeguardsCandidateKept') : isSold ? t('safeguardsCandidateSold') : undefined
+    : isRecipeKept ? t('safeguardsCandidateKept') : isTrimmedByGroup ? t('safeguardsCandidateSoldByGroup') : isSold ? t('safeguardsCandidateSold') : undefined
+  // Group view: the member that fed this row, shown as a small "#n" beside the pooled rank.
+  const feederOrdinal = feederOrdinalByItemKey?.get(candidate.itemKey) ?? null
   // Match source: always show the actual sell-file outcome name — the recipe, safeguard rule,
   // or final-sell rule that determined the result — so keep/sell/guard rows all display their
   // real reason. Show nothing when there is no match data (unmatched or no preview yet).
@@ -952,6 +977,16 @@ function CandidateRow({
       >
         {displayedRank > 0 ? `#${displayedRank}` : '—'}
       </Typography>
+      {/* Group view: which safeguard fed this piece (its list ordinal), so a pooled list still
+          tells the members apart even before hovering the match-source label. */}
+      {feederOrdinalByItemKey != null && (
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.disabled', minWidth: 28, textAlign: 'right', flexShrink: 0 }}
+        >
+          {feederOrdinal != null ? `·${feederOrdinal}` : ''}
+        </Typography>
+      )}
       {/* Compact identifier: slot icon OR nothing (text goes in identifierText below),
           set icon, faction icon — all flex-shrink-0, no growing. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>

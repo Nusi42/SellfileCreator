@@ -181,18 +181,18 @@ Sellfile Creator simplifica la creación de Sellfiles para RSL Helper — define
 | `Por stat principal` | Duplica la cuota por cada stat principal seleccionado. | Divide los pools para estandartes de ACC y RES. |
 
 #### Grupos: varias salvaguardas compartiendo un recuento necesario
-Dos salvaguardas pueden acabar describiendo la *misma* promesa sin querer. Una conserva 3 anillos buenos, otra conserva 2 — pero solo querías 3 anillos en total, y ahora estás conservando 5.
+Dos salvaguardas pueden acabar describiendo la *misma* promesa sin querer. Una conserva 3 buenos anillos, otra conserva 2, pero tú solo querías 3 anillos en total y ahora conservas 5.
 
-Un **grupo** lo arregla. Convierte cualquier entrada en un grupo con el botón `Grupo` junto al campo del nombre y arrastra salvaguardas dentro (o selecciona varias y elige `Agrupar en un grupo` en el menú del clic derecho).
+Un **grupo** lo resuelve. Selecciona las salvaguardas (clic y luego Ctrl+clic) y elige `Agrupar salvaguardas seleccionadas` en el menú contextual. Cada miembro muestra ahora un borde de color en la lista, y en el formulario aparece una pequeña franja de grupo justo al lado de su `Recuento necesario`: el recuento propio del grupo y sus propios botones de ámbito.
 
-- Cada salvaguarda dentro de un grupo sigue buscando **exactamente** lo mismo que antes: sus propias ranuras, sets, subestadísticas y pesos. Un grupo nunca cambia lo que buscan.
-- Lo que cambia es a dónde van sus hallazgos. Una salvaguarda dentro de un grupo ya no conserva equipo por su cuenta: **ofrece** sus hallazgos al grupo, y su propio `Recuento necesario` decide cuántos ofrece.
-- El `Recuento necesario` del grupo es el número que realmente decide. Escríbelo directamente: eso es lo que el grupo conserva de todo lo que sus salvaguardas le ofrecieron.
-- Los botones de ámbito del propio grupo deciden qué cuenta como el mismo lote. Pon `Por facción` en el grupo y cada facción recibe su propio recuento, sin importar cómo estén repartidas las salvaguardas de dentro.
-- Cuando varias salvaguardas ofrecen piezas para el mismo lote, **ganan las mejores piezas**. Cada pieza se juzga con las subestadísticas y los pesos de la salvaguarda que la ofreció, así que una pieza de la segunda salvaguarda puede perfectamente ganar a una de la primera.
-- Los grupos pueden estar dentro de grupos. Haz clic en el ▾ de un grupo para plegarlo; con el clic derecho pliegas todos los grupos a la vez.
+- Cada salvaguarda de un grupo sigue buscando **exactamente** lo que buscaba siempre: sus propias ranuras, sets, subestadísticas, pesos y modo. Un grupo nunca cambia lo que buscan.
+- Lo que cambia es adónde van sus hallazgos. Una salvaguarda dentro de un grupo ya no conserva equipo por su cuenta: **ofrece** sus hallazgos al grupo, y su propio `Recuento necesario` decide cuántos ofrece.
+- El recuento del grupo (el campo `⊚ ≥` junto al `Recuento necesario`) es el número que decide de verdad. Escríbelo directamente: eso es lo que el grupo conserva de todo lo que le ofrecieron sus salvaguardas. Empieza como la suma de los recuentos de los miembros, así que agrupar no cambia nada hasta que lo bajes. Editarlo en cualquier miembro edita el grupo.
+- Los botones de ámbito del grupo deciden qué cuenta como el mismo conjunto. Pon `facción` en el grupo y cada facción tendrá su propio recuento, se repartan como se repartan las salvaguardas de dentro.
+- Cuando varias salvaguardas ofrecen piezas para el mismo conjunto, **ganan las mejores piezas**. Cada pieza se juzga por las subestadísticas y los pesos de la salvaguarda que la ofreció, así que una pieza de la segunda salvaguarda puede perfectamente superar a una de la primera. El desplegable de candidatos marca en el color del grupo las piezas que el grupo vendió, y su interruptor `Grupo` muestra todo el conjunto clasificado junto.
+- Los grupos son contiguos: arrastra una salvaguarda dentro de un grupo (suéltala dentro del corchete de color) o fuera (suéltala al ras), o usa el menú contextual: `Quitar del grupo`, `Unirse al grupo de arriba/abajo`, `Desagrupar`. Mover una salvaguarda arriba o abajo nunca cambia su grupo; un grupo entero se mueve como un bloque.
 
-**Ejemplo.** Quieres cinco buenos accesorios de VEL por facción, pero «bueno» significa dos cosas distintas: `VEL + P.CRIT + D.CRIT` para los que hacen daño y `VEL + PV + DEF` para los tanques. Crea una salvaguarda para cada perfil, mete ambas en un grupo y ponlo en `5` con `Por facción`. Cada salvaguarda ofrece sus mejores piezas y el grupo conserva las cinco que mejor salieron entre las dos, en lugar de cinco de cada una.
+**Ejemplo.** Quieres cinco buenos accesorios de VEL por facción, pero «bueno» significa dos cosas distintas: `VEL + P.CRIT + D.CRIT` para los que hacen daño y `VEL + PV + DEF` para los tanques. Crea una salvaguarda para cada perfil, agrúpalas y pon el grupo en `5` con `facción`. Cada salvaguarda ofrece sus mejores piezas y el grupo conserva las cinco que mejor salieron entre las dos, en lugar de cinco de cada una.
 
 #### Ejemplos reales
 
@@ -203,7 +203,7 @@ Un **grupo** lo arregla. Convierte cualquier entrada en un grupo con el botón `
 | Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `3` | `Por facción` | Cada facción guarda tres anillos propios antes de que la salvaguarda se dé por cumplida. |
 | Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `2` | `Por facción` | Se aseguran dos anillos de HP% por facción. |
 | Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `5` | `Por facción` | Cada facción conserva cinco anillos, amuletos y estandartes. |
-| Cinco accesorios por facción, en cualquier ranura | Las mismas tres reglas, dentro de un grupo | `5` en el grupo | `Por facción` en el grupo | Cada facción conserva cinco accesorios en total, sean de la ranura que sean. |
+| Cinco accesorios por facción, en cualquier ranura | Las mismas tres reglas, en un grupo | `5` como recuento del grupo | `facción` en el grupo | Cada facción conserva cinco accesorios en total, sean de la ranura que sean. |
 | Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por set` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
 | Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por salvaguarda` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
 | Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |

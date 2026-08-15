@@ -28,9 +28,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-// Bundle collapse chevrons — same pair the Gear Inspector's group headers use.
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import { ensureContrastOnBg, compositeOnBase } from '../lib/colorUtils'
 import { resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
@@ -42,36 +39,37 @@ import {
   NBSP,
   RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX,
   RECIPE_CHIP_VERTICAL_PADDING_PX,
-  SAFEGUARD_OUTLINE_INDENT_PX,
+  SAFEGUARD_GROUP_EDGE_PX,
+  SAFEGUARD_GROUP_JOIN_OFFSET_PX,
   UI_BG_HOVER_DANGER_TRANSITION,
 } from '../lib/constants'
-// Top-level outline depth — the floor every depth clamp in this panel measures from.
-import { SAFEGUARD_OUTLINE_DEFAULT_DEPTH } from '../lib/generated/domainConstants'
 import {
   cloneSafeguardRule,
-  isSafeguardBundle,
-  isSafeguardBundleCollapsed,
+  isSafeguardGrouped,
   normalizeSafeguardRule,
   safeguardActivationShortLabelKey,
-  safeguardEntryDepth,
   safeguardEntryEffectiveActivation,
   safeguardEntryKind,
-  stripInertSafeguardFields,
-  withSafeguardBundleCollapsed,
   type SafeguardEntryKind,
+  type SafeguardGroupSettings,
   type SafeguardRule,
 } from '../lib/safeguards'
-// Bundle outline: every structural question routes through this facade, which delegates to the
-// Rust authority so the list renders exactly the structure the engine evaluates.
+// Safeguard groups: every structural question routes through this facade, which delegates to
+// the Rust authority so the list renders exactly the runs the engine evaluates.
 import {
+  canJoinSafeguardAdjacentGroup,
   groupSafeguardSelection,
-  resolveSafeguardOutline,
-  safeguardAncestorIndices,
-  safeguardSubtreeIndices,
-  safeguardSubtreeSpan,
-  shiftSafeguardEntryDepth,
-  ungroupSafeguardBundle,
-} from '../lib/safeguardOutline'
+  joinSafeguardAdjacentGroup,
+  removeSafeguardFromGroup,
+  resolveSafeguardDropMembership,
+  resolveSafeguardGroups,
+  safeguardGroupSettingsAt,
+  ungroupSafeguardRun,
+} from '../lib/safeguardGroups'
+// Group colour: a stable hue per group id, contrast-adapted to the active scheme's paper.
+import { resolveLabelColor } from '../lib/labelColors'
+import { SafeguardGroupBadge } from './SafeguardGroupBadge'
+import { INLINE_TAG_CHIP_SX, useTagChipSx } from './BuilderTagChips'
 import type { Metaset } from '../lib/metasets'
 import { buildReadableSafeguardRuleEntry } from '../lib/sfcIO'
 import { useI18n } from '../lib/i18n'
@@ -98,9 +96,8 @@ export type SafeguardChipsPanelProps = {
   rules: SafeguardRule[]
   selectedRuleIdx: number | null
   onSelect: (ruleIdx: number) => void
-  // `displayOnly` marks a change that alters presentation state only (a bundle's collapsed
-  // flag). Such a change produces no history descriptor by design, so the parent must be told
-  // it is real rather than a no-op.
+  // `displayOnly` marks a change that alters presentation state only. Such a change produces
+  // no history descriptor by design, so the parent must be told it is real rather than a no-op.
   onRulesChange: (next: SafeguardRule[], options?: { displayOnly?: boolean }) => void
   maxHeightPx: number | undefined
   // When true the paper is a fixed-height flex container; use minHeight:0 + maxHeight:100%
@@ -144,8 +141,8 @@ export type SafeguardChipsPanelProps = {
    * Handles contiguous/non-contiguous multi-rule moves and copy mode.
    * Mirrors RecipeChipsPanel.onReorderRecipes.
    */
-  // `depth` carries the outline level the drop landed on (horizontal pointer position), so a
-  // drag can nest an entry into a bundle as well as reorder it.
+  // `depth` carries the drop's membership decision (1 = joined the group touching the drop
+  // point, 0 = landed outside it), picked from the pointer's horizontal position.
   onReorderRules?: ((movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy'; depth?: number }) => void) | null
 
   // ── keyboard / focus / selection actions (mirrors RecipeChipsPanel) ──────
@@ -190,18 +187,13 @@ type SafeguardChipProps = {
   showSlotIcons: boolean
   /** When true, show up to 3 inline tag chips below the summary line. */
   showTagsInChips: boolean
-  // ── Bundle outline (resolved by the panel from lib/safeguardOutline, never re-derived here) ──
-  /** Outline level; 0 = top. Drives the left inset and the tree guides. */
-  depth: number
-  /** Entry kind discriminator — 'rule' | 'bundle' | 'separator'. */
+  // ── Group membership (resolved by the panel from lib/safeguardGroups, never re-derived here) ──
+  /** Entry kind discriminator — 'rule' | 'separator'. */
   entryKind: SafeguardEntryKind
-  /** Bundle headers only: how many safeguards are nested inside. */
-  memberCount: number
-  /** Bundle headers only: subtree collapsed in the list. */
-  isCollapsed: boolean
-  /** Bundle headers only: how many pieces it keeps out of each merged bucket. */
-  bundleDemand: number
-  onToggleCollapse?: ((event: ReactMouseEvent, ruleIndex: number) => void) | null
+  /** The settings of the group this entry belongs to (the run head's copy), or null. */
+  groupSettings: SafeguardGroupSettings | null
+  /** Where in its run the chip sits — rounds the coloured edge at the run's ends. */
+  groupEdge: 'first' | 'middle' | 'last' | null
   t: (key: string, params?: Record<string, string | number>) => string
   lang: string
   onSelect: (ruleIndex: number) => void
@@ -226,7 +218,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
   dndEnabled, isGhostDragging, hasActiveDrag,
   metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons,
   showTagsInChips,
-  depth, entryKind, memberCount, isCollapsed, bundleDemand, onToggleCollapse,
+  entryKind, groupSettings, groupEdge,
   t, lang,
   onSelect, onRuleSelect, onContextMenu, onChipPointerDown, onMoveRule, onDuplicate,
   onDelete, onStartEdit, onFinishEdit, onPendingNameChange, onScheduleNameCommit,
@@ -252,11 +244,6 @@ const SafeguardChip = React.memo(function SafeguardChip({
     ? ensureContrastOnBg(rawFgColor, chipBg)
     : 'inherit'
   const displayName = rawName || fallbackName
-  // Badge state reads the entry as it BEHAVES, not as it stores: a bundle's activation and ignore
-  // flags are retained baggage the scan never reads, so both come from the shared projection
-  // instead of the raw rule (a header seeded from an Off rule would otherwise render as disabled
-  // while its cap keeps running).
-  const behavingRule = stripInertSafeguardFields(rule)
   // Activation badge color and label text. Adapt Protect/Anticipate to the actual chip surface
   // (chipBg already composites the selection tint over paper) so it stays legible in both schemes.
   const effectiveActivation = safeguardEntryEffectiveActivation(rule)
@@ -264,19 +251,21 @@ const SafeguardChip = React.memo(function SafeguardChip({
   const actText = t(safeguardActivationShortLabelKey(effectiveActivation))
   // Ignore-flag glyphs shown after ≥ N in the mode badge.
   const flagParts: string[] = []
-  if (behavingRule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)
-  if (behavingRule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
-  if (behavingRule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
+  if (rule.ignorePreviousSafeguards !== false) flagParts.push(GLYPH_IGNORE_PREVIOUS)
+  if (rule.ignoreEquippedInCollection === true) flagParts.push(GLYPH_IGNORE_COLLECTION)
+  if (rule.ignoreEquippedInVault === true) flagParts.push(GLYPH_IGNORE_VAULT)
   const perDimSuffix = flagParts.length > 0 ? NBSP + flagParts.join('') : ''
   // Separator rows render as a pure divider (shared decoration with the recipe list):
   // no index, no mode badge, no summary, no tag chips, no inline action buttons.
   const isSeparator = entryKind === 'separator'
-  const isBundle = entryKind === 'bundle'
-  // A bundle shows what it keeps per merged bucket; a member shows its own count, which is
-  // the size of the feed it hands the bundle. Both numbers are the entry's own required count —
-  // the bundle's comes through the outline so the chip cannot disagree with the engine (an
-  // empty header resolves to 0 there, which is exactly what it protects).
-  const badgeCount = isBundle ? bundleDemand : (rule.requiredCount ?? 1)
+  // A member shows its own count — the size of the feed it hands the group — and the group's
+  // count beside it in the group's colour, so both numbers that decide what it keeps are visible.
+  const badgeCount = rule.requiredCount ?? 1
+  // Group colour: derived from the id (stable per group, no storage) and adapted to the chip's
+  // real surface so the edge and the badge stay legible in every scheme.
+  const groupColor = groupSettings ? resolveLabelColor(groupSettings.id, chipBg) : null
+  // Per-tag colour for the inline tag chips (shared hook with the recipe chip list).
+  const tagChipSx = useTagChipSx()
   // Base line color mirrors RecipeChip's primaryColor source (CSS-var aware).
   const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   const separatorDecoration = useMemo(
@@ -295,31 +284,28 @@ const SafeguardChip = React.memo(function SafeguardChip({
       lang,
       surfacePaper: schemePalette.background.paper,
       rarityLabelColors,
-      bundleMemberCount: memberCount,
     }),
-    [rule, metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper, rarityLabelColors, memberCount],
+    [rule, metasets, substatColors, colorStatTexts, showFactionIcons, showSetIcons, showSlotIcons, t, lang, schemePalette.background.paper, rarityLabelColors],
   )
-  // Nesting is communicated by indentation plus a left border on nested chips. Deliberately NOT
-  // by absolutely-positioned guide rails in a wrapper element: the drag layer measures each
-  // chip's `offsetTop`, which is relative to its nearest POSITIONED ancestor, so introducing a
-  // positioned wrapper silently zeroes every measurement and misplaces the drop guide.
-  //
-  // The border colour uses the `…Channel` rgba form rather than `alpha()`: under cssVariables
-  // `theme.vars.palette.*` is a `var(--…)` string alpha() cannot parse, and bare
-  // `theme.palette.*` is frozen to the light scheme, so JS-computed tints are wrong in dark
-  // mode. The channel token stays scheme-reactive in pure CSS while the alpha still comes from
-  // the ALPHA SSOT. (theming-system.md names this exact token for low-alpha text tints.)
-  const nestedEdgeSx = depth > 0
+  // Membership is communicated by a coloured left edge on every member chip, in the group's
+  // colour, so a run reads as one bracket even when it scrolls partly out of view. Deliberately
+  // NOT an absolutely-positioned rail in a wrapper element: the drag layer measures each chip's
+  // `offsetTop`, which is relative to its nearest POSITIONED ancestor, so a positioned wrapper
+  // would silently zero every measurement and misplace the drop guide. The edge is squared where
+  // it meets the neighbouring member so the run reads as one continuous bracket.
+  const groupEdgeSx = groupColor
     ? {
-      borderLeft: '2px solid',
-      borderLeftColor: `rgba(var(--mui-palette-text-primaryChannel) / ${ALPHA.a20})`,
+      borderLeft: `${SAFEGUARD_GROUP_EDGE_PX}px solid ${groupColor}`,
+      ...(groupEdge === 'first' ? { borderBottomLeftRadius: 0 } : {}),
+      ...(groupEdge === 'middle' ? { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } : {}),
+      ...(groupEdge === 'last' ? { borderTopLeftRadius: 0 } : {}),
     }
     : {}
 
   return (
     <Box
       data-safeguard-chip-index={ruleIndex}
-      data-safeguard-chip-depth={depth}
+      data-safeguard-chip-group={groupSettings?.id ?? undefined}
       data-safeguard-chip-kind={entryKind}
       data-tour-id={`safeguards.chip.${ruleIndex}`}
       data-safeguard-chip="true"
@@ -341,10 +327,8 @@ const SafeguardChip = React.memo(function SafeguardChip({
           display: 'inline-flex',
           alignItems: 'center',
           gap: 0.5,
-          // One indent step per outline level; the chip narrows rather than overflowing.
-          ml: `${depth * SAFEGUARD_OUTLINE_INDENT_PX}px`,
           maxWidth: '100%',
-          width: `calc(100% - ${depth * SAFEGUARD_OUTLINE_INDENT_PX}px)`,
+          width: '100%',
           overflow: 'hidden',
           border: '1px solid',
           borderColor: isSelected ? (themeCtx.vars?.palette.primary.main ?? themeCtx.palette.primary.main) : (themeCtx.vars?.palette.divider ?? themeCtx.palette.divider),
@@ -361,8 +345,8 @@ const SafeguardChip = React.memo(function SafeguardChip({
             backgroundColor: isSelected ? selectedHoverBg : hoverBg,
             borderColor: themeCtx.palette.primary.main,
           },
-          // Nested chips carry a left edge so their membership reads at a glance.
-          ...nestedEdgeSx,
+          // Group members carry a coloured left edge so their membership reads at a glance.
+          ...groupEdgeSx,
           ...(isGhostDragging ? {
             opacity: 0.35,
             transform: 'scale(0.985)',
@@ -371,20 +355,6 @@ const SafeguardChip = React.memo(function SafeguardChip({
         }
       }}
     >
-      {/* Collapse chevron — bundle headers only. Ctrl/right-click applies to every bundle,
-          matching the shared collapsible-section behaviour used elsewhere in the builder. */}
-      {isBundle ? (
-        <IconButton
-          size="small"
-          aria-label={t(isCollapsed ? 'safeguardsBundleExpand' : 'safeguardsBundleCollapse')}
-          aria-expanded={!isCollapsed}
-          onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(e, ruleIndex) }}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse?.(e, ruleIndex) }}
-          sx={{ width: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, height: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minWidth: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, minHeight: RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, p: 0.25, flexShrink: 0, ml: -0.5 }}
-        >
-          {isCollapsed ? <ChevronRightIcon fontSize="inherit" /> : <ExpandMoreIcon fontSize="inherit" />}
-        </IconButton>
-      ) : null}
       {/* Text content */}
       {isEditing ? (
         <>
@@ -409,13 +379,11 @@ const SafeguardChip = React.memo(function SafeguardChip({
             sx={{ flex: '1 1 auto', minWidth: 0, mr: 0.5 }}
             slotProps={{ htmlInput: { style: { fontSize: '0.75rem', padding: '2px 6px' } } }}
           />
-          {/* Separators have no mode badge — the field edits only the divider label. The
-              bundle/rule split matches the non-editing badge below: a header shows its count
-              alone (no activation of its own), and through the outline so it cannot disagree
-              with the engine. */}
+          {/* Separators have no mode badge — the field edits only the divider label. */}
           {!isSeparator ? (
             <Box component="span" sx={{ color: actColor, fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, mr: 0.5 }}>
-              {isBundle ? null : <>{actText}{NBSP}</>}≥{NBSP}{badgeCount}{perDimSuffix}
+              {actText}{NBSP}≥{NBSP}{badgeCount}{perDimSuffix}
+              {groupSettings && groupColor ? <SafeguardGroupBadge settings={groupSettings} color={groupColor} t={t} /> : null}
             </Box>
           ) : null}
         </>
@@ -450,11 +418,10 @@ const SafeguardChip = React.memo(function SafeguardChip({
                 {displayName}
               </Box>
               {' — '}
-              {/* Mode badge: activation label + quota + active per-dim glyphs. A bundle has no
-                  activation of its own (it never matches gear), so it shows its count alone. */}
-              {isBundle
-                ? <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>≥{NBSP}{badgeCount}{perDimSuffix}</Box>
-                : <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{badgeCount}{perDimSuffix}</Box>}
+              {/* Mode badge: activation label + quota + active per-dim glyphs, then the group's
+                  count in the group's colour when the entry is a member. */}
+              <Box component="span" sx={{ color: actColor, fontWeight: 600 }}>{actText}{NBSP}≥{NBSP}{badgeCount}{perDimSuffix}</Box>
+              {groupSettings && groupColor ? <SafeguardGroupBadge settings={groupSettings} color={groupColor} t={t} /> : null}
               {summary ? <>{' | '}{summary}</> : null}
             </Box>
           </Typography>
@@ -465,10 +432,10 @@ const SafeguardChip = React.memo(function SafeguardChip({
       {!isEditing && !isSeparator && showTagsInChips && rule.tags && rule.tags.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
           {rule.tags.slice(0, 3).map((tag) => (
-            <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
+            <Chip key={tag} size="small" variant="outlined" label={tag} sx={[INLINE_TAG_CHIP_SX, tagChipSx(tag)]} />
           ))}
           {rule.tags.length > 3 ? (
-            <Chip size="small" label={`+${rule.tags.length - 3}`} sx={{ height: 16, fontSize: '0.65rem', opacity: 0.7, '& .MuiChip-label': { px: 0.75 } }} />
+            <Chip size="small" label={`+${rule.tags.length - 3}`} sx={[INLINE_TAG_CHIP_SX, { opacity: 0.7 }]} />
           ) : null}
         </Box>
       ) : null}
@@ -560,32 +527,10 @@ export default function SafeguardChipsPanel({
   const effectiveSelectedIndicesRef = useRef<ReadonlySet<number>>(effectiveSelectedIndices)
   useEffect(() => { effectiveSelectedIndicesRef.current = effectiveSelectedIndices })
   const { t, lang } = useI18n()
-  // ── bundle outline ───────────────────────────────────────────────────────
-  // Resolved once per rules-array identity by the Rust authority (see lib/safeguardOutline).
-  // Every structural question below reads this result; nothing is re-derived from `depth`.
-  const outline = useMemo(() => resolveSafeguardOutline(rules), [rules])
-  // Which chips actually render: a subtree hidden behind a collapsed bundle drops out, and the
-  // ancestor chain of anything still visible is forced back in so indentation never dangles
-  // from a missing parent (matters when `visibleRuleIndices` filters the list).
-  const renderableIndices = useMemo(() => {
-    const visible = new Set<number>()
-    for (let index = 0; index < rules.length; index += 1) {
-      if (visibleRuleIndices && !visibleRuleIndices.has(index)) continue
-      // Hide anything inside a collapsed bundle, at any depth.
-      const collapsedAncestor = safeguardAncestorIndices(rules, index)
-        .some((ancestor) => {
-          const owner = rules[ancestor]
-          return owner !== undefined && isSafeguardBundleCollapsed(owner)
-        })
-      if (collapsedAncestor) continue
-      visible.add(index)
-    }
-    // Re-add the ancestors of everything that survived, so each visible chip has its context.
-    for (const index of Array.from(visible)) {
-      for (const ancestor of safeguardAncestorIndices(rules, index)) visible.add(ancestor)
-    }
-    return visible
-  }, [rules, visibleRuleIndices])
+  // ── groups ───────────────────────────────────────────────────────────────
+  // Resolved once per rules-array identity by the Rust authority (see lib/safeguardGroups).
+  // Every structural question below reads this result; nothing is re-derived from ids.
+  const groups = useMemo(() => resolveSafeguardGroups(rules), [rules])
   const { showFactionIcons, statColorScope, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const colorStatTexts = scopeColorsText(statColorScope)
   // Read the chips-list tag display preference — separate from the builder form inline display.
@@ -815,29 +760,24 @@ export default function SafeguardChipsPanel({
     if (onRuleDuplicate) { onRuleDuplicate(ruleIdx); return }
     const source = rules[ruleIdx]
     if (!source) return
-    // Duplicating a bundle takes its whole subtree — the members are what give it meaning.
-    // Every entry is deep-cloned so no two chips ever share a reference (the identity rule
-    // multi-select and history depend on).
-    const span = safeguardSubtreeSpan(rules, ruleIdx)
-    const duplicated = rules.slice(ruleIdx, ruleIdx + span).map((rule) => cloneSafeguardRule(rule))
+    // Deep-cloned so no two chips ever share a reference (the identity rule multi-select and
+    // history depend on). The clone lands right after its source, so a duplicated group member
+    // is adjacent to its siblings and simply stays a member.
+    const duplicated = cloneSafeguardRule(source)
     const next = rules.slice()
-    next.splice(ruleIdx + span, 0, ...duplicated)
+    next.splice(ruleIdx + 1, 0, duplicated)
     mutateRules(next)
     // Select the clone; the selectedRuleIdx effect will scroll it into view.
-    onSelect(ruleIdx + span)
+    onSelect(ruleIdx + 1)
   }, [mutateRules, onRuleDuplicate, rules, onSelect])
 
-  // ── structural edits ─────────────────────────────────────────────────────
-  // Every one of these delegates its array maths to lib/safeguardOutline, which also repairs
-  // the outline afterwards — no splice logic is written twice.
+  // ── group edits ──────────────────────────────────────────────────────────
+  // Every one of these delegates its array maths to lib/safeguardGroups, which also repairs
+  // the runs afterwards — no membership logic is written twice.
 
-  // Wrap a selection in a new bundle.
-  //
-  // The selection is CLEARED rather than moved to the new header. Selecting through onSelect
-  // here would auto-apply the still-pending builder draft to whatever now sits at the old
-  // index — and every structural edit shifts indices, so after grouping that index holds the
-  // freshly created header. The draft (a plain rule) would be written straight over it, turning
-  // the bundle back into a rule the moment the user clicked it.
+  // Turn a selection into a new group. The selection is CLEARED rather than moved: selecting
+  // through onSelect here would auto-apply the still-pending builder draft to whatever now sits
+  // at the old index, and grouping moves the block to its first member's slot.
   const handleGroupSelection = useCallback((indices: readonly number[]) => {
     const grouped = groupSafeguardSelection(rules, indices)
     if (!grouped) return
@@ -845,46 +785,25 @@ export default function SafeguardChipsPanel({
     onClearSelection?.()
   }, [mutateRules, onClearSelection, rules])
 
-  // Dissolve a bundle; its members keep the counts they never stopped carrying. Selection is
-  // cleared for the same reason grouping clears it — see handleGroupSelection.
-  const handleUngroupBundle = useCallback((ruleIdx: number) => {
-    const next = ungroupSafeguardBundle(rules, ruleIdx)
-    if (!next) return
-    mutateRules(next)
-    onClearSelection?.()
-  }, [mutateRules, onClearSelection, rules])
-
-  // Nest into the bundle above / lift out of the containing bundle.
-  const handleShiftDepth = useCallback((ruleIdx: number, delta: 1 | -1) => {
-    const next = shiftSafeguardEntryDepth(rules, ruleIdx, delta)
+  // Dissolve the whole group; its members keep the counts they never stopped carrying.
+  const handleUngroup = useCallback((ruleIdx: number) => {
+    const next = ungroupSafeguardRun(rules, ruleIdx)
     if (!next) return
     mutateRules(next)
   }, [mutateRules, rules])
-  // Availability mirrors the same helper, so a disabled menu item and a no-op call agree.
-  const canIndent = useCallback((ruleIdx: number) => shiftSafeguardEntryDepth(rules, ruleIdx, 1) !== null, [rules])
-  const canOutdent = useCallback((ruleIdx: number) => shiftSafeguardEntryDepth(rules, ruleIdx, -1) !== null, [rules])
 
-  // Collapse or expand every bundle at once (context menu).
-  const handleSetAllCollapsed = useCallback((collapsed: boolean) => {
-    // Only bundles carry the flag; withSafeguardBundleCollapsed owns the omit-vs-store rule.
-    mutateRules(rules.map((rule) => (
-      isSafeguardBundle(rule) ? withSafeguardBundleCollapsed(rule, collapsed) : rule
-    )), { displayOnly: true })
+  // Remove one member; a run left with one member is dissolved by the normalizer.
+  const handleLeaveGroup = useCallback((ruleIdx: number) => {
+    const next = removeSafeguardFromGroup(rules, ruleIdx)
+    if (!next) return
+    mutateRules(next)
   }, [mutateRules, rules])
 
-  // Collapse/expand one bundle. Ctrl/right-click applies to every bundle at once, matching the
-  // shared collapsible-section behaviour the builder's own sections use.
-  const handleToggleCollapse = useCallback((event: ReactMouseEvent, ruleIdx: number) => {
-    const target = rules[ruleIdx]
-    if (!target || !isSafeguardBundle(target)) return
-    const applyToAll = event.ctrlKey || event.metaKey || event.type === 'contextmenu'
-    const nextCollapsed = !isSafeguardBundleCollapsed(target)
-    mutateRules(rules.map((rule, index) => {
-      // Only bundles carry the flag; a plain rule has nothing to collapse.
-      if (!isSafeguardBundle(rule)) return rule
-      if (!applyToAll && index !== ruleIdx) return rule
-      return withSafeguardBundleCollapsed(rule, nextCollapsed)
-    }), { displayOnly: true })
+  // Join the run touching this entry above / below, adopting its settings.
+  const handleJoinGroup = useCallback((ruleIdx: number, side: 'above' | 'below') => {
+    const next = joinSafeguardAdjacentGroup(rules, ruleIdx, side)
+    if (!next) return
+    mutateRules(next)
   }, [mutateRules, rules])
 
   const moveRule = useCallback((ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
@@ -909,6 +828,7 @@ export default function SafeguardChipsPanel({
   const dndEnabled = rules.length > 1
 
   const {
+    dragState: dndDragState,
     dropGuide: dndDropGuide,
     handleItemPointerDown: handleChipPointerDown,
     hasActiveDrag,
@@ -923,33 +843,21 @@ export default function SafeguardChipsPanel({
       const idx = movingIndices[0]
       if (idx !== undefined) moveRule(idx, targetIndex)
     }),
-    // Dragging a bundle takes its members along. This needs no change inside the shared hook —
-    // onPrepareSelection already decides what moves, so the set is simply widened to whole
-    // subtrees here before the drag begins.
-    onPrepareSelection: (idx: number) => {
-      const base = onPrepareDragSelection ? onPrepareDragSelection(idx) : [idx]
-      const claimed = new Set<number>()
-      for (const index of base) {
-        for (const owned of safeguardSubtreeIndices(rules, index)) claimed.add(owned)
-      }
-      return Array.from(claimed).sort((a, b) => a - b)
-    },
-    // Horizontal pointer position picks the drop LEVEL (the standard outliner interaction).
-    // The level is clamped to what the entry above the drop point can legally contain, so the
-    // guide never promises a nesting the normalizer would immediately undo.
+    // A drag moves exactly the selection (or the pressed chip): a member can be dragged out of
+    // its group on its own, and a whole group travels together when it is what is selected.
+    ...(onPrepareDragSelection ? { onPrepareSelection: onPrepareDragSelection } : {}),
+    // The pointer's horizontal position picks the drop's MEMBERSHIP: indented (past the join
+    // offset) = join the group touching the drop point, flush = land outside it. A drop point
+    // strictly inside a run always joins (contiguity leaves no other option), and one that
+    // touches no run has nothing to join. Level 1 = join, 0 = outside — the guide is inset by
+    // the same offset so what it shows is what the drop does.
     resolveDropDepth: (insertIndex: number, pointerOffsetX: number) => {
-      const previous = insertIndex > 0 ? rules[insertIndex - 1] : undefined
-      if (!previous) return SAFEGUARD_OUTLINE_DEFAULT_DEPTH
-      // Read the REPAIRED depth from the resolved outline, not the stored field: a hand-edited
-      // or pasted entry can carry a level the resolver pulls back, and the drop guide must
-      // promise the level the list actually renders.
-      const previousDepth = outline.depths[insertIndex - 1] ?? safeguardEntryDepth(previous)
-      // Only a bundle can adopt a child, so anything else caps the level at its own.
-      const maxDepth = isSafeguardBundle(previous) ? previousDepth + 1 : previousDepth
-      const requested = Math.floor(Math.max(0, pointerOffsetX) / SAFEGUARD_OUTLINE_INDENT_PX)
-      return Math.max(SAFEGUARD_OUTLINE_DEFAULT_DEPTH, Math.min(requested, maxDepth))
+      const membership = resolveSafeguardDropMembership(rules, insertIndex)
+      if (membership.kind === 'forced') return 1
+      if (membership.kind === 'none') return 0
+      return pointerOffsetX >= SAFEGUARD_GROUP_JOIN_OFFSET_PX ? 1 : 0
     },
-    depthIndentPx: SAFEGUARD_OUTLINE_INDENT_PX,
+    depthIndentPx: SAFEGUARD_GROUP_JOIN_OFFSET_PX,
     copyModeEnabled: true,
     enabled: dndEnabled,
   })
@@ -1155,19 +1063,19 @@ export default function SafeguardChipsPanel({
     const isChipMenu = idx >= 0
     const isFirst = idx <= 0
     const isLast = idx >= rules.length - 1
-    // The right-clicked chip is the outline target; when it is part of a multi-selection the
-    // grouping action wraps the whole selection instead.
+    // The right-clicked chip is the group target; when it is part of a multi-selection the
+    // grouping action takes the whole selection.
     const targetRule = idx >= 0 ? rules[idx] : undefined
     const groupSelection = selectedRuleIndices && selectedRuleIndices.length > 1 && selectedRuleIndices.includes(idx)
       ? selectedRuleIndices.slice()
       : [idx]
-    const anyBundle = rules.some((rule) => isSafeguardBundle(rule))
+    const targetGrouped = targetRule !== undefined && isSafeguardGrouped(targetRule)
     return {
       ...(isChipMenu ? {
         // NOTE: these mirror buildChipContextMenuActions (RecipeContextMenu.tsx) rather than
         // calling it. Routing through that helper trips react-hooks/refs — several of these
         // handlers transitively read a ref, and the rule forbids CALLING such a function during
-        // render even though the closures only run on click. The outline entries below are
+        // render even though the closures only run on click. The group entries below are
         // safeguard-only additions the recipe list never receives.
         duplicate: () => handleDuplicateRule(idx),
         moveTop: { handler: () => moveRule(idx, 0, 'top'), disabled: isFirst },
@@ -1182,18 +1090,15 @@ export default function SafeguardChipsPanel({
         pasteAfter: () => handlePasteAfterRule(idx),
         // Delete the chip; mirrors RecipeChip's deleteRecipe action.
         deleteRecipe: () => handleDeleteRule(idx),
-        groupIntoBundle: { handler: () => handleGroupSelection(groupSelection) },
-        // Only a bundle header can be dissolved.
-        ...(targetRule && isSafeguardBundle(targetRule)
-          ? { ungroupBundle: { handler: () => handleUngroupBundle(idx) } }
-          : {}),
-        indentEntry: { handler: () => handleShiftDepth(idx, 1), disabled: !canIndent(idx) },
-        outdentEntry: { handler: () => handleShiftDepth(idx, -1), disabled: !canOutdent(idx) },
-      } : {}),
-      // Collapse/expand apply to the whole list, so they stay available from the background too.
-      ...(anyBundle ? {
-        collapseAllBundles: { handler: () => handleSetAllCollapsed(true) },
-        expandAllBundles: { handler: () => handleSetAllCollapsed(false) },
+        // Grouping needs two rules; the disabled state mirrors what the helper would refuse.
+        groupSelection: { handler: () => handleGroupSelection(groupSelection), disabled: groupSelection.length < 2 },
+        // Ungroup / leave apply to a member; join offers the run touching the entry.
+        ...(targetGrouped ? {
+          ungroupGroup: { handler: () => handleUngroup(idx) },
+          leaveGroup: { handler: () => handleLeaveGroup(idx) },
+        } : {}),
+        ...(canJoinSafeguardAdjacentGroup(rules, idx, 'above') ? { joinGroupAbove: { handler: () => handleJoinGroup(idx, 'above') } } : {}),
+        ...(canJoinSafeguardAdjacentGroup(rules, idx, 'below') ? { joinGroupBelow: { handler: () => handleJoinGroup(idx, 'below') } } : {}),
       } : {}),
       copyAll: { handler: handleCopyAllRules, disabled: rules.length === 0, labelKey: 'chipsMenuCopyAllSafeguards' },
       pasteAtEnd: handlePasteAtEnd,
@@ -1307,16 +1212,26 @@ export default function SafeguardChipsPanel({
         })}
       >
         {dndDropGuide ? (
-          <Box sx={(themeInner) => ({
-            position: 'absolute',
-            top: dndDropGuide.top, left: dndDropGuide.left,
-            width: dndDropGuide.width, height: dndDropGuide.height,
-            backgroundColor: themeInner.palette.primary.main,
-            borderRadius: dndDropGuide.height <= 4 ? 2 : 1,
-            pointerEvents: 'none',
-            boxShadow: `0 0 8px ${alpha(themeInner.palette.primary.main, ALPHA.a60)}`,
-            zIndex: 5,
-          })} />
+          <Box sx={(themeInner) => {
+            // A drop that will JOIN a group takes that group's colour, so the bar says both
+            // where the block lands and whose bracket it joins.
+            const joining = dndDragState?.dropDepth === 1 && dndDragState.dropIndex !== null
+              ? resolveSafeguardDropMembership(rules, dndDragState.dropIndex).settings
+              : null
+            const guideColor = joining
+              ? resolveLabelColor(joining.id, themeInner.palette.background.paper)
+              : themeInner.palette.primary.main
+            return {
+              position: 'absolute',
+              top: dndDropGuide.top, left: dndDropGuide.left,
+              width: dndDropGuide.width, height: dndDropGuide.height,
+              backgroundColor: guideColor,
+              borderRadius: dndDropGuide.height <= 4 ? 2 : 1,
+              pointerEvents: 'none',
+              boxShadow: `0 0 8px ${alpha(guideColor, ALPHA.a60)}`,
+              zIndex: 5,
+            }
+          }} />
         ) : null}
         {rules.length === 0 ? (
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
@@ -1324,11 +1239,15 @@ export default function SafeguardChipsPanel({
           </Box>
         ) : (
           rules.map((rule, index) => {
-            // Skip hidden chips when a visible-index filter is active, or when an ancestor
-            // bundle is collapsed. Both are resolved once above so the filter and the outline
-            // agree — an ancestor of a visible entry always renders, or its indentation would
-            // dangle from nothing.
-            if (!renderableIndices.has(index)) return null
+            // Skip hidden chips when a visible-index filter is active.
+            if (visibleRuleIndices && !visibleRuleIndices.has(index)) return null
+            // Where the chip sits in its run, for the bracket's rounded ends. Read off the
+            // resolved runs so the edge cannot disagree with the engine's membership.
+            const runStart = groups.runStarts[index] ?? -1
+            const runLen = groups.runLens[index] ?? 0
+            const groupEdge = runStart < 0
+              ? null
+              : index === runStart ? 'first' : index === runStart + runLen - 1 ? 'last' : 'middle'
             // Pre-compute per-chip booleans so SafeguardChip's shallow equality can skip
             // unchanged chips when unrelated panel state changes (menus, dialogs, etc.).
             return (
@@ -1351,12 +1270,9 @@ export default function SafeguardChipsPanel({
                 showSetIcons={showSetIcons}
                 showSlotIcons={showSlotIcons}
                 showTagsInChips={showTagsInChips}
-                depth={outline.depths[index] ?? SAFEGUARD_OUTLINE_DEFAULT_DEPTH}
                 entryKind={safeguardEntryKind(rule)}
-                memberCount={outline.pools[index]?.length ?? 0}
-                isCollapsed={isSafeguardBundleCollapsed(rule)}
-                bundleDemand={outline.demands[index] ?? 0}
-                onToggleCollapse={handleToggleCollapse}
+                groupSettings={safeguardGroupSettingsAt(rules, index)}
+                groupEdge={groupEdge}
                 t={t}
                 lang={lang}
                 onSelect={onSelect}

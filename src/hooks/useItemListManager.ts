@@ -124,10 +124,10 @@ export type UseItemListManagerParams<TItem, TDraft> = {
   /**
    * Optional override for the four directional moves. The default is an element swap, which
    * assumes every item occupies exactly one slot — true for recipes, but false for safeguards,
-   * where a bundle owns its nested members and has to travel with them.
+   * where a group is a run of members that has to travel as one block.
    *
    * Supplying this replaces the swap for ALL four directions, so a caller cannot end up with
-   * half-outline-aware behaviour. Return `null` when the move is a no-op. Recipes omit it and
+   * half-group-aware behaviour. Return `null` when the move is a no-op. Recipes omit it and
    * keep today's semantics byte for byte.
    */
   resolveDirectionalMove?: (
@@ -136,16 +136,18 @@ export type UseItemListManagerParams<TItem, TDraft> = {
     direction: 'up' | 'down' | 'top' | 'bottom',
   ) => TItem[] | null
   /**
-   * Optional override for a drag-and-drop MOVE that carries an outline level. Used only when
-   * the drop reports a `depth`, i.e. when the caller opted into outline drops via
-   * `useChipListDnd.resolveDropDepth`. Copy-mode drops and flat lists are untouched.
+   * Optional override for a drag-and-drop drop that carries a level (`depth`), i.e. when the
+   * caller opted into levelled drops via `useChipListDnd.resolveDropDepth`. Handles move AND
+   * Ctrl-copy so a copied block adopts the drop's membership exactly like a moved one; returns
+   * the new list plus the indices the moved/copied items occupy in it. Flat lists are untouched.
    */
   resolveDropMove?: (
     items: readonly TItem[],
     movingIndices: readonly number[],
     targetIndex: number,
     depth: number,
-  ) => TItem[] | null
+    mode: 'move' | 'copy',
+  ) => { next: TItem[]; newIndices: number[] } | null
 }
 
 export type UseItemListManagerResult<TItem, TDraft> = {
@@ -490,7 +492,7 @@ export function useItemListManager<TItem, TDraft>({
   // ── directional moves ─────────────────────────────────────────────────────
 
   // Shared front half of all four move handlers: expand a click into the moving set, run the
-  // caller's outline-aware resolver when one is supplied, and commit with the same selection
+  // caller's structure-aware resolver when one is supplied, and commit with the same selection
   // remap + history descriptor the swap path uses. Returns false when no override is
   // configured, so the default swap below runs unchanged for recipes.
   const runOverriddenMove = useCallback((
@@ -524,7 +526,7 @@ export function useItemListManager<TItem, TDraft>({
       ? selectedIndices.slice().sort((a, b) => a - b)
       : [idx]
     withSuppression(() => {
-      // Outline-aware callers replace the swap entirely (see resolveDirectionalMove).
+      // Structure-aware callers replace the swap entirely (see resolveDirectionalMove).
       if (runOverriddenMove(selected, 'up')) return
       const prev = items
       // First-pass on the snapshot to compute the new selection and emit the
@@ -571,7 +573,7 @@ export function useItemListManager<TItem, TDraft>({
       ? selectedIndices.slice().sort((a, b) => a - b)
       : [idx]
     withSuppression(() => {
-      // Outline-aware callers replace the swap entirely (see resolveDirectionalMove).
+      // Structure-aware callers replace the swap entirely (see resolveDirectionalMove).
       if (runOverriddenMove(selected, 'down')) return
       const prev = items
       const arr = [...prev]
@@ -615,7 +617,7 @@ export function useItemListManager<TItem, TDraft>({
       ? selectedIndices.slice().sort((a, b) => a - b)
       : [idx]
     withSuppression(() => {
-      // Outline-aware callers replace the swap entirely (see resolveDirectionalMove).
+      // Structure-aware callers replace the swap entirely (see resolveDirectionalMove).
       if (runOverriddenMove(selected, 'top')) return
       const prev = items
       // Already at the top — nothing to do.
@@ -650,7 +652,7 @@ export function useItemListManager<TItem, TDraft>({
       ? selectedIndices.slice().sort((a, b) => a - b)
       : [idx]
     withSuppression(() => {
-      // Outline-aware callers replace the swap entirely (see resolveDirectionalMove).
+      // Structure-aware callers replace the swap entirely (see resolveDirectionalMove).
       if (runOverriddenMove(selected, 'bottom')) return
       const prev = items
       // Already at the bottom — nothing to do.
@@ -747,6 +749,29 @@ export function useItemListManager<TItem, TDraft>({
       const prev = items
       const sanitized = sanitizeDragIndices(movingIndices, prev.length)
       if (sanitized.length === 0) { onDescribeNextChange?.(null); return }
+      // Levelled drops carry a membership decision, so the caller's resolver decides both the
+      // position and the grouping — for moves and copies alike; without one this stays the flat
+      // contiguous move/copy it has always been.
+      if (resolveDropMove && options?.depth !== undefined) {
+        const levelled = resolveDropMove(prev, sanitized, rawTargetIndex, options.depth, mode)
+        if (!levelled) { onDescribeNextChange?.(null); return }
+        const { next: levelledNext, newIndices: levelledIndices } = levelled
+        if (mode === 'copy') {
+          const copies = levelledIndices.map((index) => levelledNext[index]).filter((item): item is TItem => item !== undefined)
+          const insertIdx = levelledIndices[0] ?? 0
+          onDescribeNextChange?.({ kind: 'reorder-copy', prev, copies, next: levelledNext, insertIdx, newIndices: levelledIndices })
+          applyItemsChange(levelledNext)
+          applySelection(levelledIndices)
+          const last = levelledIndices[levelledIndices.length - 1] ?? null
+          setSelectedIdx(last)
+          updateSelectionAnchor(last)
+          return
+        }
+        onDescribeNextChange?.({ kind: 'reorder-move', prev, next: levelledNext, newIndices: levelledIndices, direction: rawTargetIndex <= (sanitized[0] ?? 0) ? 'up' : 'down' })
+        applyItemsChange(levelledNext)
+        syncSelectionAfterReorder(levelledIndices)
+        return
+      }
       if (mode === 'copy') {
         const result = copyReorderItems(prev, sanitized, rawTargetIndex, cloneItem)
         if (!result) { onDescribeNextChange?.(null); return }
@@ -758,17 +783,6 @@ export function useItemListManager<TItem, TDraft>({
         const last = newIndices[newIndices.length - 1] ?? null
         setSelectedIdx(last)
         updateSelectionAnchor(last)
-        return
-      }
-      // Outline drops carry a level, so the caller's resolver decides both the position and
-      // the nesting; without one this stays the flat contiguous move it has always been.
-      if (resolveDropMove && options?.depth !== undefined) {
-        const outlined = resolveDropMove(prev, sanitized, rawTargetIndex, options.depth)
-        if (!outlined) { onDescribeNextChange?.(null); return }
-        const outlinedIndices = mapSelectionByIdentity(prev, outlined, sanitized)
-        onDescribeNextChange?.({ kind: 'reorder-move', prev, next: outlined, newIndices: outlinedIndices, direction: rawTargetIndex <= (sanitized[0] ?? 0) ? 'up' : 'down' })
-        applyItemsChange(outlined)
-        syncSelectionAfterReorder(outlinedIndices)
         return
       }
       // Move mode: map selection by identity so items stay highlighted post-reorder.

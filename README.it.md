@@ -171,18 +171,18 @@ Sellfile Creator semplifica la creazione di Sellfile per RSL Helper — definisc
 | `Per stat principale` | Duplica la quota per ogni stat principale selezionata. | Divide i pool per vessilli ACC e RES. |
 
 #### Gruppi: più protezioni che condividono un numero richiesto
-Due protezioni possono finire per descrivere la *stessa* promessa senza volerlo. Una tiene 3 buoni anelli, un'altra ne tiene 2 — ma ne volevi solo 3 in totale, e adesso ne stai tenendo 5.
+Due protezioni possono finire per descrivere la *stessa* promessa senza volerlo. Una tiene 3 buoni anelli, un’altra ne tiene 2 — ma tu volevi solo 3 anelli in totale, e ora ne tieni 5.
 
-Un **gruppo** risolve la cosa. Trasforma una voce in gruppo con il pulsante `Gruppo` accanto al campo del nome, poi trascinaci dentro le protezioni (oppure selezionane alcune e scegli `Raggruppa in un gruppo` dal menu del tasto destro).
+Un **gruppo** risolve la cosa. Seleziona le protezioni (clic, poi Ctrl+clic) e scegli `Raggruppa le salvaguardie selezionate` dal menu contestuale. Ogni membro mostra ora un bordo colorato nell’elenco, e nel modulo compare una piccola striscia di gruppo proprio accanto al suo `Numero richiesto`: il numero proprio del gruppo e i suoi pulsanti di ambito.
 
-- Ogni protezione dentro un gruppo continua a cercare **esattamente** quello che cercava prima: i suoi slot, set, sotto-statistiche e pesi. Un gruppo non cambia mai cosa cercano.
-- Quello che cambia è dove finiscono i loro pezzi. Una protezione dentro un gruppo non tiene più equipaggiamento da sola: **offre** i suoi pezzi al gruppo, e il suo `Numero richiesto` decide quanti ne offre.
-- Il `Numero richiesto` del gruppo è il numero che decide davvero. Scrivilo direttamente: è quanto il gruppo tiene di tutto ciò che le sue protezioni gli hanno offerto.
-- I pulsanti di ambito del gruppo decidono cosa conta come stesso lotto. Metti `Per fazione` sul gruppo e ogni fazione riceve il proprio conteggio, comunque siano divise le protezioni al suo interno.
-- Quando più protezioni offrono pezzi per lo stesso lotto, **vincono i pezzi migliori**. Ogni pezzo viene valutato con le sotto-statistiche e i pesi della protezione che lo ha offerto, quindi un pezzo della seconda protezione può benissimo battere uno della prima.
-- I gruppi possono stare dentro altri gruppi. Clicca sul ▾ di un gruppo per richiuderlo; con il tasto destro richiudi tutti i gruppi insieme.
+- Ogni protezione in un gruppo continua a cercare **esattamente** ciò che ha sempre cercato — i propri slot, set, sottostatistiche, pesi e modalità. Un gruppo non cambia mai cosa cercano.
+- Cambia dove finiscono i loro risultati. Una protezione in un gruppo non tiene più pezzi per conto suo: **offre** i suoi risultati al gruppo, e il suo `Numero richiesto` decide quanti ne offre.
+- Il numero del gruppo (il campo `⊚ ≥` accanto a `Numero richiesto`) è quello che decide davvero. Scrivilo direttamente: è quanto il gruppo tiene di tutto ciò che le sue protezioni gli hanno offerto. Parte come somma dei numeri dei membri, quindi raggruppare non cambia nulla finché non lo abbassi. Modificarlo su un membro qualsiasi modifica il gruppo.
+- I pulsanti di ambito del gruppo decidono cosa conta come lo stesso insieme. Metti `fazione` sul gruppo e ogni fazione avrà il proprio numero, comunque siano suddivise le protezioni al suo interno.
+- Quando più protezioni offrono pezzi per lo stesso insieme, **vincono i pezzi migliori**. Ogni pezzo è giudicato con le sottostatistiche e i pesi della protezione che l’ha offerto, quindi un pezzo della seconda protezione può benissimo battere uno della prima. Il pannello dei candidati segna nel colore del gruppo i pezzi che il gruppo ha venduto, e il suo interruttore `Gruppo` mostra l’intero insieme ordinato insieme.
+- I gruppi sono contigui: trascina una protezione dentro un gruppo (rilasciala nella parentesi colorata) o fuori (rilasciala a filo), oppure usa il menu contestuale — `Rimuovi dal gruppo`, `Unisciti al gruppo sopra/sotto`, `Separa gruppo`. Spostare una protezione su o giù non cambia mai il suo gruppo; un gruppo intero si sposta come un blocco.
 
-**Esempio.** Vuoi cinque buoni accessori VEL per fazione, ma «buono» significa due cose diverse: `VEL + T.CRIT + D.CRIT` per chi fa danno, `VEL + PS + DIF` per i tank. Crea una protezione per ciascun profilo, mettile entrambe in un gruppo e imposta il gruppo su `5` con `Per fazione`. Ogni protezione offre i suoi pezzi migliori e il gruppo tiene i cinque venuti meglio fra le due, invece di cinque per ciascuna.
+**Esempio.** Vuoi cinque buoni accessori VEL per fazione, ma «buono» significa due cose diverse: `VEL + T.CRIT + D.CRIT` per chi fa danno, `VEL + PS + DIF` per i tank. Crea una protezione per ciascun profilo, raggruppale e imposta il gruppo su `5` con `fazione`. Ogni protezione offre i suoi pezzi migliori e il gruppo tiene i cinque venuti meglio fra le due, invece di cinque per ciascuna.
 
 #### Esempi concreti
 
@@ -193,7 +193,7 @@ Un **gruppo** risolve la cosa. Trasforma una voce in gruppo con il pulsante `Gru
 | Anelli Merciless per fazione | Slot = Anello, Set = Merciless, Fazione vuota | `3` | `Per fazione` | Ogni fazione conserva tre dei propri anelli Merciless. |
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
-| Cinque accessori per fazione, in qualsiasi slot | Le stesse tre regole, dentro un gruppo | `5` sul gruppo | `Per fazione` sul gruppo | Ogni fazione mantiene cinque accessori in totale, in qualunque slot si trovino. |
+| Cinque accessori per fazione, in qualsiasi slot | Le stesse tre regole, in un gruppo | `5` come numero del gruppo | `fazione` sul gruppo | Ogni fazione mantiene cinque accessori in totale, in qualunque slot si trovino. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
 | Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Sotto-stat = SPD | `5` | `Per salvaguardia` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
 | Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Sotto-stat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |

@@ -184,16 +184,16 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Schutzregel` aktiv, um
 #### Gruppen: mehrere Schutzregeln teilen sich eine benötigte Anzahl
 Zwei Schutzregeln können ungewollt dasselbe Versprechen beschreiben. Eine behält 3 gute Ringe, eine andere 2 — gewollt waren aber nur 3 Ringe insgesamt, und jetzt behältst du 5.
 
-Eine **Gruppe** löst das. Mach einen Eintrag mit der Schaltfläche `Gruppe` neben dem Namensfeld zu einer Gruppe und zieh Schutzregeln hinein (oder wähle mehrere aus und nimm `Zu Gruppe zusammenfassen` aus dem Rechtsklick-Menü).
+Eine **Gruppe** löst das. Wähle die Schutzregeln aus (Klick, dann Strg-Klick) und nimm `Ausgewählte Schutzregeln gruppieren` aus dem Rechtsklick-Menü. Jedes Mitglied zeigt in der Liste jetzt eine farbige Kante, und im Formular erscheint direkt neben seiner `Benötigten Anzahl` eine kleine Gruppenleiste: die eigene Anzahl der Gruppe und ihre eigenen Bereichs-Schalter.
 
-- Jede Schutzregel in einer Gruppe sucht **genau** weiter wie zuvor — eigene Slots, Sets, Unterwerte und Gewichtungen. Eine Gruppe ändert nie, wonach sie suchen.
+- Jede Schutzregel in einer Gruppe sucht **genau** weiter wie zuvor — eigene Slots, Sets, Unterwerte, Gewichtungen und Modus. Eine Gruppe ändert nie, wonach sie suchen.
 - Was sich ändert, ist, wohin ihre Funde gehen. Eine Schutzregel in einer Gruppe behält nichts mehr selbst: sie **bietet** ihre Funde der Gruppe an, und ihre eigene `Benötigte Anzahl` legt fest, wie viele sie anbietet.
-- Die `Benötigte Anzahl` der Gruppe ist die Zahl, die wirklich entscheidet. Trag sie einfach ein — so viel behält die Gruppe von allem, was ihre Schutzregeln angeboten haben.
-- Die Bereichs-Schaltflächen der Gruppe legen fest, was als derselbe Topf zählt. Setz `Pro Fraktion` auf die Gruppe, und jede Fraktion bekommt ihre eigene Anzahl, egal wie die Schutzregeln darin aufgeteilt sind.
-- Bieten mehrere Schutzregeln Teile für denselben Topf an, **gewinnen die besten Teile**. Jedes Teil wird nach den Unterwerten und Gewichtungen der Schutzregel bewertet, die es angeboten hat — ein Teil der zweiten Schutzregel kann also durchaus eines der ersten schlagen.
-- Gruppen können in Gruppen stecken. Klick auf das ▾ einer Gruppe, um sie einzuklappen; per Rechtsklick klappst du alle Gruppen auf einmal ein.
+- Die Anzahl der Gruppe (das Feld `⊚ ≥` neben der `Benötigten Anzahl`) ist die Zahl, die wirklich entscheidet. Trag sie einfach ein — so viel behält die Gruppe von allem, was ihre Schutzregeln angeboten haben. Sie startet als Summe der Mitgliederanzahlen, Gruppieren ändert also nichts, bis du sie senkst. Änderst du sie bei einem Mitglied, änderst du die Gruppe.
+- Die Bereichs-Schalter der Gruppe legen fest, was als derselbe Topf zählt. Setz `Fraktion` auf die Gruppe, und jede Fraktion bekommt ihre eigene Anzahl, egal wie die Schutzregeln darin aufgeteilt sind.
+- Bieten mehrere Schutzregeln Teile für denselben Topf an, **gewinnen die besten Teile**. Jedes Teil wird nach den Unterwerten und Gewichtungen der Schutzregel bewertet, die es angeboten hat — ein Teil der zweiten Schutzregel kann also durchaus eines der ersten schlagen. Das Kandidaten-Flyout markiert Teile, die die Gruppe verkauft hat, in der Gruppenfarbe, und sein Schalter `Gruppe` zeigt den ganzen Topf gemeinsam sortiert.
+- Gruppen sind zusammenhängend: Zieh eine Schutzregel in eine Gruppe (in der farbigen Klammer ablegen) oder heraus (bündig ablegen), oder nutz das Rechtsklick-Menü — `Aus Gruppe entfernen`, `Gruppe darüber/darunter beitreten`, `Gruppe auflösen`. Eine Schutzregel nach oben oder unten zu verschieben ändert ihre Gruppe nie; eine ganze Gruppe wandert als Block.
 
-**Beispiel.** Du willst pro Fraktion fünf gute SPD-Accessoires, aber „gut“ heißt zweierlei: `SPD + KR + KS` für Schadensausteiler, `SPD + LP + VER` für Tanks. Mach für jedes Profil eine Schutzregel, steck beide in eine Gruppe und stell die Gruppe auf `5` mit `Pro Fraktion`. Jede Schutzregel bietet ihre besten Teile an, und die Gruppe behält die fünf, die dabei insgesamt am besten abschneiden — statt fünf von jeder Sorte.
+**Beispiel.** Du willst pro Fraktion fünf gute SPD-Accessoires, aber „gut“ heißt zweierlei: `SPD + KR + KS` für Schadensausteiler, `SPD + LP + VER` für Tanks. Mach für jedes Profil eine Schutzregel, gruppiere beide und stell die Gruppe auf `5` mit `Fraktion`. Jede Schutzregel bietet ihre besten Teile an, und die Gruppe behält die fünf, die dabei insgesamt am besten abschneiden — statt fünf von jeder Sorte.
 
 #### Praxisbeispiele
 
@@ -204,7 +204,7 @@ Eine **Gruppe** löst das. Mach einen Eintrag mit der Schaltfläche `Gruppe` neb
 | Merciless-Ringe pro Fraktion | Art = Ring, Set = Merciless, Fraktion leer | `3` | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
 | HP%-Ringe pro Fraktion | Art = Ring, Hauptwert = HP%, Sets leer | `2` | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
 | Kern-Schmuckstücke pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer | `5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
-| Fünf Schmuckstücke pro Fraktion, egal welche Art | Dieselben drei Regeln, in einer Gruppe | `5` an der Gruppe | `Pro Fraktion` an der Gruppe | Pro Fraktion bleiben insgesamt fünf Schmuckstücke übrig, egal welcher Art sie sind. |
+| Fünf Schmuckstücke pro Fraktion, egal welche Art | Dieselben drei Regeln, in einer Gruppe | `5` als Anzahl der Gruppe | `Fraktion` an der Gruppe | Pro Fraktion bleiben insgesamt fünf Schmuckstücke übrig, egal welcher Art sie sind. |
 | Stoneskin + Protection pro Fraktion | Art = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Hauptwert leer | `2` | `Pro Set` + `Pro Fraktion` + `Pro Art` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Schmuckstück-Art. |
 | Schnellste SPD-Schmuckstücke | Art = Ring/Amulett/Banner, Unterwerte = SPD | `5` | `Pro Schutzregel` | Behält die besten fünf SPD-Unterwert-Rolls über deine Schmuckstücke hinweg (inkl. Gleichstände). |
 | ACC-Banner mit SPD-Rolls | Art = Banner, Hauptwert = ACC, Unterwerte = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |

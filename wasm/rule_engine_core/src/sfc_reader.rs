@@ -781,16 +781,23 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
     })
 }
 
+// One count-mode object (perRule / perSet / perFaction / perMainStat / perSlot booleans) as
+// the SFC writes it — used for a rule's own chips and for the chips a group carries.
+fn parse_sfc_count_mode(v: &serde_json::Value) -> SafeguardWasmCountMode {
+    let o = v.as_object();
+    SafeguardWasmCountMode {
+        per_rule:      o.and_then(|m| m.get("perRule")).and_then(|v| v.as_bool()).unwrap_or(false),
+        per_set:       o.and_then(|m| m.get("perSet")).and_then(|v| v.as_bool()).unwrap_or(true),
+        per_faction:   o.and_then(|m| m.get("perFaction")).and_then(|v| v.as_bool()).unwrap_or(true),
+        per_main_stat: o.and_then(|m| m.get("perMainStat")).and_then(|v| v.as_bool()).unwrap_or(true),
+        per_slot:      o.and_then(|m| m.get("perSlot")).and_then(|v| v.as_bool()).unwrap_or(false),
+    }
+}
+
 /// Parse a safeguard rule entry from the SFC's Safeguards array.
 /// The SFC stores these with readable labels; we convert to SafeguardWasmRuleIn.
 fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
     let rec = raw.as_object().ok_or("Safeguard rule is not a JSON object")?;
-
-    // Outline placement is read for EVERY entry kind, separators included — a divider nested
-    // in a bundle keeps its slot and its level. Mirrors safeguards.ts, which reads depth
-    // before its separator short-circuit for the same reason. The structural invariant is
-    // repaired list-wide by resolve_safeguard_outline; this only carries the stored values.
-    let depth = rec.get("depth").and_then(|v| v.as_i64());
 
     // Separator entries persist minimally ({ appearance?, Separator: true }) and are pure
     // list dividers — parse them as inert activation="off" rules so the Safeguards array
@@ -813,17 +820,10 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
             main_stat_rank_weight_factor: None,
             improvement_chance_threshold: None,
             tags: None,
-            // A divider is never a container, but it does occupy an outline level.
-            bundle: None,
-            depth,
+            // A divider is never a member of a group.
+            group: None,
         });
     }
-
-    // Bundle headers persist the full rule shape minus the tuple: they own the required count
-    // that decides what survives out of everything their members feed them. Everything below
-    // therefore parses for bundles too — only the combination is absent, which is expected
-    // rather than invalid.
-    let bundle = rec.get("Bundle").and_then(|v| v.as_bool());
 
     let id = rec.get("id").and_then(|v| v.as_str()).map(|s| s.trim().to_string());
 
@@ -851,15 +851,18 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         .and_then(|v| serde_json::from_value::<ImprovementChanceThresholdIn>(v.clone()).ok());
 
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
-    let count_mode = rec.get("countMode").map(|v| {
-        let o = v.as_object();
-        SafeguardWasmCountMode {
-            per_rule:      o.and_then(|m| m.get("perRule")).and_then(|v| v.as_bool()).unwrap_or(false),
-            per_set:       o.and_then(|m| m.get("perSet")).and_then(|v| v.as_bool()).unwrap_or(true),
-            per_faction:   o.and_then(|m| m.get("perFaction")).and_then(|v| v.as_bool()).unwrap_or(true),
-            per_main_stat: o.and_then(|m| m.get("perMainStat")).and_then(|v| v.as_bool()).unwrap_or(true),
-            per_slot:      o.and_then(|m| m.get("perSlot")).and_then(|v| v.as_bool()).unwrap_or(false),
-        }
+    let count_mode = rec.get("countMode").map(parse_sfc_count_mode);
+
+    // Group membership: the settings a member carries inline (`Group: { id, requiredCount,
+    // countMode }`). Mirrors safeguards.ts `normalizeSafeguardGroupSettings`; an entry without a
+    // usable id is simply ungrouped. Run resolution itself lives in resolve_safeguard_groups.
+    let group = rec.get("Group").or_else(|| rec.get("group")).and_then(|v| v.as_object()).and_then(|g| {
+        let id = g.get("id").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty())?;
+        Some(SafeguardWasmGroupIn {
+            id: id.to_string(),
+            required_count: g.get("requiredCount").and_then(|v| v.as_i64()),
+            count_mode: g.get("countMode").map(parse_sfc_count_mode),
+        })
     });
 
     // Substats: stored as string label array in the SFC.
@@ -910,9 +913,8 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
         substats,
         substat_match,
         substat_weights,
-        // Outline placement carried verbatim; resolve_safeguard_outline owns the semantics.
-        bundle,
-        depth,
+        // Group membership carried verbatim; resolve_safeguard_groups owns the run semantics.
+        group,
         weight_main_stat_by_rank,
         main_stat_rank_weight_factor,
         improvement_chance_threshold,

@@ -15,9 +15,9 @@ import {
 } from 'react'
 import type { SafeguardRule } from '../lib/safeguards'
 import { cloneSafeguardRule } from '../lib/safeguards'
-// Directional moves and outline drops both relocate whole subtrees, so a bundle never
-// separates from its members; the array maths lives in one place for both.
-import { moveSafeguardSubtrees, resolveSafeguardDirectionalMove } from '../lib/safeguardOutline'
+// Directional moves keep a group's run together and levelled drops decide membership; the
+// array maths for both lives in one place.
+import { moveSafeguardEntriesForDrop, resolveSafeguardDirectionalMove, resolveSafeguardDropMembership } from '../lib/safeguardGroups'
 import {
   createSafeguardMultiEditDraft,
   syncSafeguardMultiEditDraft,
@@ -149,15 +149,19 @@ export function useSafeguardSelection({
       createSafeguardMultiEditDraft(items, indices.map(String)),
     syncDraft: syncSafeguardMultiEditDraft,
     // Scroll fires on every click (safeguard default — scrollOnlyOnSingleSelectionChange absent).
-    // Safeguards are an OUTLINE, not a flat list: a bundle owns the entries nested beneath it
-    // and must travel with them, so the manager's default element swap would tear a bundle
-    // apart. Replacing all four directions at once keeps them consistent, and the array maths
-    // itself lives in lib/safeguardOutline so the menu, the arrows, the keyboard and drag &
-    // drop all move a subtree the same way. Recipes omit this and keep the swap.
+    // Safeguards carry GROUPS: a run of members must travel as one block and an outsider must
+    // hop over it rather than land inside, so the manager's default element swap is replaced
+    // for all four directions at once. The array maths lives in lib/safeguardGroups so the
+    // menu, the arrows, the keyboard and drag & drop all agree. Recipes omit this and keep the swap.
     resolveDirectionalMove: resolveSafeguardDirectionalMove,
-    // A drop that carries a level nests as well as reorders; the same subtree-move helper the
-    // directional actions use decides both.
-    resolveDropMove: moveSafeguardSubtrees,
+    // A drop that carries a level (1 = inside the bracket) joins the run touching the drop
+    // point; a flush drop (0) leaves whatever run the entries were in. Move and Ctrl-copy alike.
+    resolveDropMove: (prev, moving, target, depth, mode) => {
+      const membership = resolveSafeguardDropMembership(prev, target)
+      // A drop strictly inside a run always joins it; otherwise the pointer level decides.
+      const join = membership.kind === 'forced' || (membership.kind === 'optional' && depth > 0)
+      return moveSafeguardEntriesForDrop(prev, moving, target, join ? membership.settings : null, mode)
+    },
   })
 
   // Destructure multi-edit state from the generic result.

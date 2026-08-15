@@ -270,11 +270,13 @@ export const ROLL_BADGE_TRANSLATE_OVERFLOW_FACTOR = 0.75
 export const RECIPE_CHIP_BORDER_RADIUS_PX = 8
 export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3
 export const RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX = 26
-// One outline level of indentation in the safeguard chip list. Consumed by the chip's left
-// inset, the per-level tree guides drawn beside it, and the drag-and-drop depth resolver that
-// turns a pointer's horizontal position into a drop level — three places that would otherwise
-// each hard-code the same pixel step and drift apart the first time it is tuned.
-export const SAFEGUARD_OUTLINE_INDENT_PX = 16
+// Horizontal pointer offset (from the chip list's left edge) past which a drag drop JOINS the
+// group touching the drop point rather than landing outside it. Consumed by the drop-depth
+// resolver and by the drop guide's inset — the two must agree or the bar would promise a
+// membership the drop does not deliver.
+export const SAFEGUARD_GROUP_JOIN_OFFSET_PX = 24
+// Width of the coloured left edge every group member chip carries, in the group's colour.
+export const SAFEGUARD_GROUP_EDGE_PX = 3
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
 export const GRID_COLUMN_GAP_PX = 16

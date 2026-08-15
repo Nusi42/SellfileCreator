@@ -190,11 +190,6 @@
       "global": "global",
       "group": "group"
     },
-    "outline": {
-      "_comment": "Safeguard bundles: the Safeguards array is an outline, not a flat list. `bundle: true` marks a container entry that owns a shared required count over the union of what its nested members match; `depth` is the outline level (0 = top). maxDepth caps nesting so a malformed or hand-edited file cannot produce an unbounded tree — the outline resolver clamps to it on both the app and native-DLL paths. Depth 0 with no bundles is exactly the pre-bundle behaviour, so every older file loads unchanged.",
-      "maxDepth": 5,
-      "defaultDepth": 0
-    },
     "weight": {
       "step": 0.05,
       "min": 0.01,

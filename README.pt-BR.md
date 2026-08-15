@@ -182,18 +182,18 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por salv
 | `Por stat principal` | Duplica a cota por stat principal. | Mantém ACC e RES em banners separados. |
 
 #### Grupos: várias proteções compartilhando uma quantidade necessária
-Duas proteções podem acabar descrevendo a *mesma* promessa sem querer. Uma guarda 3 anéis bons, outra guarda 2 — mas você só queria 3 anéis no total, e agora está guardando 5.
+Duas proteções podem acabar descrevendo a *mesma* promessa sem querer. Uma mantém 3 bons anéis, outra mantém 2 — mas você só queria 3 anéis no total, e agora está mantendo 5.
 
-Um **grupo** resolve isso. Transforme qualquer entrada em grupo com o botão `Grupo` ao lado do campo do nome e arraste proteções para dentro (ou selecione algumas e escolha `Agrupar em um grupo` no menu do botão direito).
+Um **grupo** resolve isso. Selecione as proteções (clique e depois Ctrl+clique) e escolha `Agrupar salvaguardas selecionadas` no menu de contexto. Cada membro agora mostra uma borda colorida na lista, e no formulário aparece uma pequena faixa de grupo bem ao lado da sua `Quantidade necessária`: a quantidade própria do grupo e seus próprios botões de escopo.
 
-- Cada proteção dentro de um grupo continua procurando **exatamente** o que sempre procurou: seus próprios slots, conjuntos, subatributos e pesos. Um grupo nunca muda o que elas procuram.
-- O que muda é para onde vão os achados delas. Uma proteção dentro de um grupo não guarda mais equipamento sozinha: ela **oferece** seus achados ao grupo, e a `Quantidade necessária` dela decide quantos oferece.
-- A `Quantidade necessária` do grupo é o número que realmente decide. Digite direto: é o quanto o grupo guarda de tudo que suas proteções ofereceram.
-- Os botões de escopo do próprio grupo decidem o que conta como o mesmo lote. Coloque `Por facção` no grupo e cada facção recebe a própria contagem, não importa como as proteções lá dentro estejam divididas.
-- Quando várias proteções oferecem peças para o mesmo lote, **as melhores peças vencem**. Cada peça é julgada pelos subatributos e pesos da proteção que a ofereceu, então uma peça da segunda proteção pode muito bem vencer uma da primeira.
-- Grupos podem ficar dentro de grupos. Clique no ▾ de um grupo para recolhê-lo; com o botão direito você recolhe todos os grupos de uma vez.
+- Cada proteção em um grupo continua procurando **exatamente** o que sempre procurou — seus próprios slots, sets, substats, pesos e modo. Um grupo nunca muda o que elas procuram.
+- O que muda é para onde vão os achados. Uma proteção em um grupo não mantém mais equipamento por conta própria: ela **oferece** seus achados ao grupo, e a sua própria `Quantidade necessária` decide quantos ela oferece.
+- A quantidade do grupo (o campo `⊚ ≥` ao lado de `Quantidade necessária`) é o número que realmente decide. Digite direto: é quanto o grupo mantém de tudo o que suas proteções ofereceram. Ela começa como a soma das quantidades dos membros, então agrupar não muda nada até você reduzi-la. Editá-la em qualquer membro edita o grupo.
+- Os botões de escopo do grupo decidem o que conta como o mesmo conjunto. Coloque `facção` no grupo e cada facção terá sua própria quantidade, seja qual for a divisão das proteções dentro dele.
+- Quando várias proteções oferecem peças para o mesmo conjunto, **as melhores peças vencem**. Cada peça é julgada pelas substats e pesos da proteção que a ofereceu, então uma peça da segunda proteção pode perfeitamente superar uma da primeira. O painel de candidatos marca na cor do grupo as peças que o grupo vendeu, e o seu botão `Grupo` mostra todo o conjunto classificado junto.
+- Grupos são contíguos: arraste uma proteção para dentro de um grupo (solte dentro do colchete colorido) ou para fora (solte rente), ou use o menu de contexto — `Remover do grupo`, `Entrar no grupo acima/abaixo`, `Desagrupar`. Mover uma proteção para cima ou para baixo nunca muda seu grupo; um grupo inteiro se move como um bloco.
 
-**Exemplo.** Você quer cinco bons acessórios de VEL por facção, mas «bom» significa duas coisas diferentes: `VEL + T.CRIT + D.CRIT` para quem causa dano e `VEL + PV + DEF` para tanques. Crie uma proteção para cada perfil, coloque as duas em um grupo e ajuste o grupo para `5` com `Por facção`. Cada proteção oferece suas melhores peças e o grupo guarda as cinco que saíram melhor entre as duas, em vez de cinco de cada.
+**Exemplo.** Você quer cinco bons acessórios de VEL por facção, mas "bom" significa duas coisas diferentes: `VEL + TC + DC` para causadores de dano, `VEL + PV + DEF` para tanques. Crie uma proteção para cada perfil, agrupe-as e defina o grupo como `5` com `facção`. Cada proteção oferece suas melhores peças, e o grupo mantém as cinco que saíram melhor entre as duas — em vez de cinco de cada.
 
 #### Exemplos do mundo real
 | Cenário | Filtros | Quantidade necessária | Botões de escopo | O que o scanner garante |

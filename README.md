@@ -187,19 +187,19 @@ Stacking the scope chips changes who gets their own quota. Leave `Per safeguard`
 | `Per faction` | Duplicates the quota for each faction. | Guarantee three Merciless rings for every faction. |
 | `Per Mainstat` | Duplicates the quota for each selected main stat. | Keep separate pools for ACC versus RES banners. |
 
-#### Bundles: several safeguards sharing one Required Count
+#### Groups: several safeguards sharing one Required Count
 Two safeguards can end up describing the *same* promise without meaning to. One keeps 3 good rings, another keeps 2 — but you only ever wanted 3 rings in total, and now you are keeping 5.
 
-A **bundle** fixes that. Turn any entry into a bundle with the `Bundle` button next to the name field, then drag safeguards into it (or select a few and pick `Group into bundle` from the right-click menu).
+A **group** fixes that. Select the safeguards (click, then Ctrl-click) and pick `Group selected safeguards` from the right-click menu. Every member now shows a coloured edge in the list, and a small group strip appears right beside its `Required Count` in the form: the group's own count and its own scope buttons.
 
-- Every safeguard inside a bundle still looks for **exactly** what it always did — its own slots, sets, substats and weights. A bundle never changes what they search for.
-- What changes is where their finds go. A safeguard inside a bundle no longer keeps gear on its own: it **offers** its finds to the bundle, and its own `Required Count` decides how many it offers.
-- The bundle's `Required Count` is the number that actually decides. Type it straight in — that is how much the bundle keeps out of everything its safeguards offered it.
-- The bundle's own scope buttons decide what counts as the same pool. Put `Per faction` on the bundle and each faction gets its own count, however the safeguards inside are split up.
-- When several safeguards offer pieces for the same pool, the **best pieces win**. Each piece is judged by the substats and weights of the safeguard that offered it, so a piece from the second safeguard can absolutely beat one from the first.
-- Bundles can sit inside bundles. Click the ▾ on a bundle to fold it away; right-click it to fold every bundle at once.
+- Every safeguard in a group still looks for **exactly** what it always did — its own slots, sets, substats, weights and mode. A group never changes what they search for.
+- What changes is where their finds go. A safeguard in a group no longer keeps gear on its own: it **offers** its finds to the group, and its own `Required Count` decides how many it offers.
+- The group's count (the `⊚ ≥` field next to `Required Count`) is the number that actually decides. Type it straight in — that is how much the group keeps out of everything its safeguards offered it. It starts as the sum of the members' counts, so grouping changes nothing until you lower it. Editing it on any member edits the group.
+- The group's own scope buttons decide what counts as the same pool. Put `faction` on the group and each faction gets its own count, however the safeguards inside are split up.
+- When several safeguards offer pieces for the same pool, the **best pieces win**. Each piece is judged by the substats and weights of the safeguard that offered it, so a piece from the second safeguard can absolutely beat one from the first. The candidates flyout marks pieces the group sold in the group's colour, and its `Group` toggle shows the whole pool ranked together.
+- Groups are contiguous: drag a safeguard into a group (drop it inside the coloured bracket) or out of it (drop it flush), or use the right-click menu — `Remove from group`, `Join group above/below`, `Ungroup`. Moving a safeguard up or down never changes its group; a whole group moves as one block.
 
-**Example.** You want five good SPD accessories per faction, but "good" means two different things: `SPD + CR + CDMG` for damage dealers, `SPD + HP + DEF` for tanks. Make one safeguard for each profile, put both in a bundle, and set the bundle to `5` with `Per faction`. Each safeguard offers its best pieces, and the bundle keeps the five that came out best between them — instead of five of each.
+**Example.** You want five good SPD accessories per faction, but "good" means two different things: `SPD + CR + CDMG` for damage dealers, `SPD + HP + DEF` for tanks. Make one safeguard for each profile, group them, and set the group to `5` with `faction`. Each safeguard offers its best pieces, and the group keeps the five that came out best between them — instead of five of each.
 
 #### Real-world examples
 | Scenario | Filters | Required Count | Scope buttons | What the scanner guarantees |
@@ -209,7 +209,7 @@ A **bundle** fixes that. Turn any entry into a bundle with the `Bundle` button n
 | Merciless rings per faction | Slot = Ring, Set = Merciless, Faction blank | `3` | `Per faction` | Every faction keeps three of its own Merciless rings. |
 | HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `2` | `Per faction` | Two HP% rings per faction stay in inventory. |
 | Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank | `5` | `Per faction` | Five Rings, five Amulets and five Banners survive per faction — each rule keeps its own five. |
-| Five accessories per faction, any slot | The same three rules, inside a bundle | `5` on the bundle | `Per faction` on the bundle | Five accessories in total survive per faction, whichever slots they happen to be. |
+| Five accessories per faction, any slot | The same three rules, in one group | `5` as the group's count | `faction` on the group | Five accessories in total survive per faction, whichever slots they happen to be. |
 | Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `2` | `Per set` + `Per faction` + `Per slot` | Each faction holds two Stoneskin and two Protection drops for each accessory slot. |
 | Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD | `5` | `Per safeguard` | Keeps the top five SPD substat rolls across your accessories (ties included). |
 | ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |

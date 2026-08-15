@@ -1,11 +1,41 @@
-// Shared tag chip primitives used by RecipeBuilderPanel and SafeguardBuilderPanel.
-// Double-click-to-copy is defined once here and applied to every tag chip.
+// Shared tag chip primitives used by RecipeBuilderPanel, SafeguardBuilderPanel and both chip
+// lists. Double-click-to-copy and the per-tag colour are defined once here and applied to
+// every tag chip.
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Chip, Box, Typography } from '@mui/material'
-import type { SxProps } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
+import type { SystemStyleObject } from '@mui/system'
 import { writeTextSafe, triggerCopyDialog } from '../lib/clipboard'
 import { EllipsisTooltip } from './EllipsisTooltip'
+import { useSchemePaper } from '../lib/themeContrastHooks'
+import { resolveLabelChipColors } from '../lib/labelColors'
+import { ALPHA } from '../lib/colorTints'
+import { alpha } from '@mui/material/styles'
+
+// Compact metrics for the tag chips rendered INSIDE a recipe/safeguard chip row (right of the
+// summary text) — shared by both chip panels so the two lists stay identical.
+export const INLINE_TAG_CHIP_SX = { height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } } as const
+
+/**
+ * Colour sx for a tag chip: every tag gets a stable hue derived from its text (see
+ * lib/labelColors), adapted for contrast against the active scheme's paper — so a tag reads the
+ * same colour on a recipe chip, a safeguard chip, the builder strip and the tags popover, in all
+ * three themes. The hook resolves the surface once; the returned function is cheap per chip.
+ */
+export function useTagChipSx(): (tag: string) => SystemStyleObject<Theme> {
+  const paper = useSchemePaper()
+  return useCallback((tag: string): SystemStyleObject<Theme> => {
+    const { fg, border, bg } = resolveLabelChipColors(tag, paper)
+    return {
+      color: fg,
+      borderColor: border,
+      backgroundColor: bg,
+      // The delete glyph (removable list) follows the tag colour instead of the neutral grey.
+      '& .MuiChip-deleteIcon': { color: alpha(fg, ALPHA.a60), '&:hover': { color: fg } },
+    }
+  }, [paper])
+}
 
 // Falls back to the manual copy dialog when the Clipboard API is unavailable.
 function copyTagToClipboard(tag: string): void {
@@ -39,6 +69,7 @@ export interface BuilderTagChipStripProps {
  */
 export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEditActive, maxRows = 1 }: BuilderTagChipStripProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const tagChipSx = useTagChipSx()
   // null = measuring pass (all chips rendered hidden-overflow); number = settled count.
   const [visibleCount, setVisibleCount] = useState<number | null>(null)
   // Ref-aliased setters: measurement runs in layout effects (the DOM must exist first),
@@ -151,11 +182,13 @@ export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEd
         <EllipsisTooltip key={tag} title={tag}>
           <Chip
             size="small"
+            variant="outlined"
             label={tag}
-            sx={{
-              maxWidth: 120,
-              ...(multiEditActive && mixedTagSet?.has(tag) ? mixedTagChipSx : null),
-            }}
+            sx={[
+              { maxWidth: 120 },
+              tagChipSx(tag),
+              ...(multiEditActive && mixedTagSet?.has(tag) && mixedTagChipSx ? [mixedTagChipSx as SystemStyleObject<Theme>] : []),
+            ]}
             onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
           />
         </EllipsisTooltip>
@@ -186,6 +219,7 @@ export interface BuilderTagChipListProps {
  * Double-click copies the tag text; the delete icon fires onRemove.
  */
 export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEditActive, onRemove, emptyLabel }: BuilderTagChipListProps) {
+  const tagChipSx = useTagChipSx()
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
       {tags.length > 0 ? (
@@ -194,10 +228,14 @@ export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEdi
           <EllipsisTooltip key={tag} title={tag}>
             <Chip
               size="small"
+              variant="outlined"
               label={tag}
               onDelete={() => onRemove(tag)}
               onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
-              {...(multiEditActive && mixedTagSet?.has(tag) ? { sx: mixedTagChipSx } : {})}
+              sx={[
+                tagChipSx(tag),
+                ...(multiEditActive && mixedTagSet?.has(tag) && mixedTagChipSx ? [mixedTagChipSx as SystemStyleObject<Theme>] : []),
+              ]}
             />
           </EllipsisTooltip>
         ))

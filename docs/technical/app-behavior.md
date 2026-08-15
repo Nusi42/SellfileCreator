@@ -172,7 +172,7 @@ Recipes and safeguard rules both use **array index** as their runtime identity �
 - Each rule also carries an optional name field directly beneath the enable toggle; names persist through autosave/SFC and logging but do not affect detection or rule generation.
 - Three ignore-toggle chips sit alongside the enable switch and refine what the rule counts: `ignorePreviousSafeguards`, `ignoreEquippedInCollection`, `ignoreEquippedInVault`. `ignorePreviousSafeguards` is enforced only on the ranking path (rules with substats selected): when on, the rule drops indices already protected by an earlier active safeguard from its `matching_indices` pool before top-N selection so it reaches deeper into the score ranking instead of redundantly relabeling overlaps. The non-ranking path intentionally ignores the toggle here — its kept-count math (`needed = required − kept_count`) already exposes the toggle's effect by changing how many sold matches the rule reaches for. `ignoreEquippedInCollection` and `ignoreEquippedInVault` remove items equipped on collection/vault champions from each rule's match count so they no longer satisfy that rule's quota. All three default to off.
 - The per-rule activation mode has four states: `Off` hides the combination entirely, `Protect existing` mirrors the classic behavior (only emit keep rows for matching gear that would otherwise be sold), `Anticipate gaps` also emits placeholder keep rules whenever the current + sold totals cannot meet the quota so fresh drops stay protected until the inventory export catches up, and `Anticipate improvements` adds an **improvement-chance-gated watch** for quota-satisfied groups: fresh drops stay protected only while they can still clear the rule's improvement-chance threshold. Rules WITHOUT an `improvementChanceThreshold` silently behave exactly like `Anticipate gaps` (the threshold is the mode's brain). Mechanics: detection pushes `missing = 0` placeholders (carrying the group `sample`) only for improvements-mode rules that have a threshold; `improvement_watch.rs` then computes **frontier corners** per (rank × rarity × level 0/4/8/12/16 × size-M focus-substat subset) by probing the improvement-chance engine (`compute_probability` against the rule's challenger scenarios) with synthetic candidates — binary-searching profile lines (balanced + one-lead-per-substat) for the minimal substat values whose chance still meets that level's threshold, rounding thresholds down (keep-biased) and pruning dominated corners. Zero-corner placeholders are dropped (nothing viable clears the bar → normal selling). Perf architecture: the attach pass runs plan → probe → assemble — every group's per-rank challenger set is reduced to its **boundary challenger** (exact: selection depends on the bucket only through the quota-th strongest beats-region; proof at `extract_synthetic_boundaries`), boundary signatures are interned per (rule × slot × main × rank) context, and each boundary-free probe cell is evaluated ONCE for ALL distinct boundaries via a multi-lane recursion leaf (`MultiBoundaryLeaf` — one tree traversal, one f64 lane per boundary, per-lane bit-identical to independent probing; on the reference account 444k (cell × boundary) probes collapse onto 38.5k cells, detection+watch 23.1 s → 16.0 s with an SHA-identical rule set). `safeguard_build_placeholder_rules` emits one HSF rule per corner — pinning `Rank`/`Rarity`/`LVLForCheck` and encoding the corner's per-substat `>=` value thresholds — so RSLH reproduces the threshold decision at every checkpoint of its level-up-then-re-evaluate flow. `missing > 0` (deficit) placeholders emit unchanged in both anticipate modes.
-- Required Count is paired with scope chips beneath each picker (everything except `Rank` and `Rarity`). `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined to multiply the quota for every Slot × Set × Faction × Main stat tuple; clearing every chip automatically falls back to the shared `Per rule` pool. A Required Count is owned by exactly one entry — either the safeguard itself, or the **bundle** it sits in (see [Bundles](#bundles-the-safeguards-outline)).
+- Required Count is paired with scope chips beneath each picker (everything except `Rank` and `Rarity`). `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined to multiply the quota for every Slot × Set × Faction × Main stat tuple; clearing every chip automatically falls back to the shared `Per rule` pool. Inside a **group** the safeguard's Required Count sizes what it feeds the group, and the group keeps its own count out of the merged pool (see [Groups](#groups-safeguards-sharing-one-required-count)).
 - The empty state promotes the `Add rule` CTA. Clicking it clones a combination seeded from the slot’s default main stat and set pool; additional clicks append new entries and focus them for editing.
 - Detection (`collectSafeguardCandidates` + `computeSafeguardProtection`) only runs when preview gear is present, not building, and the match-freeze gate is released. We derive candidate artifacts by grouping the queue by slot + set + main stat + faction, replaying the merged rules without Safeguards, and keeping only the groups where every artifact would be sold. While a scan is pending the tab shows the warning alert; once complete, each rule keeps a single status chip that reports deficits, “covered elsewhere”, or “satisfied”.
 - Recipes tagged `ignore_by_safeguards` still keep items in the preview, but safeguard detection treats those matches as sold so rework fodder does not satisfy uniqueness coverage. Legacy aliases (`ignore_keep_unique`, `ignore_safeguard`) are accepted and normalized to the canonical tag.
@@ -208,72 +208,92 @@ Recipes and safeguard rules both use **array index** as their runtime identity �
 - Matcher rebuilds run through the unified rule-cache worker pipeline (rules + matches + safeguard detection in one request). While the worker processes a build, the Safeguard grid keeps rendering the last applied matches until the new worker commit arrives.
 - Endpoint-driven Gear DB snapshot/delta pushes no longer dim or disable Gear Inspector match chips while the worker rebuild runs; only user-initiated gear resets/imports keep the temporary stale-match dim/lock guard.
 
-### Bundles (the Safeguards outline)
+### Groups (safeguards sharing one required count)
 
-The `Safeguards` array is an **outline**, not a flat list. An entry marked `bundle: true` **owns
-the promise** for everything nested beneath it, and `depth` records the nesting level. Bundles nest.
-
-A bundle is **not a rule**. It never matches gear itself. Its members evaluate exactly as if they
-were ungrouped — their own filters, substats, weights, count mode and ranking are all untouched —
-but a member inside a bundle does not keep gear of its own. It **feeds** the bundle:
+A **group** is a contiguous run of ordinary safeguards that share one `group.id`. There is no
+header entry and no nesting. Every member evaluates exactly as if it were ungrouped — its own
+filters, substats, weights, mode, count mode and ranking are all untouched — but a member does not
+keep gear itself. It **feeds** the group:
 
 1. Each member selects its top-N exactly as before, where N is **its own required count**. That
    selection is the gear it hands over; nothing else about the member changes.
-2. The bundle pools every member's contribution and **merges** it into buckets keyed by the
-   **bundle's own** `countMode` (its scope chips are the "bucket-defining properties").
+2. The group pools every member's contribution and **merges** it into buckets keyed by the
+   **group's own** `countMode` (its scope chips are the "bucket-defining properties").
 3. Within each merged bucket the pool is ranked by the **score each piece got from its own
-   member**, and the bundle keeps **its own required count** — an ordinary editable number on the
-   header. Everything else that was fed is sold.
+   member**, and the group keeps **its own required count** — a plain editable number. Everything
+   else that was fed is sold.
 
-So two rules feeding 3 and 2 SPD boots keep 5 boots when ungrouped, and however many the header
-asks for when bundled.
-
-**The header's count is a plain number, not a derivation.** It is neither the max nor the sum of
-the members' counts, and there is no pin/override flag: what the user types is what the bundle
-keeps. Setting it above what the members feed is harmless — a bundle can only ever keep gear that
-reached its pool — so to protect more, raise a member's count as well.
+So two rules feeding 3 and 2 SPD boots keep 5 boots when ungrouped, and however many the group
+asks for when grouped. **Grouping starts as a no-op**: a new group's count is seeded with the SUM
+of its members' counts and its chips with the ones every member already shares, so nothing changes
+until the user tightens it. The count is neither the max nor the sum of the members' counts, and
+there is no pin/override flag: what the user types is what the group keeps. Setting it above what
+the members feed is harmless — a group can only ever keep gear that reached its pool — so to
+protect more, raise a member's count as well.
 
 **Ranking uses each member's own score.** Scores are absolute (normalized against canonical max
 rolls, never relative to one rule's own pool), so a piece fed by a later member genuinely outranks
 a weaker piece fed by an earlier one. Members weighting different substats are therefore compared
 on a shared normalization but with their own yardsticks — deliberate, and the reason a member's
-weights still matter after it joins a bundle. Ties break by the member's own rank, then list
+weights still matter after it joins a group. Ties break by the member's own rank, then list
 order, then item key, so a run is reproducible. Rules with **no** substats score zero across the
-board and fall through to list order, exactly as they behaved before bundles existed.
+board and fall through to list order, exactly as they behaved before groups existed.
 
-**Derived, never stored.** Only `depth`, `bundle` and `collapsed` are persisted.
-Parent index, subtree span, member lists, evaluation order and each bundle's demand are all
-derived by `resolve_safeguard_outline`
-(`wasm/rule_engine_core/src/safeguards/outline.rs`). There is deliberately **no TypeScript
-re-implementation**: `lib/safeguardOutline.ts` is a memoizing facade over the wasm entry point
-`safeguard_outline_value`, so the number the chip shows is the number the engine keeps. This
-follows the same stance as `getSafeguardCountKey`/`getSafeguardItemKey` and
-`should_include_recipe`; `safeguardFocusGroupKeyFor` is the counter-example (an unpinned TS
-mirror that has already drifted from its Rust twin).
+**Settings ride inline on every member.** `SafeguardRule.group` is
+`{ id, requiredCount, countMode }` (`SafeguardGroupSettings`, `lib/safeguards.ts`); every member of
+a run carries an identical copy and the run's **first member is the copy the engine reads**. A
+single member pasted elsewhere therefore still knows what its group promised. Persisted as
+`Group: { id, requiredCount, countMode }` on the rule entry, omitted when ungrouped, so files
+written before groups existed re-save byte-identically; `sfc_reader.rs` parses the same key so the
+native DLL cannot flatten a group. Group ids are opaque random tokens (`createSafeguardGroupId`),
+unique only within one array.
 
-**Engine shape.** Members run through the unchanged per-rule evaluation, and
-`safeguard_apply_bundle_caps` then pools their finished `item_keys` (each carrying the score from
-its own member's `candidates`), sorts the pool, and writes the survivors back onto the members
-that fed them — a decision over completed selections rather than an evaluation of its own.
-Survivors are re-sorted into each member's own ranked order before being written back, so rank
-overlays and preview rows keep the order the member scored them in. Three details matter:
+**Derived, never stored: which entries form a run.** `resolve_safeguard_groups`
+(`wasm/rule_engine_core/src/safeguards/groups.rs`) resolves runs — maximal sequences of ADJACENT
+non-separator entries carrying the same id — for the detection scan, the native DLL and the UI
+alike; `lib/safeguardGroups.ts` is a memoizing facade over the wasm entry `safeguard_groups_value`.
+There is deliberately **no TypeScript re-implementation** (same stance as
+`getSafeguardCountKey`/`getSafeguardItemKey`). Membership is "adjacent AND same id", never the id
+alone: two stretches with the same id separated by anything are two runs, each capped by its own
+head's settings.
 
-- **A bundle is forced inert** (`activation` overridden to `off` at prepare time). Left active it
-  would match everything — it has no combination — protect the whole account, and starve the very
-  members that feed it, because it evaluates before them and marks their candidates as no longer
-  sold.
+**Normalization** (`normalizeSafeguardGroups`, `lib/safeguardGroups.ts`) runs at exactly three
+places — the mutation funnel `applySafeguardRulesChange`, the SFC parse path and the
+`append`-import seam — and repairs three invariants without ever dropping an entry:
+1. an id names one run (a repeated id after a gap keeps the FIRST run's id and re-ids the later
+   runs, cloning their settings);
+2. a run has at least two members (a group of one is dissolved — it is just a rule with an extra
+   count);
+3. every member of a run carries the same settings — the canonical copy is the member whose
+   settings changed relative to the previous list (found by object identity, since every mutation
+   path replaces the edited entry; this is how an edit in the builder's group strip on ONE member
+   fans out to its whole run), and the run's head otherwise.
+
+**Engine shape.** Members run through the unchanged per-rule evaluation in array order, and
+`safeguard_apply_group_caps` then visits each run once (at its head), pools the members' finished
+`item_keys` (each carrying the score from its own member's `candidates`), sorts the pool, keeps the
+head's `requiredCount` per bucket keyed by the head's `countMode`, and writes the survivors back
+onto the members that fed them — a decision over completed selections rather than an evaluation
+of its own. Survivors are re-sorted into each member's own ranked order before being written back,
+so rank overlays and preview rows keep the order the member scored them in. Two details matter:
+
 - **Only ACTIVE members feed the pool or consume room.** A member switched Off protects nothing in
-  practice, and a SEPARATOR nested in a bundle arrives as an inert `activation=off` entry carrying
-  the factory-default (empty ⇒ match-everything) combination. Either one would otherwise eat the
-  bucket and starve its siblings.
+  practice; letting its scored keys into the pool would have it silently crowd out its siblings.
 - Placeholders are cleared for a member whose contributions were trimmed: once the shared bucket
   is turning real gear away, there is nothing left to anticipate.
 
-Evaluation order is post-order (innermost bundle first), so a nested bundle has already decided
-what survives when an outer one pools it — both headers apply, and the tighter number wins.
-Post-order over a bundle-free list is exactly array order, so **every file written before bundles
-evaluates bit-identically**. Detection entries stay in array order, so `ruleOrdinal === index + 1`
-continues to hold for every cross-panel consumer.
+A flat list evaluates bit-identically to before groups existed. Detection entries stay in array
+order, so `ruleOrdinal === index + 1` continues to hold for every cross-panel consumer.
+
+**What the four modes mean inside a group** (the builder's mode tooltip gains this paragraph on a
+member — `safeguardsGroupModeHint`):
+
+| Mode | In a group |
+|---|---|
+| **Off** | Feeds nothing, takes no room in the pool. |
+| **Protect existing** | Feeds its top-N existing pieces; the group keeps its top-M of the pool. A piece can be *inside this rule's quota yet sold by the group* — the flyout marks such rows in the group's colour ("sold by the group"). |
+| **Anticipate gaps** | Also reserves slots for missing drops, but only while the group still has room (see the trimmed-placeholder rule above). |
+| **Anticipate improvements** | Watch rules stay computed per member against its own feed and threshold — keep-biased: a drop that beats this member's feed but not the group cutoff is protected until the next sync, then released. |
 
 **Two hand-maintained field lists gate every safeguard mutation, and both must know a new
 field.** `applySafeguardRulesChange` drops an update when it produces neither a history
@@ -281,64 +301,63 @@ descriptor nor a reorder — the guard that stops empty undo entries. The descri
 `buildSafeguardRuleSignature` *and compared* by `safeguardRuleSignaturesEqual`
 (`history/safeguardsDescriptors.ts`), so a field added to the signature but forgotten in the
 comparator compares equal, the change looks like a no-op, and the edit is **silently discarded**.
-`bundle` and `depth` are in both. `collapsed` is deliberately in neither: it is
-presentation state, and its changes pass `{ displayOnly: true }` to the funnel, which opts out of
-the no-op guard without inventing a history entry.
+`group` is in both (compared with `safeguardGroupSettingsEqual`), and in
+`safeguardRuleContentFingerprint` (joining/leaving and the group's count/chips all change the
+emitted rule set) and `createSafeguardRuleContentSnapshot` (the group strip is a builder edit the
+dirty check must see).
 
-**Structural edits clear the selection.** Grouping and ungrouping shift every following index, so
-selecting through the normal path afterwards would auto-apply the still-pending builder draft to
-whatever now occupies the old index — writing a plain rule straight over the freshly created
-bundle header. Both handlers clear the selection instead.
+**`#` separator prefixes are NOT groups.** They remain a divider line-style hint
+(`deriveSeparatorDividerDecoration`). `presets/lategame.sfc` fakes structure with them today
+(`Accessories` → `# Rings` / `# Amulets` / `# Banners`); inferring membership on load would silently
+turn a divider into a quota-bearing group and change what the file protects. A separator never
+carries a group and always ends the run before it.
 
-**Structural invariant.** An entry may sit at most one level deeper than its predecessor, and
-only when that predecessor is a bundle header. `normalizeSafeguardOutline` repairs violations by
-pulling entries up to the deepest legal level — never by discarding them — and runs at exactly
-three places: the mutation funnel `applySafeguardRulesChange`, the SFC parse path, and the
-`append`-import seam. Depth is clamped to `SAFEGUARD_OUTLINE_MAX_DEPTH`
-(`shared/domain-constants.json`).
+**Group colour.** Every group is identified by a colour derived from its id
+(`lib/labelColors.ts`: FNV-1a hash → golden-angle hue, `ensureContrastOnBg` against the active
+scheme's paper) — nothing is stored, and the same helper colours recipe/safeguard **tags** by their
+text, so a tag reads the same colour on every chip in all three themes.
 
-**`#` separator prefixes are NOT depth.** They remain a divider line-style hint
-(`deriveSeparatorDividerDecoration`). `presets/lategame.sfc` fakes an outline with them today
-(`Accessories` → `# Rings` / `# Amulets` / `# Banners`); inferring depth on load would silently
-turn a divider into a quota-bearing header and change what the file protects.
+**UI.** Member chips carry a coloured left edge (`SAFEGUARD_GROUP_EDGE_PX`, squared where it meets
+the neighbouring member so a run reads as one bracket) and, beside their own `Protect ≥ N`, a
+`SafeguardGroupBadge` (`⊚ ≥ M` in the group's colour, tooltip naming the group's chips). No chevron,
+no collapse, no indentation. The builder form is an ordinary rule form; when the draft is a member
+the **group strip** appears directly beside Required Count as one visual pill in the group's colour
+— `⊚ ≥ [M]` plus the four scope toggles (`slot · set · faction · main stat`) — and edits the group
+(the draft's copy changes; the funnel's normalizer fans it out to the run). In multi-edit the strip
+shows whenever any selected rule is grouped and stages `groupRequiredCount` / `groupCountMode` onto
+every grouped member (ungrouped ones ignore them — multi-edit never creates a group); with several
+groups selected the strip is neutral-coloured and mixed states hatch like every other mixed
+control. Context menu: *Group selected safeguards* (≥ 2 rules; the block is gathered at its first
+member's slot), *Ungroup* (whole run), *Remove from group* (one member), *Join group above/below*.
 
-**A header owns its count, its scope chips, its name and its tags — nothing else.**
-`SAFEGUARD_BUNDLE_INERT_FIELDS` (`lib/safeguards.ts`) names the rest: `combination`,
-`activation`, the three `ignore*` gates, and every substat/ranking/threshold field. They stay
-stored — that is what makes bundle ⇄ rule conversion lossless — but nothing reads them, so no
-surface may present them as settings. `stripInertSafeguardFields` is the projection built from
-that list (identity for rules and separators, so memo deps are undisturbed) and is what the chip
-summary, the chip's ignore glyphs and the builder's scope-chip redundancy all read.
-`safeguardEntryEffectiveActivation` is the companion scalar: a separator resolves to `off`, a
-**bundle to `protectExisting` whatever it stored**, because `resolve_demands` never looks at
-activation and the header is forced off at prepare time — the cap is unconditional, so no surface
-may render an off-switch nothing honours (`isSafeguardRuleActive` routes through it, as do the
-chip badge, the builder's mode row and the note dialog's disabled pill). Multi-edit derives its
-per-bundle skip set from the same list (`SAFEGUARD_BUNDLE_INERT_FIELD_KEYS`), so a staged
-ranking/mode/filter edit lands on rules and passes over headers; both directions are pinned by
-`tests/unit/safeguard-bundle-inert-fields.test.ts` and `safeguard-bundle-multiedit.test.ts`.
+**Moves — one rule: a position move never changes membership; only join/leave/drag-into-bracket
+do.** `resolveSafeguardDirectionalMove` (all four directional actions, through
+`useItemListManager.resolveDirectionalMove`): a selection entirely inside one run moves within it
+and stops at the run's edge; anything else is widened to whole units (an ungrouped entry is a unit,
+a run is a unit — a partially selected run is taken along in full) and steps over the neighbouring
+unit, so an outsider hops a run rather than landing inside it and a run moves as one block.
+Drag & drop (`resolveSafeguardDropMembership` + `moveSafeguardEntriesForDrop`, through
+`useItemListManager.resolveDropMove` for moves AND Ctrl-copies): the drop guide is inset by
+`SAFEGUARD_GROUP_JOIN_OFFSET_PX` and takes the group's colour when the drop will JOIN; a drop point
+strictly inside a run always joins, one touching no run never does, and at a run's edge the
+pointer's horizontal position decides (the run above wins when both touch the point). A joining drop
+gives every dragged rule the run's settings; a flush drop leaves them — except a run dragged IN FULL,
+which travels intact (Ctrl-copy of a whole run makes a second group under a fresh id via
+`remapSafeguardGroupIds`, so it never merges into its source). Duplicate inserts the clone right
+after its source, so a duplicated member stays a member. Paste keeps whatever ids the entries carry;
+the normalizer re-ids collisions and dissolves strays.
 
-**UI.** Chips indent by `SAFEGUARD_OUTLINE_INDENT_PX` per level, with a left border on nested
-chips; bundle headers carry a collapse chevron (Ctrl/right-click applies to all) and show their
-own `≥ N` like any other entry — read through the outline, so an empty header correctly reads 0,
-and without an activation word or ignore glyphs, since a header owns neither. Members show their
-own count unchanged; it now reads as the size of the feed they contribute. In the builder form a
-bundle draft dims every inert section the way a separator does (filters, substats/weights/
-threshold, the mode toggle, the ignore chips) and keeps only what the header owns live: the name,
-the count with its `fed by N safeguards` caption — an empty bundle keeps nothing however high the
-number is set — the tags, and **the four scope chips, which move up beside the count** because
-the sections they normally sit under are inert. Same `renderScopeChip`, same handlers; only the
-placement moves. Redundancy for those chips is resolved against the stripped entry, so a header's
-retained filters can never grey out a bucket it really does split by. Delete / duplicate / copy / drag act on whole subtrees, the four
-directional moves route through `useItemListManager.resolveDirectionalMove`, and drag-and-drop
-picks a nesting level from the pointer's horizontal position via
-`useChipListDnd.resolveDropDepth` (both optional params; the recipe list omits them and is
-unaffected). Cross-panel jumps expand the target's collapsed ancestors before scrolling — done
-once inside `openLogicHubSafeguardRule`, the funnel every entry point uses.
+**Candidate flyout.** On a member, rows inside this rule's own quota that the sell file nevertheless
+sells get the group's colour and the "sold by the group" tooltip. A *Group* toggle chip in the
+flyout header (members only, once detection ran) swaps the list for the pooled **group view**
+(`lib/safeguardGroupPool.ts`): every piece the run's members fed, ranked exactly as
+`safeguard_apply_group_caps` ranks them, cut at the group's count per group bucket, each row tagged
+with the feeding member's ordinal (`·n`). Built purely from the members' detection entries
+(`candidates[].isWithinQuota` = fed, `itemKeys` = survived) — no second scoring pass.
 
 **Overrides DSL.** No grammar change. Selectors are tag-based and operate on entries of the same
-array, so `@tag=… { count = … }` retunes a member's own count — which is now the size of its feed
-— unchanged. `@all` also matches bundle headers, where `count` sets what the bundle keeps.
+array, so `@tag=… { count = … }` retunes a member's own count — which is now the size of its
+feed. There is no selector or field for the group's own count yet.
 
 
 ### Sellfile preview integration
@@ -348,7 +367,7 @@ array, so `@tag=… { count = … }` retunes a member's own count — which is n
 
 ### Safeguards State
 
-- Builder state carries safeguard rules in `safeguardRules` plus the global `safeguardsEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, optional `substats` + `substatMatch`/`substatWeights` for substat-focused protection, `requiredCount`, and a per-rule activation mode (`off`, `protectExisting`, `anticipateGaps`, or `anticipateImprovements`). Entries additionally carry their outline placement — `bundle`, `depth` and `collapsed` (see [Bundles](#bundles-the-safeguards-outline)); all three are omitted at their defaults so pre-bundle files stay byte-identical.
+- Builder state carries safeguard rules in `safeguardRules` plus the global `safeguardsEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, optional `substats` + `substatMatch`/`substatWeights` for substat-focused protection, `requiredCount`, and a per-rule activation mode (`off`, `protectExisting`, `anticipateGaps`, or `anticipateImprovements`). Group members additionally carry their inline `group` settings (see [Groups](#groups-safeguards-sharing-one-required-count)); the field is omitted when ungrouped so pre-group files stay byte-identical.
 - Autosave and SFC payloads serialize the toggle plus combinations via `Safeguards` and `SafeguardsEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like recipes/metasets so undo/redo remains accurate. The SFC import path (`applySfcLoadResult`) always writes the file’s safeguard snapshot into state before we trigger a rule cache warm so a file with zero safeguard rules clears the previous session’s entries and lets the preview chip’s progress ring advance cleanly.
 - Safeguards history entries emit structured tooltip payloads: add/delete snapshots show the full rule breakdown, while updates render before/after diffs for only the changed fields (slots/sets/metasets/main stats plus rank/rarity/faction lines).
 - Safeguard rule names debounce using `BUILDER_AUTO_APPLY_DEBOUNCE_MS`; Gear Inspector match chips refresh from the live name map without forcing a rule-cache rebuild.

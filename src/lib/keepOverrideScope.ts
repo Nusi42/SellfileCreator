@@ -7,8 +7,8 @@
 import { sanitizeSafeguardCountMode, type SafeguardRuleCountMode } from './safeguards'
 
 // Scope chip identifiers align with SafeguardRuleCountMode keys. The array is the display order
-// used wherever the chips are rendered as a group (a bundle header, whose filter sections are
-// inert, shows all four in one row) — the type is derived from it so the two cannot drift.
+// used wherever the chips are rendered as one row (the group strip beside the required count
+// shows all four together) — the type is derived from it so the two cannot drift.
 export const KEEP_OVERRIDE_SCOPE_KEYS = ['perSlot', 'perSet', 'perFaction', 'perMainStat'] as const
 
 export type KeepOverrideScopeKey = typeof KEEP_OVERRIDE_SCOPE_KEYS[number]

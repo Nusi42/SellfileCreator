@@ -562,31 +562,30 @@ pub fn safeguard_count_key_value(payload: &str) -> Result<String, JsValue> {
     Ok(safeguard_count_key_core(input.artifact, input.count_mode))
 }
 
-// Expose safeguard outline (bundle) resolution so the UI reads exactly the structure the
-// engine evaluates. Parent/span/own-quota/evaluation-order/pool are derived ONCE, here, and
-// TypeScript has no copy — the same SSOT stance as safeguard_count_key_value above and
-// should_include_recipe in matcher_evaluator.rs.
+// Expose safeguard group-run resolution so the UI reads exactly the structure the engine
+// evaluates. Run membership is derived ONCE, here, and TypeScript has no copy — the same SSOT
+// stance as safeguard_count_key_value above and should_include_recipe in matcher_evaluator.rs.
 //
 // PERF NOTE: unlike the key helpers this is NOT per-artifact — TS memoizes one call per
-// safeguardRules array change. Payload is a handful of bytes per entry (four optional
-// scalars), so even the 154-rule lategame preset stays well under a kilobyte.
+// safeguardRules array change. Payload is a handful of bytes per entry (an optional id and a
+// flag), so even the 154-rule lategame preset stays well under a kilobyte.
 #[wasm_bindgen]
-pub fn safeguard_outline_value(payload: &str) -> Result<JsValue, JsValue> {
+pub fn safeguard_groups_value(payload: &str) -> Result<JsValue, JsValue> {
     // One deny_unknown_fields parse over the compact per-entry projection. Because the payload
     // type is ts-rs-generated, a field mismatch here means the loaded .wasm predates the current
     // TypeScript — i.e. a stale build artifact, not bad data. Say so: this parse gates every
     // safeguard mutation, so an unexplained failure reads as "the app cannot add safeguards".
-    let entries: Vec<SafeguardOutlineEntryIn> = serde_json::from_str(payload)
+    let entries: Vec<SafeguardGroupEntryIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!(
-            "Invalid safeguard outline payload: {error}. \
+            "Invalid safeguard groups payload: {error}. \
              This usually means the loaded rule engine is older than the app code — \
              rebuild it (npm run wasm:ensure:rule-engine) and hard-reload.",
         )))?;
-    let resolved = resolve_safeguard_outline(&entries);
-    // No BTreeMap anywhere in SafeguardOutlineOut's type graph (all Vec/bool), so plain
+    let resolved = resolve_safeguard_groups(&entries);
+    // No BTreeMap anywhere in SafeguardGroupsOut's type graph (all Vec/bool), so plain
     // to_js_value is correct and cheaper — see the OUTPUT HELPER RULE at the top of this file.
     to_js_value(&resolved)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard outline: {error}")))
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard groups: {error}")))
 }
 
 // Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
@@ -816,10 +815,9 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
             improvement_chance_threshold: rule.improvement_chance_threshold.clone(),
             // Pass tags through unchanged so TS override selectors can match after expansion.
             tags: rule.tags.clone().unwrap_or_default(),
-            // Outline placement survives metaset expansion untouched: expansion rewrites the
+            // Group membership survives metaset expansion untouched: expansion rewrites the
             // combination, never the structure.
-            bundle: rule.bundle.unwrap_or(false),
-            depth: rule.depth.unwrap_or(SAFEGUARD_OUTLINE_DEFAULT_DEPTH),
+            group: rule.group.clone(),
         });
     }
 

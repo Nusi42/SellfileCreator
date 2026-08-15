@@ -46,6 +46,7 @@ import { TINT } from '../lib/colorTints'
 // Divider decoration + row are shared with the safeguard chip list (one separator look).
 import { deriveSeparatorDividerDecoration } from '../lib/separators'
 import { SeparatorDividerRow } from './SeparatorDividerRow'
+import { INLINE_TAG_CHIP_SX, useTagChipSx } from './BuilderTagChips'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const RECIPE_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -118,6 +119,8 @@ function RecipeChip({
   const rarityLabelColors = useRarityLabelColorMap()
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
+  // Per-tag colour (stable hue per tag text, contrast-adapted to the active scheme's paper).
+  const tagChipSx = useTagChipSx()
   const primaryColor = (theme.vars?.palette.primary.main ?? theme.palette.primary.main)
   // Keep disabled chip dimming aligned with other disabled UI elements.
   const disabledOpacity = resolveDisabledOpacity(theme)
@@ -344,10 +347,10 @@ function RecipeChip({
       {!isSeparator && showTagsChips && recipe.tags && recipe.tags.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0, alignItems: 'flex-end', mr: 0.25 }}>
           {recipe.tags.slice(0, 3).map((tag) => (
-            <Chip key={tag} size="small" label={tag} sx={{ height: 16, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.75 } }} />
+            <Chip key={tag} size="small" variant="outlined" label={tag} sx={[INLINE_TAG_CHIP_SX, tagChipSx(tag)]} />
           ))}
           {recipe.tags.length > 3 ? (
-            <Chip size="small" label={`+${recipe.tags.length - 3}`} sx={{ height: 16, fontSize: '0.65rem', opacity: 0.7, '& .MuiChip-label': { px: 0.75 } }} />
+            <Chip size="small" label={`+${recipe.tags.length - 3}`} sx={[INLINE_TAG_CHIP_SX, { opacity: 0.7 }]} />
           ) : null}
         </Box>
       ) : null}

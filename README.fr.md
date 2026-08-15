@@ -188,18 +188,18 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 | `Par stat principale` | Duplique la quote-part pour chaque stat principale. | Séparer les réserves d’étendards ACC vs RES. |
 
 #### Groupes : plusieurs protections partageant un nombre requis
-Deux protections peuvent finir par décrire la *même* promesse sans le vouloir. L'une garde 3 bons anneaux, l'autre en garde 2 — alors que tu ne voulais que 3 anneaux au total, et t'en gardes maintenant 5.
+Deux protections peuvent finir par décrire la *même* promesse sans le vouloir. L’une garde 3 bons anneaux, l’autre en garde 2 — mais vous ne vouliez que 3 anneaux au total, et vous en gardez maintenant 5.
 
-Un **groupe** règle ça. Transforme une entrée en groupe avec le bouton `Groupe` à côté du champ du nom, puis glisse des protections dedans (ou sélectionnes-en plusieurs et choisis `Regrouper dans un groupe` dans le menu du clic droit).
+Un **groupe** règle cela. Sélectionnez les protections (clic, puis Ctrl+clic) et choisissez `Grouper les sauvegardes sélectionnées` dans le menu contextuel. Chaque membre affiche désormais une bordure colorée dans la liste, et une petite bande de groupe apparaît juste à côté de son `Nombre requis` dans le formulaire : le nombre propre au groupe et ses propres boutons de portée.
 
-- Chaque protection dans un groupe cherche **exactement** ce qu'elle cherchait avant : ses propres emplacements, sets, sous-stats et pondérations. Un groupe ne change jamais ce qu'elles cherchent.
-- Ce qui change, c'est où vont leurs trouvailles. Une protection dans un groupe ne garde plus d'équipement toute seule : elle **propose** ses trouvailles au groupe, et son propre `Nombre requis` décide combien elle en propose.
-- Le `Nombre requis` du groupe est le nombre qui décide vraiment. Tape-le directement : c'est ce que le groupe garde parmi tout ce que ses protections lui ont proposé.
-- Les boutons de portée du groupe décident de ce qui compte comme un même lot. Mets `Par faction` sur le groupe et chaque faction reçoit son propre compte, quelle que soit la répartition des protections à l'intérieur.
-- Quand plusieurs protections proposent des pièces pour le même lot, **les meilleures pièces gagnent**. Chaque pièce est jugée avec les sous-stats et les pondérations de la protection qui l'a proposée, donc une pièce de la deuxième protection peut tout à fait battre une pièce de la première.
-- Les groupes peuvent contenir des groupes. Clique sur le ▾ d'un groupe pour le replier ; le clic droit replie tous les groupes d'un coup.
+- Chaque protection d’un groupe continue de chercher **exactement** ce qu’elle a toujours cherché — ses propres emplacements, sets, sous-stats, poids et mode. Un groupe ne change jamais ce qu’elles recherchent.
+- Ce qui change, c’est où vont leurs trouvailles. Une protection dans un groupe ne garde plus d’équipement seule : elle **propose** ses trouvailles au groupe, et son propre `Nombre requis` décide combien elle en propose.
+- Le nombre du groupe (le champ `⊚ ≥` à côté du `Nombre requis`) est celui qui décide vraiment. Saisissez-le directement : c’est ce que le groupe garde parmi tout ce que ses protections lui ont proposé. Il démarre à la somme des nombres des membres, donc grouper ne change rien tant que vous ne le baissez pas. Le modifier sur n’importe quel membre modifie le groupe.
+- Les boutons de portée du groupe décident de ce qui compte comme le même panier. Mettez `faction` sur le groupe et chaque faction obtient son propre nombre, quelle que soit la répartition des protections à l’intérieur.
+- Quand plusieurs protections proposent des pièces pour le même panier, **les meilleures pièces gagnent**. Chaque pièce est jugée d’après les sous-stats et les poids de la protection qui l’a proposée, donc une pièce de la seconde protection peut tout à fait battre une pièce de la première. Le volet des candidats marque dans la couleur du groupe les pièces que le groupe a vendues, et sa bascule `Groupe` affiche tout le panier classé ensemble.
+- Les groupes sont contigus : glissez une protection dans un groupe (déposez-la dans le crochet coloré) ou hors de lui (déposez-la à ras), ou utilisez le menu contextuel — `Retirer du groupe`, `Rejoindre le groupe au-dessus/en dessous`, `Dégrouper`. Déplacer une protection vers le haut ou le bas ne change jamais son groupe ; un groupe entier se déplace d’un bloc.
 
-**Exemple.** Tu veux cinq bons accessoires de VIT par faction, mais « bon » veut dire deux choses : `VIT + T.CRIT + D.CRIT` pour les DPS, `VIT + PV + DEF` pour les tanks. Crée une protection par profil, mets les deux dans un groupe et règle le groupe sur `5` avec `Par faction`. Chaque protection propose ses meilleures pièces, et le groupe garde les cinq qui ressortent le mieux des deux — au lieu de cinq de chaque.
+**Exemple.** Vous voulez cinq bons accessoires VIT par faction, mais « bon » veut dire deux choses : `VIT + TC + DC` pour les attaquants, `VIT + PV + DEF` pour les tanks. Créez une protection pour chaque profil, groupez-les et réglez le groupe sur `5` avec `faction`. Chaque protection propose ses meilleures pièces, et le groupe garde les cinq qui ressortent le mieux entre les deux — au lieu de cinq de chaque.
 
 #### Exemples concrets
 

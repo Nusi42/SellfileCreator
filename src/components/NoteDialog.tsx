@@ -71,8 +71,8 @@ import {
   safeguardEffectiveCountModeForDisplay,
   type SafeguardRule,
   SafeguardRuleActivation,
-  // "Is this entry on" is never read off the stored activation: separators and bundle headers
-  // both reach the scan with one the engine chose for them.
+  // "Is this entry on" is never read off the stored activation: a separator reaches the scan
+  // with one the engine chose for it.
   safeguardEntryEffectiveActivation,
   SafeguardSubstatMatch,
   normalizeSafeguardSubstatMatch,

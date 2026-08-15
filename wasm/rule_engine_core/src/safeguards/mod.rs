@@ -18,12 +18,12 @@ pub mod improvement_chance;
 // Improvement-watch corner synthesis: post-detection pass that turns zero-missing
 // "watch" placeholders into minimal-substat-value corner frontiers (or removes them).
 mod improvement_watch;
-// Bundle outline: the single authority for parent/span/member-list/evaluation-order/demand
-// derivation over the flat Safeguards array. TypeScript calls into it rather than mirroring it.
-pub mod outline;
-// Detection-path tests for bundles, kept out of this file (already past the size guideline).
+// Safeguard groups: the single authority for contiguous-run resolution over the flat
+// Safeguards array. TypeScript calls into it rather than mirroring it.
+pub mod groups;
+// Detection-path tests for groups, kept out of this file (already past the size guideline).
 #[cfg(test)]
-mod bundle_tests;
+mod group_tests;
 // Re-export pub(crate) structs that lib.rs imports via `use safeguards::*`.
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
@@ -324,14 +324,29 @@ pub struct SafeguardWasmRuleIn {
     // unchanged so TS can apply selector-matched override instructions after metaset expansion.
     #[serde(default)]
     pub tags: Option<Vec<String>>,
-    // ── Bundle outline (see safeguards/outline.rs) ──────────────────────────────────────
-    // True marks a bundle header. A bundle never evaluates: its members do, unchanged. It only
-    // MERGES their count-buckets (re-keyed by its own count_mode) and caps each merged bucket.
+    // ── Group membership (see safeguards/groups.rs) ─────────────────────────────────────
+    // Present on every member of a group; absent on an ungrouped rule. Adjacent members with
+    // the same `id` form one run, and the run's FIRST member's `required_count`/`count_mode`
+    // are the settings the engine reads (the TypeScript normalizer keeps all members equal).
     #[serde(default)]
-    pub bundle: Option<bool>,
-    // Outline level; absent = top level.
+    pub group: Option<SafeguardWasmGroupIn>,
+}
+
+// ts-rs export: the group settings a member carries inline. A group is not an entry of its
+// own — it merges its members' feeds into buckets keyed by `count_mode` and keeps
+// `required_count` out of each. Nested by name from SafeguardWasmRuleIn / SafeguardWasmResolvedRuleOut.
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SafeguardWasmGroupIn {
+    // Opaque unique id; membership is "adjacent AND same id".
+    pub id: String,
+    // How many pieces the group keeps per merged bucket. Absent → 1, like every count.
     #[serde(default)]
-    pub depth: Option<i64>,
+    pub required_count: Option<i64>,
+    // The chips that define the merged buckets. Absent → the default (per-rule) mode.
+    #[serde(default)]
+    pub count_mode: Option<SafeguardWasmCountMode>,
 }
 
 // Resolved safeguard rule payload returned after metaset expansion in lib.rs.
@@ -359,10 +374,9 @@ pub struct SafeguardWasmResolvedRuleOut {
     pub improvement_chance_threshold: Option<ImprovementChanceThresholdIn>,
     // Opaque string tags passed through from the input rule unchanged.
     pub tags: Vec<String>,
-    // Outline placement echoed back so metaset-expansion consumers keep the structure intact.
-    // Expansion rewrites the combination, never the structure.
-    pub bundle: bool,
-    pub depth: i64,
+    // Group membership echoed back verbatim so metaset-expansion consumers keep the structure
+    // intact. Expansion rewrites the combination, never the structure.
+    pub group: Option<SafeguardWasmGroupIn>,
 }
 
 // Canonical metaset-id list is sorted and deduped for deterministic hashes.
@@ -2935,32 +2949,31 @@ pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> 
     selection.contains(&candidate)
 }
 
-/// Applies every bundle's cap to the finished member selections.
+/// Applies every group's cap to the finished member selections.
 ///
-/// This is the whole of what a bundle does. Members evaluate exactly as if ungrouped — own
+/// This is the whole of what a group does. Members evaluate exactly as if ungrouped — own
 /// filters, substats, weights, count mode, ranking, required count — and produce their own
-/// `item_keys`. A bundle then MERGES their count-buckets, re-keyed by the BUNDLE's own count
-/// mode, and keeps its own `requiredCount` out of each merged bucket (`outline.demands`, which is
-/// that number verbatim — not a max, not a sum, and with no override flag).
+/// `item_keys`. The group then MERGES their count-buckets, re-keyed by the GROUP's own count
+/// mode, and keeps the group's `required_count` out of each merged bucket. Both settings are read
+/// off the run's FIRST member (`groups.run_starts`); the TypeScript normalizer keeps every member
+/// of a run carrying the same copy, so the head is simply the canonical one.
 ///
 /// The pooled feed is ranked by the score each piece got from its OWN member. Scores are absolute
 /// (normalized against canonical max rolls, never against one rule's own pool), so a piece fed by
 /// a later member genuinely outranks a weaker one from an earlier member. Ties break by the
 /// member's own rank, then its position in the list, then the item key, so a run is reproducible.
 /// Rules with no substats score zero throughout and fall through to that list order — exactly how
-/// they behaved before bundles existed.
+/// they behaved before groups existed.
 ///
-/// Only the header's count and count mode are read here: a bundle owns nothing else (see
-/// SAFEGUARD_BUNDLE_INERT_FIELDS on the TypeScript side, which is what the builder form dims).
-///
-/// Bundles are visited innermost-first (post-order), so an inner bundle's cap is already in
-/// effect when an outer one counts what survived: both constraints hold.
-fn safeguard_apply_bundle_caps(
-    outline: &outline::SafeguardOutlineOut,
+/// A group with nothing to decide over — no active member, or a count at or above what was fed —
+/// leaves every member's selection untouched, so a flat list is bit-identical to before.
+fn safeguard_apply_group_caps(
+    groups: &groups::SafeguardGroupsOut,
+    group_settings: &[Option<SafeguardWasmGroupIn>],
     candidates: &[SafeguardWasmCandidateIn],
     entries: &mut [SafeguardWasmEntryOut],
 ) {
-    // item_key → artifact, so a member's selections can be re-bucketed by the bundle's mode.
+    // item_key → artifact, so a member's selections can be re-bucketed by the group's mode.
     // Borrowed, not cloned: an artifact carries a substat Vec, and a developed account reaches
     // thousands of candidates — cloning them all per scan would be pure waste. `entries` is a
     // disjoint borrow, so these references stay valid across the mutation below.
@@ -2968,29 +2981,30 @@ fn safeguard_apply_bundle_caps(
         .iter()
         .map(|candidate| (candidate.item_key, &candidate.artifact))
         .collect::<BTreeMap<i64, &SafeguardWasmArtifactIn>>();
-    for bundle_index in outline.post_order.iter().map(|value| *value as usize) {
-        // Non-bundles hold no merged-bucket demand, and an empty bundle resolves to 0.
-        let demand = outline.demands.get(bundle_index).copied().unwrap_or(0);
-        if demand <= 0 {
+    for head in 0..entries.len() {
+        // Visit each run once, at its head.
+        if groups.run_starts.get(head).copied().unwrap_or(-1) != head as i64 {
             continue;
         }
-        // The bundle's own count mode defines the merged buckets — "merged based on the
+        let run_len = groups.run_lens.get(head).copied().unwrap_or(0).max(0) as usize;
+        let members = head..(head + run_len).min(entries.len());
+        // The head's settings are the group's settings. A count below 1 would mean "keep
+        // nothing", so it clamps like every other required count.
+        let Some(settings) = group_settings.get(head).and_then(Option::as_ref) else { continue };
+        let demand = settings.required_count.unwrap_or(1).max(1);
+        // The group's own count mode defines the merged buckets — "merged based on the
         // bucket-defining properties". Members' chips still shape their OWN feed; they just do
         // not decide what counts as the same bucket once that feed arrives here.
-        let Some(bundle_mode) = entries.get(bundle_index).map(|entry| entry.count_mode) else {
-            continue;
-        };
-        let members = outline.pools.get(bundle_index).map(Vec::as_slice).unwrap_or(&[]);
+        let group_mode = safeguard_resolve_count_mode(settings.count_mode);
         // Pool every member's feed into one list before deciding anything. Members do not keep
-        // gear of their own inside a bundle — each one's required count sized what it fed, and
-        // the bundle now picks the survivors across all of it.
-        let mut pooled = Vec::<PooledBundleCandidate>::new();
-        for (member_order, member_index) in members.iter().enumerate() {
-            let Some(entry) = entries.get(*member_index as usize) else { continue };
+        // gear of their own inside a group — each one's required count sized what it fed, and
+        // the group now picks the survivors across all of it.
+        let mut pooled = Vec::<PooledGroupCandidate>::new();
+        for (member_order, member_index) in members.clone().enumerate() {
+            let Some(entry) = entries.get(member_index) else { continue };
             // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
             // it — but its entry can still carry scored item_keys for the UI. Letting those
-            // into the pool would have a switched-Off rule (or a separator, which arrives as
-            // one) silently crowd out its siblings.
+            // into the pool would have a switched-Off rule silently crowd out its siblings.
             if safeguard_is_activation_off(&entry.rule_activation) {
                 continue;
             }
@@ -3006,9 +3020,9 @@ fn safeguard_apply_bundle_caps(
                 // the tie-break below then falls through to member order, which is exactly the
                 // "first member fills first" behaviour those rules had before.
                 let (score, own_rank) = score_by_item_key.get(&item_key).copied().unwrap_or((0.0, 0));
-                pooled.push(PooledBundleCandidate {
+                pooled.push(PooledGroupCandidate {
                     item_key,
-                    member_index: *member_index as usize,
+                    member_index,
                     member_order,
                     score,
                     own_rank,
@@ -3038,7 +3052,7 @@ fn safeguard_apply_bundle_caps(
                 artifact.set,
                 artifact.faction,
                 artifact.main_stat,
-                bundle_mode,
+                group_mode,
             );
             let left = room.entry(key).or_insert(demand);
             if *left > 0 {
@@ -3046,7 +3060,7 @@ fn safeguard_apply_bundle_caps(
                 survivors.entry(candidate.member_index).or_default().push(candidate.item_key);
             }
         }
-        for member_index in members.iter().map(|value| *value as usize) {
+        for member_index in members {
             let Some(entry) = entries.get_mut(member_index) else { continue };
             if safeguard_is_activation_off(&entry.rule_activation) {
                 continue;
@@ -3073,16 +3087,16 @@ fn safeguard_apply_bundle_caps(
     }
 }
 
-// One piece a member fed into its bundle, carrying everything the shared decision needs: the
+// One piece a member fed into its group, carrying everything the shared decision needs: the
 // score its own member gave it (the ranking yardstick) plus deterministic tie-breaks.
-struct PooledBundleCandidate {
+struct PooledGroupCandidate {
     item_key: i64,
     // Index into `entries` of the member that fed this piece — where the survivor is written back.
     member_index: usize,
-    // Position of that member in the bundle's pool; the user's stated priority order.
+    // Position of that member in the run; the user's stated priority order.
     member_order: usize,
     // Score from the member's OWN substats/weights. Pieces from different members are compared
-    // on this number directly, which is the ranking the user chose for bundles.
+    // on this number directly, which is the ranking the user chose for groups.
     score: f64,
     // The member's own 1-based rank for this piece; first tie-break so a member's internal
     // ordering survives when two pieces score identically.
@@ -4510,25 +4524,28 @@ fn compute_safeguard_protection_core(
     // effect — without it the toggle would only relabel kept-vs-sold counters, since the
     // protected union across rules is invariant under that relabeling.
     let mut previously_protected_state = vec![false; parsed_candidates.len()];
-    // ── Bundle outline ──────────────────────────────────────────────────────────────────
-    // Captured before the rules are consumed below. A bundle does NOT evaluate — its members do,
+    // ── Groups ──────────────────────────────────────────────────────────────────────────
+    // Captured before the rules are consumed below. A group does NOT evaluate — its members do,
     // each exactly as if ungrouped, which is what makes each member's own required count the
-    // size of its FEED. The bundle then pools those feeds and decides what survives (see
-    // safeguard_apply_bundle_caps), so nothing here touches candidate collection or scoring.
-    // Separators reach this function already projected to activation=off, and are excluded from
-    // membership by that projection rather than a flag Rust never receives.
-    let outline_entries = parsed_rules
+    // size of its FEED. The group then pools those feeds and decides what survives (see
+    // safeguard_apply_group_caps), so nothing here touches candidate collection or scoring.
+    // Separators reach this function already projected to activation=off; they carry no group
+    // in the wire projection, so they end a run exactly as the resolver requires.
+    let group_entries = parsed_rules
         .iter()
-        .map(|rule| outline::SafeguardOutlineEntryIn {
-            depth: rule.depth,
-            bundle: rule.bundle.unwrap_or(false),
+        .map(|rule| groups::SafeguardGroupEntryIn {
+            group_id: rule.group.as_ref().map(|group| group.id.clone()),
             separator: false,
-            required_count: rule.required_count,
         })
         .collect::<Vec<_>>();
     // Resolved once for the whole scan, by the same authority the UI calls through
-    // `safeguard_outline_value`, so what the user sees and what the engine evaluates agree.
-    let outline = outline::resolve_safeguard_outline(&outline_entries);
+    // `safeguard_groups_value`, so what the user sees and what the engine evaluates agree.
+    let resolved_groups = groups::resolve_safeguard_groups(&group_entries);
+    // The group settings each member carries, index-aligned; the cap pass reads each run's head.
+    let group_settings = parsed_rules
+        .iter()
+        .map(|rule| rule.group.clone())
+        .collect::<Vec<_>>();
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
@@ -4544,15 +4561,6 @@ fn compute_safeguard_protection_core(
             }
             if activation.trim().is_empty() {
                 activation = SAFEGUARD_ACTIVATION_PROTECT_EXISTING.to_string();
-            }
-            // A BUNDLE never evaluates. It has no combination of its own, so left active it
-            // would match everything, protect the whole account and starve the very members it
-            // is supposed to cap (it evaluates first, marking their candidates as no longer
-            // sold). Forcing it inert here — the same state a separator arrives in — is what
-            // makes "a bundle is a constraint, not a rule" true in the engine rather than just
-            // in the docs. Its entry is still emitted so ordinals stay index-aligned.
-            if rule.bundle.unwrap_or(false) {
-                activation = SAFEGUARD_ACTIVATION_OFF.to_string();
             }
             // Normalize count mode so invalid combos fall back to per-rule mode.
             let count_mode = safeguard_resolve_count_mode(rule.count_mode);
@@ -4713,11 +4721,11 @@ fn compute_safeguard_protection_core(
         entries.push(entry);
     }
 
-    // Bundles cap what their members were allowed to keep. Applied here, after every member has
-    // evaluated independently, because that is precisely what a bundle is: a constraint over
+    // Groups cap what their members were allowed to keep. Applied here, after every member has
+    // evaluated independently, because that is precisely what a group is: a constraint over
     // finished selections rather than an evaluation of its own. No-op on a flat list.
-    if outline.has_bundles {
-        safeguard_apply_bundle_caps(&outline, &parsed_candidates, &mut entries);
+    if resolved_groups.has_groups {
+        safeguard_apply_group_caps(&resolved_groups, &group_settings, &parsed_candidates, &mut entries);
     }
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.
@@ -6603,9 +6611,8 @@ mod no_substat_protect_all_tests {
             main_stat_rank_weight_factor: None,
             improvement_chance_threshold: None,
             tags: None,
-            // Outline placement: test rules are flat, top-level, in no bundle.
-            bundle: None,
-            depth: None,
+            // Test rules are flat, in no group.
+            group: None,
         };
         // Corner-less zero-missing placeholders emit NOTHING in any mode — improvements
         // included: without corners nothing viable clears the bar (or no threshold is set).

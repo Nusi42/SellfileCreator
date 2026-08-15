@@ -64,20 +64,26 @@ import {
   parseMainStatRankWeightFactor,
   bumpMainStatRankWeightFactor,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
-  // Entry-kind discriminator: the draft's kind is asked through the SSOT, not the raw flag.
-  isSafeguardBundle,
-  // "Is this entry on" — never read off the stored activation, which a bundle does not own.
+  // "Is this entry on" — never read off the stored activation, which a separator does not own.
   safeguardEntryEffectiveActivation,
-  // Neutralises the fields a bundle header carries but does not own, so the quota controls read
-  // the entry the engine evaluates instead of the values it happens to retain.
-  stripInertSafeguardFields,
+  // Group settings ride inline on a member; the strip beside the count edits them.
+  cloneSafeguardGroupSettings,
+  isSafeguardGrouped,
   type SafeguardCandidateOut,
   type SafeguardDetectionEntry,
+  type SafeguardGroupSettings,
   type SafeguardImprovementChanceLevelThresholds,
   type SafeguardRule,
+  type SafeguardRuleCountMode,
 } from '../lib/safeguards'
-// Outline placement for the entry being edited — the same facade the chip list and engine use.
-import { safeguardBundleMemberIndices } from '../lib/safeguardOutline'
+// Group colour: a stable hue per group id, adapted to the builder's paper surface.
+import { resolveLabelColor } from '../lib/labelColors'
+import GroupWorkOutlinedIcon from '@mui/icons-material/GroupWorkOutlined'
+import { describeSafeguardGroupScope } from './SafeguardGroupBadge'
+// Group view of the candidate flyout: the members' feeds pooled and ranked the way the engine
+// ranks them, built from the detection entries the members already carry.
+import { buildSafeguardGroupPool } from '../lib/safeguardGroupPool'
+import { safeguardGroupRunIndices } from '../lib/safeguardGroups'
 import type { ColorBlindMode } from '../lib/constants'
 import {
   SAFEGUARD_BUILDER_USER_DEFAULTS_KEY,
@@ -144,7 +150,7 @@ import {
   getMainStatOptionsForSlots,
 } from './keepOverrides/keepOverrideRuleUtils'
 import {
-  // Display order for the chips when they are rendered as one group (bundle drafts).
+  // Display order for the four scope toggles inside the group strip.
   KEEP_OVERRIDE_SCOPE_KEYS,
   resolveKeepOverrideScopeActive,
   toggleKeepOverrideCountMode,
@@ -174,7 +180,7 @@ import { SUBSTAT_SLOT_COUNT } from '../lib/generated/domainConstants'
 import { mainStatToggleGroupSx, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { StatLabel } from './StatLabel'
 import { SlotTintControlScope } from '../lib/slotTintContext'
-import { useTheme, useColorScheme } from '@mui/material/styles'
+import { alpha, useTheme, useColorScheme } from '@mui/material/styles'
 import type { Metaset } from '../lib/metasets'
 import type { SafeguardMultiEditDraftHandle } from '../lib/safeguardMultiEditDraft'
 import {
@@ -216,7 +222,7 @@ import {
 } from '../lib/noteSafeguardOverrides'
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { MenuToggleRow } from './MenuToggleRow'
-import { TINT } from '../lib/colorTints'
+import { ALPHA, TINT } from '../lib/colorTints'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -271,9 +277,8 @@ export type SafeguardBuilderPanelProps = {
   editingRuleIdx: number | null
   editingRuleIndex: number | null
   /**
-   * The live safeguard list. The form edits a detached draft, but the OUTLINE questions it has
-   * to answer — "is this entry inside a bundle?", "whose promise governs its count?" — are
-   * properties of the entry's position in the list, not of the draft.
+   * The live safeguard list. The form edits a detached draft; the list is what the candidate
+   * flyout's group view reads its sibling members from.
    */
   allRules: readonly SafeguardRule[]
   metasets: Metaset[]
@@ -301,6 +306,9 @@ export type SafeguardBuilderPanelProps = {
   // Detection snapshot entry for the currently-editing rule (null when not yet run or rule not found).
   // Used to populate the candidate rank list in the weight popover.
   detectionEntry?: SafeguardDetectionEntry | null
+  // Every detection entry of the latest snapshot, index-aligned by `ruleOrdinal`. The candidate
+  // flyout's group view reads the sibling members' entries from it; absent until detection ran.
+  detectionEntries?: readonly SafeguardDetectionEntry[] | null
   // Emitted HSF rule count for the current selection (single rule, or the multiselect
   // total) from the latest merged ruleset — drives the rules chip in the action row.
   // Reflects the applied state: keep rows plus anticipate placeholders; unsaved draft
@@ -361,6 +369,7 @@ export default function SafeguardBuilderPanel({
   onRequestClearHistory,
   onManageMetasets,
   detectionEntry,
+  detectionEntries,
   safeguardRuleCount,
   previewRowByItemKey,
   onSelectCandidate,
@@ -387,6 +396,9 @@ export default function SafeguardBuilderPanel({
   // True when the selected rules have different activation modes and no staged change yet.
   const activationMixed = multiEditActive && multiActivationField?.status === 'mixed' && !multiActivationField.dirty
   const multiRequiredCountField = multiFields?.requiredCount ?? null
+  // Group settings staged across the selection (null on rules that are not grouped).
+  const multiGroupCountField = multiFields?.groupRequiredCount ?? null
+  const multiGroupCountModeField = multiFields?.groupCountMode ?? null
   const multiWeightByRankField = multiFields?.weightMainStatByRank ?? null
   const multiMainStatFactorField = multiFields?.mainStatRankWeightFactor ?? null
   const multiIgnorePreviousField = multiFields?.ignorePreviousSafeguards ?? null
@@ -679,44 +691,76 @@ export default function SafeguardBuilderPanel({
   // switching chips) but are disabled+dimmed via separatorDisabledSectionSx on the row
   // wrappers. Multi-edit never enters separator mode; the toggle is single-edit only.
   const isSeparatorDraft = !multiEditActive && rule.separator === true
-  // Bundle drafts: a header owns its NAME, its COUNT, its SCOPE CHIPS and its TAGS — nothing
-  // else. It never matches gear (its candidates are whatever its members already matched) and it
-  // never scores any (the pooled feed is ranked by the score each member gave), so filters,
-  // substats, weights, ranking, the mode toggle and the cascade/equipped flags are all inert on
-  // it. They stay MOUNTED but disabled+dimmed via the same mechanism separators use, so the
-  // layout does not jump when switching chips and the retained values are visibly inert rather
-  // than gone — which is also what keeps bundle ⇄ rule conversion lossless.
-  const isBundleDraft = !multiEditActive && isSafeguardBundle(rule)
-  // The one flag for "this section describes matching or scoring": inert for BOTH structural
-  // kinds. Row 1 is the exception — it mixes owned controls (count, tags) with inert ones (mode
-  // toggle, ignore chips), so its wrapper dims for separators only and the inert children inside
-  // it carry `isBundleDraft` themselves. Never stack the two: a doubly-dimmed section renders at
-  // opacity².
-  const isMatchingSectionInert = isSeparatorDraft || isBundleDraft
-  // Scope chips describe how the QUOTA is bucketed, so they read the combination the entry
-  // actually evaluates with — for a bundle, none at all. Nothing can be redundant against an
-  // empty filter, and the faction bucket stays available, which is exactly right: a header's
-  // buckets are keyed by its own chips over gear its members chose.
-  const scopeCombination = stripInertSafeguardFields(rule).combination
-  // Which per-X scope chips are no-ops given that combination.
-  const redundantDimensions = safeguardRedundantCountModeDimensions(scopeCombination)
-  // Faction only buckets when accessories can be in scope. Identical to hasAccessorySlot for a
-  // rule (same combination); for a bundle it is unconditionally true.
-  const scopeAllowsFaction = slotSelectionAllowsAccessories(scopeCombination.slots)
-  // Outline position of the entry being edited. Asked of the live list rather than the draft,
-  // because "which bundle contains me" is a property of where the entry sits, and answered by
-  // the shared facade so the form, the chip badge and the engine gate agree.
-  // A bundle's required count is an ordinary editable number — the count it keeps out of each
-  // merged bucket. How many members feed it is worth showing next to that number, because a
-  // bundle with nothing under it keeps nothing however high the count is set. Resolved through
-  // the shared facade so the form and the engine read the same membership.
-  const bundleMemberCount = isBundleDraft && editingRuleIdx !== null
-    ? safeguardBundleMemberIndices(allRules, editingRuleIdx).length
-    : 0
+  // Which per-X scope chips are no-ops given the rule's own combination.
+  const redundantDimensions = safeguardRedundantCountModeDimensions(rule.combination)
+  // Faction only buckets when accessories can be in scope.
+  const scopeAllowsFaction = slotSelectionAllowsAccessories(rule.combination.slots)
+  // ── group strip state ──
+  // A member's group settings ride on the draft itself (identical across the run — the funnel's
+  // normalizer fans an edit on this member out to its siblings). In multi-edit the strip shows
+  // whenever any selected rule is grouped, staging onto every grouped member; ungrouped ones
+  // ignore the staged group fields, since multi-edit never creates a group.
+  const draftGroup: SafeguardGroupSettings | null = isSafeguardGrouped(rule) ? (rule.group as SafeguardGroupSettings) : null
+  const groupStripVisible = multiEditActive
+    ? Boolean(multiSelectedRules?.some((entry) => isSafeguardGrouped(entry)))
+    : draftGroup !== null
+  // The colour identifying the group everywhere (chip edge, badge, strip): derived from the
+  // id and adapted to the builder's paper. In multi-edit with several groups selected the strip
+  // is neutral, since it edits more than one group at once.
+  const multiGroupIds = multiEditActive
+    ? Array.from(new Set((multiSelectedRules ?? []).map((entry) => entry.group?.id).filter((id): id is string => Boolean(id))))
+    : []
+  const stripGroupId = multiEditActive ? (multiGroupIds.length === 1 ? multiGroupIds[0] ?? null : null) : (draftGroup?.id ?? null)
+  const stripColor = stripGroupId ? resolveLabelColor(stripGroupId, schemePalette.background.paper) : null
+  // Displayed group count: the staged value in multi-edit (blank while mixed), else the draft's.
+  const groupCountMixed = multiEditActive && multiGroupCountField?.status === 'mixed' && !multiGroupCountField.dirty
+  const displayGroupCount = multiEditActive
+    ? Number(multiGroupCountField?.value ?? draftGroup?.requiredCount ?? 1)
+    : (draftGroup?.requiredCount ?? 1)
+  // Displayed group chips: staged in multi-edit, else the draft's; per-chip mixed state is
+  // derived across the grouped members exactly like the rule's own chips below.
+  const displayGroupCountMode: SafeguardRuleCountMode = multiEditActive
+    ? ((multiGroupCountModeField?.value as SafeguardRuleCountMode | null | undefined) ?? draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+    : (draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
+  const groupScopeMixed = useMemo(() => {
+    const none = { perSlot: false, perSet: false, perFaction: false, perMainStat: false }
+    if (!multiEditActive || !multiSelectedRules || multiGroupCountModeField?.dirty) return none
+    const grouped = multiSelectedRules.filter((entry) => isSafeguardGrouped(entry))
+    const hasSome = (key: KeepOverrideScopeKey) => grouped.some((entry) => entry.group?.countMode[key] ?? false)
+    const hasMissing = (key: KeepOverrideScopeKey) => grouped.some((entry) => !(entry.group?.countMode[key] ?? false))
+    return {
+      perSlot: hasSome('perSlot') && hasMissing('perSlot'),
+      perSet: hasSome('perSet') && hasMissing('perSet'),
+      perFaction: hasSome('perFaction') && hasMissing('perFaction'),
+      perMainStat: hasSome('perMainStat') && hasMissing('perMainStat'),
+    }
+  }, [multiEditActive, multiSelectedRules, multiGroupCountModeField?.dirty])
+  // Writes a new group count: staged in multi-edit, straight onto the draft otherwise.
+  const commitGroupCount = (raw: number) => {
+    const next = Math.min(9999, Math.max(1, Math.floor(raw || 1)))
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('groupRequiredCount', { value: next, status: 'common' })
+      return
+    }
+    updateRule((prev) => (
+      prev.group ? { ...prev, group: { ...cloneSafeguardGroupSettings(prev.group), requiredCount: next } } : prev
+    ))
+  }
+  // Toggles one of the group's scope chips through the same helper the rule's own chips use.
+  const toggleGroupScope = (scope: KeepOverrideScopeKey) => {
+    const nextMode = toggleKeepOverrideCountMode(displayGroupCountMode, scope)
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('groupCountMode', { value: nextMode, status: 'common' })
+      return
+    }
+    updateRule((prev) => (
+      prev.group ? { ...prev, group: { ...cloneSafeguardGroupSettings(prev.group), countMode: nextMode } } : prev
+    ))
+  }
   // Display activation: read from effectiveRule; in multi-edit mode effectiveRule equals the
   // stored rule (empty instructions path above), so the guard lives in one place only. Routed
-  // through the effective-activation accessor so a bundle header shows the ON state the engine
-  // gives it rather than the mode it happens to have retained from the rule it was seeded from.
+  // through the effective-activation accessor so a separator shows the OFF state the engine
+  // gives it.
   const displayActivation = safeguardEntryEffectiveActivation(effectiveRule)
   // Mode label color: SSOT via resolveSafeguardActivationTextColor; only shown when collapsed.
   // Uses displayActivation so the collapsed color reflects the override when one is active, and
@@ -1062,9 +1106,7 @@ export default function SafeguardBuilderPanel({
   )
 
   // One definition per scope chip — label, availability gate and override badge — so the chip is
-  // identical wherever it is placed: under the filter it buckets by on a rule, and beside the
-  // count on a bundle, whose filter sections are inert but whose chips still key its merged
-  // buckets. Only the placement moves; state, handlers and badges are shared.
+  // identical under every filter it buckets by. State, handlers and badges are shared.
   const renderScopeChipFor = (scope: KeepOverrideScopeKey) => {
     const label = {
       perSlot: t('safeguardsCountModePerSlot'),
@@ -1079,7 +1121,7 @@ export default function SafeguardBuilderPanel({
       perMainStat: perMainStatOverrideActive,
     }[scope]
     // Faction additionally needs accessories in scope; every dimension is also inert when the
-    // combination already pins it to one value (never the case on a bundle, which filters none).
+    // combination already pins it to one value.
     const disabled = (scope === 'perFaction' && !scopeAllowsFaction) || redundantDimensions[scope]
     return renderScopeChip(scope, label, scopeActive[scope], disabled, perScopeMixed[scope],
       overrideActive ? renderSafeguardOverrideBadge(
@@ -1416,9 +1458,47 @@ export default function SafeguardBuilderPanel({
   const { contextMenuGuard: improvementChancePopoverGuard } =
     useContextMenuPaperGuard({ open: Boolean(improvementChanceAnchorEl), onClose: handleImprovementChancePopoverClose, menuRef: improvementChancePopoverMenuRef })
 
-  // Candidate list shown in the popover right column:
-  // prefer live preview (from unsaved weight edits) over the detection snapshot.
-  const popoverCandidates = livePreviewCandidates ?? detectionEntry?.candidates
+  // ── group view of the candidate flyout ──
+  // A member can flip the list from its own candidates to the whole group's pool. Off by
+  // default and dropped whenever the edited entry changes or stops being a member, so the toggle
+  // never outlives the group it described.
+  // Stored as the KEY the toggle was switched on for, so it silently reads as off the moment
+  // the entry or its group changes — no reset effect needed.
+  const groupViewKey = `${editingRuleIdx ?? -1}:${draftGroup?.id ?? ''}`
+  const [groupViewOnKey, setGroupViewOnKey] = useState<string | null>(null)
+  const candidateGroupView = groupViewOnKey === groupViewKey
+  // The run's members' detection entries (in run order), read off the live list by ordinal.
+  const groupMemberEntries = useMemo(() => {
+    if (!draftGroup || editingRuleIdx === null || !detectionEntries) return null
+    return safeguardGroupRunIndices(allRules, editingRuleIdx)
+      .map((index) => detectionEntries.find((entry) => entry.ruleOrdinal === index + 1))
+      .filter((entry): entry is SafeguardDetectionEntry => entry !== undefined)
+  }, [allRules, detectionEntries, draftGroup, editingRuleIdx])
+  const groupPool = useMemo(() => (
+    draftGroup && groupMemberEntries && groupMemberEntries.length > 0
+      ? buildSafeguardGroupPool(groupMemberEntries, draftGroup.countMode)
+      : null
+  ), [draftGroup, groupMemberEntries])
+  const groupViewActive = candidateGroupView && groupPool !== null
+  // Union of the members' substats, so the pooled rows show every member's ranking columns.
+  const groupSubstatSelection = useMemo(() => {
+    if (!draftGroup || editingRuleIdx === null) return []
+    const union = new Set<StatVariant>()
+    for (const index of safeguardGroupRunIndices(allRules, editingRuleIdx)) {
+      for (const variant of allRules[index]?.substats ?? []) union.add(variant)
+    }
+    return Array.from(union)
+  }, [allRules, draftGroup, editingRuleIdx])
+  // The colour rows use to say "trimmed by the group", adapted to the flyout surface.
+  const groupTrimColor = draftGroup ? resolveLabelColor(draftGroup.id, schemePalette.background.paper) : null
+
+  // Candidate list shown in the popover right column: the group's pool when the group view is
+  // on; otherwise prefer live preview (from unsaved weight edits) over the detection snapshot.
+  const popoverCandidates = groupViewActive ? groupPool?.candidates : (livePreviewCandidates ?? detectionEntry?.candidates)
+  // Artifacts behind those rows: the pool's merged map in group view, this rule's otherwise.
+  const popoverArtifactsByItemKey = groupViewActive && groupPool ? groupPool.artifactsByItemKey : artifactsByItemKey
+  // Substat columns follow the same switch.
+  const popoverSubstatSelection = groupViewActive ? groupSubstatSelection : substatSelection
 
   // Number of substat columns per row: max across candidates of how many rule-selected substats
   // the artifact actually has. Tighter than min(substats.length, SUBSTAT_SLOT_COUNT) when not all
@@ -1429,9 +1509,9 @@ export default function SafeguardBuilderPanel({
     }
     let max = 0
     for (const c of popoverCandidates) {
-      const art = artifactsByItemKey.get(c.itemKey)
+      const art = popoverArtifactsByItemKey.get(c.itemKey)
       if (!art) continue
-      const count = substatSelection.filter((v) => art.substats.some((s) => Number(s.variant) === v)).length
+      const count = popoverSubstatSelection.filter((v) => art.substats.some((s) => Number(s.variant) === v)).length
       if (count > max) max = count
     }
     return Math.min(max, SUBSTAT_SLOT_COUNT)
@@ -1991,35 +2071,6 @@ export default function SafeguardBuilderPanel({
             })}
           />
         ) : null}
-        {/* Bundle toggle — mutually exclusive with the divider toggle beside it. Converting keeps
-            the whole draft rather than resetting it (unlike the separator toggle, which persists
-            nothing but a label): the fields a header does not own stay stored but inert, which is
-            what makes bundle ⇄ rule lossless in both directions. */}
-        {!multiEditActive ? (
-          <MarkdownTooltip placement="top" markdown={t('safeguardsBundleToggleHint')}>
-            <ToggleButton
-              value="bundle"
-              size="small"
-              selected={isBundleDraft}
-              aria-label={t('safeguardsBundleLabel')}
-              data-tour-id="safeguards.builder.bundle"
-              onChange={() => updateRule((prev) => {
-                if (isBundleDraft) {
-                  // Back to a plain rule: the retained combination becomes live again, which is
-                  // what makes bundle ⇄ rule lossless.
-                  const { bundle: _dropped, collapsed: _alsoDropped, ...rest } = prev
-                  return rest
-                }
-                // A divider can never also be a container.
-                const { separator: _notADivider, ...rest } = prev
-                return { ...rest, bundle: true }
-              })}
-              sx={{ px: 1.5, flexShrink: 0 }}
-            >
-              {t('safeguardsBundleLabel')}
-            </ToggleButton>
-          </MarkdownTooltip>
-        ) : null}
       </Box>
       {/* Scroll wrapper: gives the toggle-button grid a horizontal scrollbar when wider
           than the splitter-controlled panel; name field above avoids label clipping.
@@ -2042,7 +2093,10 @@ export default function SafeguardBuilderPanel({
           <BuilderSectionHeader id="action" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
             <Box component="span" sx={modeLabelColor ? [BUILDER_LABEL_TEXT_SX, { color: modeLabelColor }] : BUILDER_LABEL_TEXT_SX}>{t('safeguardsRuleModeLabel')}</Box>
           </BuilderSectionHeader>
-          <MarkdownTooltip markdown={ruleModeScopeTooltip}>
+          {/* Members get one extra paragraph: what each mode means once the group decides. */}
+          <MarkdownTooltip markdown={groupStripVisible ? `${ruleModeScopeTooltip}
+
+${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
             <IconButton
               size="small"
               color="inherit"
@@ -2116,11 +2170,8 @@ export default function SafeguardBuilderPanel({
             absolutely-positioned override badges (top:-6) are not clipped by this flex row.
             Using 'clip' (not 'hidden') avoids the CSS forced-auto promotion of overflow-y. */}
         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'nowrap', overflowX: 'clip', mt: `-${SMALL_BUTTON_HEIGHT_PX / 2}px` }}>
-        {/* Mode toggle — label moved to header row above. Inert on a bundle: the engine forces a
-            header off at prepare time and applies its cap regardless, so an editable toggle here
-            would offer an off-switch nothing honours. The row wrapper already dims separators —
-            this adds the bundle case only, so the two never stack. */}
-        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isBundleDraft ? separatorDisabledSectionSx(theme) : {}) })}>
+        {/* Mode toggle — label moved to header row above. The row wrapper dims separators. */}
+        <FormControl sx={(theme) => ({ flex: '0 0 auto', borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent'})}>
 
           {/* Relative-positioned wrapper enables the mixed-state ::before overlay pattern. */}
           <Box sx={{ position: 'relative' }}>
@@ -2289,24 +2340,106 @@ export default function SafeguardBuilderPanel({
           />
         </Box>
 
-        {/* Membership caption + scope chips — bundles only. The count above is an ordinary
-            editable number, but it only means anything once safeguards feed the bundle: an empty
-            header keeps nothing however high it is set. Naming the member count here is what makes
-            that visible without a second control.
-
-            The scope chips live HERE for a bundle rather than beside the filter pickers they
-            normally sit under: those sections are inert on a header, and the chips are the only
-            other thing it owns — they key the merged buckets its count is kept out of. Same
-            renderScopeChip, same handlers, same state; only the placement moves, so a header
-            reads as "≥ N, bucketed like this" with nothing else live around it. */}
-        {isBundleDraft && !multiEditActive ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '1 1 auto', minWidth: 0, alignSelf: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
-              {t('safeguardsBundleFedBy', { count: bundleMemberCount })}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-              {KEEP_OVERRIDE_SCOPE_KEYS.map(renderScopeChipFor)}
-            </Box>
+        {/* Group strip — members only. Sits directly beside the rule's own Required Count as ONE
+            visual unit in the group's colour (a bordered pill, like the mode toggle group): the
+            group's count, then the four scope toggles that define its merged buckets. The rule's
+            own count sizes what it FEEDS the group; the group's count is what the group keeps out
+            of each bucket. Editing here edits the group: the draft's copy changes and the funnel's
+            normalizer fans it out to every member of the run. In multi-edit the strip stages the
+            same two fields onto every grouped member of the selection. */}
+        {groupStripVisible ? (
+          <Box
+            data-tour-id="safeguards.builder.group-strip"
+            sx={(themeInner) => ({
+              display: 'flex',
+              alignItems: 'stretch',
+              flex: '0 0 auto',
+              alignSelf: 'flex-end',
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: stripColor ?? (themeInner.vars?.palette.divider ?? themeInner.palette.divider),
+              overflow: 'hidden',
+            })}
+          >
+            <MarkdownTooltip placement="top" markdown={t('safeguardsGroupStripHint')}>
+              <Box sx={{ display: 'flex', alignItems: 'center', pl: 0.75, pr: 0.25, color: stripColor ?? 'text.secondary', gap: 0.25 }}>
+                <GroupWorkOutlinedIcon sx={{ fontSize: 16 }} />
+                <Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>≥</Box>
+              </Box>
+            </MarkdownTooltip>
+            <TextField
+              size="small"
+              type="number"
+              value={groupCountMixed ? '' : displayGroupCount}
+              {...(groupCountMixed ? { placeholder: t('builderMultiEditMixedPlaceholder') } : {})}
+              onChange={(event) => commitGroupCount(Number(event.target.value))}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <NumberSpinnerAdornment
+                      ariaLabel={t('safeguardsGroupKeepsLabel')}
+                      onStep={(delta) => commitGroupCount(displayGroupCount + delta)}
+                    />
+                  ),
+                },
+                // The accessible name lives on the input itself (the strip has no visible label).
+                htmlInput: { min: 1, step: 1, max: 9999, 'aria-label': t('safeguardsGroupKeepsLabel') },
+              }}
+              sx={(themeInner) => ({
+                width: 78,
+                ...HIDE_NATIVE_NUMBER_SPINNER_SX,
+                // The strip's own border frames the field; the field's outline is dropped so the
+                // pill reads as one control.
+                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '& .MuiOutlinedInput-root': { height: '100%', borderRadius: 0 },
+                '& input': { textAlign: 'right', paddingRight: themeInner.spacing(0.5), paddingLeft: themeInner.spacing(0.25), fontWeight: 600, color: stripColor ?? undefined },
+              })}
+            />
+            <ToggleButtonGroup
+              size="small"
+              value={KEEP_OVERRIDE_SCOPE_KEYS.filter((scope) => displayGroupCountMode[scope])}
+              sx={(themeInner) => ({
+                // Flush against the count field: no outer radius, a hairline between buttons.
+                '& .MuiToggleButtonGroup-grouped': {
+                  border: 0,
+                  borderLeft: '1px solid',
+                  borderColor: stripColor ?? (themeInner.vars?.palette.divider ?? themeInner.palette.divider),
+                  borderRadius: 0,
+                  px: 1,
+                  textTransform: 'capitalize',
+                  // Selected = the group colour as text plus a faint fill of it, so the pressed
+                  // chips read as "on" the way the mode toggle does.
+                  '&.Mui-selected': stripColor ? { color: stripColor, backgroundColor: alpha(stripColor, ALPHA.a15) } : {},
+                },
+              })}
+            >
+              {KEEP_OVERRIDE_SCOPE_KEYS.map((scope) => {
+                const label = {
+                  perSlot: t('safeguardsCountModeScopeSlot'),
+                  perSet: t('safeguardsCountModeScopeSet'),
+                  perFaction: t('safeguardsCountModeScopeFaction'),
+                  perMainStat: t('safeguardsCountModeScopeMain'),
+                }[scope]
+                return (
+                  <MarkdownTooltip key={scope} markdown={safeguardScopeChipTooltips[scope]}>
+                    <ToggleButton
+                      value={scope}
+                      selected={displayGroupCountMode[scope]}
+                      onChange={() => toggleGroupScope(scope)}
+                      sx={(themeInner) => (groupScopeMixed[scope] ? {
+                        // Mixed across the selection: dashed border + hatch, like every other
+                        // mixed control in this form.
+                        border: `1px dashed ${mixedBorderColor}`,
+                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        color: themeInner.custom.multiEditMixedText,
+                      } : {})}
+                    >
+                      {label}
+                    </ToggleButton>
+                  </MarkdownTooltip>
+                )
+              })}
+            </ToggleButtonGroup>
           </Box>
         ) : null}
 
@@ -2316,10 +2449,8 @@ export default function SafeguardBuilderPanel({
             familiar); the full label + hint moved into each chip's tooltip. */}
         {/* position+zIndex raise this group above the header row's zIndex:1 stacking context.
             The content flex row bleeds 14px upward into the header (mt:-½·SMALL_BUTTON_HEIGHT_PX),
-            so without elevation the header's z=1 intercepts clicks on the top strip of Row 1.
-            Inert on a bundle: all three gates act on MATCHING (which candidates a rule may claim),
-            and a header claims none of its own — its pool is what its members already matched. */}
-        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', position: 'relative', zIndex: 2, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isBundleDraft ? separatorDisabledSectionSx(theme) : {}) })}>
+            so without elevation the header's z=1 intercepts clicks on the top strip of Row 1. */}
+        <Box sx={(theme) => ({ display: 'flex', flexDirection: 'column', gap: 0.25, flex: '0 0 auto', position: 'relative', zIndex: 2, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent'})}>
           <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1 }}>
             {t('safeguardsIgnoreGroupLabel')}
           </Typography>
@@ -2510,7 +2641,7 @@ export default function SafeguardBuilderPanel({
         borderRadius: 1,
         transition: UI_BG_HOVER_DANGER_TRANSITION,
         backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
-        ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}),
+        ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
       })}>
 
         {/* Rank — shrinks to header width when collapsed */}
@@ -2725,10 +2856,9 @@ export default function SafeguardBuilderPanel({
               } : SELECT_BOX_HEIGHT_SX}
             />
             </Box>
-            {/* Scope chips sit under the filter they bucket by — except on a bundle, where this
-                whole section is inert and the chips are rendered live beside the count instead. */}
+            {/* Scope chips sit under the filter they bucket by. */}
             <Box sx={{ mt: 0.75 }}>
-              {!isBundleDraft ? renderScopeChipFor('perFaction') : null}
+              {renderScopeChipFor('perFaction')}
             </Box>
           </Collapse>
         </FormControl>
@@ -2772,7 +2902,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <BuilderSectionHeader
@@ -2871,8 +3001,7 @@ export default function SafeguardBuilderPanel({
               {/* Per Mainstat + Weight by Rank sit side by side on one row (the parent column
                   stacks vertically, so they must share a horizontal flex wrapper). */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
-                {!isBundleDraft ? renderScopeChipFor('perMainStat') : null}
+                {renderScopeChipFor('perMainStat')}
                 {/* "Weight by Rank": adds a main-stat rank bonus to scoring so a 6★ outscores a
                     same-main near-equal 5★. Disabled when no substats are selected (the rank
                     tie-break already orders ranks there, so the bonus has no effect).
@@ -2980,10 +3109,8 @@ export default function SafeguardBuilderPanel({
 
       {/* ── Row 3 right: Substats + match chips + weights ─────────────────── */}
       {/* gap: 0 so the Collapse wrapper div (height:0 when collapsed) does not create phantom spacing.
-          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content.
-          Inert on a bundle as well as a separator: the pooled feed is ranked by the score each
-          MEMBER gave its pieces, so a header's own substats, weights and threshold decide nothing. */}
-      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
+          The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
+      <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
@@ -3316,7 +3443,7 @@ export default function SafeguardBuilderPanel({
       </Box>
 
       {/* ── Row 4: Slots (left) + Sets (right) — flex row; each always takes 50%, collapses vertically ── */}
-      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isMatchingSectionInert ? separatorDisabledSectionSx(theme) : {}) })}>
+      <Box sx={(theme) => ({ gridColumn: '1 / -1', display: 'flex', gap: 1, alignItems: 'flex-start', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
       {/* ── Row 4 left: Slots icon grid + perSlot chip ────────────────────── */}
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
@@ -3472,8 +3599,7 @@ export default function SafeguardBuilderPanel({
                 })}
               </Box>
               </SlotTintControlScope>
-              {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
-              {!isBundleDraft ? renderScopeChipFor('perSlot') : null}
+              {renderScopeChipFor('perSlot')}
             </Box>
           </Collapse>
         </FormControl>
@@ -3563,8 +3689,7 @@ export default function SafeguardBuilderPanel({
                 } : {})}
               />
               </Box>
-              {/* Bundle drafts render this chip live beside the count instead — see Row 1. */}
-              {!isBundleDraft ? renderScopeChipFor('perSet') : null}
+              {renderScopeChipFor('perSet')}
             </Box>
           </Collapse>
         </FormControl>
@@ -4066,15 +4191,37 @@ export default function SafeguardBuilderPanel({
                 )}
                 onClear={() => onCandidateFocusGroupKeyChange?.(null)}
               />
+              {/* Group view toggle — members only. Swaps the list for the whole group's pool
+                  (every member's feed, ranked together, cut at the group's count) so "why was my
+                  piece sold" is answered where the decision is shown. */}
+              {draftGroup && groupPool ? (
+                <MarkdownTooltip markdown={t('safeguardsCandidatesGroupViewTooltip')} placement="top">
+                  <Chip
+                    size="small"
+                    variant={groupViewActive ? 'filled' : 'outlined'}
+                    icon={<GroupWorkOutlinedIcon />}
+                    label={`${t('safeguardsCandidatesGroupView')} · ≥${draftGroup.requiredCount} · ${describeSafeguardGroupScope(draftGroup, t)}`}
+                    onClick={() => setGroupViewOnKey((prev) => (prev === groupViewKey ? null : groupViewKey))}
+                    data-tour-id="safeguards.builder.candidates.group-view"
+                    sx={{
+                      ml: 'auto',
+                      color: groupTrimColor ?? undefined,
+                      borderColor: groupTrimColor ?? undefined,
+                      '& .MuiChip-icon': { color: groupTrimColor ?? undefined },
+                      ...(groupViewActive && groupTrimColor ? { backgroundColor: alpha(groupTrimColor, ALPHA.a15) } : {}),
+                    }}
+                  />
+                </MarkdownTooltip>
+              ) : null}
             </Box>
             <SafeguardCandidateRankList
               candidates={popoverCandidates}
-              quota={rule?.requiredCount ?? 1}
-              countMode={rule?.countMode}
+              quota={groupViewActive && draftGroup ? draftGroup.requiredCount : (rule?.requiredCount ?? 1)}
+              countMode={groupViewActive && draftGroup ? draftGroup.countMode : rule?.countMode}
               combination={rule?.combination}
-              artifactsByItemKey={artifactsByItemKey}
-              substats={substatSelection}
-              perSubstat={isMultiPerSubstat}
+              artifactsByItemKey={popoverArtifactsByItemKey}
+              substats={popoverSubstatSelection}
+              perSubstat={groupViewActive ? false : isMultiPerSubstat}
               weights={rule?.substatWeights ?? {}}
               noMatchesYet={detectionEntry !== null && detectionEntry !== undefined && (detectionEntry.candidates?.length ?? 0) === 0}
               showSlotIcons={showSlotIcons}
@@ -4093,6 +4240,10 @@ export default function SafeguardBuilderPanel({
               {...(onCandidateFocusGroupKeyChange
                 ? { focusedGroupKey: candidateFocusGroupKey ?? null, onFocusedGroupKeyChange: onCandidateFocusGroupKeyChange }
                 : {})}
+              // Members: sold-yet-in-quota rows read as "trimmed by the group" in the group's colour;
+              // in the group view each pooled row also names the member that fed it.
+              groupTrimColor={groupViewActive ? null : groupTrimColor}
+              feederOrdinalByItemKey={groupViewActive && groupPool ? groupPool.feederOrdinalByItemKey : null}
             />
           </Box>
         </Box>

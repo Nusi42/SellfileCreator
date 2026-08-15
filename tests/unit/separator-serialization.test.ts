@@ -6,10 +6,9 @@
  * working defaults on load. Safeguard separators are additionally inert: never
  * active, and their flag survives clone/snapshot/fingerprint plumbing.
  *
- * Bundle headers (SafeguardRule.bundle) are the other structural entry kind and are covered
- * here too: they ride the SAME clone → snapshot → fingerprint → normalize → isSafeguardRuleActive
- * plumbing, so the contract belongs beside the separator one rather than in a parallel file.
- * The one deliberate asymmetry is that a bundle IS active — it holds a live shared cap.
+ * Group settings (SafeguardRule.group) are covered here too: they ride the SAME clone →
+ * snapshot → fingerprint → normalize plumbing, so the contract belongs beside the separator one
+ * rather than in a parallel file.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -110,89 +109,77 @@ test('safeguard separators are never active and the flag rides through clone/sna
   )
 })
 
-// ── safeguard bundle headers ─────────────────────────────────────────────────
+// ── safeguard group members ──────────────────────────────────────────────────
+// A group is not an entry kind: it is inline settings a member carries (`group`), persisted as
+// `Group: { id, requiredCount, countMode }`. The contract belongs beside the separator one because
+// it rides the SAME clone → snapshot → fingerprint → normalize plumbing.
 
-const makeSafeguardBundle = (): SafeguardRule => ({
+const makeSafeguardMember = (): SafeguardRule => ({
   ...createFactorySafeguardBuilderDefaults(),
   appearance: { name: 'Endgame Accessories', fgColor: '#88ccff' },
-  bundle: true,
   requiredCount: 5,
+  group: { id: 'g-acc', requiredCount: 3, countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false, perSlot: false } },
 })
 
-test('a bundle header serializes without a tuple and carries its outline fields', () => {
-  const entry = buildReadableSafeguardRuleEntry({ ...makeSafeguardBundle(), depth: 1, collapsed: true })
+test('a group member serializes its own tuple AND its inline group settings', () => {
+  const entry = buildReadableSafeguardRuleEntry(makeSafeguardMember())
   const keys = Object.keys(entry)
-  // A bundle caps its members rather than matching gear, so it has no filters to persist.
-  assert.equal(keys.includes('tuple'), false, 'a bundle must not persist a combination tuple')
-  assert.equal((entry as { Bundle?: true }).Bundle, true)
-  assert.equal((entry as { depth?: number }).depth, 1)
-  assert.equal((entry as { collapsed?: true }).collapsed, true)
-  // The quota-bearing fields a bundle DOES own are still written.
+  // A member is an ordinary rule: it still persists its own filter and count.
+  assert.equal(keys.includes('tuple'), true, 'a member must persist its combination tuple')
   assert.equal((entry as { requiredCount?: number }).requiredCount, 5)
+  // Plus the group it belongs to, capitalised like Separator.
+  const group = (entry as { Group?: { id: string; requiredCount: number; countMode: { perSet: boolean } } }).Group
+  assert.equal(group?.id, 'g-acc')
+  assert.equal(group?.requiredCount, 3)
+  assert.equal(group?.countMode.perSet, true)
 })
 
-test('outline fields are omitted at their defaults so pre-bundle files re-save byte-identically', () => {
-  // A plain top-level rule with no bundle context must serialize exactly as it always did.
+test('Group is omitted on ungrouped rules so pre-group files re-save byte-identically', () => {
   const entry = buildReadableSafeguardRuleEntry(createFactorySafeguardBuilderDefaults())
-  for (const key of ['Bundle', 'depth', 'collapsed']) {
-    assert.equal(key in entry, false, `${key} must be omitted at its default`)
-  }
+  assert.equal('Group' in entry, false, 'Group must be omitted when the rule is not a member')
 })
 
-test("a bundle's own required count is persisted like any other rule's", () => {
-  // The header's count IS the promise, so it is an ordinary stored number — no derivation, no
-  // pin flag, nothing conditional about whether it round-trips.
-  const written = buildReadableSafeguardRuleEntry({
-    ...createFactorySafeguardBuilderDefaults(),
-    bundle: true,
-    requiredCount: 7,
-  })
-  assert.equal((written as { requiredCount?: number }).requiredCount, 7)
-  assert.equal(normalizeSafeguardRule(written)?.requiredCount, 7)
-})
-
-test('a bundle entry loads back as a bundle with its outline placement intact', () => {
+test('a member entry loads back with its group settings intact', () => {
   const rule = normalizeSafeguardRule({
     appearance: { name: 'SPD core' },
-    Bundle: true,
-    depth: 2,
-    requiredCount: 3,
-    collapsed: true,
+    Group: { id: ' g1 ', requiredCount: 2, countMode: { perSlot: true } },
+    requiredCount: 4,
+    tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   })
-  assert.ok(rule, 'bundle entries must not be skipped on load')
-  assert.equal(rule!.bundle, true)
-  assert.equal(rule!.depth, 2)
-  assert.equal(rule!.collapsed, true)
-  assert.equal(rule!.requiredCount, 3)
-  // No tuple in the payload is expected for a bundle, not a parse failure.
-  assert.deepEqual(rule!.combination.slots, [])
+  assert.ok(rule, 'member entries must not be skipped on load')
+  assert.equal(rule!.group?.id, 'g1', 'the id is trimmed')
+  assert.equal(rule!.group?.requiredCount, 2)
+  assert.equal(rule!.group?.countMode.perSlot, true)
+  assert.equal(rule!.requiredCount, 4)
 })
 
-test('bundles are ACTIVE and the outline fields ride through clone/snapshot/fingerprint', () => {
-  const bundle = makeSafeguardBundle()
-  // Unlike a separator, a bundle holds a live promise — it must not be filtered out as inert.
-  assert.equal(isSafeguardRuleActive(bundle), true)
-  assert.equal(cloneSafeguardRule(bundle).bundle, true)
-  assert.equal((createSafeguardRuleContentSnapshot(bundle) as { bundle?: boolean }).bundle, true)
-  // Flipping an entry to a container changes what the engine emits → cache must bust.
-  const { bundle: _dropped, ...plain } = bundle
+test('a Group without a usable id loads as an ungrouped rule, never as a rejected entry', () => {
+  const rule = normalizeSafeguardRule({
+    Group: { requiredCount: 2 },
+    requiredCount: 1,
+    tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+  })
+  assert.ok(rule)
+  assert.equal(rule!.group, undefined)
+})
+
+test('group settings ride through clone/snapshot/fingerprint', () => {
+  const member = makeSafeguardMember()
+  // A member is a live rule like any other.
+  assert.equal(isSafeguardRuleActive(member), true)
+  const clone = cloneSafeguardRule(member)
+  assert.deepEqual(clone.group, member.group)
+  assert.notEqual(clone.group, member.group, 'the clone must not share the settings object')
+  assert.deepEqual((createSafeguardRuleContentSnapshot(member) as { group?: unknown }).group, member.group)
+  // Joining/leaving a group changes what the engine emits → cache must bust.
+  const { group: _dropped, ...plain } = member
   assert.notEqual(
-    safeguardRuleContentFingerprint(bundle),
+    safeguardRuleContentFingerprint(member),
     safeguardRuleContentFingerprint(plain as SafeguardRule),
   )
-  // So does moving it in or out of a bundle — depth decides which entries feed which header.
+  // So does the group's own count.
   assert.notEqual(
-    safeguardRuleContentFingerprint(bundle),
-    safeguardRuleContentFingerprint({ ...bundle, depth: 1 }),
-  )
-})
-
-test('collapsing a bundle does NOT bust the rules cache', () => {
-  // `collapsed` is display-only document state, like appearance.fgColor. If it entered the
-  // fingerprint every chevron click would re-run the whole detection pipeline.
-  const bundle = makeSafeguardBundle()
-  assert.equal(
-    safeguardRuleContentFingerprint(bundle),
-    safeguardRuleContentFingerprint({ ...bundle, collapsed: true }),
+    safeguardRuleContentFingerprint(member),
+    safeguardRuleContentFingerprint({ ...member, group: { ...member.group!, requiredCount: 9 } }),
   )
 })

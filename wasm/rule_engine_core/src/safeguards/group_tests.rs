@@ -1,15 +1,17 @@
-// Detection-path tests for safeguard bundles.
+// Detection-path tests for safeguard groups.
 //
-// A bundle is where the promise lives; its members only FEED it. Each member evaluates exactly
+// A group is where the promise lives; its members only FEED it. Each member evaluates exactly
 // as if ungrouped — own filters, substats, weights, count mode, ranking and required count — and
-// what that count selects is the gear it contributes. The bundle then merges every contribution
+// what that count selects is the gear it contributes. The group then merges every contribution
 // into buckets keyed by ITS count mode, ranks the pool by the score each piece got from its own
 // member, and keeps its own required count out of each merged bucket. Everything else is sold.
 //
-// These tests pin the consequences that follow: the count on the header is the number that
-// decides (not a max, not a sum), the merge really is by the bundle's own dimensions, the pool
-// really is ranked by score across members rather than filled in list order, a member's own
-// count really does size its feed, and a flat list is completely untouched.
+// A group is a contiguous run of members sharing one id; its settings ride inline on every
+// member and the run's head is the copy the engine reads. These tests pin the consequences that
+// follow: the group's count is the number that decides (not a max, not a sum), the merge really
+// is by the group's own dimensions, the pool really is ranked by score across members rather
+// than filled in list order, a member's own count really does size its feed, and a flat list is
+// completely untouched.
 use super::*;
 use std::collections::BTreeMap;
 
@@ -75,13 +77,17 @@ fn per_slot_mode() -> SafeguardWasmCountMode {
     }
 }
 
-// A wire rule at a given outline position. `slots` empty means Any.
+// The inline group settings a member carries: id + the group's count + the group's chips.
+fn group(id: &str, required: i64, count_mode: SafeguardWasmCountMode) -> Option<SafeguardWasmGroupIn> {
+    Some(SafeguardWasmGroupIn { id: id.to_string(), required_count: Some(required), count_mode: Some(count_mode) })
+}
+
+// A wire rule, optionally a member of a group. `slots` empty means Any.
 fn rule_in(
     name: &str,
     slots: Vec<i64>,
     required: i64,
-    depth: Option<i64>,
-    bundle: bool,
+    group: Option<SafeguardWasmGroupIn>,
     count_mode: SafeguardWasmCountMode,
 ) -> SafeguardWasmRuleIn {
     SafeguardWasmRuleIn {
@@ -110,8 +116,7 @@ fn rule_in(
         main_stat_rank_weight_factor: None,
         improvement_chance_threshold: None,
         tags: None,
-        bundle: if bundle { Some(true) } else { None },
-        depth,
+        group,
     }
 }
 
@@ -139,7 +144,7 @@ fn protected(entry: &SafeguardWasmEntryOut) -> Vec<i64> {
     keys
 }
 
-// Every key surviving anywhere in a bundle, which is what the user sees kept.
+// Every key surviving anywhere in a group, which is what the user sees kept.
 fn protected_across(entries: &[SafeguardWasmEntryOut], members: &[usize]) -> Vec<i64> {
     let mut keys = members
         .iter()
@@ -150,19 +155,55 @@ fn protected_across(entries: &[SafeguardWasmEntryOut], members: &[usize]) -> Vec
 }
 
 #[test]
-fn the_bundles_own_count_decides_how_much_survives() {
+fn the_groups_own_count_decides_how_much_survives() {
     // Two rules that both want ring protection. Ungrouped they would keep 3 + 2 = 5 rings.
-    // Bundled under a header asking for 2, exactly 2 survive: the header's number is the
-    // promise, and the members' 3 and 2 only sized what they handed over.
+    // Grouped with a group count of 2, exactly 2 survive: the group's number is the promise,
+    // and the members' 3 and 2 only sized what they handed over.
     let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
     let rules = vec![
-        rule_in("bundle", vec![], 2, None, true, per_rule_mode()),
-        rule_in("rings A", vec![ARTIFACT_TYPE_RING], 3, Some(1), false, per_rule_mode()),
-        rule_in("rings B", vec![ARTIFACT_TYPE_RING], 2, Some(1), false, per_rule_mode()),
+        rule_in("rings A", vec![ARTIFACT_TYPE_RING], 3, group("g", 2, per_rule_mode()), per_rule_mode()),
+        rule_in("rings B", vec![ARTIFACT_TYPE_RING], 2, group("g", 2, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
     // Best two SPD rolls in the pool, whichever member happened to feed them.
-    assert_eq!(protected_across(&entries, &[1, 2]), vec![4, 5]);
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![4, 5]);
+}
+
+#[test]
+fn the_runs_head_carries_the_settings_the_engine_reads() {
+    // The normalizer keeps every member identical, but the engine must not depend on it: a
+    // second member claiming a different count is ignored in favour of the head's.
+    let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let rules = vec![
+        rule_in("rings A", vec![ARTIFACT_TYPE_RING], 3, group("g", 2, per_rule_mode()), per_rule_mode()),
+        rule_in("rings B", vec![ARTIFACT_TYPE_RING], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![4, 5], "the head's 2 wins over the stray 9");
+}
+
+#[test]
+fn only_adjacent_members_share_a_group() {
+    // [g] rule [g] — the same id on both sides of an ungrouped rule is two runs of one, so each
+    // member keeps its own promise and nothing is pooled across the gap. Non-overlapping slots
+    // (ring / banner / amulet) so the cumulative-protection path cannot satisfy one rule through
+    // another.
+    let candidates = vec![
+        sold(1, ARTIFACT_TYPE_RING, 10, 1),
+        sold(2, ARTIFACT_TYPE_RING, 10, 1),
+        sold(3, ARTIFACT_TYPE_AMULET, 10, 1),
+        sold(4, ARTIFACT_TYPE_AMULET, 10, 1),
+    ];
+    let rules = vec![
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, group("g", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("banners", vec![ARTIFACT_TYPE_BANNER], 1, None, per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 2, group("g", 1, per_rule_mode()), per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    // Each single-member run is capped by its own count of 1 — never merged into one bucket of 1
+    // (which would have sold both rings or both amulets).
+    assert_eq!(protected(&entries[0]).len(), 1);
+    assert_eq!(protected(&entries[2]).len(), 1);
 }
 
 #[test]
@@ -176,13 +217,12 @@ fn the_pool_is_ranked_by_each_members_own_score() {
         sold(9, ARTIFACT_TYPE_AMULET, 10, 1),
     ];
     let rules = vec![
-        rule_in("bundle", vec![], 1, None, true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, Some(1), false, per_rule_mode()),
-        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, Some(1), false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, group("g", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, group("g", 1, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    assert!(protected(&entries[1]).is_empty(), "the weaker piece loses even though it is first");
-    assert_eq!(protected(&entries[2]), vec![9], "the better-scoring piece takes the slot");
+    assert!(protected(&entries[0]).is_empty(), "the weaker piece loses even though it is first");
+    assert_eq!(protected(&entries[1]), vec![9], "the better-scoring piece takes the slot");
 }
 
 #[test]
@@ -198,138 +238,124 @@ fn a_members_own_count_sizes_the_feed_it_contributes() {
         sold(2, ARTIFACT_TYPE_AMULET, 10, 1),
     ];
     let rules = vec![
-        rule_in("bundle", vec![], 3, None, true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, Some(1), false, per_rule_mode()),
-        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 5, Some(1), false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, group("g", 3, per_rule_mode()), per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 5, group("g", 3, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    assert_eq!(protected(&entries[1]), vec![9], "the ring rule feeds only its own best");
-    assert_eq!(protected(&entries[2]), vec![1, 2], "so both amulets still fit the bundle's 3");
+    assert_eq!(protected(&entries[0]), vec![9], "the ring rule feeds only its own best");
+    assert_eq!(protected(&entries[1]), vec![1, 2], "so both amulets still fit the group's 3");
 }
 
 #[test]
-fn the_bundles_own_chips_define_what_counts_as_the_same_bucket() {
-    // A ring rule and an amulet rule, each feeding one piece. Under a PER-SLOT bundle they land
-    // in different merged buckets and both survive; under a PER-RULE bundle they share one bucket
+fn the_groups_own_chips_define_what_counts_as_the_same_bucket() {
+    // A ring rule and an amulet rule, each feeding one piece. Under a PER-SLOT group they land
+    // in different merged buckets and both survive; under a PER-RULE group they share one bucket
     // and only the better-scoring one keeps its piece. Same members, same counts — only the
-    // header's chips differ.
+    // group's chips differ.
     let candidates = vec![
         sold(1, ARTIFACT_TYPE_RING, 10, 1),
         sold(2, ARTIFACT_TYPE_AMULET, 10, 1),
     ];
-    let members = || vec![
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, Some(1), false, per_rule_mode()),
-        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, Some(1), false, per_rule_mode()),
+    let members = |mode: SafeguardWasmCountMode| vec![
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, group("g", 1, mode), per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, group("g", 1, mode), per_rule_mode()),
     ];
-    let mut split = vec![rule_in("bundle", vec![], 1, None, true, per_slot_mode())];
-    split.extend(members());
-    let entries = scan(candidates.clone(), split);
-    assert_eq!(protected(&entries[1]), vec![1], "per-slot: the ring bucket has its own room");
-    assert_eq!(protected(&entries[2]), vec![2], "per-slot: so does the amulet bucket");
+    let entries = scan(candidates.clone(), members(per_slot_mode()));
+    assert_eq!(protected(&entries[0]), vec![1], "per-slot: the ring bucket has its own room");
+    assert_eq!(protected(&entries[1]), vec![2], "per-slot: so does the amulet bucket");
 
-    let mut shared = vec![rule_in("bundle", vec![], 1, None, true, per_rule_mode())];
-    shared.extend(members());
-    let entries = scan(candidates, shared);
-    assert!(protected(&entries[1]).is_empty(), "per-rule: one bucket, and the ring scores lower");
-    assert_eq!(protected(&entries[2]), vec![2], "per-rule: the better roll takes the only slot");
+    let entries = scan(candidates, members(per_rule_mode()));
+    assert!(protected(&entries[0]).is_empty(), "per-rule: one bucket, and the ring scores lower");
+    assert_eq!(protected(&entries[1]), vec![2], "per-rule: the better roll takes the only slot");
 }
 
 #[test]
-fn a_bundle_with_no_scope_chips_merges_everything_into_one_bucket() {
-    // The coarsest merge: per-rule on the bundle means slot/set/faction never split it.
+fn a_group_with_no_scope_chips_merges_everything_into_one_bucket() {
+    // The coarsest merge: per-rule on the group means slot/set/faction never split it. A single
+    // member with a group count below its own count is capped like any other run.
     let candidates = vec![
         sold(1, ARTIFACT_TYPE_RING, 10, 1),
         sold(2, ARTIFACT_TYPE_AMULET, 20, 2),
     ];
     let rules = vec![
-        rule_in("bundle", vec![], 1, None, true, per_rule_mode()),
-        rule_in("accessories", vec![ARTIFACT_TYPE_RING, ARTIFACT_TYPE_AMULET], 5, Some(1), false, per_rule_mode()),
+        rule_in("accessories", vec![ARTIFACT_TYPE_RING, ARTIFACT_TYPE_AMULET], 5, group("g", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("banners", vec![ARTIFACT_TYPE_BANNER], 5, group("g", 1, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    assert_eq!(protected(&entries[1]), vec![2], "one shared bucket keeps exactly the best piece");
+    assert_eq!(protected(&entries[0]), vec![2], "one shared bucket keeps exactly the best piece");
 }
 
 #[test]
 fn a_count_above_the_feed_keeps_everything_that_was_fed() {
-    // Asking for more than the members offer is not an error and invents nothing: the bundle can
+    // Asking for more than the members offer is not an error and invents nothing: the group can
     // only ever keep gear that reached its pool.
     let candidates = (1..=4).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
     let rules = vec![
-        rule_in("bundle", vec![], 9, None, true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, Some(1), false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    assert_eq!(protected(&entries[1]), vec![3, 4], "everything fed survives, nothing more");
+    assert_eq!(protected(&entries[0]), vec![3, 4], "everything fed survives, nothing more");
 }
 
 #[test]
 fn members_keep_their_own_filters_substats_and_counts() {
-    // The member still decides WHICH pieces it offers — the bundle only decides how many of the
+    // The member still decides WHICH pieces it offers — the group only decides how many of the
     // pooled offers survive. Here the member is ring-only, so the amulet never reaches the pool.
     let candidates = vec![
         sold(1, ARTIFACT_TYPE_RING, 10, 1),
         sold(2, ARTIFACT_TYPE_AMULET, 10, 1),
     ];
     let rules = vec![
-        rule_in("bundle", vec![], 1, None, true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 5, Some(1), false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 5, group("g", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("banners", vec![ARTIFACT_TYPE_BANNER], 5, group("g", 1, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    // Its own count of 5 still shapes its feed; the bundle then keeps 1 of what arrived.
-    assert_eq!(entries[1].per_group_required_count, 5, "a member keeps its own count");
-    assert_eq!(protected(&entries[1]), vec![1], "and never offers gear outside its filter");
-}
-
-#[test]
-fn nested_bundles_both_narrow_the_same_members() {
-    // outer(1) { inner(2) { rings(3) } } — the ring rule feeds 3, the inner bundle keeps 2 of
-    // them, and the outer bundle keeps 1 of what is left. Both headers apply, so the tighter
-    // number is what the user ends up with.
-    let candidates = (1..=4).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
-    let rules = vec![
-        rule_in("outer", vec![], 1, None, true, per_rule_mode()),
-        rule_in("inner", vec![], 2, Some(1), true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 3, Some(2), false, per_rule_mode()),
-    ];
-    let entries = scan(candidates, rules);
-    assert_eq!(protected(&entries[2]), vec![4], "the tighter of the nested counts must hold");
+    // Its own count of 5 still shapes its feed; the group then keeps 1 of what arrived.
+    assert_eq!(entries[0].per_group_required_count, 5, "a member keeps its own count");
+    assert_eq!(protected(&entries[0]), vec![1], "and never offers gear outside its filter");
 }
 
 #[test]
 fn an_inactive_member_feeds_nothing_and_consumes_no_room() {
     // A member switched Off protects nothing anyway; it must not eat a slot in the shared
-    // bucket. This also covers separators, which reach Rust as inert activation=off entries.
+    // bucket.
     let candidates = vec![sold(1, ARTIFACT_TYPE_RING, 10, 1)];
-    let mut divider = rule_in("divider", vec![], 1, Some(1), false, per_rule_mode());
-    divider.activation = Some(SAFEGUARD_ACTIVATION_OFF.to_string());
+    let mut off = rule_in("off rings", vec![ARTIFACT_TYPE_RING], 1, group("g", 1, per_rule_mode()), per_rule_mode());
+    off.activation = Some(SAFEGUARD_ACTIVATION_OFF.to_string());
     let rules = vec![
-        rule_in("bundle", vec![], 1, None, true, per_rule_mode()),
-        divider,
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, Some(1), false, per_rule_mode()),
+        off,
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, group("g", 1, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
     // The off entry is listed FIRST, so if it fed the pool the ring rule would find no room. (Its
     // own entry may still carry scored keys for the UI — build_safeguard_rules_core never emits
     // them, which is exactly why they must not count against the shared bucket either.)
-    assert_eq!(protected(&entries[2]), vec![1], "an off entry must not consume bucket room");
+    assert_eq!(protected(&entries[1]), vec![1], "an off entry must not consume bucket room");
 }
 
 #[test]
-fn an_empty_bundle_keeps_nothing_and_breaks_nothing() {
-    // Grouping and then deleting the members leaves a header with nothing to decide over. It
-    // must resolve to "no promise" rather than silently capping a sibling outside it.
-    let candidates = vec![sold(1, ARTIFACT_TYPE_RING, 10, 1)];
+fn touching_groups_with_different_ids_never_share_a_bucket() {
+    // [a][b] with no gap between them: each run keeps its own promise (non-overlapping slots so
+    // the cumulative-protection path cannot satisfy one rule through the other).
+    let candidates = vec![
+        sold(1, ARTIFACT_TYPE_RING, 10, 1),
+        sold(2, ARTIFACT_TYPE_RING, 10, 1),
+        sold(3, ARTIFACT_TYPE_AMULET, 10, 1),
+        sold(4, ARTIFACT_TYPE_AMULET, 10, 1),
+    ];
     let rules = vec![
-        rule_in("bundle", vec![], 3, None, true, per_rule_mode()),
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 1, None, false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, group("a", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 2, group("b", 1, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    assert_eq!(protected(&entries[1]), vec![1], "the top-level rule keeps its own promise");
+    assert_eq!(protected(&entries[0]).len(), 1, "group a keeps its own 1");
+    assert_eq!(protected(&entries[1]).len(), 1, "group b keeps its own 1");
 }
 
 #[test]
 fn a_flat_list_is_completely_unaffected() {
-    // The regression guard that matters most: with no bundles, two rules keep their own quotas
+    // The regression guard that matters most: with no groups, two rules keep their own quotas
     // exactly as they always have. Deliberately non-overlapping (ring vs amulet) so neither
     // rule can satisfy the other through the existing cumulative-protection path.
     let candidates = vec![
@@ -339,8 +365,8 @@ fn a_flat_list_is_completely_unaffected() {
         sold(4, ARTIFACT_TYPE_AMULET, 10, 1),
     ];
     let rules = vec![
-        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, None, false, per_rule_mode()),
-        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, None, false, per_rule_mode()),
+        rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, None, per_rule_mode()),
+        rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 1, None, per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
     assert_eq!(entries.len(), 2);

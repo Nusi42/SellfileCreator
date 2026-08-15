@@ -146,14 +146,10 @@ import {
   safeguardFocusGroupKeyFor,
   normalizeSafeguardSubstatMatch,
   firstSelectableSafeguardIndex,
-  // Bundle collapse state: read and written through the shared accessors, never inline.
-  isSafeguardBundleCollapsed,
-  withSafeguardBundleCollapsed,
 } from './lib/safeguards'
-// Bundle outline: structural facts come from the Rust authority through this facade, the repair
-// runs at the mutation funnel plus the append-import seam, and cross-panel jumps expand the
-// target's ancestor chain so a chip inside a collapsed bundle is scrollable.
-import { normalizeSafeguardOutline, safeguardAncestorIndices } from './lib/safeguardOutline'
+// Safeguard groups: structural facts come from the Rust authority through this facade; the
+// repair runs at the mutation funnel plus the append-import seam.
+import { normalizeSafeguardGroups } from './lib/safeguardGroups'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import {
   PIPELINE_CACHE_MAX_ENTRIES,
@@ -2610,11 +2606,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // to flush the updater synchronously, which is not guaranteed in React 19+.
     const prev = safeguardRules
     const resolved = typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(prev) : value
-    // Repair the bundle outline for every mutation that reaches state. This is the single
+    // Repair the group structure for every mutation that reaches state. This is the single
     // funnel all safeguard edits pass through, so no insert, delete, reorder, paste or
-    // multi-edit can leave the array describing an impossible outline. Identity is preserved
-    // when nothing needed repair, so the memoized resolver is not invalidated needlessly.
-    const next = normalizeSafeguardOutline(resolved)
+    // multi-edit can leave a run split, a group of one, or two members of a run disagreeing
+    // about their group's count. `prev` lets the normalizer tell which member was just edited
+    // (by identity), so a group-strip edit on one member fans out to its whole run. Identity is
+    // preserved when nothing needed repair, so the memoized resolver is not invalidated.
+    const next = normalizeSafeguardGroups(resolved, prev)
     // Reordering keeps rule contents intact, so compare ID order explicitly.
     const orderChanged = isSafeguardRuleOrderChanged(prev, next)
     // Describe the rule changes so history stays informative.
@@ -2625,22 +2623,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       mode: options?.mode ?? 'edit',
     })
     // Skip no-op updates so we do not add empty history entries. `displayOnly` opts out of that
-    // guard: a change that touches only presentation state — a bundle's collapsed chevron — is
-    // real but deliberately invisible to the descriptor (and to the content fingerprint, so it
-    // never re-runs the pipeline). Without this it would be indistinguishable from a no-op and
-    // silently dropped, which is exactly what the chevron did before this branch existed.
+    // guard for a change that touches only presentation state — real but deliberately invisible
+    // to the descriptor (and to the content fingerprint, so it never re-runs the pipeline).
     if (!descriptor && !orderChanged && options?.displayOnly !== true) return
     // Queue the descriptor before the state update so the history snapshot effect
     // captures it reliably regardless of when React evaluates the transition.
     if (options?.publish !== false && descriptor) describeNextChange(descriptor)
-    // Commit through an updater that re-applies the outline repair against whatever state
-    // React actually holds. Two things matter here: the repair must reach state (committing the
-    // caller's raw value would leave an illegal depth — from a hand-edited file or a paste at
-    // the wrong level — in the store, with `next` only ever informing the descriptor), and the
-    // functional form must be preserved so an interleaved update is not clobbered by the
-    // eagerly-resolved snapshot taken above for the descriptor.
-    setSafeguardRulesTransition((current) => normalizeSafeguardOutline(
+    // Commit through an updater that re-applies the group repair against whatever state React
+    // actually holds. Two things matter here: the repair must reach state (committing the
+    // caller's raw value would leave a split run or a disagreeing member in the store, with
+    // `next` only ever informing the descriptor), and the functional form must be preserved so
+    // an interleaved update is not clobbered by the eagerly-resolved snapshot taken above.
+    setSafeguardRulesTransition((current) => normalizeSafeguardGroups(
       typeof value === 'function' ? (value as (p: SafeguardRule[]) => SafeguardRule[])(current) : value,
+      current,
     ))
   }, [describeNextChange, metasets, safeguardRules, setSafeguardRulesTransition])
 
@@ -6046,29 +6042,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardRules, safeguardDetection, safeguardItemKeyByArtifactId])
   const openLogicHubSafeguardRule = useCallback((ruleIdx: number, artifactId?: number): boolean => {
     if (ruleIdx < 0 || ruleIdx >= safeguardRules.length) return false
-    // A jump target nested inside a COLLAPSED bundle is not rendered, so the scroll request
-    // below would find no chip. Expand its ancestor chain first. Done here, in the single jump
-    // funnel every cross-panel entry point routes through (preview star, preview row click,
-    // Gear Inspector match chip, rank-overlay chip, improvement-chance chip), rather than at
-    // each of those call sites.
-    const collapsedAncestors = safeguardAncestorIndices(safeguardRules, ruleIdx)
-      .filter((ancestor) => {
-        const owner = safeguardRules[ancestor]
-        return owner !== undefined && isSafeguardBundleCollapsed(owner)
-      })
-    if (collapsedAncestors.length > 0) {
-      const expand = new Set(collapsedAncestors)
-      // `displayOnly` is REQUIRED: expanding touches only the collapsed chevron, which is
-      // excluded from both the history signature and the content fingerprint by design, so the
-      // funnel would classify this as a no-op and drop it — leaving the target chip unrendered
-      // and the scroll request below with nothing to find.
-      applySafeguardRulesChange(
-        safeguardRules.map((rule, index) => (
-          expand.has(index) ? withSafeguardBundleCollapsed(rule, false) : rule
-        )),
-        { displayOnly: true },
-      )
-    }
     // Safeguard jumps should not leave a stale Gear Inspector focus request queued.
     setGearInspectorArtifactFocusRequest(null)
     // Switch to Safeguard Builder mode and select the targeted rule inline.
@@ -6090,7 +6063,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const token = ++safeguardFocusTokenRef.current
     setSafeguardFocusRequest({ ruleIdx, token })
     return true
-  }, [applySafeguardRulesChange, handleSelectSafeguardRule, safeguardRules, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusGroupKey])
+  }, [handleSelectSafeguardRule, safeguardRules, setGearInspectorArtifactFocusRequest, setBuilderMode, resolveSafeguardFocusGroupKey])
   const handleSafeguardPreviewStarSelect = useCallback((selection: SafeguardStarSelection) => {
     // safeguardRuleOrdinal is 1-based; convert to 0-based index for openLogicHubSafeguardRule.
     const ruleOrdinal = selection.safeguardRuleOrdinal
@@ -7286,6 +7259,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onRequestClearHistory={requestClearHistory}
       onManageMetasets={() => openMetasetsDialogRef.current()}
       detectionEntry={safeguardBuilderDetectionEntry}
+      detectionEntries={safeguardDetection?.entries ?? null}
       safeguardRuleCount={safeguardBuilderRuleCount}
       previewRowByItemKey={safeguardPreviewRowByItemKey}
       onSelectCandidate={handleSafeguardCandidateSelect}
@@ -7981,11 +7955,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const sgReplaceRule = sgReplaceSel !== null ? remappedSafeguards[sgReplaceSel] : undefined
         if (sgReplaceRule) setSafeguardBuilder(cloneSafeguardRule(sgReplaceRule))
       } else {
-        // Append concatenates two independently valid outlines, which can leave the seam
-        // illegal (an imported list starting mid-bundle would otherwise adopt whatever bundle
-        // the existing list ended inside). Repair across the join — one of the three
-        // normalizer call sites, alongside the mutation funnel and the SFC parse path.
-        setSafeguardRules((prev) => normalizeSafeguardOutline([...prev, ...remappedSafeguards]))
+        // Append concatenates two independently valid lists, which can leave the seam illegal
+        // (an imported group whose id collides with an existing one would otherwise merge into
+        // it when the two touch). Repair across the join — one of the three normalizer call
+        // sites, alongside the mutation funnel and the SFC parse path.
+        setSafeguardRules((prev) => normalizeSafeguardGroups([...prev, ...remappedSafeguards]))
         setSafeguardsEnabled((prev) => prev || (payload.safeguardsEnabled ?? false))
         setRecipesEnabled((prev) => prev || payload.recipesEnabled !== false)
       }

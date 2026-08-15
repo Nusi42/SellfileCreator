@@ -170,21 +170,17 @@ editor enum values parse) and `tests/unit/overrides-serializer-roundtrip.test.ts
 EBNF module (`src/lib/overridesEbnf.ts`) exists precisely because the previous
 hand-written reference had silently drifted (`action` was missing).
 
-## Safeguard bundles need no grammar change
+## Safeguard groups need no grammar change
 
 Safeguard selectors are purely tag-based and operate on entries of the `SafeguardRule[]` array.
-A **bundle** ([app-behavior.md](app-behavior.md#bundles-the-safeguards-outline)) is an entry in
-that same array and carries `tags` like any rule, so `@tag=… { count = … }` works with zero
-parser, EBNF, Prism, editor-meta or catalog work. Two consequences worth knowing:
+A **group** ([app-behavior.md](app-behavior.md#groups-safeguards-sharing-one-required-count)) is
+not an entry of its own — its members are ordinary rules carrying `tags` like any other — so
+`@tag=… { count = … }` works with zero parser, EBNF, Prism, editor-meta or catalog work. On a
+member, `count` retunes its own required count — which inside a group is the size of the gear it
+feeds the group.
 
-- `@all` (and `tagged`/`untagged`) now also match bundle headers. On a MEMBER, `count` retunes
-  its own required count — which inside a bundle is the size of the gear it feeds the header. On a
-  bundle it sets what that header keeps out of each merged bucket.
-- Raising a bundle's `count` past what its members feed it is inert: a bundle can only ever keep
-  gear that reached its pool. No diagnostic is emitted.
-
-A grammar change would only become necessary for a bundle-specific selector (e.g. `@bundle=…`) or
-a quota field distinct from `requiredCount` — neither exists.
+A grammar change would only become necessary for a group-specific selector or a field for the
+group's own count (distinct from `requiredCount`) — neither exists yet.
 
 ## Tests
 

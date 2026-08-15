@@ -171,8 +171,9 @@ while ephemeral. No other wiring needed — the factory handles the predicate + 
 **Display preferences** (always-sticky) omit `rememberableView`. **Document state** goes in the
 `.sfc` payload instead (see [Rules & Data](rules-and-data.md) for the autosave document).
 
-A worked example of the last case: a safeguard bundle's `collapsed` flag is **document** state,
-not a rememberable view. It lives on the entry inside the `.sfc` rather than in localStorage,
-because it belongs to the document's structure — it survives reorder/undo/autosave and travels
-with a shared file, where a per-machine view preference would not. It is excluded from
-`safeguardRuleContentFingerprint` so collapsing never busts the rules cache.
+A worked example of the last case: a safeguard's group membership (`group`) is **document**
+state, not a rememberable view. It lives on the entry inside the `.sfc` rather than in
+localStorage, because it belongs to the document's structure — it survives reorder/undo/autosave
+and travels with a shared file, where a per-machine view preference would not. The candidate
+flyout's *Group* toggle, by contrast, is plain component state: it describes how one person is
+looking at the list right now and is dropped the moment the selection changes.

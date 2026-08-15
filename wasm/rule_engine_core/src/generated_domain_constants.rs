@@ -126,9 +126,6 @@ pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_COLLECTION: bool = false;
 pub const SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT: bool = false;
 pub const SAFEGUARD_REASON_GLOBAL: &str = "global";
 pub const SAFEGUARD_REASON_GROUP: &str = "group";
-// Safeguard bundle outline: nesting cap and the depth an entry takes when it stores none.
-pub const SAFEGUARD_OUTLINE_MAX_DEPTH: i64 = 5;
-pub const SAFEGUARD_OUTLINE_DEFAULT_DEPTH: i64 = 0;
 pub const SAFEGUARD_WEIGHT_STEP: f64 = 0.05;
 pub const SAFEGUARD_WEIGHT_MIN: f64 = 0.01;
 pub const SAFEGUARD_WEIGHT_MAX: f64 = 9.9;
