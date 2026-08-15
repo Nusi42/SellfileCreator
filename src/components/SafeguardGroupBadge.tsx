@@ -10,19 +10,10 @@ import { Box } from '@mui/material'
 import GroupWorkOutlinedIcon from '@mui/icons-material/GroupWorkOutlined'
 import { NBSP } from '../lib/constants'
 import type { SafeguardGroupSettings } from '../lib/safeguards'
-import { KEEP_OVERRIDE_SCOPE_KEYS } from '../lib/keepOverrideScope'
+import { KEEP_OVERRIDE_SCOPE_KEYS, KEEP_OVERRIDE_SCOPE_LABEL_KEYS } from '../lib/keepOverrideScope'
 import MarkdownTooltip from './MarkdownTooltip'
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
-
-// One i18n key per scope chip, in the shared display order, so the tooltip lists the group's
-// buckets with the same words the builder's chips use.
-const SCOPE_LABEL_KEYS: Record<(typeof KEEP_OVERRIDE_SCOPE_KEYS)[number], string> = {
-  perSlot: 'safeguardsCountModePerSlot',
-  perSet: 'safeguardsCountModePerSet',
-  perFaction: 'safeguardsCountModePerFaction',
-  perMainStat: 'safeguardsCountModePerMain',
-}
 
 /**
  * The human-readable "per slot · per set" list of a group's active chips, or the per-safeguard
@@ -31,7 +22,7 @@ const SCOPE_LABEL_KEYS: Record<(typeof KEEP_OVERRIDE_SCOPE_KEYS)[number], string
 export const describeSafeguardGroupScope = (settings: SafeguardGroupSettings, t: Translate): string => {
   const active = KEEP_OVERRIDE_SCOPE_KEYS
     .filter((scope) => settings.countMode[scope])
-    .map((scope) => t(SCOPE_LABEL_KEYS[scope]))
+    .map((scope) => t(KEEP_OVERRIDE_SCOPE_LABEL_KEYS[scope]))
   return active.length > 0 ? active.join(' · ') : t('safeguardsCountModePerRule')
 }
 

@@ -1074,6 +1074,14 @@ export default function SafeguardChipsPanel({
       ? selectedRuleIndices.slice()
       : [idx]
     const targetGrouped = targetRule !== undefined && isSafeguardGrouped(targetRule)
+    // Enablement must mirror what groupSafeguardSelection actually accepts: it drops separators
+    // before counting, so a selection of two dividers (or a rule plus a divider) has fewer than
+    // two real members and the helper returns null. Counting the raw selection instead would
+    // offer an enabled command that silently does nothing when clicked.
+    const groupableCount = groupSelection
+      .filter((index) => index >= 0 && index < rules.length)
+      .filter((index) => safeguardEntryKind(rules[index] as SafeguardRule) === 'rule')
+      .length
     return {
       ...(isChipMenu ? {
         // NOTE: these mirror buildChipContextMenuActions (RecipeContextMenu.tsx) rather than
@@ -1095,7 +1103,7 @@ export default function SafeguardChipsPanel({
         // Delete the chip; mirrors RecipeChip's deleteRecipe action.
         deleteRecipe: () => handleDeleteRule(idx),
         // Grouping needs two rules; the disabled state mirrors what the helper would refuse.
-        groupSelection: { handler: () => handleGroupSelection(groupSelection), disabled: groupSelection.length < 2 },
+        groupSelection: { handler: () => handleGroupSelection(groupSelection), disabled: groupableCount < 2 },
         // Ungroup / leave apply to a member; join offers the run touching the entry.
         ...(targetGrouped ? {
           ungroupGroup: { handler: () => handleUngroup(idx) },

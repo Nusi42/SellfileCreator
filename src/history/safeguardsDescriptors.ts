@@ -16,6 +16,7 @@ import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../l
 import type { SafeguardsRulesDescriptorMode } from './historyDescriptorTypes'
 import { snapshotSafeguardRules, snapshotMetasets } from './historySnapshotUtils'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from '../lib/gearInspectorSort'
+import { KEEP_OVERRIDE_COUNT_MODE_PER_RULE } from '../lib/keepOverrideScope'
 
 export type { SafeguardsRulesDescriptorMode }
 
@@ -370,8 +371,8 @@ function normalizeCountMode(mode: SafeguardRuleCountMode): SafeguardRuleCountMod
   const perMainStat = mode.perMainStat
   const perSlot = mode.perSlot
   if (perRule || (!perSet && !perFaction && !perMainStat && !perSlot)) {
-    // Collapse to "per rule" to match UI defaults.
-    return { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false }
+    // Collapse to "per rule" to match UI defaults — same shape the scope toggle falls back to.
+    return KEEP_OVERRIDE_COUNT_MODE_PER_RULE
   }
   // Preserve the active scopes when any grouping is enabled.
   return { perRule: false, perSet, perFaction, perMainStat, perSlot }

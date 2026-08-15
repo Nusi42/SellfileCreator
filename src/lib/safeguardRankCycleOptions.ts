@@ -14,11 +14,13 @@ import type { SafeguardRankMode } from './constants'
  */
 export function makeSafeguardRankCycleOptions(t: (key: string) => string): ReadonlyArray<CycleButtonOption> {
   return [
-    // Order defines the click-through cycle: Off → Group → Safeguard → Both → Off.
-    { value: 'off',       label: t('gearInspectorGridSafeguardRankModeOff')       },
+    // Order defines the click-through cycle: Off → Bucket → Safeguard → Both → Off.
+    // "Bucket" is the count scope (slot/set/faction/main-stat), NOT a safeguard group — the two
+    // are different concepts since the group feature landed, hence the deliberate wording.
+    { value: 'off',        label: t('gearInspectorGridSafeguardRankModeOff')        },
     { value: 'bucketRank', label: t('gearInspectorGridSafeguardRankModeBucketRank') },
-    { value: 'rank',      label: t('gearInspectorGridSafeguardRankModeRank')      },
-    { value: 'both',      label: t('gearInspectorGridSafeguardRankModeBoth')      },
+    { value: 'rank',       label: t('gearInspectorGridSafeguardRankModeRank')       },
+    { value: 'both',       label: t('gearInspectorGridSafeguardRankModeBoth')       },
   ]
 }
 

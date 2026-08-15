@@ -40,6 +40,8 @@ import {
   factionIdByName,
   rarityCodeByName,
   artifactSetIdByName,
+  SAFEGUARD_REQUIRED_COUNT_MIN,
+  SAFEGUARD_REQUIRED_COUNT_MAX,
 } from './safeguards'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
@@ -102,9 +104,14 @@ export const NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS = [
   '1', '2', '3', '4', 'persubstat',
 ] as const
 
-/** Bounds applied to resolved `count =` values (apply-side clamp + editor cap SSOT). */
-export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN = 1
-export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX = 9999
+/**
+ * Bounds applied to resolved `count =` values (apply-side clamp + editor cap SSOT). `count =`
+ * overrides the rule's own required count, so these are that field's bounds — re-exported under
+ * the DSL's naming rather than restated, so the override can never resolve outside what the
+ * builder's field accepts.
+ */
+export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN = SAFEGUARD_REQUIRED_COUNT_MIN
+export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX = SAFEGUARD_REQUIRED_COUNT_MAX
 
 /**
  * Non-numeric `improvchance =` keywords in the DSL (lowercase surface form).

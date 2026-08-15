@@ -69,6 +69,10 @@ import {
   // Group settings ride inline on a member; the strip beside the count edits them.
   cloneSafeguardGroupSettings,
   isSafeguardGrouped,
+  // Required-count bounds: the JS clamp and the field's DOM max read the same definition.
+  clampSafeguardRequiredCount,
+  SAFEGUARD_REQUIRED_COUNT_MIN,
+  SAFEGUARD_REQUIRED_COUNT_MAX,
   type SafeguardCandidateOut,
   type SafeguardDetectionEntry,
   type SafeguardGroupSettings,
@@ -83,6 +87,7 @@ import GroupWorkOutlinedIcon from '@mui/icons-material/GroupWorkOutlined'
 // Group view of the candidate flyout: the members' feeds pooled and ranked the way the engine
 // ranks them, built from the detection entries the members already carry.
 import { buildSafeguardGroupPool } from '../lib/safeguardGroupPool'
+import type { NameAppearance } from '../lib/nameAppearance'
 import { safeguardGroupRunIndices } from '../lib/safeguardGroups'
 import type { ColorBlindMode } from '../lib/constants'
 import {
@@ -153,6 +158,12 @@ import {
   // Display order + glyphs for the four scope toggles inside the group strip.
   KEEP_OVERRIDE_SCOPE_KEYS,
   KEEP_OVERRIDE_SCOPE_GLYPHS,
+  // The all-false count mode and the neutral per-chip mixed map, shared with the rank list and
+  // the history descriptor so a new bucket dimension cannot be missed by one of them.
+  KEEP_OVERRIDE_COUNT_MODE_PER_RULE,
+  KEEP_OVERRIDE_SCOPE_NONE_ACTIVE,
+  // Full chip labels, shared with the group badge's scope summary.
+  KEEP_OVERRIDE_SCOPE_LABEL_KEYS,
   describeKeepOverrideScopeGlyphs,
   resolveKeepOverrideScopeActive,
   toggleKeepOverrideCountMode,
@@ -693,10 +704,17 @@ export default function SafeguardBuilderPanel({
   // switching chips) but are disabled+dimmed via separatorDisabledSectionSx on the row
   // wrappers. Multi-edit never enters separator mode; the toggle is single-edit only.
   const isSeparatorDraft = !multiEditActive && rule.separator === true
-  // Which per-X scope chips are no-ops given the rule's own combination.
-  const redundantDimensions = safeguardRedundantCountModeDimensions(rule.combination)
-  // Faction only buckets when accessories can be in scope.
-  const scopeAllowsFaction = slotSelectionAllowsAccessories(rule.combination.slots)
+  // Faction only buckets when accessories can be in scope. ONE definition for every consumer —
+  // the per-faction scope chip, the faction select, and the group badge's label suppression — so
+  // they cannot disagree about whether faction is meaningful for this rule.
+  const hasAccessorySlot = slotSelectionAllowsAccessories(effectiveRule.combination.slots)
+  // Which per-X scope chips are no-ops given the combination that is actually in force. Read from
+  // effectiveRule, not the stored rule: a note override that narrows e.g. `slots` to one value
+  // collapses that dimension for real, and the chip's own override badge already reports the
+  // effective state — deriving enablement from the stored combination let the user toggle a
+  // dimension the effective rule had collapsed, with the badge beside it saying otherwise.
+  // (Dirty flags stay on stored values; this is display, which follows effectiveRule throughout.)
+  const redundantDimensions = safeguardRedundantCountModeDimensions(effectiveRule.combination)
   // ── group strip state ──
   // A member's group settings ride on the draft itself (identical across the run — the funnel's
   // normalizer fans an edit on this member out to its siblings). In multi-edit the strip shows
@@ -717,15 +735,13 @@ export default function SafeguardBuilderPanel({
   // derived across the grouped members exactly like the rule's own chips below.
   // On an ungrouped draft the (inert) chips show NO scope rather than the default chips, so a
   // dimmed strip never looks like it still carries the previous member's buckets.
-  const NO_GROUP_SCOPE: SafeguardRuleCountMode = { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false }
   const displayGroupCountMode: SafeguardRuleCountMode = !groupStripVisible
-    ? NO_GROUP_SCOPE
+    ? KEEP_OVERRIDE_COUNT_MODE_PER_RULE
     : multiEditActive
       ? ((multiGroupCountModeField?.value as SafeguardRuleCountMode | null | undefined) ?? draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
       : (draftGroup?.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
   const groupScopeMixed = useMemo(() => {
-    const none = { perSlot: false, perSet: false, perFaction: false, perMainStat: false }
-    if (!multiEditActive || !multiSelectedRules || multiGroupCountModeField?.dirty) return none
+    if (!multiEditActive || !multiSelectedRules || multiGroupCountModeField?.dirty) return KEEP_OVERRIDE_SCOPE_NONE_ACTIVE
     const grouped = multiSelectedRules.filter((entry) => isSafeguardGrouped(entry))
     const hasSome = (key: KeepOverrideScopeKey) => grouped.some((entry) => entry.group?.countMode[key] ?? false)
     const hasMissing = (key: KeepOverrideScopeKey) => grouped.some((entry) => !(entry.group?.countMode[key] ?? false))
@@ -738,7 +754,7 @@ export default function SafeguardBuilderPanel({
   }, [multiEditActive, multiSelectedRules, multiGroupCountModeField?.dirty])
   // Writes a new group count: staged in multi-edit, straight onto the draft otherwise.
   const commitGroupCount = (raw: number) => {
-    const next = Math.min(9999, Math.max(1, Math.floor(raw || 1)))
+    const next = clampSafeguardRequiredCount(raw)
     if (multiEditActive && multiEdit) {
       multiEdit.updateField('groupRequiredCount', { value: next, status: 'common' })
       return
@@ -749,11 +765,21 @@ export default function SafeguardBuilderPanel({
   }
   // Toggles one of the group's scope chips through the same helper the rule's own chips use.
   const toggleGroupScope = (scope: KeepOverrideScopeKey) => {
-    const nextMode = toggleKeepOverrideCountMode(displayGroupCountMode, scope)
     if (multiEditActive && multiEdit) {
-      multiEdit.updateField('groupCountMode', { value: nextMode, status: 'common' })
+      // Multi-edit stages ONE object onto every selected member, so it must be built from a base
+      // the whole selection agrees on. `displayGroupCountMode` falls back to the FOCUSED rule's
+      // chips whenever the staged field is mixed — staging that would push the focused group's
+      // untouched dimensions onto every other selected group. Start from the mixed-aware base
+      // instead: a dimension that differs across the selection stays OFF unless it is the one
+      // being toggled, so only the touched chip changes for everyone.
+      const base = KEEP_OVERRIDE_SCOPE_KEYS.reduce<SafeguardRuleCountMode>((mode, key) => ({
+        ...mode,
+        [key]: groupScopeMixed[key] ? false : displayGroupCountMode[key],
+      }), { ...displayGroupCountMode })
+      multiEdit.updateField('groupCountMode', { value: toggleKeepOverrideCountMode(base, scope), status: 'common' })
       return
     }
+    const nextMode = toggleKeepOverrideCountMode(displayGroupCountMode, scope)
     updateRule((prev) => (
       prev.group ? { ...prev, group: { ...cloneSafeguardGroupSettings(prev.group), countMode: nextMode } } : prev
     ))
@@ -773,7 +799,6 @@ export default function SafeguardBuilderPanel({
   const slotSelection = combination.slots
   // Section dirty flag: shared by the label color and the X-clear button (SSOT).
   const slotSectionDirty = slotSelection.length > 0
-  const hasAccessorySlot = slotSelectionAllowsAccessories(slotSelection)
   const allowedSetPool = resolveAllowedSetPool(slotSelection)
   const setSelection = normalizeArtifactSetSelections(combination.sets)
     .filter((entry) => allowedSetPool.includes(Number(entry.id)))
@@ -799,7 +824,12 @@ export default function SafeguardBuilderPanel({
   const mainStatOptions = getMainStatOptionsForSlots(effectiveSlotsForMask)
   const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((v) => mainStatOptions.includes(v)))
   const mainStatSectionDirty = mainStatSelection.length > 0
-  const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+  // Dirty/clear state stays on the STORED combination — an override must not make the X-clear
+  // button vanish while the user still has factions saved on the rule. Display follows the
+  // effective one, like every other display value here.
+  const factionSelection = slotSelectionAllowsAccessories(slotSelection)
+    ? dedupeNumericArray(combination.factions ?? [])
+    : []
   const displayFactions  = hasAccessorySlot ? dedupeNumericArray(effectiveRule.combination.factions ?? []) : []
   // In multi-edit, disable artifact only when EVERY selected rule has faction set.
   // If any rule uses faction=Any the interaction is mixed — keep artifact enabled.
@@ -830,9 +860,9 @@ export default function SafeguardBuilderPanel({
   const isMultiPerSubstat = effectiveSubstatMatch === SafeguardSubstatMatch.PerSubstat && substatSelection.length > 1
   // Display count mode: derived from effectiveRule so scope chips reflect active overrides.
   const displayCountMode = sanitizeSafeguardCountMode(effectiveRule.countMode ?? SAFEGUARD_DEFAULT_COUNT_MODE)
-  // Faction bucketing is gated on the scope combination, not the filter one — identical for a
-  // rule, and always available on a bundle (it filters no slots at all).
-  const effectiveCountMode = scopeAllowsFaction
+  // Faction bucketing is gated on whether accessories can be in scope at all (hasAccessorySlot,
+  // derived from the effective combination like every other display value here).
+  const effectiveCountMode = hasAccessorySlot
     ? displayCountMode
     : sanitizeSafeguardCountMode({ ...displayCountMode, perFaction: false })
   const scopeActive = resolveKeepOverrideScopeActive(effectiveCountMode)
@@ -915,9 +945,7 @@ export default function SafeguardBuilderPanel({
   // Computed directly from multiSelectedRules since countMode is tracked as a whole object,
   // not per individual scope key — so we derive scope-level granularity here.
   const perScopeMixed = useMemo(() => {
-    if (!multiEditActive || !multiSelectedRules) {
-      return { perSlot: false, perSet: false, perFaction: false, perMainStat: false }
-    }
+    if (!multiEditActive || !multiSelectedRules) return KEEP_OVERRIDE_SCOPE_NONE_ACTIVE
     const hasSome = (key: KeepOverrideScopeKey) => multiSelectedRules.some(r => r.countMode?.[key] ?? false)
     const hasMissing = (key: KeepOverrideScopeKey) => multiSelectedRules.some(r => !(r.countMode?.[key] ?? false))
     return {
@@ -1109,12 +1137,7 @@ export default function SafeguardBuilderPanel({
   // One definition per scope chip — label, availability gate and override badge — so the chip is
   // identical under every filter it buckets by. State, handlers and badges are shared.
   const renderScopeChipFor = (scope: KeepOverrideScopeKey) => {
-    const label = {
-      perSlot: t('safeguardsCountModePerSlot'),
-      perSet: t('safeguardsCountModePerSet'),
-      perFaction: t('safeguardsCountModePerFaction'),
-      perMainStat: t('safeguardsCountModePerMain'),
-    }[scope]
+    const label = t(KEEP_OVERRIDE_SCOPE_LABEL_KEYS[scope])
     const overrideActive = {
       perSlot: perSlotOverrideActive,
       perSet: perSetOverrideActive,
@@ -1123,7 +1146,7 @@ export default function SafeguardBuilderPanel({
     }[scope]
     // Faction additionally needs accessories in scope; every dimension is also inert when the
     // combination already pins it to one value.
-    const disabled = (scope === 'perFaction' && !scopeAllowsFaction) || redundantDimensions[scope]
+    const disabled = (scope === 'perFaction' && !hasAccessorySlot) || redundantDimensions[scope]
     return renderScopeChip(scope, label, scopeActive[scope], disabled, perScopeMixed[scope],
       overrideActive ? renderSafeguardOverrideBadge(
         buildSafeguardOverrideBadgeTooltip(
@@ -1477,11 +1500,22 @@ export default function SafeguardBuilderPanel({
       .map((index) => detectionEntries.find((entry) => entry.ruleOrdinal === index + 1))
       .filter((entry): entry is SafeguardDetectionEntry => entry !== undefined)
   }, [allRules, detectionEntries, draftGroup, editingRuleIdx])
+  // Each member's own name/colour, keyed by its 1-based safeguard ordinal, so a pooled row can be
+  // labelled with the member that fed it rather than the one whose flyout happens to be open.
+  const groupMemberAppearances = useMemo(() => {
+    const byOrdinal = new Map<number, NameAppearance>()
+    if (!draftGroup || editingRuleIdx === null) return byOrdinal
+    for (const index of safeguardGroupRunIndices(allRules, editingRuleIdx)) {
+      const appearance = allRules[index]?.appearance
+      if (appearance) byOrdinal.set(index + 1, appearance)
+    }
+    return byOrdinal
+  }, [allRules, draftGroup, editingRuleIdx])
   const groupPool = useMemo(() => (
     draftGroup && groupMemberEntries && groupMemberEntries.length > 0
-      ? buildSafeguardGroupPool(groupMemberEntries, draftGroup.countMode)
+      ? buildSafeguardGroupPool(groupMemberEntries, draftGroup.countMode, groupMemberAppearances)
       : null
-  ), [draftGroup, groupMemberEntries])
+  ), [draftGroup, groupMemberEntries, groupMemberAppearances])
   const groupViewActive = candidateGroupView && groupPool !== null
   // The group view is on offer: the edited rule is a group member with a pooled list to show.
   // Gates the toggle chip AND the reserved feeder-ordinal column, so the space is held exactly
@@ -2350,7 +2384,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               ? { placeholder: t('builderMultiEditMixedPlaceholder') }
               : {})}
             onChange={(event) => {
-              const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
+              const raw = clampSafeguardRequiredCount(Number(event.target.value))
               if (multiEditActive && multiEdit) {
                 multiEdit.updateField('requiredCount', { value: raw, status: 'common' })
               } else {
@@ -2366,11 +2400,11 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                     onStep={(delta) => {
                       if (multiEditActive && multiEdit) {
                         const current = Number(multiRequiredCountField?.value ?? rule.requiredCount ?? 1)
-                        const next = Math.max(1, Math.min(9999, Math.floor(current + delta)))
+                        const next = clampSafeguardRequiredCount(current + delta)
                         multiEdit.updateField('requiredCount', { value: next, status: 'common' })
                       } else {
                         updateRule((prev) => {
-                          const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
+                          const next = clampSafeguardRequiredCount((prev.requiredCount ?? 1) + delta)
                           return { ...prev, requiredCount: next }
                         })
                       }
@@ -2378,7 +2412,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                   />
                 ),
               },
-              htmlInput: { min: 1, step: 1, max: 9999 },
+              htmlInput: { min: SAFEGUARD_REQUIRED_COUNT_MIN, step: 1, max: SAFEGUARD_REQUIRED_COUNT_MAX },
             }}
             sx={(themeInner) => ({
               width: 130,
@@ -2428,7 +2462,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                       />
                     ),
                   },
-                  htmlInput: { min: 1, step: 1, max: 9999 },
+                  htmlInput: { min: SAFEGUARD_REQUIRED_COUNT_MIN, step: 1, max: SAFEGUARD_REQUIRED_COUNT_MAX },
                 }}
                 sx={(themeInner) => ({
                   width: 118,
@@ -2450,12 +2484,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {KEEP_OVERRIDE_SCOPE_KEYS.map((scope) => {
-                  const label = {
-                    perSlot: t('safeguardsCountModePerSlot'),
-                    perSet: t('safeguardsCountModePerSet'),
-                    perFaction: t('safeguardsCountModePerFaction'),
-                    perMainStat: t('safeguardsCountModePerMain'),
-                  }[scope]
+                  const label = t(KEEP_OVERRIDE_SCOPE_LABEL_KEYS[scope])
                   // The scope hints open with their own bold title; the chip renderer adds the label
                   // itself, so hand it the body only.
                   const hint = safeguardScopeChipTooltips[scope].split('\n').slice(1).join('\n')
@@ -4270,7 +4299,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
               // Members: sold-yet-in-quota rows read as "trimmed by the group" in the group's colour;
               // in the group view each pooled row also names the member that fed it.
               groupTrimColor={groupViewActive ? null : groupTrimColor}
-              feederOrdinalByItemKey={groupViewActive && groupPool ? groupPool.feederOrdinalByItemKey : null}
+              feederByItemKey={groupViewActive && groupPool ? groupPool.feederByItemKey : null}
               // Reserve the feeder column whenever the group-view toggle is offered, so flipping the
               // view fills reserved space instead of widening the flyout mid-interaction.
               reserveFeederOrdinalSpace={groupViewOffered}

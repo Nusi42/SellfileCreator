@@ -1,6 +1,6 @@
 use super::*;
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
 use crate::SafeguardCollectedAndProtectedSnapshotOut;
@@ -3000,6 +3000,14 @@ fn safeguard_apply_group_caps(
         // gear of their own inside a group — each one's required count sized what it fed, and
         // the group now picks the survivors across all of it.
         let mut pooled = Vec::<PooledGroupCandidate>::new();
+        // One PIECE is one entry in the pool, whoever fed it. Two members whose filters overlap
+        // (only reachable once a member turns `ignorePreviousSafeguards` on — the cumulative
+        // path otherwise stops the second one re-protecting what the first already took) both
+        // list the same item_key, and without this the piece would consume the group's bucket
+        // room TWICE, so the group would keep fewer distinct pieces than its count promises.
+        // The first member of the run keeps it, matching `buildSafeguardGroupPool` in
+        // lib/safeguardGroupPool.ts — the flyout's pooled view must not disagree with the scan.
+        let mut pooled_item_keys = BTreeSet::<i64>::new();
         for (member_order, member_index) in members.clone().enumerate() {
             let Some(entry) = entries.get(member_index) else { continue };
             // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
@@ -3016,6 +3024,10 @@ fn safeguard_apply_group_caps(
                 .map(|candidate| (candidate.item_key, (candidate.score, candidate.candidate_rank)))
                 .collect::<BTreeMap<i64, (f64, u32)>>();
             for item_key in entry.item_keys.iter().copied() {
+                // Already fed by an earlier member of this run — one piece, one pool slot.
+                if !pooled_item_keys.insert(item_key) {
+                    continue;
+                }
                 // Rules with no substats take the non-ranking path and score 0 across the board;
                 // the tie-break below then falls through to member order, which is exactly the
                 // "first member fills first" behaviour those rules had before.

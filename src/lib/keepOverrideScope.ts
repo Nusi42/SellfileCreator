@@ -24,6 +24,17 @@ export const KEEP_OVERRIDE_SCOPE_GLYPHS: Readonly<Record<KeepOverrideScopeKey, s
   perMainStat: GLYPH_PER_MAIN_STAT,
 }
 
+// One i18n catalog key per scope — the full label counterpart to KEEP_OVERRIDE_SCOPE_GLYPHS, so
+// the group badge's "per slot · per set" summary and the builder's chip labels name a bucket
+// dimension identically. Note perMainStat's key is the shorter `…PerMain`, which is exactly the
+// kind of mismatch a hand-copied map gets wrong.
+export const KEEP_OVERRIDE_SCOPE_LABEL_KEYS: Readonly<Record<KeepOverrideScopeKey, string>> = {
+  perSlot: 'safeguardsCountModePerSlot',
+  perSet: 'safeguardsCountModePerSet',
+  perFaction: 'safeguardsCountModePerFaction',
+  perMainStat: 'safeguardsCountModePerMain',
+}
+
 /**
  * The active scope glyphs of a count mode in display order, joined with spaces (empty when no
  * chip is on). Optional `omit` drops a dimension the caller has already ruled out (e.g. faction
@@ -40,12 +51,40 @@ export const describeKeepOverrideScopeGlyphs = (
     .join(' ')
 }
 
+/**
+ * The count mode with no bucket dimension active: quotas apply per rule as a whole. This is the
+ * shape `toggleKeepOverrideCountMode` falls back to when the last chip is switched off, what an
+ * ungrouped draft's inert strip displays, and what the history descriptor collapses an empty
+ * scope set to — one definition so a future fifth dimension cannot be missed by one of them.
+ */
+// Frozen: this single object is handed to every caller, so an in-place write would rewrite the
+// constant for all of them. Count modes are always rebuilt by spread, never mutated.
+export const KEEP_OVERRIDE_COUNT_MODE_PER_RULE: SafeguardRuleCountMode = Object.freeze({
+  perRule: true,
+  perSlot: false,
+  perSet: false,
+  perFaction: false,
+  perMainStat: false,
+})
+
 export type KeepOverrideScopeActive = {
   perSlot: boolean
   perSet: boolean
   perFaction: boolean
   perMainStat: boolean
 }
+
+/**
+ * No scope flagged — the neutral value for the per-chip "mixed across the selection" maps that
+ * multi-edit derives. Shared so the rule's own chips and the group strip's chips start from the
+ * same shape.
+ */
+export const KEEP_OVERRIDE_SCOPE_NONE_ACTIVE: KeepOverrideScopeActive = Object.freeze({
+  perSlot: false,
+  perSet: false,
+  perFaction: false,
+  perMainStat: false,
+})
 
 // Normalize and expose which scope chips should appear active.
 export const resolveKeepOverrideScopeActive = (mode: SafeguardRuleCountMode): KeepOverrideScopeActive => {
@@ -77,13 +116,7 @@ export const toggleKeepOverrideCountMode = (
   }
   // If all chips are off, revert to per-rule so quotas still apply.
   if (!nextMode.perSlot && !nextMode.perSet && !nextMode.perFaction && !nextMode.perMainStat) {
-    return {
-      perRule: true,
-      perSlot: false,
-      perSet: false,
-      perFaction: false,
-      perMainStat: false,
-    }
+    return KEEP_OVERRIDE_COUNT_MODE_PER_RULE
   }
   return nextMode
 }

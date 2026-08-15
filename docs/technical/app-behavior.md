@@ -326,7 +326,14 @@ no collapse, no indentation. The builder form is an ordinary rule form; the **gr
 against Required Count so the two read as ONE segmented control (like a toggle-button group): the
 rule's `Required Count` field, then a `Group`-labelled count field (`⊚ ≥ M`), followed by a
 *Buckets:* row of four glyph chips (`KEEP_OVERRIDE_SCOPE_GLYPHS`, the same glyphs the candidate
-flyout's cutoff label and group-view chip use; styled exactly like the *Ignore:* chips). The
+flyout's cutoff label and group-view chip use; styled exactly like the *Ignore:* chips). Chip
+labels come from `KEEP_OVERRIDE_SCOPE_LABEL_KEYS`, the all-false count mode from
+`KEEP_OVERRIDE_COUNT_MODE_PER_RULE` and the neutral mixed map from
+`KEEP_OVERRIDE_SCOPE_NONE_ACTIVE` — all in `lib/keepOverrideScope.ts` beside the keys and glyphs,
+so a fifth bucket dimension cannot be added to some copies and missed by others. Required-count
+bounds live once in `lib/safeguards.ts` (`SAFEGUARD_REQUIRED_COUNT_MIN`/`_MAX` +
+`clampSafeguardRequiredCount`), shared by the JS clamps, the fields' DOM `max`, and the note
+DSL's `count =` clamp, so the input can never accept a value the commit silently rewrites. The
 builder stays in the theme's neutral colours — the group colour is the list's job. Always mounted — dimmed and inert on an ungrouped
 draft so the row never shifts. Editing the group segments edits the group
 (the draft's copy changes; the funnel's normalizer fans it out to the run). In multi-edit the strip
@@ -354,16 +361,38 @@ after its source, so a duplicated member stays a member. Paste keeps whatever id
 the normalizer re-ids collisions and dissolves strays.
 
 **Candidate flyout.** On a member, rows inside this rule's own quota that the sell file nevertheless
-sells get the group's colour and the "sold by the group" tooltip. A *Group* toggle chip in the
-flyout header (members only, once detection ran) swaps the list for the pooled **group view**
-(`lib/safeguardGroupPool.ts`): every piece the run's members fed, ranked exactly as
-`safeguard_apply_group_caps` ranks them, cut at the group's count per group bucket, each row tagged
-with the feeding member's ordinal (`·n`). Built purely from the members' detection entries
-(`candidates[].isWithinQuota` = fed, `itemKeys` = survived) — no second scoring pass.
+sells get the group's colour and the "sold by the group" tooltip — but only when no *other* rule
+owns the outcome (a final-sell claim is that rule's decision, not a group trim). A *Group* toggle
+chip in the flyout header (members only, once detection ran) swaps the list for the pooled **group
+view** (`lib/safeguardGroupPool.ts`): every piece the run's members fed, ranked exactly as
+`safeguard_apply_group_caps` ranks them, cut at the group's count per group bucket. Built purely
+from the members' detection entries (`candidates[].isWithinQuota` = fed, `itemKeys` = survived) —
+no second scoring pass.
+
+*Per-row attribution.* The pooled list mixes every member's gear, so each row is attributed to the
+member that **fed** it, not to the rule whose flyout is open: `feederByItemKey` carries that
+member's ordinal (rendered `·n`) *and* its own `appearance`, and the row's match-source name, that
+name's colour, the "this rule matched it" triangle and the primary/de-emphasised row opacity all
+resolve from it. Attributing pooled rows to the edited rule printed one member's name beside
+another's feeder ordinal and suppressed the triangle on most rows — the opposite of the "why was
+my piece kept/sold" question the view exists to answer. Ordinals are list-absolute: entries are
+selected *by* `ruleOrdinal` upstream, so an entry without one is dropped rather than folded in
+under a run-relative index that would point at an unrelated chip.
 
 **Overrides DSL.** No grammar change. Selectors are tag-based and operate on entries of the same
 array, so `@tag=… { count = … }` retunes a member's own count — which is now the size of its
 feed. There is no selector or field for the group's own count yet.
+
+**Stored vs effective in the builder form.** `effectiveRule` (`resolveEffectiveSafeguardRule`) is
+the rule after note overrides resolve; `rule` is what is stored. The split is deliberate and
+consistent: **display** values read `effectiveRule` (so a select, a chip's state, and its override
+badge all agree about what is in force), while **dirty flags and clear buttons** read the stored
+rule (an override must not make the ✕ that clears a saved value disappear). Scope-chip
+*enablement* is display: `redundantDimensions` and `hasAccessorySlot` derive from
+`effectiveRule.combination`, so an override that collapses a dimension to one value disables the
+chip for it instead of leaving a toggle whose own badge contradicts it. `hasAccessorySlot` is the
+single faction-availability predicate for the chip, the faction select and the badge's label
+suppression — it must not be re-derived under a second name.
 
 
 ### Sellfile preview integration

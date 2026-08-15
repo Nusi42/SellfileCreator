@@ -46,7 +46,8 @@ import { useRarityGlyphColor, useRarityTextColor } from '../lib/rarityColorConte
 import { useI18n } from '../lib/i18n'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_SAFEGUARDS } from '../lib/ruleSources'
 import { safeguardEffectiveCountModeForDisplay, type SafeguardCombination, type SafeguardRuleCountMode } from '../lib/safeguards'
-import { describeKeepOverrideScopeGlyphs } from '../lib/keepOverrideScope'
+import { describeKeepOverrideScopeGlyphs, KEEP_OVERRIDE_COUNT_MODE_PER_RULE } from '../lib/keepOverrideScope'
+import type { SafeguardGroupFeeder } from '../lib/safeguardGroupPool'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import { GearInspectorGridCard, getGearInspectorGridCardSizing } from './GearInspectorGridCard'
 import { GEAR_DB_DIFF_TOAST_CARD_SCALE, CHAMPION_ICON_LARGE_THRESHOLD } from '../lib/constants'
@@ -190,7 +191,7 @@ const CANDIDATE_CARD_SCALE = GEAR_DB_DIFF_TOAST_CARD_SCALE
 const EMPTY_RECIPE_NAMES: string[] = []
 // All-false count mode: used only to build a substat-only focus key for a perSubstat rule whose
 // count mode has no active bucket dimension (per-rule mode). The key then carries just `substat:X`.
-const EMPTY_COUNT_MODE = { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false } as const
+const EMPTY_COUNT_MODE = KEEP_OVERRIDE_COUNT_MODE_PER_RULE
 const CARD_PRIORITY_BASE = 0
 // Mythic substat highlight mirrors GearInspectorGridCard constants.
 const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
@@ -288,9 +289,11 @@ export type SafeguardCandidateRankListProps = {
   // A row inside this rule's own quota that the sell file nevertheless sells was trimmed by the
   // group — its badge takes this colour and says so, which is how "the group is working" reads.
   groupTrimColor?: string | null
-  // Group view only: which member (1-based safeguard ordinal) fed each pooled row, shown beside
-  // the rank so a pooled list still tells the members apart.
-  feederOrdinalByItemKey?: ReadonlyMap<number, number> | null
+  // Group view only: which member fed each pooled row — its ordinal (shown beside the rank so a
+  // pooled list tells the members apart) and its own appearance. A pooled row is attributed to
+  // ITS feeder rather than to the rule whose flyout is open, so the name, its colour and the
+  // "this rule matched it" marker all agree with the feeder ordinal printed next to them.
+  feederByItemKey?: ReadonlyMap<number, SafeguardGroupFeeder> | null
   // Reserves the feeder-ordinal column even while the group view is off, so toggling it on fills
   // space the row already had instead of widening the whole flyout under the user's cursor. Set
   // whenever the group-view toggle is offered (i.e. the edited rule is a group member).
@@ -395,7 +398,7 @@ export default function SafeguardCandidateRankList({
   onFocusedBucketKeyChange,
   improvementChanceByItemKey,
   groupTrimColor,
-  feederOrdinalByItemKey,
+  feederByItemKey,
   reserveFeederOrdinalSpace,
   alternateViewCandidates,
 }: SafeguardCandidateRankListProps) {
@@ -417,11 +420,14 @@ export default function SafeguardCandidateRankList({
     // Both views' candidates feed the set, so the group-view toggle never resizes the column.
     const names = new Set<string>()
     for (const c of [...(candidates ?? []), ...(alternateViewCandidates ?? [])]) {
-      const name = matchSourceNameFor(c, previewRowByItemKey?.get(c.itemKey), ruleAppearance, t)
+      // Must resolve the name exactly as the row does — a pooled row falls back to its FEEDER's
+      // name, so measuring the edited rule's name for it would under-size the column.
+      const rowAppearance = feederByItemKey?.get(c.itemKey)?.appearance ?? ruleAppearance
+      const name = matchSourceNameFor(c, previewRowByItemKey?.get(c.itemKey), rowAppearance, t)
       if (name) names.add(name)
     }
     return measureMatchSourceCellWidth([...names], theme, substatCellWidthPx * MATCH_SOURCE_MAX_SUBSTAT_CELLS)
-  }, [candidates, alternateViewCandidates, previewRowByItemKey, ruleAppearance, t, theme, substatCellWidthPx])
+  }, [candidates, alternateViewCandidates, previewRowByItemKey, ruleAppearance, feederByItemKey, t, theme, substatCellWidthPx])
 
   // Focus state: when set, the list is scoped to a single bucket (the group of the candidate
   // whose focus button was toggled). null = show every candidate. Controlled when the parent passes
@@ -607,7 +613,7 @@ export default function SafeguardCandidateRankList({
     quota,
     improvementChanceByItemKey: improvementChanceByItemKey ?? null,
     groupTrimColor: groupTrimColor ?? null,
-    feederOrdinalByItemKey: feederOrdinalByItemKey ?? null,
+    feederByItemKey: feederByItemKey ?? null,
     reserveFeederOrdinalSpace: reserveFeederOrdinalSpace ?? false,
     rowSurfacePaper,
     precomputedSubstatColors,
@@ -799,7 +805,7 @@ function CandidateRow({
   quota,
   improvementChanceByItemKey,
   groupTrimColor,
-  feederOrdinalByItemKey,
+  feederByItemKey,
   reserveFeederOrdinalSpace,
   rowSurfacePaper,
   precomputedSubstatColors,
@@ -858,8 +864,9 @@ function CandidateRow({
   improvementChanceByItemKey: ReadonlyMap<number, number> | null
   // Group colour for "trimmed by the group" rows (see the list prop); null when ungrouped.
   groupTrimColor: string | null
-  // Group view: feeder ordinal per row; null outside the group view.
-  feederOrdinalByItemKey: ReadonlyMap<number, number> | null
+  // Group view: the feeding member per row (ordinal + its own appearance), which the row's whole
+  // attribution reads from; null outside the group view, where the edited rule is the attribution.
+  feederByItemKey: ReadonlyMap<number, SafeguardGroupFeeder> | null
   // Reserve the feeder-ordinal column's width even with no map to read values from.
   reserveFeederOrdinalSpace: boolean
   // Runtime scheme paper color — hoisted from outer component (was per-row useColorScheme call).
@@ -902,13 +909,31 @@ function CandidateRow({
   // True when the item's first match is specifically THIS safeguard rule (drives the triangle
   // indicator in the reserved space to the right of the outcome badge). Without preview data
   // we can only know the item is within quota — treat that as a match since it's why it's here.
+  //
+  // In the GROUP VIEW the rows come from the whole run, so "this rule" is the member that fed
+  // the row, not the one whose flyout is open. Attribution — name, colour and this marker —
+  // follows the feeder; outside the group view there is no feeder and it stays the edited rule.
+  const feeder = feederByItemKey?.get(candidate.itemKey) ?? null
+  const rowRuleOrdinal = feeder?.ordinal ?? ruleOrdinal
+  const rowRuleAppearance = feeder ? feeder.appearance : ruleAppearance
   const isCurrentRuleMatch = previewRow != null
-    ? (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
+    ? (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === rowRuleOrdinal)
     : candidate.isWithinQuota
   // Trimmed by the group: inside this rule's own quota (it fed the piece) yet sold — the group
   // kept better pieces from other members. Only meaningful with preview data, which is what
   // tells kept from sold here; needs a group colour to render in.
-  const isTrimmedByGroup = groupTrimColor != null && previewRow != null && candidate.isWithinQuota && isSold
+  //
+  // `isSold` only means "not safeguarded, not recipe-kept, not unmatched" — it never says WHICH
+  // rule sold the piece. A final-sell rule claiming the row would otherwise be reported in the
+  // group's colour as "sold by the group", the exact opposite of what happened: a group trim is
+  // this member's own decision being overridden by its run, not another rule outbidding it.
+  // Attribute the trim only when no OTHER rule owns the outcome.
+  const isSoldByAnotherRule = previewRow?.match?.ruleSource === RULE_SOURCE_FINAL_SELL
+  const isTrimmedByGroup = groupTrimColor != null
+    && previewRow != null
+    && candidate.isWithinQuota
+    && isSold
+    && !isSoldByAnotherRule
   const BadgeIcon = isSafeguarded ? StarsIcon : isRecipeKept ? (isChanceProtected ? CheckCircleOutlinedIcon : CheckCircleIcon) : isSold ? SellIcon : null
   const badgeColor = isSafeguarded
     ? (theme.vars?.palette.warning.main ?? theme.palette.warning.main)
@@ -919,13 +944,13 @@ function CandidateRow({
     ? t('safeguardsCandidateSafeguarded')
     : isRecipeKept ? t('safeguardsCandidateKept') : isTrimmedByGroup ? t('safeguardsCandidateSoldByGroup') : isSold ? t('safeguardsCandidateSold') : undefined
   // Group view: the member that fed this row, shown as a small "#n" beside the pooled rank.
-  const feederOrdinal = feederOrdinalByItemKey?.get(candidate.itemKey) ?? null
+  const feederOrdinal = feeder?.ordinal ?? null
   // Match source: the actual sell-file outcome name for this row (see matchSourceNameFor).
   const isRuleNameSource = !previewRow && candidate.isWithinQuota
-  const matchSourceRaw = matchSourceNameFor(candidate, previewRow, ruleAppearance, t)
+  const matchSourceRaw = matchSourceNameFor(candidate, previewRow, rowRuleAppearance, t)
   // Color priority: rule appearance when no preview; recipe color then safeguard rule color when preview present.
   const rawMatchSourceColor = isRuleNameSource
-    ? (ruleAppearance?.fgColor ?? theme.palette.common.white)
+    ? (rowRuleAppearance?.fgColor ?? theme.palette.common.white)
     : (previewRow?.match?.recipeFgColor ?? previewRow?.match?.ruleLabelFgColor ?? theme.palette.common.white)
   // Ensure user-authored colors meet WCAG AA contrast against the actual surface background.
   const matchSourceColor = ensureContrastOnBg(rawMatchSourceColor, rowSurfacePaper)
@@ -1039,9 +1064,11 @@ function CandidateRow({
         //   filtered    + this rule  → a60   (filtered but notable)
         //   filtered    + other      → a45   (most dimmed)
         // Use ordinal for identity — safeguardRuleId is legacy and always null in new sessions.
+        // rowRuleOrdinal, not ruleOrdinal: in the group view "this rule" is the row's feeder, so
+        // a pooled row its own member matched stays primary instead of dimming as "other".
         opacity: previewRow == null
           ? 1
-          : (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === ruleOrdinal)
+          : (previewRow.match?.ruleSource === RULE_SOURCE_SAFEGUARDS && previewRow.match.safeguardRuleOrdinal === rowRuleOrdinal)
             ? (isFiltered ? ALPHA.a60 : 1)
             : (isFiltered ? ALPHA.a45 : ALPHA.a82),
         cursor: onSelectCandidate ? 'pointer' : 'default',
@@ -1065,7 +1092,7 @@ function CandidateRow({
       {/* Group view: which safeguard fed this piece (its list ordinal), so a pooled list still
           tells the members apart even before hovering the match-source label. Rendered empty (but
           still occupying its width) when the space is merely reserved — see reserveFeederOrdinalSpace. */}
-      {(feederOrdinalByItemKey != null || reserveFeederOrdinalSpace) && (
+      {(feederByItemKey != null || reserveFeederOrdinalSpace) && (
         <Typography
           variant="caption"
           sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: `${FONT_SIZE_SECONDARY_REM}rem`, color: 'text.disabled', minWidth: FEEDER_ORDINAL_CELL_WIDTH_PX, textAlign: 'right', flexShrink: 0 }}

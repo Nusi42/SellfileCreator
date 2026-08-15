@@ -155,6 +155,21 @@ export const SAFEGUARD_DEFAULT_COUNT_MODE: SafeguardRuleCountMode = {
   perSlot: SAFEGUARD_DEFAULT_COUNT_MODE_PER_SLOT,
 }
 
+/**
+ * Bounds on a required count, for the rule's own quota and for a group's. One definition so the
+ * JS clamp and the number field's DOM `max` can never disagree — a larger `max` would let the
+ * input accept a value the commit silently rewrites. The note DSL's `count =` override resolves
+ * to the same field and re-exports these as its own apply-side clamp.
+ */
+export const SAFEGUARD_REQUIRED_COUNT_MIN = 1
+export const SAFEGUARD_REQUIRED_COUNT_MAX = 9999
+
+/** Clamp an arbitrary number to a valid required count (floored, bounded, NaN-safe). */
+export const clampSafeguardRequiredCount = (raw: number): number => Math.min(
+  SAFEGUARD_REQUIRED_COUNT_MAX,
+  Math.max(SAFEGUARD_REQUIRED_COUNT_MIN, Math.floor(raw || SAFEGUARD_REQUIRED_COUNT_MIN)),
+)
+
 /** Chip-by-chip equality of two count modes — the one comparison every scope consumer shares. */
 export const areSafeguardCountModesEqual = (
   left: SafeguardRuleCountMode,

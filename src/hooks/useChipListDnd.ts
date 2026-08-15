@@ -268,8 +268,10 @@ export function useChipListDnd(options: UseChipListDndOptions): UseChipListDndRe
       } else {
         const min = indices[0] ?? 0
         const max = (indices[indices.length - 1] ?? -1) + 1
-        // An outline drop at the same position can still be meaningful — it may only change
-        // the level — so a depth-aware list also commits in-range drops when the depth differs.
+        // In-range drops never reach here with a non-null dropIndex — updateDropTarget leaves
+        // dropIndex null while the point sits inside the dragged block — so this is a belt-and-
+        // braces guard, not the thing that makes a same-position drop a no-op. Depth-aware lists
+        // still pass it because an outline drop that only changes the LEVEL is a real edit.
         const positionChanged = dropIndex < min || dropIndex > max
         if (positionChanged || dropDepth !== null) {
           optionsRef.current.onReorder(indices, dropIndex, depthOption)

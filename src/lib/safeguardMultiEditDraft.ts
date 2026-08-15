@@ -119,12 +119,6 @@ export const SAFEGUARD_FIELD_KEYS = [
 
 export type SafeguardFieldKey = typeof SAFEGUARD_FIELD_KEYS[number]
 
-// The subset of editable fields that describe the gear FILTER, i.e. the flat keys that route into
-// `rule.combination`. Named once here so the apply path and any future summary/aggregation share it.
-export const SAFEGUARD_COMBINATION_FIELD_KEYS: ReadonlySet<SafeguardFieldKey> = new Set([
-  'slots', 'sets', 'metaSetNames', 'ranks', 'rarities', 'mainStats', 'factions',
-])
-
 // ── patch type mapping ────────────────────────────────────────────────────────
 
 // Only array-valued fields carry a structured patch; scalars are replaced wholesale.

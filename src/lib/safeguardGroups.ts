@@ -254,6 +254,25 @@ export const removeSafeguardFromGroup = (rules: readonly SafeguardRule[], index:
   )))
 }
 
+// The settings `index` would adopt by joining the run on `side`, or null when there is no such
+// run or the entry is already in it. ONE definition of "can this entry join", so the menu's
+// enablement and the mutation can never disagree about which entries offer the action — and the
+// predicate answers without building an array (see `canJoinSafeguardAdjacentGroup`).
+const joinableSafeguardGroupSettings = (
+  rules: readonly SafeguardRule[],
+  index: number,
+  side: 'above' | 'below',
+): SafeguardGroupSettings | null => {
+  const rule = rules[index]
+  if (!rule || safeguardEntryKind(rule) !== 'rule') return null
+  const neighbour = side === 'above' ? index - 1 : index + 1
+  const settings = safeguardGroupSettingsAt(rules, neighbour)
+  if (!settings) return null
+  // Already a member of that very run — joining would be a no-op.
+  if (safeguardGroupIdOf(rule) === settings.id) return null
+  return settings
+}
+
 /**
  * Makes `index` a member of the run adjacent to it (`above` = the run ending right before it,
  * `below` = the run starting right after it), adopting that run's settings. Returns null when
@@ -264,41 +283,29 @@ export const joinSafeguardAdjacentGroup = (
   index: number,
   side: 'above' | 'below',
 ): SafeguardRule[] | null => {
-  const rule = rules[index]
-  if (!rule || safeguardEntryKind(rule) !== 'rule') return null
-  const neighbour = side === 'above' ? index - 1 : index + 1
-  const settings = safeguardGroupSettingsAt(rules, neighbour)
+  const settings = joinableSafeguardGroupSettings(rules, index, side)
   if (!settings) return null
-  if (safeguardGroupIdOf(rule) === settings.id) return null
   return normalizeSafeguardGroups(rules.map((entry, cursor) => (
     cursor === index ? withSafeguardGroup(entry, settings) : entry
   )))
 }
 
-/** Whether `joinSafeguardAdjacentGroup` would do anything — for menu enablement, same helper. */
+/**
+ * Whether `joinSafeguardAdjacentGroup` would do anything — for menu enablement. Shares the
+ * precondition helper rather than calling the mutation and testing for null: this runs on every
+ * render while the chip context menu is open, and the mutation would map the whole rules array
+ * and re-run the wasm group resolver just to have the result thrown away.
+ */
 export const canJoinSafeguardAdjacentGroup = (
   rules: readonly SafeguardRule[],
   index: number,
   side: 'above' | 'below',
-): boolean => joinSafeguardAdjacentGroup(rules, index, side) !== null
+): boolean => joinableSafeguardGroupSettings(rules, index, side) !== null
 
-/**
- * Writes group settings onto every member of the run containing `index`. This is what the
- * builder's group strip calls when it is not editing through a draft (multi-edit apply, the
- * strip's chips), and it is also how the normalizer's "edited member wins" rule is expressed
- * for callers that already know the run.
- */
-export const applySafeguardGroupSettingsToRun = (
-  rules: readonly SafeguardRule[],
-  index: number,
-  settings: SafeguardGroupSettings,
-): SafeguardRule[] => {
-  const range = safeguardGroupRunRange(rules, index)
-  if (!range) return rules as SafeguardRule[]
-  return rules.map((rule, cursor) => (
-    cursor >= range.start && cursor < range.end ? withSafeguardGroup(rule, settings) : rule
-  ))
-}
+// NOTE: there is deliberately no "write these settings across the run" helper. The group strip
+// edits ONE member and the normalizer fans that edit out to its run (invariant 3 in
+// `normalizeSafeguardGroups`, which spots the edited member by identity), so a second, manual
+// fan-out path would be a way for the two to disagree rather than a convenience.
 
 // ── Moves ───────────────────────────────────────────────────────────────────────────────
 

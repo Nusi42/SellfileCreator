@@ -19,6 +19,23 @@ import {
   type SafeguardDetectionEntry,
   type SafeguardRuleCountMode,
 } from './safeguards'
+import type { NameAppearance } from './nameAppearance'
+
+// Bucket-counter key for a group with no scope chip at all: every row ranks in one shared pool.
+// `safeguardFocusBucketKeyFor` returns null for that case and never emits this string itself, so
+// it cannot collide with a real key.
+const GLOBAL_BUCKET_KEY = 'bucket:global'
+// Prefix for a piece whose artifact is missing from the detection snapshot. Suffixed with the
+// item key so each such row lands in a private bucket and cannot displace real pieces' ranks.
+const UNKNOWN_BUCKET_KEY_PREFIX = 'bucket:unknown:'
+
+/** How one pooled row's feeding member identifies itself in the list. */
+export type SafeguardGroupFeeder = {
+  // The feeder's 1-based safeguard ordinal, for the row's feeder marker and match attribution.
+  ordinal: number
+  // The feeder's name/colour, or undefined when that member carries no appearance of its own.
+  appearance: NameAppearance | undefined
+}
 
 export type SafeguardGroupPool = {
   // Pool rows in group order, shaped exactly like a member's own candidate list so the flyout
@@ -26,8 +43,11 @@ export type SafeguardGroupPool = {
   candidates: SafeguardCandidateOut[]
   // Every artifact any member reported, keyed by item key, for the row renderer.
   artifactsByItemKey: ReadonlyMap<number, SafeguardDetectionArtifact>
-  // Which member fed each row: the 1-based safeguard ordinal, for the row's feeder marker.
-  feederOrdinalByItemKey: ReadonlyMap<number, number>
+  // Which member fed each row. The pooled list mixes every member's gear, so a row must be
+  // attributed to ITS feeder — naming them all after the rule whose flyout is open would print
+  // one member's name beside another's feeder ordinal, and the whole point of the view is to
+  // answer "why was my piece kept/sold".
+  feederByItemKey: ReadonlyMap<number, SafeguardGroupFeeder>
 }
 
 // One fed piece before ranking; the tie-break fields match the engine's ordering.
@@ -43,15 +63,24 @@ type PooledPiece = {
 /**
  * Builds the pooled view for one group from its members' detection entries (in run order).
  * Returns null when no member has candidates yet, so the flyout can keep its usual placeholder.
+ *
+ * `appearanceByOrdinal` supplies each member's name/colour by its 1-based safeguard ordinal, so
+ * every pooled row can be attributed to the member that actually fed it.
  */
 export const buildSafeguardGroupPool = (
   memberEntries: readonly SafeguardDetectionEntry[],
   groupCountMode: SafeguardRuleCountMode,
+  appearanceByOrdinal: ReadonlyMap<number, NameAppearance>,
 ): SafeguardGroupPool | null => {
   const artifacts = new Map<number, SafeguardDetectionArtifact>()
   const pieces = new Map<number, PooledPiece>()
   let anyCandidates = false
   memberEntries.forEach((entry, feederOrder) => {
+    // Callers select these entries BY ruleOrdinal, so it is always present; there is deliberately
+    // no fallback to feederOrder + 1, which is the member's index within the RUN and would point
+    // the feeder marker at an unrelated chip whenever the group does not start the list.
+    const feederOrdinal = entry.ruleOrdinal
+    if (feederOrdinal == null) return
     for (const artifact of entry.artifacts ?? []) artifacts.set(artifact.itemKey, artifact)
     const kept = new Set(entry.itemKeys)
     for (const candidate of entry.candidates ?? []) {
@@ -66,7 +95,7 @@ export const buildSafeguardGroupPool = (
         score: candidate.score,
         ownRank: candidate.candidateRank,
         feederOrder,
-        feederOrdinal: entry.ruleOrdinal ?? feederOrder + 1,
+        feederOrdinal,
         kept: kept.has(candidate.itemKey),
       })
     }
@@ -81,13 +110,24 @@ export const buildSafeguardGroupPool = (
   ))
   // Per-bucket counters keyed by the group's chips; a null key means one global bucket.
   const bucketCounters = new Map<string, number>()
-  const feederOrdinalByItemKey = new Map<number, number>()
+  const feederByItemKey = new Map<number, SafeguardGroupFeeder>()
   const candidates: SafeguardCandidateOut[] = ordered.map((piece, index) => {
     const artifact = artifacts.get(piece.itemKey)
-    const bucketKey = artifact ? (safeguardFocusBucketKeyFor(artifact, groupCountMode) ?? '') : ''
+    // Two distinct "no key" cases that must NOT share a counter: a group with no scope chip is
+    // one global bucket (every row genuinely ranks together), while a piece whose artifact never
+    // reached the snapshot has no bucket at all. Folding both onto '' let the artifact-less rows
+    // consume the global bucket's first ranks and push every real piece past the cutoff line.
+    // The global bucket keeps the shared key; an unknown piece gets its own private one.
+    const bucketKey = artifact
+      ? (safeguardFocusBucketKeyFor(artifact, groupCountMode) ?? GLOBAL_BUCKET_KEY)
+      : `${UNKNOWN_BUCKET_KEY_PREFIX}${piece.itemKey}`
     const bucketRank = (bucketCounters.get(bucketKey) ?? 0) + 1
     bucketCounters.set(bucketKey, bucketRank)
-    feederOrdinalByItemKey.set(piece.itemKey, piece.feederOrdinal)
+    // Attribute the row to its feeder, carrying that member's own appearance.
+    feederByItemKey.set(piece.itemKey, {
+      ordinal: piece.feederOrdinal,
+      appearance: appearanceByOrdinal.get(piece.feederOrdinal),
+    })
     return {
       itemKey: piece.itemKey,
       score: piece.score,
@@ -96,5 +136,5 @@ export const buildSafeguardGroupPool = (
       isWithinQuota: piece.kept,
     }
   })
-  return { candidates, artifactsByItemKey: artifacts, feederOrdinalByItemKey }
+  return { candidates, artifactsByItemKey: artifacts, feederByItemKey }
 }
