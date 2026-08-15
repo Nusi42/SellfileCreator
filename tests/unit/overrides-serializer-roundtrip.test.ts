@@ -262,7 +262,11 @@ test('safeguard operation table: every kind emits parse-exact DSL', () => {
     + 'ignvault=on perfaction=on permainstat=off perslot=on perset=off perrule=on '
     + 'substats=+SPD,-ACC substatmatch=persubstat weight.SPD=1.5 improvchance=10,20,30,40 '
     + 'rank=5,6 rarity=legendary,mythical faction=1,2 gearsets=+Speed,+-Daze,-Lifesteal '
-    + 'metasets=+alpha,-beta } }'
+    + 'metasets=+alpha,-beta '
+    // The group.* family: the group's own count and every bucket-scope chip. Their tokens are
+    // distinct from the rule's own count/per* above, so both must survive in the same block.
+    + 'group.count=4 group.perfaction=off group.permainstat=on group.perslot=off '
+    + 'group.perset=on group.perrule=off } }'
   const option = roundTripBody('safeguard', body)
   assert.ok(option.body.kind === 'structured')
   const ops = (option.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
@@ -301,6 +305,17 @@ test('selector emission: tag-in brackets, comparisons, and paren handling', () =
   const sgEmitted = serializeSafeguardSelector(sgSel as Parameters<typeof serializeSafeguardSelector>[0])
   const sgBack = roundTripBody('safeguard', `{ @${sgEmitted} { count=1 } }`)
   assert.deepEqual((sgBack.body as { blocks: Array<{ selector: unknown }> }).blocks[0]!.selector, sgSel)
+
+  // Group-membership heads round-trip like the tag heads, including under combinators.
+  for (const text of ['grouped', 'ungrouped', 'tagged and ungrouped', 'not grouped']) {
+    const option = roundTripBody('safeguard', `{ @${text} { count=1 } }`)
+    assert.ok(option.body.kind === 'structured', `'${text}' must parse as a structured selector`)
+    const sel = (option.body as { blocks: Array<{ selector: unknown }> }).blocks[0]!.selector
+    const emitted = serializeSafeguardSelector(sel as Parameters<typeof serializeSafeguardSelector>[0])
+    assert.equal(emitted, text, `'${text}' must emit verbatim`)
+    const back = roundTripBody('safeguard', `{ @${emitted} { count=1 } }`)
+    assert.deepEqual((back.body as { blocks: Array<{ selector: unknown }> }).blocks[0]!.selector, sel)
+  }
 
   // Recipe grammar: comparison terms + tag in […] must round-trip.
   const rOption = roundTripBody('recipe', '{ @tag in [a,b] and rank>=5 and not rarity=epic { export=disabled } }')

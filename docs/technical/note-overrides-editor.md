@@ -88,6 +88,33 @@ following options — the lenient parser cannot flag that itself).
 - The custom toolbar renderer forwards `data-testid` from command `buttonProps` (it
   replaces MDEditor's own button, which would have spread them itself).
 
+## Lenient parse, strict editor — the diagnostics contract
+
+The grammar is deliberately **lenient**: `parseOperations` skips any field it has no branch for
+and moves on, so a note authored in a newer app version still applies its *other* overrides in an
+older one instead of losing the whole block. The **editor** is strict: the same parse threads an
+optional `DiagnosticSpan[]` collector, and every skip reports the span it skipped so the note
+editor can draw a red wave under it. One parse, one grammar — the presence of the collector is
+the only difference between the two behaviours (`collectOverridesDiagnostics` passes one; the
+resolve path does not).
+
+Two shared helpers in `noteOverridesParser.ts` keep this uniform:
+
+- `reportUnknownField` — the SSOT "not a recognized field here" diagnostic, anchored on the
+  **field token** so the underline lands on the typo. Used by the end-of-loop fallthrough (any
+  field with no branch) and by the dotted families for a bad suffix (`weight.spdd`,
+  `group.perslots`).
+- `skipAssignmentValue` — consumes the skipped field's value so its tail is not re-read as more
+  fields. It stops only at the next `field =` pair or the block's `}`; commas are consumed, since
+  an unknown field may legitimately hold a list (`notafield=a,b,c`).
+
+A field that exists but got a bad **value** must report against the value instead, via
+`reportInvalidEnumValue` — otherwise the editor blames the wrong token. This is why the boolean
+fields resolve through the `BOOLEAN_FIELD_OP_KIND` table rather than a chain of `if (field === …)`
+that would fall through to the unknown-field diagnostic on `perslot=yess`.
+
+Pinned by `tests/unit/overrides-unknown-field-diagnostics.test.ts`.
+
 ## Adding a new DSL field / param — the SSOT contract
 
 The DSL vocabulary has exactly one home: the grammar SSOT constants in
@@ -108,6 +135,14 @@ To add a new assignment field, you touch only:
    and its `parseOperations` branch.
    → `*_OVERRIDES_OP_FIELD`, `formatXOpValue`, and `serializeXOperation` are
    exhaustive over the union and **fail to compile** until handled.
+   A **dotted family** (`weight.<statKey>`, `group.<setting>`) registers only its BASE
+   token in the grammar list and in `*_OVERRIDES_OP_FIELD` — the completeness suite reads
+   that map as "which grammar field does this op belong to". The full dotted token is
+   composed separately for emission (`safeguardOverridesOpFieldToken`); a family whose ops
+   map straight to the base token would serialize as `group=4` and fail the round-trip
+   suite. Intercept the family in `parseOperations` **before** the generic value-reading
+   path if any member needs a custom value grammar (as `group.count` does — it reuses the
+   count expression parser), and report an unrecognized suffix through `reportUnknownField`.
 3. **Apply semantics** — the actual effect in the resolver/applier (inherently new
    code).
 4. **Editor widgets + label** — one entry in `RECIPE_OPERATION_TERM_META` /
@@ -170,21 +205,78 @@ editor enum values parse) and `tests/unit/overrides-serializer-roundtrip.test.ts
 EBNF module (`src/lib/overridesEbnf.ts`) exists precisely because the previous
 hand-written reference had silently drifted (`action` was missing).
 
-## Safeguard groups need no grammar change
+### Adding a bare SELECTOR keyword
 
-Safeguard selectors are purely tag-based and operate on entries of the `SafeguardRule[]` array.
+A value-less selector head (`tagged`, `grouped`, …) follows the same derive-don't-repeat rule,
+but its surfaces are a different set — add the token to `NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS`,
+then a `NoteTagSelector` kind, a `parseTagSelector` branch and a `formatNoteTagSelector` case
+(exhaustive → compile-forced). Prism, the EBNF `selector` row, the editor's `TAG_TERM_OPTIONS`
+and `NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS` all derive from that one array. What is **not**
+compile-forced, and has caused test failures when missed:
+
+- the matcher (`matchesTagSelectorForRule`) and the serializer's `emitTagSel`;
+- the editor's bare-kind sites — `BareSelectorKind`, `selectorLeafToView`, `selectorTermText`,
+  `selectorViewOptionId`, `defaultViewForOption`;
+- **domain asymmetry**: `TAG_TERM_OPTIONS` is shared, but the recipe grammar accepts only the
+  tag heads. A safeguard-only keyword must be listed in `SAFEGUARD_ONLY_SELECTOR_IDS` or the
+  recipe dropdown seeds a row its own parser rejects.
+
+## Safeguard groups in the DSL
+
 A **group** ([app-behavior.md](app-behavior.md#groups-safeguards-sharing-one-required-count)) is
-not an entry of its own — its members are ordinary rules carrying `tags` like any other — so
-`@tag=… { count = … }` works with zero parser, EBNF, Prism, editor-meta or catalog work. On a
-member, `count` retunes its own required count — which inside a group is the size of the gear it
-feeds the group.
+not an entry of its own — its members are ordinary rules carrying `tags` like any other — so the
+tag selectors and every per-rule field reach a member with no group-specific syntax. On a member,
+`count` retunes its own required count, which inside a group is the size of the gear it **feeds**
+the group.
 
-A grammar change would only become necessary for a group-specific selector or a field for the
-group's own count (distinct from `requiredCount`) — neither exists yet.
+The group's **own** count and bucket chips live on `SafeguardRule.group`, which no per-rule field
+touches. Two additions cover them:
+
+**`group.*` assignment family** (`NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES`) — a dotted
+family like `weight.<statKey>`, with `group` as its base grammar token:
+
+```
+@tag=boots {
+  count = 3          // this member FEEDS the group 3
+  group.count = 5    // the group KEEPS 5 per merged bucket
+  group.perslot = on // the bucket-defining chips (per faction/mainstat/slot/set/rule)
+}
+```
+
+`group.count` shares the `count` grammar — one parse helper (`pushCountOperation`) serves both
+fields, so their accepted syntax cannot diverge. It therefore takes `$count`/`$value` and
+arithmetic inside a slider, gets the **same visual calc widget** as a rule's own count
+(`operationSupportsSliderValue`), and resolves through the same slider branch. The `group.per*`
+chips are booleans and deliberately get no calc widget. Every `group.*` op **no-ops on an
+ungrouped rule** — there is no group to retune.
+
+**`grouped` / `ungrouped` selector heads** — bare heads in the shared tag grammar
+(`NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS`), matching on group membership the way `tagged`/
+`untagged` match on tags, and composable: `@tagged and ungrouped { … }`. Membership is read from
+the rule's own inline settings, so it does not depend on neighbours. Only safeguards can be
+grouped: the recipe grammar has no such head, and `selectorTermOptionsFor('recipe')` filters
+both out of the shared dropdown (`SAFEGUARD_ONLY_SELECTOR_IDS`) so the editor never seeds a row
+the recipe parser would reject.
+
+**Head-wins fan-out.** A run's members must all carry identical group settings (the normalizer
+enforces it; the engine reads the head). So `applySafeguardOverrides` does not write group ops
+inline — matched members record their group's new settings into a pending map **keyed by the
+run's start index**, and a final pass writes each entry across that whole run. Consequences:
+
+- matching *any* member retunes the whole group, including its head;
+- two stretches sharing an id but separated by another entry are two runs, and only the matched
+  one is written (membership is "adjacent AND same id" — run resolution comes from
+  `safeguardGroupRunRange`, never a local re-derivation);
+- a write that changes nothing clones nothing, so untouched rules stay reference-equal.
+
+Pinned by `tests/unit/safeguard-overrides-groups.test.ts`.
 
 ## Tests
 
 - Unit: `tests/unit/overrides-serializer-roundtrip.test.ts` (see contract above)
-  and `tests/unit/overrides-ssot-completeness.test.ts` (vocabulary SSOT pinning).
+  and `tests/unit/overrides-ssot-completeness.test.ts` (vocabulary SSOT pinning),
+  `tests/unit/safeguard-overrides-groups.test.ts` (the `group.*` family, the
+  `grouped`/`ungrouped` heads, and the head-wins fan-out across a run),
+  `tests/unit/overrides-unknown-field-diagnostics.test.ts` (lenient parse vs. editor waves).
 - E2E: `tests/playwright/note-overrides-editor.spec.ts` — create flow, pencil re-edit
   (guards the `closest('button')` fix), structured body building.

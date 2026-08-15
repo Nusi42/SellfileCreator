@@ -43,7 +43,7 @@ import {
   type SafeguardOverridesOperation,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
-  SAFEGUARD_OVERRIDES_OP_FIELD,
+  safeguardOverridesOpFieldToken,
 } from './noteSafeguardOverrides'
 import { SafeguardRuleActivation } from './safeguards'
 import {
@@ -274,6 +274,8 @@ const emitTagSel = (sel: NoteTagSelector, minLevel: number): string => {
     case 'all': return 'all'
     case 'tagged': return 'tagged'
     case 'untagged': return 'untagged'
+    case 'grouped': return 'grouped'
+    case 'ungrouped': return 'ungrouped'
     case 'tag': {
       const values = sel.values ?? []
       if (sel.mode === 'any') return 'tag any'
@@ -367,7 +369,9 @@ export function serializeRecipeOperation(op: RecipeOverridesOperation): string {
 /** Emit one safeguard `field=value` assignment as parse-exact DSL. Exhaustive over
  *  the operation union; field spellings come from SAFEGUARD_OVERRIDES_OP_FIELD. */
 export function serializeSafeguardOperation(op: SafeguardOverridesOperation): string {
-  const field = SAFEGUARD_OVERRIDES_OP_FIELD[op.kind]
+  // The dotted `group.*` family's token depends on the op's payload, so the field spelling
+  // comes from the shared resolver rather than the plain kind→field map.
+  const field = safeguardOverridesOpFieldToken(op)
   switch (op.kind) {
     case 'activation': return `${field}=${ACTIVATION_DSL[op.value]}`
     case 'count': return emitNumericOrExpr(field, op.value, op.ast)
@@ -433,6 +437,10 @@ export function serializeSafeguardOperation(op: SafeguardOverridesOperation): st
         ...op.add.map((name) => ({ prefix: '+' as const, name })),
         ...op.remove.map((name) => ({ prefix: '-' as const, name })),
       ])
+    // group.* mirrors the emitters of its ungrouped twin — the dotted field carries the
+    // distinction, so the value spelling stays identical and re-parses to the same op.
+    case 'groupCount': return emitNumericOrExpr(field, op.value, op.ast)
+    case 'groupCountMode': return `${field}=${op.value ? 'on' : 'off'}`
   }
 }
 

@@ -193,7 +193,10 @@ test('every $value-capable field accepts $value through the real grammar', () =>
   const cases: Array<['recipe' | 'safeguard', 'recipe' | 'safeguard', string]> = [
     ['safeguard', 'safeguard', 'count'],
     ['safeguard', 'safeguard', 'improvchance'],
+    // group.count shares the count grammar, so it takes $value in the same places count does.
+    ['safeguard', 'safeguard', 'group.count'],
     ['recipe', 'safeguard', 'count'],  // recipe-hosted safeguard cross block
+    ['recipe', 'safeguard', 'group.count'],
     ['safeguard', 'recipe', 'rank'],
     ['safeguard', 'recipe', 'minrolls'],
     ['safeguard', 'recipe', 'lockedminrolls'],
@@ -205,6 +208,8 @@ test('every $value-capable field accepts $value through the real grammar', () =>
   }
   // Negative: a plain recipe block (recipe host) must NOT offer $value on rank.
   assert.equal(operationSupportsSliderValue('recipe', 'recipe', 'rank'), false)
+  // Negative: the group's boolean bucket chips take on/off, never a slider expression.
+  assert.equal(operationSupportsSliderValue('safeguard', 'safeguard', 'group.perslot'), false)
 })
 
 // ── Localized value labels + numeric bounds ───────────────────────────────────
@@ -340,7 +345,10 @@ test('condition-kind dropdown covers every grammar selector field', () => {
       `selector field '${field}' has no condition-kind dropdown entry`,
     )
   }
-  // The safeguard dropdown is exactly the tag-grammar surface (bare heads + tag kinds).
+  // The safeguard dropdown is exactly the tag-grammar surface: every bare head from the
+  // keyword SSOT (in its declared order), then the two `tag` match kinds. Derived rather
+  // than spelled out, so a new selector keyword must appear in the dropdown to pass.
   const safeguardIds = selectorTermOptionsFor('safeguard').map((option) => option.id)
-  assert.deepEqual(safeguardIds, ['all', 'tagged', 'untagged', 'tag', 'tagIn'])
+  const bareHeads = NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword) => keyword !== 'tag')
+  assert.deepEqual(safeguardIds, [...bareHeads, 'tag', 'tagIn'])
 })

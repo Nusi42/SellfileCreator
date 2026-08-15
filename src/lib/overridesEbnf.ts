@@ -46,6 +46,7 @@ import {
 import {
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS,
   NOTE_SAFEGUARD_OVERRIDES_IMPROVEMENT_CHANCE_KW_VALS,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
@@ -107,7 +108,8 @@ const SLIDER_GROUP_KEYWORDS = groupKeywords('slider')
 const SIMPLE_CONSTRAINT_KEYWORDS = NOTE_OVERRIDES_CONSTRAINT_KEYWORDS
   .filter((keyword) => keyword !== 'needs' && keyword !== NOTE_OVERRIDES_SETVAL_KEYWORD)
 
-// Bare tag-selector heads (`all` / `tagged` / `untagged`); `tag` appears in `term`.
+// Bare tag-selector heads (`all` / `tagged` / `untagged` / `grouped` / `ungrouped`);
+// `tag` appears in `term`.
 const TAG_SELECTOR_BARE_KEYWORDS = NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword) => keyword !== 'tag')
 
 // Numeric slider params (the rest have per-param value shapes below).
@@ -222,6 +224,8 @@ selectorBlock := "@" selector "{" sgAssignment+ "}"
 crossBlock    := ${quoteTok(NOTE_OVERRIDES_CROSS_KEYWORDS.safeguard)} "@" selector "{" recipeAssign+ "}"  // targets recipes from a safeguard-overrides marker
 ${RECIPE_ASSIGNMENT_LINES}
 selector      := ${alt(TAG_SELECTOR_BARE_KEYWORDS)} | expr
+             // grouped/ungrouped match on GROUP MEMBERSHIP (is this rule part of a group?),
+             // the way tagged/untagged match on tags — combinable: 'tagged and ungrouped'
 ${EXPR_LINES}
 term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any" | "none")
 ${wrapAltRule('sgField', NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS.map(quoteTok))}
@@ -237,6 +241,13 @@ sgAssignment  := "activation" "=" activationVal
              | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
              | "gearsets" "=" gearToken ("," gearToken)*       // +-Name adds an excluded set (as in recipes)
              | "metasets" "=" prefixToken ("," prefixToken)*   // replace or mutate metaset-name filter
+             | groupField "=" (countExpr | flexVal)
+${wrapAltRule('groupField', NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS.map(quoteTok))}
+                 // Retunes the GROUP a matched rule belongs to, never the rule itself; ignored
+                 // on an ungrouped rule. A member's own "count" sizes what it FEEDS the group,
+                 // while "group.count" is what the group KEEPS out of the merged pool, bucketed
+                 // by the "group.per*" chips. Every member of a run shares one set of group
+                 // settings, so matching ANY member writes them for the whole run.
 countExpr     := "$count" | "$value" | "$count." token | number (("+" | "-" | "*" | "/") number)*
                  // in slider groups $count/$value expand to the current slider position
 prefixNum     := ["+" | "-"] rankNum

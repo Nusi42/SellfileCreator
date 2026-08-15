@@ -34,6 +34,7 @@ import {
   NOTE_OVERRIDES_FALLBACK_KEYWORDS,
   NOTE_OVERRIDES_GROUP_TYPE_MAP,
   NOTE_OVERRIDES_CONSTRAINT_KEYWORDS,
+  NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS,
   NOTE_OVERRIDES_LOGIC_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
   NOTE_OVERRIDES_LAYOUT_COLUMNS_DEFAULT,
@@ -143,9 +144,13 @@ export const NOTE_RECIPE_OVERRIDES_SLOT_NAMES = Object.keys(ArtifactType) as rea
 /** Max required substats (`minsubstats=`): an artifact holds at most 4 substats. SSOT for the
  *  apply-side clamps below and the visual editor's number-widget cap. */
 export const NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX = 4
-/** Built-in selector and tag-match keywords. */
+/** Built-in selector and tag-match keywords: the shared tag-grammar heads (minus `tag`, which
+ *  the highlighter colours through its own `tag-comparison` token) plus the two `tag any`/
+ *  `tag none` match words. DERIVED from the tag-selector SSOT — a new bare selector keyword
+ *  must never need a second spelling here to get highlighted. */
 export const NOTE_RECIPE_OVERRIDES_SELECTOR_BUILTINS = [
-  'all', 'tagged', 'untagged', 'any', 'none',
+  ...NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword) => keyword !== 'tag'),
+  'any', 'none',
 ] as const
 /** @see NOTE_OVERRIDES_CONSTRAINT_KEYWORDS */
 export const NOTE_RECIPE_OVERRIDES_CONSTRAINT_KEYWORDS = NOTE_OVERRIDES_CONSTRAINT_KEYWORDS

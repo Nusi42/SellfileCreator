@@ -288,7 +288,7 @@ export const NOTE_OVERRIDES_LOGIC_KEYWORDS = ['and', 'or'] as const
 /** Selector keywords of the shared tag-only grammar (parseTagSelector): the surface a
  *  safeguard `@selector` accepts. SSOT for the editor's selector hints and the EBNF
  *  reference; the recipe grammar extends this set with its field comparisons. */
-export const NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS = ['tag', 'all', 'tagged', 'untagged'] as const
+export const NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS = ['tag', 'all', 'tagged', 'untagged', 'grouped', 'ungrouped'] as const
 
 /**
  * Cross-domain block keyword per HOST domain: inside a recipe marker, `safeguard @… { }`
@@ -712,6 +712,48 @@ export const reportInvalidEnumValue = (
   })
 }
 
+/** Flag an assignment field the grammar does not recognize. SSOT for the "unknown field"
+ *  diagnostic in both domains' `parseOperations` loops.
+ *
+ *  This is the DIAGNOSTIC half of the lenient-parse contract: the parser still SKIPS what it
+ *  cannot interpret (so a note written by a newer app version keeps working — its unknown
+ *  fields no-op instead of aborting the block, and its other overrides still apply), while the
+ *  editor gets a span to underline. Both halves run in the same parse; only the presence of a
+ *  `diags` collector distinguishes them. */
+export const reportUnknownField = (
+  fieldToken: Token,
+  diags: DiagnosticSpan[] | undefined,
+  blockOffset: number,
+): void => {
+  if (!diags) return
+  const from = blockOffset + fieldToken.index
+  diags.push({
+    from,
+    to: from + fieldToken.value.length,
+    message: `'${fieldToken.value}' is not a recognized field here — it will be ignored`,
+  })
+}
+
+/** Consume the value of an assignment whose field was not understood, so the skipped field
+ *  cannot swallow the assignments that follow it — nor leave its own tail behind for the loop
+ *  to misread as further fields.
+ *
+ *  Stops before the next `field =` pair or the block's closing brace. A comma is consumed as
+ *  part of the value (an unknown field may hold a list, `notafield=a,b,c`), but only while it
+ *  actually continues the list — a comma that SEPARATES assignments is followed by the next
+ *  `field =` pair, which the same check catches on the following iteration. */
+export const skipAssignmentValue = (cursor: TokenCursor): void => {
+  while (true) {
+    const next = cursor.peek()
+    if (!next) return
+    // A closing brace ends the block; leave it for the caller's loop to consume.
+    if (next.kind === 'symbol' && next.value === '}') return
+    // A word followed by `=` starts the next assignment.
+    if (next.kind === 'word' && cursor.peek(1)?.kind === 'symbol' && cursor.peek(1)?.value === '=') return
+    cursor.next()
+  }
+}
+
 // ── Marker options parser ─────────────────────────────────────────────────────
 
 /** Resolved marker layout options: card-width multiplier + option-grid column count. */
@@ -774,6 +816,10 @@ export type NoteTagSelector =
   | { kind: 'all' }
   | { kind: 'tagged' }
   | { kind: 'untagged' }
+  // Group membership, mirroring tagged/untagged. Only safeguard rules can be grouped, so in the
+  // recipe domain `grouped` matches nothing and `ungrouped` matches everything.
+  | { kind: 'grouped' }
+  | { kind: 'ungrouped' }
   | { kind: 'tag'; mode: 'eq' | 'in' | 'any' | 'none'; values?: string[] }
   | { kind: 'not'; inner: NoteTagSelector }
   | { kind: 'and'; left: NoteTagSelector; right: NoteTagSelector }
@@ -787,6 +833,8 @@ export function formatNoteTagSelector(sel: NoteTagSelector): string {
   switch (sel.kind) {
     case 'all':      return 'all'
     case 'tagged':   return 'tagged'
+    case 'grouped':   return 'grouped'
+    case 'ungrouped': return 'ungrouped'
     case 'untagged': return 'untagged'
     case 'tag': {
       const values = sel.values ?? []
@@ -820,6 +868,8 @@ export const parseTagSelector = (
     if (keyword === 'all') { cursor.next(); return { kind: 'all' } }
     if (keyword === 'tagged') { cursor.next(); return { kind: 'tagged' } }
     if (keyword === 'untagged') { cursor.next(); return { kind: 'untagged' } }
+    if (keyword === 'grouped') { cursor.next(); return { kind: 'grouped' } }
+    if (keyword === 'ungrouped') { cursor.next(); return { kind: 'ungrouped' } }
     if (keyword === 'tag') {
       cursor.next()
       const next = cursor.peek()

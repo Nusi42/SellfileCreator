@@ -60,6 +60,8 @@ import {
   NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
   NOTE_SAFEGUARD_OVERRIDES_MARKER_KEYWORD,
   NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS,
+  NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS,
+  NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX,
 } from './noteSafeguardOverrides'
 import { type DraftSelectorBlock, type DraftStructuredBody, type OverridesDomain } from './overridesDraftTypes'
 import { listOverrideBlocks, parseOverridesBlockDraft } from './overridesDraft'
@@ -375,6 +377,22 @@ const COUNT_RANGE: NumberValueRange = { min: NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
 // Substat weights share the Gear-Inspector sort-weight bounds/step.
 const WEIGHT_RANGE: NumberValueRange = { min: GEAR_INSPECTOR_SORT_WEIGHT_MIN, max: GEAR_INSPECTOR_SORT_WEIGHT_MAX, step: GEAR_INSPECTOR_SORT_WEIGHT_STEP }
 
+// Qualifier label per `group.per*` entry: the SAME chip terms the ungrouped `per*` fields use,
+// so "per slot" is named once for both the rule's own scope and its group's bucket scope.
+// Keyed by the fully-qualified DSL token and built from the grammar's suffix SSOT, so a new
+// chip cannot reach the dropdown without a label (the lookup below would be `undefined`).
+const GROUP_SCOPE_CHIP_LABEL_KEYS: Record<string, I18nKey> = {
+  perfaction: 'safeguardsCountModePerFaction',
+  permainstat: 'safeguardsCountModePerMain',
+  perslot: 'safeguardsCountModePerSlot',
+  perset: 'safeguardsCountModePerSet',
+  perrule: 'safeguardsCountModePerRule',
+}
+const GROUP_SCOPE_DETAIL_KEYS: Record<string, I18nKey> = Object.fromEntries(
+  Object.entries(GROUP_SCOPE_CHIP_LABEL_KEYS)
+    .map(([suffix, key]) => [`${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${suffix}`, key]),
+)
+
 type RecipeAssignmentField = (typeof NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 type SafeguardAssignmentField = (typeof NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS)[number]
 
@@ -459,6 +477,23 @@ const SAFEGUARD_OPERATION_TERM_META: Record<SafeguardAssignmentField, OperationT
   faction: [listOp('faction', FACTION_NAME_CHOICES, 'noteSafeguardFactionsLabel', undefined, 'factions')],
   gearsets: GEARSETS_TERM_META,
   metasets: METASETS_TERM_META,
+  // The dotted `group.*` family retunes the GROUP a matched rule belongs to, never the rule.
+  // One dropdown entry per fully-qualified token, built from the grammar's own suffix SSOT so
+  // the editor can never offer a spelling the parser would reject (or miss a new suffix).
+  group: NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS.map((field) => (
+    field === `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}count`
+      // The group's own required count — same widget and clamp as a rule's `count`.
+      ? numberOp(field, 'noteOverridesEditorFieldGroupCount', COUNT_RANGE)
+      // One bucket-scope chip. The label pairs the shared "group buckets" term with the chip's
+      // own term, so the dropdown reads e.g. "Group bucket scope · Per slot".
+      : {
+        ...boolOp(field, 'noteOverridesEditorFieldGroupScope'),
+        // exactOptionalPropertyTypes: only materialize the qualifier when one is defined.
+        // A chip with no entry still renders (under the shared base label) rather than
+        // vanishing from the dropdown; the completeness suite pins that every chip has one.
+        ...(GROUP_SCOPE_DETAIL_KEYS[field] ? { labelDetailKey: GROUP_SCOPE_DETAIL_KEYS[field] } : {}),
+      }
+  )),
 }
 
 /** Assignment dropdown entries for a block of the given domain. The order follows
@@ -708,8 +743,13 @@ export function flattenSelector(selector: AnyOverridesSelector): FlatSelector | 
 
 /** Widget-facing shape of one condition row. `compare` keeps field/op/value as the
  *  DSL surface strings so composing the term text is trivial and lossless. */
+/** The bare selector heads (`all`, `tagged`, `untagged`, `grouped`, `ungrouped`) — the
+ *  value-less condition kinds, derived from the tag-grammar SSOT so a new keyword flows
+ *  into the view type, the row composer and the seed builder without a second spelling. */
+export type BareSelectorKind = Exclude<(typeof NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS)[number], 'tag'>
+
 export type SelectorTermView =
-  | { kind: 'all' | 'tagged' | 'untagged' }
+  | { kind: BareSelectorKind }
   | { kind: 'tag'; value: string }
   | { kind: 'tagIn'; values: string[] }
   | { kind: 'flex'; value: 'on' | 'off' }
@@ -722,7 +762,7 @@ const OP_VIEW: Record<'eq' | 'gte' | 'lte', '=' | '>=' | '<='> = { eq: '=', gte:
  *  grammar additions) — the block then falls back to the raw DSL field. */
 export function selectorLeafToView(leaf: AnyOverridesSelector): SelectorTermView | null {
   switch (leaf.kind) {
-    case 'all': case 'tagged': case 'untagged': return { kind: leaf.kind }
+    case 'all': case 'tagged': case 'untagged': case 'grouped': case 'ungrouped': return { kind: leaf.kind }
     case 'tag': {
       if (leaf.mode === 'eq') return { kind: 'tag', value: leaf.values?.[0] ?? '' }
       if (leaf.mode === 'in') return { kind: 'tagIn', values: [...(leaf.values ?? [])] }
@@ -750,7 +790,8 @@ export function selectorLeafToView(leaf: AnyOverridesSelector): SelectorTermView
 /** Compose one condition row's DSL term text (the inverse of selectorLeafToView). */
 export function selectorTermText(view: SelectorTermView): string {
   switch (view.kind) {
-    case 'all': case 'tagged': case 'untagged': return view.kind
+    // Every bare head's DSL text IS its kind.
+    case 'all': case 'tagged': case 'untagged': case 'grouped': case 'ungrouped': return view.kind
     case 'tag': return `tag=${view.value}`
     case 'tagIn': return `tag in [${view.values.join(',')}]`
     case 'flex': return `flex=${view.value}`
@@ -813,7 +854,14 @@ const TAG_SELECTOR_LABEL_KEYS: Record<Exclude<(typeof NOTE_OVERRIDES_TAG_SELECTO
   all: 'noteOverridesEditorSelKindAll',
   tagged: 'noteOverridesEditorSelKindTagged',
   untagged: 'noteOverridesEditorSelKindUntagged',
+  grouped: 'noteOverridesEditorSelKindGrouped',
+  ungrouped: 'noteOverridesEditorSelKindUngrouped',
 }
+/** Selector heads the SAFEGUARD grammar accepts but the recipe grammar does not: group
+ *  membership is a safeguard-only concept (a recipe is never part of a group). The tag heads
+ *  are shared by both, so this is the one asymmetry the shared option list has to encode. */
+const SAFEGUARD_ONLY_SELECTOR_IDS = new Set<string>(['grouped', 'ungrouped'])
+
 const TAG_TERM_OPTIONS: SelectorTermOption[] = [
   ...NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS.filter((keyword): keyword is Exclude<(typeof NOTE_OVERRIDES_TAG_SELECTOR_KEYWORDS)[number], 'tag'> => keyword !== 'tag').map((keyword) => (
     { id: keyword, token: keyword, labelKey: TAG_SELECTOR_LABEL_KEYS[keyword], ops: [], value: 'none', choices: null, stat: false, star: false } as SelectorTermOption
@@ -849,13 +897,19 @@ const RECIPE_SELECTOR_TERM_META: Record<RecipeSelectorField, SelectorTermOption[
 /** Condition-kind dropdown entries for a block of the given domain. */
 export function selectorTermOptionsFor(blockDomain: OverridesDomain): SelectorTermOption[] {
   if (blockDomain === 'safeguard') return TAG_TERM_OPTIONS
-  return [...TAG_TERM_OPTIONS, ...NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS.flatMap((field) => RECIPE_SELECTOR_TERM_META[field])]
+  // Only safeguards can be grouped, so the recipe grammar has no grouped/ungrouped head —
+  // offering one would seed a row its parser rejects.
+  return [
+    ...TAG_TERM_OPTIONS.filter((option) => !SAFEGUARD_ONLY_SELECTOR_IDS.has(option.id)),
+    ...NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS.flatMap((field) => RECIPE_SELECTOR_TERM_META[field]),
+  ]
 }
 
 /** Dropdown option id for a term view (dotted families collapse onto one entry). */
 export function selectorViewOptionId(view: SelectorTermView): string {
   switch (view.kind) {
-    case 'all': case 'tagged': case 'untagged': return view.kind
+    // Bare heads use their keyword as the dropdown id (see TAG_TERM_OPTIONS).
+    case 'all': case 'tagged': case 'untagged': case 'grouped': case 'ungrouped': return view.kind
     case 'tag': return 'tag'
     case 'tagIn': return 'tagIn'
     case 'flex': return 'flex'
@@ -876,7 +930,8 @@ export { dslSubstatKeys, dslMainStatKeys }
 /** Fresh parse-valid view when the user switches a row to this kind (tag kinds start
  *  empty and stay uncommitted until a value is entered). */
 export function defaultViewForOption(option: SelectorTermOption): SelectorTermView {
-  if (option.value === 'none') return { kind: option.id as 'all' | 'tagged' | 'untagged' }
+  // Value-less options are the bare heads; their dropdown id IS the selector keyword.
+  if (option.value === 'none') return { kind: option.id as BareSelectorKind }
   if (option.value === 'tag') return { kind: 'tag', value: '' }
   if (option.value === 'tags') return { kind: 'tagIn', values: [] }
   if (option.id === 'flex') return { kind: 'flex', value: 'on' }
@@ -903,7 +958,13 @@ export function operationSupportsSliderValue(
   blockDomain: OverridesDomain,
   field: string,
 ): boolean {
-  if (blockDomain === 'safeguard') return field === 'count' || field === 'improvchance'
+  // `group.count` shares the count grammar (parseCountExpression), so it takes $value and the
+  // same arithmetic — spelled through the family SSOT rather than repeated as a literal.
+  if (blockDomain === 'safeguard') {
+    return field === 'count'
+      || field === 'improvchance'
+      || field === `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}count`
+  }
   // Recipe blocks: only the cross-domain numeric quartet resolves $value.
   return hostDomain === 'safeguard' && (CROSS_RECIPE_SLIDER_VALUE_FIELDS as readonly string[]).includes(field)
 }

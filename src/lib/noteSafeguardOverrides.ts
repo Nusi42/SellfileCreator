@@ -30,7 +30,12 @@ import { parseRecipeSelectorBlockCross, clampRankCode } from './noteRecipeOverri
 // statKeyToVariant: safeguard stat fields (`substats=`, `weight.`) are all SUBSTAT
 // positions, so they take the full substat vocabulary — anomalous keys included.
 import { statKeyToVariant, rarityCodeFromRankValue, rarityCodeToName, factionCodeToName } from './types'
-import type { SafeguardRule, SafeguardImprovementChanceLevelThresholds } from './safeguards'
+import type {
+  SafeguardRule,
+  SafeguardImprovementChanceLevelThresholds,
+  SafeguardRuleCountMode,
+  SafeguardGroupSettings,
+} from './safeguards'
 import {
   SafeguardRuleActivation,
   SafeguardSubstatMatch,
@@ -42,7 +47,16 @@ import {
   artifactSetIdByName,
   SAFEGUARD_REQUIRED_COUNT_MIN,
   SAFEGUARD_REQUIRED_COUNT_MAX,
+  // Group helpers — membership questions and settings identity, so this module never
+  // re-implements what "is grouped" or "same settings" means (SSOT: safeguards.ts).
+  isSafeguardGrouped,
+  safeguardGroupSettingsEqual,
+  cloneSafeguardGroupSettings,
+  clampSafeguardRequiredCount,
 } from './safeguards'
+// Run resolution comes from the group SSOT (a memoized facade over the wasm resolver the
+// engine itself uses) — this module never re-derives what "adjacent AND same id" means.
+import { safeguardGroupRunRange } from './safeguardGroups'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import {
   SAFEGUARD_WEIGHT_DEFAULT,
@@ -70,6 +84,9 @@ import {
   buildQuestionImplicitTokenMap,
   parseOverridesBooleanValue,
   reportInvalidEnumValue,
+  reportUnknownField,
+  skipAssignmentValue,
+  NOTE_OVERRIDES_BOOLEAN_KEYWORDS,
   localizeDslDisplay,
   parsePrefixedToken,
   classifyListMode,
@@ -113,6 +130,13 @@ export const NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS = [
 export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN = SAFEGUARD_REQUIRED_COUNT_MIN
 export const NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX = SAFEGUARD_REQUIRED_COUNT_MAX
 
+/** Round + clamp a resolved count expression into the DSL's count bounds. One definition for
+ *  both count families (`count` and `group.count`), which share the same grammar and bounds. */
+export const clampNoteSafeguardOverridesCount = (raw: number): number => Math.max(
+  NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN,
+  Math.min(NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX, Math.round(raw)),
+)
+
 /**
  * Non-numeric `improvchance =` keywords in the DSL (lowercase surface form).
  * Excludes `on`/`off`/`true`/`false` which are handled by the shared boolean-val token.
@@ -136,7 +160,40 @@ export const NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS = [
   'rank', 'rarity', 'faction',
   // combination gear-set / metaset lists (comma-separated; +/-/+- prefixes as in recipes).
   'gearsets', 'metasets',
+  // group.<setting> — retunes the GROUP the matched rule belongs to, never the rule itself.
+  // Prefix only; the full suffix set is dynamic (see NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES).
+  'group',
 ] as const
+
+/**
+ * Suffixes accepted after the `group.` prefix, mapped to what they retune.
+ *
+ * A member's own `count` sizes what it FEEDS its group; `group.count` is the count the GROUP
+ * keeps out of the merged pool, and the `group.per*` chips are the bucket-defining properties
+ * that pool is merged by. They are therefore distinct fields from `count` / `per*`, not aliases.
+ *
+ * `'count'` maps to null (its own operation kind); every other suffix names a count-mode chip,
+ * typed as `keyof SafeguardRuleCountMode` so a new chip in the Rust wire type fails to compile
+ * here until the DSL learns to spell it.
+ */
+export const NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES: Record<string, keyof SafeguardRuleCountMode | null> = {
+  count: null,
+  perfaction: 'perFaction',
+  permainstat: 'perMainStat',
+  perslot: 'perSlot',
+  perset: 'perSet',
+  perrule: 'perRule',
+}
+
+/** The bare `group` grammar token — the family's base field, as `weight` is for `weight.<stat>`. */
+export const SAFEGUARD_GROUP_FIELD_BASE = 'group'
+
+/** The `group.` field prefix — one spelling shared by the parser, serializer and editor. */
+export const NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX = `${SAFEGUARD_GROUP_FIELD_BASE}.`
+
+/** Fully-qualified `group.*` field tokens (prefix + each suffix), in declaration order. */
+export const NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS = Object.keys(NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES)
+  .map((suffix) => `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${suffix}`)
 
 // ── Operation types ───────────────────────────────────────────────────────────
 
@@ -176,6 +233,14 @@ export type SafeguardOverridesOperation =
   // Metaset names stay raw display-name strings (resolved against metasets at match time).
   | { kind: 'metaSetNames'; mode: 'replace'; values: string[] }
   | { kind: 'metaSetNames'; mode: 'mutate';  add: string[]; remove: string[] }
+  // ── Group settings (`group.*`) — retune the GROUP the matched rule belongs to ──
+  // Both no-op on an ungrouped rule: there is no group to retune. On a member they write
+  // the whole run (see applySafeguardOverrides), because a run's members must agree.
+  // group.count: what the group KEEPS per merged bucket, as opposed to `count`, which sizes
+  // what this member FEEDS it. Shares the count grammar, so null/ast carry the same meaning.
+  | { kind: 'groupCount'; value: number | null; ast?: NoteCountAstNode }
+  // group.per*: one bucket-defining chip of the group's own countMode.
+  | { kind: 'groupCountMode'; chip: keyof SafeguardRuleCountMode; value: boolean }
 
 /**
  * Operation kind → DSL assignment-field token. SSOT for DSL-reconstruction consumers
@@ -206,6 +271,34 @@ export const SAFEGUARD_OVERRIDES_OP_FIELD: Record<SafeguardOverridesOperation['k
   factions: 'faction',
   sets: 'gearsets',
   metaSetNames: 'metasets',
+  // Both `group.*` ops map to the family's BASE token, exactly as `substatWeight` maps to
+  // `weight` rather than `weight.<stat>` — this map answers "which grammar field does this op
+  // belong to". The full dotted token (which varies per op) comes from
+  // safeguardOverridesOpFieldToken() below.
+  groupCount: SAFEGUARD_GROUP_FIELD_BASE,
+  groupCountMode: SAFEGUARD_GROUP_FIELD_BASE,
+}
+
+// Reverse of NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES: chip → DSL suffix, so the
+// serializer and tooltip spell a chip exactly the way the parser reads it back.
+const GROUP_CHIP_SUFFIX = new Map<keyof SafeguardRuleCountMode, string>(
+  Object.entries(NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES)
+    .flatMap(([suffix, chip]) => (chip ? [[chip, suffix] as const] : [])),
+)
+
+/**
+ * The full dotted field token for one operation — identical to SAFEGUARD_OVERRIDES_OP_FIELD
+ * for every op except `groupCountMode`, whose token depends on which chip it carries.
+ * SSOT for both DSL-reconstruction consumers (tooltip) and the serializer.
+ */
+export const safeguardOverridesOpFieldToken = (op: SafeguardOverridesOperation): string => {
+  // Both `group.*` kinds carry the family's BASE token in the map above, so each completes its
+  // own dotted suffix here — `group` alone is a prefix the parser would not recognize.
+  if (op.kind === 'groupCount') return `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}count`
+  if (op.kind === 'groupCountMode') {
+    return `${NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX}${GROUP_CHIP_SUFFIX.get(op.chip) ?? ''}`
+  }
+  return SAFEGUARD_OVERRIDES_OP_FIELD[op.kind]
 }
 
 /** A resolved selector + operations pair, ready for application. */
@@ -265,12 +358,33 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
     case 'metaSetNames': return op.mode === 'replace'
       ? op.values.join(',')
       : formatOverridesMutateList(op.add, op.remove)
+    // group.* mirrors the spelling of its ungrouped twin (count → number or $count, chips → on/off).
+    case 'groupCount': return op.value != null ? String(op.value) : '$count'
+    case 'groupCountMode': return String(op.value)
   }
 }
 
 export type SafeguardOverridesSelectorBlock = {
   selector: NoteTagSelector
   operations: SafeguardOverridesOperation[]
+}
+
+/**
+ * Boolean-valued assignment fields → the operation kind each produces. One table instead of a
+ * chain of `if (field === …)`, so the parse branch reports a bad VALUE against the right field
+ * and every boolean field is guaranteed a branch. Keys are grammar tokens (asserted against
+ * NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS by the completeness suite); values are narrowed to
+ * the op kinds that actually carry a plain boolean.
+ */
+const BOOLEAN_FIELD_OP_KIND: Record<string, Exclude<Extract<SafeguardOverridesOperation, { value: boolean }>, { chip: unknown }>['kind'] | undefined> = {
+  ignprev: 'ignPrev',
+  igncoll: 'ignEquippedCollection',
+  ignvault: 'ignEquippedVault',
+  perfaction: 'perFaction',
+  permainstat: 'perMainStat',
+  perslot: 'perSlot',
+  perset: 'perSet',
+  perrule: 'perRule',
 }
 
 // ── DSL keyword → enum value maps ─────────────────────────────────────────────
@@ -298,15 +412,25 @@ const SUBSTAT_MATCH_KEYWORD_MAP: Record<string, SafeguardSubstatMatch> = {
 
 // ── Selector matching ─────────────────────────────────────────────────────────
 
-/** Whether a rule matches a tag-based selector against its `tags` array. */
+/**
+ * Whether a rule matches a tag-based selector.
+ *
+ * Takes the whole rule (not just its tags) because `grouped`/`ungrouped` ask about group
+ * membership. Membership is read from the rule's own inline settings via the safeguards SSOT —
+ * NOT from run structure — so the answer does not depend on the rule's neighbours and a single
+ * member pasted elsewhere still reports what it carries.
+ */
 const matchesTagSelectorForRule = (
   selector: NoteTagSelector,
-  tags: readonly string[],
+  rule: SafeguardRule,
 ): boolean => {
+  const tags = rule.tags ?? []
   switch (selector.kind) {
     case 'all':     return true
     case 'tagged':  return tags.length > 0
     case 'untagged': return tags.length === 0
+    case 'grouped':   return isSafeguardGrouped(rule)
+    case 'ungrouped': return !isSafeguardGrouped(rule)
     case 'tag': {
       if (selector.mode === 'any')  return tags.length > 0
       if (selector.mode === 'none') return tags.length === 0
@@ -317,14 +441,14 @@ const matchesTagSelectorForRule = (
       // 'eq': matches when the rule has the specified tag.
       return tags.some((tag) => (selector.values ?? []).includes(tag))
     }
-    case 'not': return !matchesTagSelectorForRule(selector.inner, tags)
+    case 'not': return !matchesTagSelectorForRule(selector.inner, rule)
     case 'and': return (
-      matchesTagSelectorForRule(selector.left, tags)
-      && matchesTagSelectorForRule(selector.right, tags)
+      matchesTagSelectorForRule(selector.left, rule)
+      && matchesTagSelectorForRule(selector.right, rule)
     )
     case 'or': return (
-      matchesTagSelectorForRule(selector.left, tags)
-      || matchesTagSelectorForRule(selector.right, tags)
+      matchesTagSelectorForRule(selector.left, rule)
+      || matchesTagSelectorForRule(selector.right, rule)
     )
   }
 }
@@ -342,6 +466,34 @@ const sortDedupNumeric = <T extends number>(arr: T[]): T[] =>
 // branches treat it like a plain `+` add, mirroring the recipe side.
 
 // ── Operations parser ─────────────────────────────────────────────────────────
+
+/**
+ * Parse a count expression and push it as `kind`. ONE definition for the two fields that share
+ * the count grammar — the rule's own `count` and the group's `group.count` — so their accepted
+ * syntax (literal / bare `$count`·`$value` / richer AST) can never diverge.
+ *
+ * The three shapes are distinguished because the downstream contracts differ: a literal is
+ * resolved here, a bare self-reference keeps the legacy `value: null` form for compatibility,
+ * and anything richer carries its AST to be evaluated against the slider at resolve time.
+ */
+const pushCountOperation = (
+  operations: SafeguardOverridesOperation[],
+  kind: 'count' | 'groupCount',
+  cursor: TokenCursor,
+): void => {
+  const ast = parseCountExpression(cursor)
+  if (ast === null) return
+  if (ast.kind === 'literal') {
+    // Plain numeric literal: round at parse time and clamp to the count minimum.
+    operations.push({ kind, value: Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, Math.round(ast.value)) })
+  } else if (ast.kind === 'ref' && ast.sliderId === null) {
+    // Bare $count / $value self-reference: legacy null form.
+    operations.push({ kind, value: null })
+  } else {
+    // Complex expression or cross-slider ref: store the AST for resolve-time eval.
+    operations.push({ kind, value: null, ast })
+  }
+}
 
 /** Parse safeguard-overrides operation assignments inside a `{ … }` block. */
 const parseOperations = (
@@ -382,19 +534,34 @@ const parseOperations = (
     // Intercept before the generic value-reading path so the expression parser
     // sees the full token stream (including opening `(` and cross-slider refs).
     if (field === 'count') {
-      const ast = parseCountExpression(cursor)
-      if (ast !== null) {
-        if (ast.kind === 'literal') {
-          // Plain numeric literal: apply rounding at parse time, clamp to the count minimum.
-          const n = Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, Math.round(ast.value))
-          operations.push({ kind: 'count', value: n })
-        } else if (ast.kind === 'ref' && ast.sliderId === null) {
-          // Bare $count / $value self-reference: use legacy null form for compat.
-          operations.push({ kind: 'count', value: null })
-        } else {
-          // Complex expression or cross-slider ref: store AST for resolve-time eval.
-          operations.push({ kind: 'count', value: null, ast })
-        }
+      pushCountOperation(operations, 'count', cursor)
+      continue
+    }
+
+    // ── group.<setting> = … ───────────────────────────────────────────────────
+    // Intercepted before the generic value path so `group.count` reaches the same
+    // expression parser as `count` (it shares that grammar, including $count/$value).
+    if (field.startsWith(NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX)) {
+      const suffix = field.slice(NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_PREFIX.length).trim()
+      // An unknown suffix is skipped by the parser but flagged for the editor's red wave.
+      if (!(suffix in NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES)) {
+        reportUnknownField(token, diags, absoluteOffset)
+        skipAssignmentValue(cursor)
+        continue
+      }
+      const chip = NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELD_SUFFIXES[suffix]
+      if (chip == null) {
+        // group.count — the member's own `count` grammar, applied to the group.
+        pushCountOperation(operations, 'groupCount', cursor)
+        continue
+      }
+      // group.per* — one bucket chip; same boolean vocabulary as the member's own chips.
+      const chipToken = cursor.peek()
+      if (chipToken && (chipToken.kind === 'word' || chipToken.kind === 'string')) {
+        cursor.next()
+        const parsed = parseOverridesBooleanValue(chipToken.value.trim().toLowerCase())
+        if (parsed !== null) operations.push({ kind: 'groupCountMode', chip, value: parsed })
+        else reportInvalidEnumValue(field, chipToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset)
       }
       continue
     }
@@ -426,16 +593,14 @@ const parseOperations = (
     }
 
     // ── boolean flag fields ───────────────────────────────────────────────────
-    const boolValue = parseOverridesBooleanValue(valueLc)
-    if (boolValue !== null) {
-      if (field === 'ignprev')     { operations.push({ kind: 'ignPrev',               value: boolValue }); continue }
-      if (field === 'igncoll')     { operations.push({ kind: 'ignEquippedCollection', value: boolValue }); continue }
-      if (field === 'ignvault')    { operations.push({ kind: 'ignEquippedVault',       value: boolValue }); continue }
-      if (field === 'perfaction')  { operations.push({ kind: 'perFaction',   value: boolValue }); continue }
-      if (field === 'permainstat') { operations.push({ kind: 'perMainStat',  value: boolValue }); continue }
-      if (field === 'perslot')     { operations.push({ kind: 'perSlot',      value: boolValue }); continue }
-      if (field === 'perset')      { operations.push({ kind: 'perSet',       value: boolValue }); continue }
-      if (field === 'perrule')     { operations.push({ kind: 'perRule',      value: boolValue }); continue }
+    // Kind per field name, so an unparsable VALUE is reported as a value error rather than
+    // falling through to the unknown-FIELD diagnostic at the end of the loop.
+    const boolFieldKind = BOOLEAN_FIELD_OP_KIND[field]
+    if (boolFieldKind) {
+      const boolValue = parseOverridesBooleanValue(valueLc)
+      if (boolValue !== null) operations.push({ kind: boolFieldKind, value: boolValue })
+      else reportInvalidEnumValue(field, valueToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset)
+      continue
     }
 
     // ── substats = [+|-]stat, … ───────────────────────────────────────────────
@@ -585,9 +750,10 @@ const parseOperations = (
     // ── weight.<statKey> = number ─────────────────────────────────────────────
     if (field.startsWith('weight.')) {
       const statKey = field.slice('weight.'.length).trim()
-      if (!statKey) continue
-      const variant = statKeyToVariant(statKey)
-      if (variant == null) continue
+      const variant = statKey ? statKeyToVariant(statKey) : null
+      // An unknown stat suffix is a field-level typo (`weight.spdd`) — same treatment as any
+      // other unrecognized field: skipped by the parser, underlined for the editor.
+      if (variant == null) { reportUnknownField(token, diags, absoluteOffset); continue }
       const numeric = Number.parseFloat(valueLc)
       if (!Number.isFinite(numeric)) continue
       // Clamp to the allowed weight range with the same two-tier step as the UI (SSOT: normalizeGearInspectorSortWeight).
@@ -649,6 +815,12 @@ const parseOperations = (
       }
       continue
     }
+
+    // ── Unrecognized field ────────────────────────────────────────────────────
+    // Every known field `continue`s above, so reaching here means the grammar has no
+    // branch for this token. Skipped (lenient parse) but underlined for the editor.
+    reportUnknownField(token, diags, absoluteOffset)
+    skipAssignmentValue(cursor)
   }
   return operations
 }
@@ -1547,13 +1719,14 @@ export const resolveNoteSafeguardOverridesTags = (
         for (const block of option.blocks) {
           const resolvedOps = block.operations.map((op) => {
             // Resolve null-valued count ops: evaluate the AST if present, otherwise use
-            // the raw slider position (legacy $count / $value bare reference).
-            if (op.kind === 'count' && op.value === null) {
+            // the raw slider position (legacy $count / $value bare reference). `group.count`
+            // shares the count grammar, so it resolves identically — only the op kind differs.
+            if ((op.kind === 'count' || op.kind === 'groupCount') && op.value === null) {
               const rawResult = op.ast
                 ? evalCountAst(op.ast, resolvedValue, sliderValueByToken)
                 : resolvedValue
               // Emit a resolved count op with no ast — the expression has been evaluated to a literal.
-              return { kind: 'count' as const, value: Math.max(NOTE_SAFEGUARD_OVERRIDES_COUNT_MIN, Math.min(NOTE_SAFEGUARD_OVERRIDES_COUNT_MAX, Math.round(rawResult))) }
+              return { kind: op.kind, value: clampNoteSafeguardOverridesCount(rawResult) }
             }
             // Resolve dynamic improvchance=$value into a flat per-level threshold.
             if (op.kind === 'improvementChance' && op.dynamic) {
@@ -1604,12 +1777,42 @@ export const applySafeguardOverrides = (
     cloned.set(index, clone)
     return clone
   }
+  /**
+   * Pending `group.*` writes, keyed by the RUN's start index and applied after the per-rule pass.
+   *
+   * A group's settings must be identical on every member (the normalizer enforces it and the
+   * engine reads the run's head), so an override matching only SOME members cannot write just
+   * those — it would split the run. Instead each matched member records its group's new settings
+   * here, and the fan-out below writes them to the whole run.
+   *
+   * Keyed by run start, NOT by group id: membership is "adjacent AND same id", so two stretches
+   * separated by anything are two independent runs even when they share an id, and retuning one
+   * must leave the other alone. Reusing one entry per run also lets a later instruction refine
+   * the same pending settings instead of clobbering them, exactly as per-rule ops compose on one
+   * clone.
+   */
+  const pendingGroupWrites = new Map<number, SafeguardGroupSettings>()
+  // The settings a `group.*` op should mutate: whatever is already pending for this rule's run,
+  // else the run head's current settings. Null when the rule is not in a group — the op then
+  // no-ops, because there is no group to retune.
+  const pendingGroupFor = (index: number): SafeguardGroupSettings | null => {
+    const range = safeguardGroupRunRange(rules, index)
+    if (!range) return null
+    const existing = pendingGroupWrites.get(range.start)
+    if (existing) return existing
+    // Seed from the run's HEAD — the copy the engine actually reads.
+    const head = rules[range.start] as SafeguardRule
+    if (!head.group) return null
+    const seeded = cloneSafeguardGroupSettings(head.group)
+    pendingGroupWrites.set(range.start, seeded)
+    return seeded
+  }
+
   for (const instruction of instructions) {
     const { selector, operations } = instruction
-    // Match selector against each rule's tags.
+    // Match the selector against each rule (tags + group membership).
     rules.forEach((rule, index) => {
-      const tags = rule.tags ?? []
-      if (!matchesTagSelectorForRule(selector, tags)) return
+      if (!matchesTagSelectorForRule(selector, rule)) return
       const clone = getClone(index)
       for (const op of operations) {
         switch (op.kind) {
@@ -1738,9 +1941,36 @@ export const applySafeguardOverrides = (
               clone.combination.metaSetNames = [...base, ...op.add.filter((n) => !existing.has(n))]
             }
             break
+          // ── group.* — recorded here, fanned out across the run below ──────────
+          // Read from `rule` (the stored entry), not `clone`: group membership is never
+          // changed by an override, so the clone would answer identically.
+          case 'groupCount': {
+            const pending = pendingGroupFor(index)
+            // null values are resolved before reaching here (in resolveNoteSafeguardOverridesTags).
+            if (pending && op.value !== null) pending.requiredCount = clampSafeguardRequiredCount(op.value)
+            break
+          }
+          case 'groupCountMode': {
+            const pending = pendingGroupFor(index)
+            if (pending) pending.countMode = { ...pending.countMode, [op.chip]: op.value }
+            break
+          }
         }
       }
     })
+  }
+  // ── Fan out group writes across every member of the affected runs ────────────
+  // Each pending entry is keyed by its run's start index, so the write lands on exactly the
+  // members of that run — never on a second, unrelated run that happens to reuse the id.
+  for (const [start, settings] of pendingGroupWrites) {
+    const range = safeguardGroupRunRange(rules, start)
+    if (!range) continue
+    for (let index = range.start; index < range.end; index += 1) {
+      // Only rewrite when the group actually changed — otherwise a matched selector would
+      // clone every member of every group it touched for no reason.
+      if (safeguardGroupSettingsEqual(rules[index]!.group, settings)) continue
+      getClone(index).group = cloneSafeguardGroupSettings(settings)
+    }
   }
   if (cloned.size === 0) return rules
   // Post-override normalization: substat-dependent fields (improvementChanceThreshold,
