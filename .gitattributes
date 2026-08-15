@@ -1,0 +1,51 @@
+# Line endings, declared once so every clone agrees.
+#
+# Without this, Git guesses per file from `core.autocrlf`, which is a LOCAL
+# setting — and this repo lives in several clones (.master/.win1/.win2), so a
+# guess made in one is not the guess made in the next. The symptom is the
+# "LF will be replaced by CRLF the next time Git touches it" warning on almost
+# every commit, and the risk is a whole-file diff when a clone with a different
+# setting touches something.
+#
+# The repo stores LF (it always did) and now checks LF out too, so the working
+# tree and the index agree and nothing is rewritten on the way past. Windows
+# handles LF fine here: Node, cargo, dotnet, VS Code and PowerShell 7 all read
+# it, and the toolchain never shells out to anything that cannot.
+* text=auto eol=lf
+
+# …except the ones Windows itself reads. A .ps1/.cmd/.bat with LF is fine for
+# PowerShell 7, but keeping these CRLF costs nothing and avoids surprising an
+# older host or a double-clicked script. .bat is here for the same reason as
+# .cmd — cmd.exe reads both (scripts/watchers/Stream-Helper-DB-to-Creator.bat).
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# POSIX shell keeps LF explicitly: a CRLF `.sh` fails at the shebang under WSL
+# and CI, which the blanket rule above already prevents — stated so a future
+# per-extension override cannot silently take it away.
+*.sh text eol=lf
+
+# Domain payloads. Both are JSON written by `JSON.stringify` (see src/lib/sfcIO.ts
+# and src/lib/hsfIO.ts), so they are ordinary text and diff usefully — worth
+# saying out loud because the extensions are unknown to Git's own heuristics.
+# Some vendor .hsf samples under docs/orig/ carry a UTF-8 BOM; the parser strips
+# it on read (hsfIO.ts), so it survives round-trips without a Git rule.
+*.sfc text eol=lf
+*.hsf text eol=lf
+
+# Binaries: never touched, never diffed as text.
+*.webp  binary
+*.png   binary
+*.ico   binary
+*.icns  binary
+*.jpg   binary
+*.zip   binary
+*.db    binary
+*.pdn    binary
+
+*.dll   binary
+
+# SVG is XML, so it stays text and diffs line by line like any other markup.
+*.svg text eol=lf
+
