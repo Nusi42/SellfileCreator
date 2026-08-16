@@ -7,7 +7,8 @@ strings with `[[cc]]` locale variants, an optional pinned question `id=`, `rb`/`
 options, `*` defaults, option `id=`,
 constraint tokens, slider params incl. marks/toggle/unit, and `{ @selector { ops } }`
 effect bodies with `else` and cross-domain blocks). The acceptance fixture is
-`presets/lategame.sfc`: all of its 22 blocks map to the fully structured editor model.
+`presets/lategame.sfc`: all of its 26 blocks (14 recipe + 12 safeguard) map to the fully
+structured editor model.
 
 ## Data layer (`src/lib/`)
 
@@ -270,6 +271,23 @@ run's start index**, and a final pass writes each entry across that whole run. C
 - a write that changes nothing clones nothing, so untouched rules stay reference-equal.
 
 Pinned by `tests/unit/safeguard-overrides-groups.test.ts`.
+
+**In the shipped preset.** Every count-writing factor block in every safeguard slider mirrors
+its member write with the group's own count, inline and at the same scale
+([lategame-preset-design.md](lategame-preset-design.md#tag-conventions-drive-the-notes-dynamic-overrides)):
+
+```
+@tag=debuffer and tag=div8 { count=$value/8 group.count=$value/8 }
+```
+
+The preset ships **no** groups today (grouping its damage fan-out was measured inert), so every
+`group.count` is a deliberate no-op: `group.*` does nothing on an ungrouped rule. The mirror is
+forward-compat wiring — a group formed later out of any family is driven by its slider the moment
+it exists, without anyone remembering to add the write. It is the SAME expression as `count`, not a
+bare `$value`, because a group seeds from the MIN of its members' counts: `div8` members promise
+`$value/8` and their group must promise the same. Inline (one block, two ops) rather than a second
+`@grouped …` block so the expression exists once and cannot drift. Pinned across every slider by
+the preset test in `tests/unit/safeguard-overrides-groups.test.ts` and the golden digest.
 
 ## Tests
 

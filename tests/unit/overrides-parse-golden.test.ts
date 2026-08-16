@@ -171,37 +171,37 @@ Q "How many speed pieces **per slot** shoul" cols=2
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_spd_pieces s blk:count sld:1-64/16 unit: pieces
+  min_spd_pieces s blk:count+groupCount sld:1-64/16 unit: pieces
 Q "How many debuffer pieces **per slot** sh" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_debuffer_pieces s blk:count sld:1-64/32 unit: pieces
+  min_debuffer_pieces s blk:count+groupCount sld:1-64/32 unit: pieces
 Q "How many damage or survivability pieces " cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_dmgsurv_pieces s blk:count sld:1-64/32 unit: pieces
+  min_dmgsurv_pieces s blk:count+groupCount sld:1-64/32 unit: pieces
 Q "How many damage/survivability/debuffer p" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  #5 s blk:count sld:1-64/8 unit: pieces
+  #5 s blk:count+groupCount sld:1-64/8 unit: pieces
 Q "How many utility pieces (Stun, Provoke, " cols=2
   util_off s blk:activation
   util_own s blk:activation
   util_gaps s * blk:activation
   util_upg s blk:activation
-  min_utility_pieces s blk:count sld:1-8/1 unit: pieces
+  min_utility_pieces s blk:count+groupCount sld:1-8/1 unit: pieces
 Q "Keep a minimum of **every** artifact kin" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_catchrest_pieces s blk:count sld:1-16/2 unit: pieces
+  min_catchrest_pieces s blk:count+groupCount sld:1-16/2 unit: pieces
 Q "Do you want to protect **artifacts** (no" cols=2
   impr_art s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%
 Q "" cols=2 SPACER
@@ -210,19 +210,19 @@ Q "How many of the best SPD banners **per f" cols=2
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_spdbanner_pieces s blk:count sld:1-64/16 unit: pieces
+  min_spdbanner_pieces s blk:count+groupCount sld:1-64/16 unit: pieces
 Q "Protect the best accessories (rings, amu" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_acc_pieces s blk:count sld:1-9/3 unit: pieces
+  min_acc_pieces s blk:count+groupCount sld:1-9/3 unit: pieces
 Q "Protect the best **Mercurial** accessori" cols=2
   #1 s blk:activation
   #2 s blk:activation
   #3 s * blk:activation
   #4 s blk:activation
-  min_mercacc_pieces s blk:count sld:1-9/3 unit: pieces
+  min_mercacc_pieces s blk:count+groupCount sld:1-9/3 unit: pieces
 Q "Do you want to protect **accessories** (" cols=2
   impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%`
 

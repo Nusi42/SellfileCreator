@@ -94,6 +94,16 @@ and substats — names only add role + tier.
   `@tag=<family> and tag=<factor>`, one block per factor present. A rule opts OUT of its
   family slider simply by not carrying a factor tag — e.g. the any-set Bomber Amulet is
   fixed count 1, untouched by `min_acc_pieces`. Don't "fix" such a missing tag.
+- **Every factor block mirrors its count write with `group.count` at the same scale**:
+  `{ count=$value/8 group.count=$value/8 }`. The preset ships no groups, so this is a strict
+  no-op today (`group.*` does nothing on an ungrouped rule) — it is forward-compat wiring so a
+  group formed later out of ANY family is driven by its slider the moment it exists. Same
+  expression, not `$value`: a group seeds from the MIN of its members' counts, so `div8` members
+  promise `$value/8` and their group must too (`$value` would silently 8× it). Blocks apply in
+  order and a group takes the LAST matching write, so a group mixing factor tags is driven by
+  whichever factor's block comes later — another reason not to group across factors. When adding
+  a factor block, add the mirror; pinned across every slider by
+  `tests/unit/safeguard-overrides-groups.test.ts` and the golden digest.
 - Factor-tag collision: SPD-banner fallback and Mercurial accessories share
   `accessory`+`div1` with the plain accessory floors, so the accessory question's slider
   selects `@tag=accessory and not tag=spd and not tag=mercurial and tag=div1` — without
@@ -106,14 +116,42 @@ and substats — names only add role + tier.
 - Never introduce an `acc*` tag (too close to "accuracy") — use `accessory*`. Option ids
   like `acc_rolls_22` are ids, not tags, and keep their spelling for answer
   compatibility.
-- **The preset does not use groups (yet).** Its 18 separators fake a two-level structure —
-  top-level sections (`Speed`, `Accessories`, `Mercurial`, …) plus `#`-prefixed sub-sections
-  (`# Rings`, `# Amulets`, `# Banners`) — and the `Protect: % Ring` / `Protect: % Ring - Across
-  Sets` pair fakes a shared quota by duplicating filters across two rules. The latter is exactly
-  what [groups](app-behavior.md#groups-safeguards-sharing-one-required-count) replace, but
-  converting the preset changes what it protects, so it is a deliberate editorial decision rather
-  than a migration. The loader will never infer it: `#` prefixes stay a divider line-style hint
-  and are never read as membership.
+- **The preset ships no groups (measured, not assumed — see below).** Its 18 separators fake a
+  two-level structure — top-level sections (`Speed`, `Accessories`, `Mercurial`, …) plus
+  `#`-prefixed sub-sections (`# Rings`, `# Amulets`, `# Banners`). The loader will never infer
+  membership from those: `#` prefixes stay a divider line-style hint. Every slider factor block
+  does carry the `group.count` mirror described under "Tag conventions" above, so a group formed
+  later in any family is slider-driven from day one.
+- **Why the `X` / `X - Across Sets` pairs stay ungrouped.** A pair like `Protect: % Ring`
+  (`perSet` on, count 1) next to `Protect: % Ring - Across Sets` (`perSet` off, count 3) looks
+  like a faked shared quota, but it is not: it deliberately keeps **one ring of each set AND the
+  3 best overall**. A [group](app-behavior.md#groups-safeguards-sharing-one-required-count) has
+  a single `countMode`, so it cannot express both scopes at once — grouping such a pair would
+  silently drop the per-set floor. All 14 accessory pairs and all 7 artifact pairs are kept
+  ungrouped for this reason. **Do not "migrate" them.**
+- **Why the multi-yardstick fan-outs stay ungrouped too** (e.g. entries 37–40, `Protect: Damage -
+  Across Sets`: identical filters, one swapped substat weight each). They look like the textbook
+  group — four weight tables over one pool — and grouping them was tried and **measured inert**
+  against a real account with `scripts/tooling/measure-group-effect.ts`. Two reasons, both
+  general enough to check before grouping any similar run:
+  1. On the ranking path (any count mode but per-rule) every member already keeps its own top-N
+     per bucket, so N ungrouped members keep the **union** of their top-N sets — "the best by
+     whichever yardstick values it" needs no group. A group can only **cap** that union at its
+     own count per bucket, and it differs from ungrouped only when a bucket holds more distinct
+     nominees than the cap. With per-set buckets and recipes already keeping most of each
+     bucket's top-N, the still-sold nominees per bucket number 0–2, so a cap of 3 never bites
+     (Δ = 0 across every weight scale tried; even member 6 / group 2 trimmed 4 of 33).
+  2. The four weight tables differ by 0.2–0.4 on one %-stat against a shared SPD 2.0 / CDMG% 0.9,
+     so their top-N sets are nested (members 2–4 pick a subset of member 1's) and there is no
+     disagreement to arbitrate; the run behaves as one rule. Shared nominees are credited to the
+     FIRST feeder in the pool, which is why later members then *display* nothing.
+  Also note the filter of 37–40 lists `Chestplate|Boots` with `mainStats=[SPD]`, and Chestplate
+  cannot roll an SPD main — the effective scope is SPD-main Boots only. Where a group would earn
+  its place is the opposite shape: members whose nominees are mostly still-sold gear over buckets
+  coarse enough to hold several, or a deliberate "consider top-N per yardstick, keep best G < N".
+- The remaining lone `- Across Sets` rules (entries 11, 22, 25, 28, 33, 56, 59) are genuine
+  family catch-alls — each is the only rule for its slot/main region, so there is no pool to
+  share and `div1` (the full slider value) is correct.
 
 ## Override wiring notes
 

@@ -13,15 +13,19 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
   resolveNoteSafeguardOverridesTags,
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides'
 import {
   createFactorySafeguardBuilderDefaults,
+  normalizeSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   type SafeguardRule,
 } from '../../src/lib/safeguards'
+import { normalizeSafeguardGroups } from '../../src/lib/safeguardGroups'
 
 // A run of two grouped members (same id, adjacent) plus one ungrouped bystander after them.
 // Only `first` carries the `boots` tag, so selectors can address a NON-head member too.
@@ -185,4 +189,59 @@ test('an unknown group.* suffix is skipped without disturbing its neighbours', (
   const out = applyBody('tag=head', 'group.count=6 group.perslots=on count=2', makeRules())
   assert.equal(out[0]!.group?.requiredCount, 6)
   assert.equal(out[0]!.requiredCount, 2, 'the assignment after the unknown field still applies')
+})
+
+// ── The shipped preset's live wiring ──────────────────────────────────────────
+// Integration guard over the real note + real rules. EVERY count-writing factor block in the
+// preset's safeguard sliders mirrors its member write with the group's own count at the same
+// scale — `{ count=$value/8 group.count=$value/8 }` — so a group formed later out of any family
+// is driven by its slider the moment it exists, at the scale its members promise (a group seeds
+// from the MIN of its members' counts, so `$value` on `div8` members would silently 8× it). The
+// preset ships NO groups today (measured inert — see lategame-preset-design.md), so every
+// `group.count` is a strict no-op now. This pins both halves of that contract against the live
+// note: each factor block resolves to a `count` AND a `groupCount` op with the SAME expression,
+// and applying them writes every rule's own count while no rule grows a group.
+test('every lategame slider factor block mirrors count with group.count and no-ops until a group exists', () => {
+  const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8')) as {
+    Safeguards: unknown[]
+    Note: string[]
+  }
+  const rules = normalizeSafeguardGroups(
+    sfc.Safeguards
+      .map((entry) => normalizeSafeguardRule(entry))
+      .filter((entry): entry is SafeguardRule => entry !== null),
+  )
+  assert.equal(rules.some((rule) => rule.group !== undefined), false, 'the preset ships no groups')
+  const note = sfc.Note.join('\n')
+  // Default answers: every slider at its default, so every factor block resolves.
+  const { instructions } = resolveNoteSafeguardOverridesTags(note, {})
+  const countBlocks = instructions.filter((instruction) =>
+    instruction.operations.some((op) => op.kind === 'count'))
+  assert.ok(countBlocks.length >= 20, `expected the preset's factor blocks, got ${countBlocks.length}`)
+  for (const block of countBlocks) {
+    const count = block.operations.find((op) => op.kind === 'count')
+    const groupCount = block.operations.find((op) => op.kind === 'groupCount')
+    assert.ok(groupCount, `a count block must carry its group.count mirror: ${JSON.stringify(block.selector)}`)
+    // Same resolved value: the mirror is the SAME expression, resolved from the same slider.
+    assert.equal(
+      (groupCount as { value: number | null }).value,
+      (count as { value: number | null }).value,
+      `group.count must resolve to the same value as count: ${JSON.stringify(block.selector)}`,
+    )
+  }
+  // Applying everything writes each rule's own count and grows no group anywhere.
+  const out = applySafeguardOverrides(rules, instructions)
+  assert.equal(out.length, rules.length)
+  for (const [index, rule] of out.entries()) {
+    assert.equal(rule.group, undefined, `rule ${index} must stay ungrouped — group.count is a no-op here`)
+  }
+  // And a concrete write still lands: answer the damage/survivability slider (question id
+  // `q_tk0vqr`) with a value distinct from the on-disk 32 and every damage/div1 rule follows.
+  const retuned = applySafeguardOverrides(
+    rules,
+    resolveNoteSafeguardOverridesTags(note, { q_tk0vqr: ['20'] }).instructions,
+  )
+  const damageDiv1 = retuned.filter((rule) => (rule.tags ?? []).includes('damage') && (rule.tags ?? []).includes('div1'))
+  assert.ok(damageDiv1.length > 0)
+  for (const rule of damageDiv1) assert.equal(rule.requiredCount, 20)
 })
