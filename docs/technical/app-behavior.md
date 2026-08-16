@@ -239,6 +239,25 @@ weights still matter after it joins a group. Ties break by the member's own rank
 order, then item key, so a run is reproducible. Rules with **no** substats score zero across the
 board and fall through to list order, exactly as they behaved before groups existed.
 
+**Members do not starve each other: a group evaluates against ONE cumulative state.** Safeguards
+normally run cumulatively — each rule sees earlier rules' picks as already protected, so a later
+rule does not redundantly re-protect them. Between members of one group that reasoning does not
+apply: the group is the arbiter, and it can only arbitrate over gear it actually *receives*. So
+every member reads the cumulative state **snapshotted at its run's start**, and its own picks are
+withheld from that state until the whole run has evaluated, then published together. Consequences:
+
+- members with overlapping filters each rank the **full** pool by their own yardstick, which is
+  what makes several substat-weightings over the same gear meaningful (the reason to group at all);
+- a rule *after* the group still sees the group's gear as protected — cumulative behaviour across
+  the group boundary is unchanged;
+- `ignorePreviousSafeguards` on a member still means "ignore everything before me", widening its
+  view to the baseline rather than narrowing it to the run's snapshot;
+- ungrouped lists are untouched — the snapshot is only allocated when a run exists.
+
+Before this, member 1 consumed the candidates and members 2..n selected nothing, so a group of
+overlapping rules behaved exactly like its head and grouping had no observable effect at all.
+Pinned by the `overlapping_members_*` tests in `safeguards/group_tests.rs`.
+
 **Settings ride inline on every member.** `SafeguardRule.group` is
 `{ id, requiredCount, countMode }` (`SafeguardGroupSettings`, `lib/safeguards.ts`); every member of
 a run carries an identical copy and the run's **first member is the copy the engine reads**. A

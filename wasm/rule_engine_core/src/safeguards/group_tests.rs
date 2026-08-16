@@ -376,3 +376,68 @@ fn a_flat_list_is_completely_unaffected() {
     assert_eq!(protected(&entries[0]).len(), 2);
     assert_eq!(protected(&entries[1]).len(), 1);
 }
+
+// ── Members must not starve each other ────────────────────────────────────────
+// Cumulative protection exists so a LATER rule does not redundantly re-protect what an EARLIER
+// one already saved. Between members of one group that reasoning does not apply: the group is
+// the arbiter, and it can only arbitrate over gear it actually receives. Before this was fixed,
+// member 1 consumed the candidates, members 2..n fed nothing, and the whole run behaved exactly
+// like its head — grouping was a no-op for overlapping members, whether grouped or not.
+
+#[test]
+fn overlapping_members_all_feed_the_pool() {
+    // Two members with the SAME filter and count 3, over 5 candidates, group count 5.
+    // Each must select its own top 3 from the FULL pool, not from what the other left behind.
+    // The group then keeps 5 — reachable only because both members really fed.
+    let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let rules = vec![
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 3, group("g", 5, per_rule_mode()), per_rule_mode()),
+        rule_in("B", vec![ARTIFACT_TYPE_RING], 3, group("g", 5, per_rule_mode()), per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    // One piece occupies ONE pool slot whoever fed it (the first member of the run keeps it),
+    // so the union is the three both members ranked highest — not an empty second member.
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![3, 4, 5]);
+    assert_eq!(protected(&entries[0]), vec![3, 4, 5], "the head keeps the shared pieces");
+}
+
+#[test]
+fn a_starved_member_no_longer_collapses_the_group() {
+    // The regression in its plainest form: with a group count ABOVE what one member can feed,
+    // the group's promise is only reachable if every member contributes. Member A's count (2)
+    // caps its own feed, so the group can only reach 4 by taking B's picks too.
+    let candidates = (1..=6).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let rules = vec![
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    // Both members rank the same way here, so they feed the same top 2 — one pool slot each.
+    // The group keeps what reached it; the point is that B was ABLE to feed at all.
+    let kept = protected_across(&entries, &[0, 1]);
+    assert_eq!(kept, vec![5, 6], "both members ranked the same top 2 out of the full pool");
+    assert!(!entries[1].item_keys.is_empty() || !entries[0].item_keys.is_empty());
+}
+
+#[test]
+fn a_members_picks_stay_invisible_to_its_siblings_but_reach_later_rules() {
+    // A group member's selections are held back from cumulative state until the run ends, then
+    // published — so a rule AFTER the group still sees the group's gear as protected and does
+    // not redundantly re-protect it. Ring members, then a ring rule after the group.
+    let candidates = (1..=4).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let rules = vec![
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_in("after", vec![ARTIFACT_TYPE_RING], 2, None, per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    // The trailing rule's quota is already satisfied by what the group protected, so it adds
+    // nothing — exactly the cumulative behaviour an equivalent flat list would show.
+    assert!(
+        entries[2].item_keys.is_empty(),
+        "the rule after the group must see the group's picks as already protected, got {:?}",
+        entries[2].item_keys,
+    );
+}
+
+

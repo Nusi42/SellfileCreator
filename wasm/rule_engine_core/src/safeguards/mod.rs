@@ -2949,6 +2949,27 @@ pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> 
     selection.contains(&candidate)
 }
 
+/// Drains a run's held-back picks into the cumulative + protected state.
+///
+/// Group members do not publish their selections inline (that would let member 1 starve its
+/// siblings, see the eval loop), so their indices queue here until the run ends. Draining is
+/// idempotent by construction — the vector is emptied — and a no-op on the flat-list path, where
+/// nothing is ever queued.
+fn safeguard_publish_pending_picks(
+    pending: &mut Vec<usize>,
+    cumulative_candidate_sold_state: &mut [bool],
+    previously_protected_state: &mut [bool],
+) {
+    for candidate_idx in pending.drain(..) {
+        // Bounds-checked exactly like the inline path it defers.
+        if candidate_idx >= cumulative_candidate_sold_state.len() {
+            continue;
+        }
+        cumulative_candidate_sold_state[candidate_idx] = false;
+        previously_protected_state[candidate_idx] = true;
+    }
+}
+
 /// Applies every group's cap to the finished member selections.
 ///
 /// This is the whole of what a group does. Members evaluate exactly as if ungrouped — own
@@ -4663,13 +4684,67 @@ fn compute_safeguard_protection_core(
     // matches the ordinal stamped on the resulting entry (used as the dimension for per-rule
     // improvement_chance lookups).
     let mut rule_ordinal = 0i64;
-    for prepared_rule in &prepared_rules {
+    // ── A group evaluates against ONE cumulative state: the one from before it ──────────────
+    // Members must not starve each other. Cumulative protection exists so a LATER rule does not
+    // redundantly re-protect what an EARLIER one already saved; between members of one group
+    // that reasoning does not apply, because the group is the arbiter and can only arbitrate
+    // over gear it actually receives. Letting member 1 consume the candidates means members 2..n
+    // feed nothing, the pool is degenerate, and the cap has nothing to decide — which made
+    // grouping a no-op for overlapping members and left the whole run behaving like its head.
+    //
+    // So each member reads the cumulative state SNAPSHOT taken when its run started, while its
+    // own picks are withheld from that state until the run ends (see the deferred publish below).
+    // Ungrouped rules are completely unaffected: `run_starts` is -1 for them, and the flat-list
+    // fast path never allocates a snapshot at all.
+    let mut run_snapshot: Option<(usize, Vec<bool>, Vec<bool>)> = None;
+    // Picks made by the members of the run currently being evaluated, held back from cumulative
+    // state until the run completes. Indices only — the cap pass decides which ones survive.
+    let mut pending_run_picks = Vec::<usize>::new();
+    for (rule_index, prepared_rule) in prepared_rules.iter().enumerate() {
         rule_ordinal += 1;
-        // Per-rule toggle decides whether this rule sees prior safeguard selections.
+        // The run this rule belongs to, or None when ungrouped (`run_starts` is -1).
+        let run_start = if resolved_groups.has_groups {
+            match resolved_groups.run_starts.get(rule_index).copied().unwrap_or(-1) {
+                start if start >= 0 => Some(start as usize),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        // Entering a different run (or leaving one) publishes the previous run's held-back picks
+        // and re-snapshots. Doing it here, rather than at the run's end, keeps the loop single-pass.
+        if run_snapshot.as_ref().map(|(start, _, _)| *start) != run_start {
+            safeguard_publish_pending_picks(
+                &mut pending_run_picks,
+                &mut cumulative_candidate_sold_state,
+                &mut previously_protected_state,
+            );
+            run_snapshot = run_start.map(|start| {
+                (
+                    start,
+                    cumulative_candidate_sold_state.clone(),
+                    previously_protected_state.clone(),
+                )
+            });
+        }
+        // Per-rule toggle decides whether this rule sees prior safeguard selections. A member
+        // reads its run's snapshot instead of the running state, so its siblings are invisible
+        // to it; `ignore_previous_safeguards` still widens that to the baseline, meaning "ignore
+        // everything before me" including what preceded the group.
         let candidate_sold_state = if prepared_rule.ignore_previous_safeguards {
             &baseline_candidate_sold_state
+        } else if let Some((_, sold_snapshot, _)) = run_snapshot.as_ref() {
+            sold_snapshot
         } else {
             &cumulative_candidate_sold_state
+        };
+        // The ranking path's pool exclusion reads the protected set; a member must see the same
+        // pre-group view there too, or its siblings' picks would be excluded from its ranking.
+        let previously_protected_state_view = match run_snapshot.as_ref() {
+            Some((_, _, protected_snapshot)) if !prepared_rule.ignore_previous_safeguards => {
+                protected_snapshot
+            }
+            _ => &previously_protected_state,
         };
         // Track selected sold candidates so optional cascading can mutate state once.
         let eval_result = if prepared_rule.substat_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT
@@ -4683,7 +4758,7 @@ fn compute_safeguard_protection_core(
                         prepared_rule,
                         &parsed_candidates,
                         candidate_sold_state,
-                        &previously_protected_state,
+                        previously_protected_state_view,
                         &[*variant],
                         SAFEGUARD_SUBSTAT_ANY,
                         rule_ordinal,
@@ -4707,24 +4782,31 @@ fn compute_safeguard_protection_core(
                 prepared_rule,
                 &parsed_candidates,
                 candidate_sold_state,
-                &previously_protected_state,
+                previously_protected_state_view,
                 &prepared_rule.selected_substats,
                 effective_match,
                 rule_ordinal,
                 improvement_chances,
             )
         };
-        // Active safeguards always contribute to cumulative state for later rules.
+        // Active safeguards always contribute to cumulative state for later rules — but a group
+        // MEMBER's picks are held back until the whole run has evaluated. Publishing them inline
+        // is what starved its siblings; publishing them after the run keeps every later rule's
+        // view identical to what it would have seen from an equivalent flat list.
         if prepared_rule.rule_active {
-            for candidate_idx in &eval_result.selected_candidate_indices {
-                if *candidate_idx >= cumulative_candidate_sold_state.len() {
-                    continue;
+            if run_snapshot.is_some() {
+                pending_run_picks.extend(eval_result.selected_candidate_indices.iter().copied());
+            } else {
+                for candidate_idx in &eval_result.selected_candidate_indices {
+                    if *candidate_idx >= cumulative_candidate_sold_state.len() {
+                        continue;
+                    }
+                    cumulative_candidate_sold_state[*candidate_idx] = false;
+                    // Mirror the projection into the protected set so later rules with
+                    // `ignore_previous_safeguards = true` can exclude these indices on the
+                    // ranking path. Bounds-checked alongside cumulative state above.
+                    previously_protected_state[*candidate_idx] = true;
                 }
-                cumulative_candidate_sold_state[*candidate_idx] = false;
-                // Mirror the projection into the protected set so later rules with
-                // `ignore_previous_safeguards = true` can exclude these indices on the
-                // ranking path. Bounds-checked alongside cumulative state above.
-                previously_protected_state[*candidate_idx] = true;
             }
         }
         let mut entry = eval_result.entry;
@@ -4732,6 +4814,13 @@ fn compute_safeguard_protection_core(
         entry.rule_ordinal = Some(rule_ordinal);
         entries.push(entry);
     }
+    // A run that ran to the end of the list still has picks held back; publish them so the
+    // cumulative state is complete for anything reading it after this loop.
+    safeguard_publish_pending_picks(
+        &mut pending_run_picks,
+        &mut cumulative_candidate_sold_state,
+        &mut previously_protected_state,
+    );
 
     // Groups cap what their members were allowed to keep. Applied here, after every member has
     // evaluated independently, because that is precisely what a group is: a constraint over
