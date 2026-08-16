@@ -543,6 +543,36 @@ export type RecipeOverridesResolution = {
   safeguardInstructions: SafeguardOverridesInstruction[]
 }
 
+/**
+ * The question/option pair whose option carries the DSL `id=<token>` — the stable address a
+ * headless caller (tooling, tests) uses to select an account mode such as `lategame` without
+ * knowing the synthesized question/option ids. Null when no option carries the token.
+ */
+export const findRecipeOptionByToken = (
+  questions: readonly NoteQuestionDefinition[],
+  token: string,
+): { question: NoteQuestionDefinition; option: NoteQuestionOption } | null => {
+  for (const question of questions) {
+    const option = question.options.find((candidate) => candidate.token === token)
+    if (option) return { question, option }
+  }
+  return null
+}
+
+/**
+ * The answers object that selects exactly the recipe option carrying `id=<token>` — what the
+ * app stores when the user picks that account mode. Throws when the note has no such option, so
+ * a mistyped mode fails loudly instead of silently resolving with nothing selected.
+ */
+export const recipeAnswersSelectingToken = (
+  questions: readonly NoteQuestionDefinition[],
+  token: string,
+): NoteRecipeOverridesAnswers => {
+  const found = findRecipeOptionByToken(questions, token)
+  if (!found) throw new Error(`no recipe-overrides option carries id=${token}`)
+  return { [found.question.id]: [found.option.id] }
+}
+
 // ── Cross-domain slider WRITES (setval / +TOKEN / -TOKEN → safeguard slider) ──────
 //
 // A single safeguard slider, addressed by the recipe option's directive token (= the

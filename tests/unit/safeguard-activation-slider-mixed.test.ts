@@ -1,7 +1,5 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import {
   resolveNoteSafeguardOverridesTags,
   collectSafeguardOverridesDiagnostics,
@@ -9,6 +7,7 @@ import {
   safeguardAnswerMatchesDefault,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import { SafeguardRuleActivation } from '../../src/lib/safeguards.js'
+import { loadLategameNote } from '../setup/presetFixtures.js'
 
 // ── Why this test exists ──────────────────────────────────────────────────────
 // Each safeguard-overrides card in lategame.sfc now combines an ACTIVATION RADIO group
@@ -20,8 +19,7 @@ import { SafeguardRuleActivation } from '../../src/lib/safeguards.js'
 // handler depends on: the resolver honours both parts, and the two SSOT split/compare
 // helpers classify tokens correctly.
 
-const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
-const note: string = (sfc.Note as string[]).join('\n')
+const note: string = loadLategameNote()
 
 // The first safeguard card is the SPD-banner mode+count question.
 const resolveQ = (answers?: Record<string, string[]>) =>

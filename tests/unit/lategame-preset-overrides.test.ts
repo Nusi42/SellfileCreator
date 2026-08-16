@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { loadLategameSfc } from '../setup/presetFixtures.js'
 import {
+  findRecipeOptionByToken,
   resolveRecipeOverridesTags,
   collectRecipeOverridesDiagnostics,
   seedSafeguardAnswersFromRecipeDefaults,
@@ -15,7 +16,8 @@ const note: string = (sfc.Note as string[]).join('\n')
 
 const seed = resolveRecipeOverridesTags(note)
 const rankQ = seed.questions.find((q) => q.options.some((o) => o.token === 'keep_general'))!
-const acctQ = seed.questions.find((q) => q.options.some((o) => o.token === 'endgame'))!
+// The account-tier question, addressed by an option's DSL id (question ids are content hashes).
+const acctQ = findRecipeOptionByToken(seed.questions, 'endgame')!.question
 
 // Tokens checked in the 5★ card after a tier (or raw answer set) is resolved.
 const keepTokens = (r: ReturnType<typeof resolveRecipeOverridesTags>) => {

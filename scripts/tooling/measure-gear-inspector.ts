@@ -7,18 +7,17 @@
  * runs the same matching logic used in the UI, and prints timing stats for
  * the base matcher, Safeguard detection, and the post-detection matcher.
  */
-import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { parseSfcObject } from '../../src/lib/sfcIO.js'
-import { defaultSubstatTargets, type BuilderRecipe, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
+import type { ParsedSfcResult } from '../../src/lib/sfcIO.js'
+import { type BuilderRecipe, type SellfileExportMode, type SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import {
   computeMergedRules,
   RULE_SOURCE_SAFEGUARDS,
   buildSafeguardRules,
   type HsfRuleWithRecipe,
 } from '../../src/lib/merge.js'
-import { dedupeHsfRulesForExport } from '../../src/lib/hsfDeduplicate.js'
+import { dedupeHsfRulesForExportWithLoadedWasm } from '../../src/lib/wasm/wasmRuleEngine.js'
 import {
   collectSafeguardCandidates,
   computeSafeguardProtection,
@@ -27,14 +26,14 @@ import {
   type SafeguardRule,
   type SafeguardDetectionSnapshot,
 } from '../../src/lib/safeguards.js'
-import { importGearDatabaseFromArrayBuffer, type GearDbImportResult } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNormalizer.js'
 import { evaluateMatchesByRecipe } from '../../src/lib/ruleEval.js'
 import type { EvalResult } from '../../src/lib/ruleEval.js'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
 // Final Sell config stays centralized in Logic Hub so tooling mirrors UI + IO types.
 import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
-import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
+// Node shims + SFC/DB loaders shared by every headless tooling script.
+import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
 type ScenarioInput = {
   sfcPath: string
@@ -43,11 +42,12 @@ type ScenarioInput = {
 
 type ScenarioData = {
   recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseSfcObject>['metasets']
+  metasets: ParsedSfcResult['metasets']
   substatTargets: SubstatTargetTable
   safeguardRules: SafeguardRule[]
   safeguardsEnabled: boolean
-  finalSellRemainder: FinalSellRemainderConfig
+  // null when the SFC carries no Final Sell key (the merge treats absent as "none").
+  finalSellRemainder: FinalSellRemainderConfig | null
   recipeModes: SellfileExportMode[]
   gear: NormalizedGearArtifact[]
 }
@@ -57,50 +57,6 @@ type MatchPhaseResult = {
   durationMs: number
   kept: number
   sold: number
-}
-
-const installNodeFileFetch = async (): Promise<void> => {
-  // Keep Node's original fetch so non-file URLs keep default behavior.
-  const originalFetch = globalThis.fetch
-  // Older runtimes may not expose fetch; skip the shim in that case.
-  if (typeof originalFetch !== 'function') return
-  // Replace fetch so wasm-bindgen file:// loads resolve during CLI runs.
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    // Normalize Request|string|URL into a raw URL string once.
-    const url = typeof input === 'string'
-      ? input
-      : (input instanceof URL ? input.href : input.url)
-    // Intercept local wasm URLs and materialize a synthetic HTTP-like response.
-    if (url.startsWith('file://')) {
-      // Read raw bytes from disk so WebAssembly.instantiate receives binary data.
-      const { readFile } = await import('node:fs/promises')
-      const bytes = await readFile(new URL(url))
-      // Return the binary with the wasm MIME type expected by the loader.
-      return new Response(new Uint8Array(bytes), {
-        status: 200,
-        headers: { 'content-type': 'application/wasm' },
-      })
-    }
-    // Delegate all non-file traffic to the original implementation.
-    return originalFetch(input, init)
-  }) as typeof fetch
-}
-
-// Script builds run from tmp/tsc/scripts, so keep generated wasm artifacts in sync
-// with src/lib/wasm/generated before we import and warm the module.
-const syncCompiledWasmBindings = async (): Promise<void> => {
-  // Resolve absolute paths so this helper is insensitive to caller cwd changes.
-  const root = process.cwd()
-  const sourceDir = resolvePath(root, 'src/lib/wasm/generated')
-  const targetDir = resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated')
-  try {
-    // Ensure the compiled scripts output path exists before recursive copy.
-    await mkdir(targetDir, { recursive: true })
-    // Force-copy all generated artifacts to keep JS+WASM in lockstep.
-    await cp(sourceDir, targetDir, { recursive: true, force: true })
-  } catch {
-    // Keep tooling resilient: if sync fails, warmup will still surface a clear wasm error.
-  }
 }
 
 // Default pairing mirrors the user-reported heavy scenario.
@@ -150,42 +106,6 @@ const parseArgs = (): ScenarioInput => {
   }
 }
 
-// Read and normalize the SFC definition so we can rebuild the merged rules.
-const loadSfc = async (sfcPath: string): Promise<{
-  recipes: BuilderRecipe[]
-  metasets: ReturnType<typeof parseSfcObject>['metasets']
-  substatTargets: SubstatTargetTable
-  safeguardRules: SafeguardRule[]
-  safeguardsEnabled: boolean
-  finalSellRemainder: FinalSellRemainderConfig
-}> => {
-  const raw = await readFile(sfcPath, 'utf8')
-  const parsed = JSON.parse(raw) as unknown
-  const parsedSfc = parseSfcObject(parsed, {
-    metasets: [],
-    substatTargets: defaultSubstatTargets(),
-  })
-  return {
-    recipes: parsedSfc.recipes,
-    metasets: parsedSfc.metasets,
-    substatTargets: parsedSfc.substatTargets,
-    safeguardRules: parsedSfc.safeguardRules,
-    safeguardsEnabled: parsedSfc.safeguardsEnabled,
-    finalSellRemainder: parsedSfc.finalSellRemainder,
-  }
-}
-
-// Import the SQLite dump through the same code used by the UI.
-const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> => {
-  const buffer = await readFile(gearDbPath)
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength,
-  )
-  const imported: GearDbImportResult = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  return [...imported.artifacts, ...imported.inboxArtifacts]
-}
-
 // Resolve SFC + gear data into the inputs we need for matching.
 const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
   const sfc = await loadSfc(input.sfcPath)
@@ -195,8 +115,9 @@ const buildScenario = async (input: ScenarioInput): Promise<ScenarioData> => {
     recipes: sfc.recipes,
     metasets: sfc.metasets,
     substatTargets: sfc.substatTargets,
-    safeguardRules: sfc.safeguardRules,
-    safeguardsEnabled: sfc.safeguardsEnabled,
+    // Absent keys read as the app's load-time defaults: no rules, safeguards on.
+    safeguardRules: sfc.safeguardRules ?? [],
+    safeguardsEnabled: sfc.safeguardsEnabled ?? true,
     finalSellRemainder: sfc.finalSellRemainder,
     recipeModes,
     gear,
@@ -226,6 +147,12 @@ const evaluateArtifacts = (
       ruleIndex: result.ruleIndex ?? null,
       ruleLabel: safeguardLabel ?? null,
       ruleSource: rule?.__source ?? null,
+      // Presentation-only fields (chip colours, legacy id, ordinal) — a timing run never renders
+      // them, so they stay null rather than replicating the UI's appearance lookups here.
+      recipeFgColor: null,
+      ruleLabelFgColor: null,
+      safeguardRuleId: null,
+      safeguardRuleOrdinal: rule?.__safeguardRuleOrdinal ?? null,
     }
   }
   for (const artifact of artifacts) {
@@ -287,15 +214,15 @@ const measureSafeguards = (
 
   const candidateSafeguardRules = buildSafeguardRules(safeguardRules, detection)
 
-  // Mirror export-time keep-rule dedupe so perf output stays aligned with app behavior.
+  // Mirror export-time keep-rule dedupe so perf output stays aligned with app behavior. The
+  // dedupe lives in wasm; the engine is warmed before any scenario runs, so a null (engine not
+  // loaded) cannot happen here and is treated as "nothing collapsed".
   const baseKeepRules = baseRules.filter((rule) => rule.Keep === true)
   // Dedupe baseline keep rules first in case upstream sources already overlap.
-  const dedupedBaseKeepRules = dedupeHsfRulesForExport(baseKeepRules)
+  const dedupedBaseKeepRules = dedupeHsfRulesForExportWithLoadedWasm(baseKeepRules) ?? baseKeepRules
   // Dedupe with safeguard candidates appended; delta equals net injected keeps.
-  const dedupedMergedKeepRules = dedupeHsfRulesForExport([
-    ...baseKeepRules,
-    ...candidateSafeguardRules,
-  ])
+  const mergedKeepRules = [...baseKeepRules, ...candidateSafeguardRules]
+  const dedupedMergedKeepRules = dedupeHsfRulesForExportWithLoadedWasm(mergedKeepRules) ?? mergedKeepRules
   const safeguardRuleCount = Math.max(0, dedupedMergedKeepRules.length - dedupedBaseKeepRules.length)
 
   return {
@@ -313,13 +240,9 @@ const summarize = (label: string, phase: MatchPhaseResult): void => {
 }
 
 const main = async (): Promise<void> => {
-  // Tooling runs sync builder/matcher helpers directly, so warm wasm first.
-  // Install the file:// fetch shim before wasm-bindgen tries to load bytes.
-  await installNodeFileFetch()
-  // Sync generated artifacts so tmp script execution cannot use stale wasm.
-  await syncCompiledWasmBindings()
-  // Preload the module once so sync helpers can execute immediately afterward.
-  await warmupWasmRuleEngine()
+  // Tooling runs sync builder/matcher helpers directly, so warm wasm first (fetch shim,
+  // bindings sync, module preload — in that order).
+  await prepareHeadlessRuleEngine()
   const input = parseArgs()
   console.log('Rule Tester measurement')
   console.log(`  SFC: ${input.sfcPath}`)
@@ -334,7 +257,8 @@ const main = async (): Promise<void> => {
     customRecipes: scenario.recipes,
     metasets: scenario.metasets,
     substatTargets: scenario.substatTargets,
-    finalSellRemainder: scenario.finalSellRemainder,
+    // Omitted rather than passed as null: the param is optional, not nullable.
+    ...(scenario.finalSellRemainder ? { finalSellRemainder: scenario.finalSellRemainder } : {}),
     safeguards: {
       enabled: scenario.safeguardsEnabled,
       rules: resolvedSafeguardRules,
@@ -370,7 +294,7 @@ const main = async (): Promise<void> => {
     customRecipes: scenario.recipes,
     metasets: scenario.metasets,
     substatTargets: scenario.substatTargets,
-    finalSellRemainder: scenario.finalSellRemainder,
+    ...(scenario.finalSellRemainder ? { finalSellRemainder: scenario.finalSellRemainder } : {}),
     safeguards: {
       enabled: scenario.safeguardsEnabled,
       rules: resolvedSafeguardRules,

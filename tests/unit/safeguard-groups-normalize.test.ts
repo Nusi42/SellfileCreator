@@ -19,11 +19,8 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import {
   createFactorySafeguardBuilderDefaults,
-  normalizeSafeguardRule,
   type SafeguardGroupSettings,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
@@ -35,6 +32,7 @@ import {
   safeguardGroupSettingsAt,
   safeguardListHasGroups,
 } from '../../src/lib/safeguardGroups.js'
+import { loadLategameSafeguardRules } from '../setup/presetFixtures.js'
 
 // Group settings with a given id and count; chips at the per-rule default.
 const settings = (id: string, requiredCount = 2): SafeguardGroupSettings => ({
@@ -141,13 +139,10 @@ test('repair never discards an entry, whatever it carried', () => {
 test('the shipped lategame preset still loads as a flat, group-free list', () => {
   // Regression guard: the preset fakes structure with '#'-prefixed separator labels, and those
   // must stay pure line-style hints — never inferred into groups.
-  const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8')) as {
-    Safeguards: unknown[]
-  }
-  const rules = sfc.Safeguards
-    .map((entry) => normalizeSafeguardRule(entry))
-    .filter((entry): entry is SafeguardRule => entry !== null)
+  const rules = loadLategameSafeguardRules()
   assert.ok(rules.length > 0, 'the preset must contain safeguard entries')
   assert.equal(safeguardListHasGroups(rules), false, 'no preset entry may load as a group member')
+  // The shared loader already ran the group pass; a second pass over a group-free list is
+  // identity, which is exactly the flat-list guarantee this pins.
   assert.equal(normalizeSafeguardGroups(rules), rules)
 })

@@ -15,7 +15,7 @@
     "scripts/tooling/catalogAudit.ts",
     "scripts/tooling/sync-catalog-comments.ts",
     "scripts/tooling/audit-l10n-widths.ts",
-    "scripts/tooling/measure-rule-tester.ts",
+    "scripts/tooling/measure-gear-inspector.ts",
     "scripts/tooling/sim-improvement-chance.ts",
     "scripts/tooling/instrument-safeguard-piece.ts",
     "scripts/tooling/measure-group-effect.ts",

@@ -4,21 +4,23 @@
  *
  * Answers "what does this group actually keep, and does grouping change anything?" by driving
  * the REAL pipeline against a preset + DB and reporting, per rule, how many pieces each entry
- * protects — first as shipped, then with every group membership stripped.
+ * protects — once with the run under measurement grouped, once with every group stripped.
  *
- * Written to settle a concrete question: the lategame preset groups its four SPD-main
- * Chestplate/Boots damage feeders (entries 37-40). Their filters overlap heavily, so the claim
- * that grouping tightens what they keep needed measuring rather than reasoning from filter
- * shapes. Point GROUP_INDICES at any other run to reuse it.
+ * Written to settle a concrete question: should the lategame preset group its four SPD-main
+ * damage feeders (entries 37-40, `Protect: Damage - Across Sets`)? Their filters overlap
+ * heavily, so the claim that grouping tightens what they keep needed measuring rather than
+ * reasoning from filter shapes — and it measured inert, so the preset ships them UNGROUPED (see
+ * lategame-preset-design.md). Point MGE_GROUP at any run to reuse it: when the stored rules
+ * already carry the group its settings are used, otherwise the tool FORMS the group (head's own
+ * count and chips unless MGE_GROUP_COUNT says otherwise) so the question stays answerable
+ * against a preset that ships ungrouped.
  *
  * Usage:
  *   npx tsc -p tsconfig.scripts.json --noEmit false && node scripts/tooling/patch-esm-specifiers.cjs \
  *     && node --experimental-wasm-modules \
  *        tmp/tsc/scripts/scripts/tooling/measure-group-effect.js
  */
-import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
-import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import {
   resolveSafeguardRulesWithMetasets,
@@ -26,16 +28,13 @@ import {
   storeArtifactRows,
   toWasmArtifactStoreRow,
   type SafeguardRule,
+  type SafeguardDetectionEntry,
 } from '../../src/lib/safeguards.js'
 import { computeMergedRules } from '../../src/lib/merge.js'
-import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
-import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNormalizer.js'
-import {
-  warmupWasmRuleEngine,
-  configureWasmRuleEngineWithLoadedWasm,
-} from '../../src/lib/wasm/wasmRuleEngine.js'
+import { configureWasmRuleEngineWithLoadedWasm } from '../../src/lib/wasm/wasmRuleEngine.js'
 import {
   resolveRecipeOverridesTags,
+  recipeAnswersSelectingToken,
   seedSafeguardAnswersFromRecipeDefaults,
 } from '../../src/lib/noteRecipeOverrides.js'
 import {
@@ -43,6 +42,7 @@ import {
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
 // ── Scenario knobs (env vars) — defaults reproduce the shipped-preset question ──
 // MGE_SFC           SFC to measure                       (presets/lategame.sfc)
@@ -52,7 +52,9 @@ import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPrevi
 //                   entirely, i.e. "dynamic overrides disabled" in the app   (lategame)
 // MGE_DROP_BEFORE   1 = drop every entry before the run, so nothing earlier can pre-protect
 // MGE_MEMBER_COUNT  override each member's own requiredCount (its FEED size)
-// MGE_GROUP_COUNT   override the group's requiredCount (what it KEEPS)
+// MGE_GROUP_COUNT   override the group's requiredCount (what it KEEPS); when the stored rules
+//                   carry no group, this is the count the formed group gets (default: the
+//                   head member's own count)
 // MGE_WEIGHT_SCALE  multiply every member weight EXCEPT the ones every member shares by this
 //                   factor — amplifies whatever already distinguishes the members, so "do the
 //                   members' yardsticks disagree at the cutoff?" can be tested directly
@@ -60,99 +62,81 @@ const env = (key: string): string | undefined => {
   const value = process.env[key]
   return value !== undefined && value !== '' ? value : undefined
 }
+// A numeric knob. Anything that is not a finite number is a typo, and a typo must not turn into
+// `NaN` indices or a `NaN` required count that silently measures nothing.
+const envNumber = (key: string): number | null => {
+  const raw = env(key)
+  if (raw === undefined) return null
+  const value = Number(raw)
+  if (!Number.isFinite(value)) throw new Error(`${key}=${raw} is not a number`)
+  return value
+}
 const SFC_PATH = env('MGE_SFC') ?? 'presets/lategame.sfc'
 const DB_PATH = env('MGE_DB') ?? 'examples/um109288203_RSLHelper.db'
-const GROUP_INDICES = (env('MGE_GROUP') ?? '37,38,39,40').split(',').map((s) => Number(s.trim()))
+const GROUP_INDICES = (env('MGE_GROUP') ?? '37,38,39,40').split(',').map((raw) => {
+  const index = Number(raw.trim())
+  if (!Number.isInteger(index) || index < 0) throw new Error(`MGE_GROUP index '${raw}' is not a rule index`)
+  return index
+})
+// "Dynamic overrides disabled" sentinel for MGE_MODE.
+const MODE_NONE = 'none'
 const ACCOUNT_MODE = env('MGE_MODE') ?? 'lategame'
 const DROP_BEFORE = env('MGE_DROP_BEFORE') === '1'
-const MEMBER_COUNT = env('MGE_MEMBER_COUNT') !== undefined ? Number(env('MGE_MEMBER_COUNT')) : null
-const GROUP_COUNT = env('MGE_GROUP_COUNT') !== undefined ? Number(env('MGE_GROUP_COUNT')) : null
-const WEIGHT_SCALE = env('MGE_WEIGHT_SCALE') !== undefined ? Number(env('MGE_WEIGHT_SCALE')) : null
+const MEMBER_COUNT = envNumber('MGE_MEMBER_COUNT')
+const GROUP_COUNT = envNumber('MGE_GROUP_COUNT')
+const WEIGHT_SCALE = envNumber('MGE_WEIGHT_SCALE')
+// Group id stamped on the run when the tool forms the group itself.
+const FORMED_GROUP_ID = 'mge'
 
-// ── Node shims so the browser-oriented importer/WASM loader work headless ──────
-// Same pair instrument-safeguard-piece.ts installs; kept local rather than shared because these
-// exist only to make a browser loader run under `node --experimental-wasm-modules`.
-const installNodeFileFetch = async (): Promise<void> => {
-  const originalFetch = globalThis.fetch
-  if (typeof originalFetch !== 'function') return
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url)
-    if (url.startsWith('file://')) {
-      const bytes = await readFile(new URL(url))
-      return new Response(new Uint8Array(bytes), {
-        status: 200,
-        headers: { 'content-type': 'application/wasm' },
-      })
-    }
-    return originalFetch(input, init)
-  }) as typeof fetch
-}
+// ── Report layout ─────────────────────────────────────────────────────────────
+// Per-rule lines read `[NN] <name> keeps <n>`; total lines pad their label past the index prefix
+// so every count sits in the same column. One place for the widths, so a change cannot misalign
+// one line and not another.
+const NAME_COLUMN = 32
+const INDEX_PREFIX = '[NN] '.length
+const COUNT_COLUMN = 4
+// Item keys are printed inline only for sets small enough to eyeball.
+const INLINE_KEYS_MAX = 12
+// How many rows past a member's own required count the funnel prints, so the cutoff is visible.
+const TOP_N_CONTEXT_ROWS = 2
 
-const syncCompiledWasmBindings = async (): Promise<void> => {
-  const root = process.cwd()
-  try {
-    await mkdir(resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated'), { recursive: true })
-    await cp(
-      resolvePath(root, 'src/lib/wasm/generated'),
-      resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated'),
-      { recursive: true, force: true },
-    )
-  } catch {
-    // non-fatal
-  }
-}
+const sortedKeys = (keys: Iterable<number>): number[] => [...keys].sort((a, b) => a - b)
+const inlineKeys = (keys: number[]): string => (keys.length <= INLINE_KEYS_MAX ? `[${keys.join(',')}]` : '')
+const keepLine = (index: number, name: string | undefined, keys: number[]): string =>
+  `  [${index}] ${(name ?? '?').padEnd(NAME_COLUMN)} keeps ${String(keys.length).padStart(COUNT_COLUMN)}  ${inlineKeys(sortedKeys(keys))}`
+const totalLine = (label: string, count: number, unit: string): string =>
+  `  ${label.padEnd(NAME_COLUMN + INDEX_PREFIX)} ${String(count).padStart(COUNT_COLUMN)} ${unit}`
 
-const loadSfc = async (sfcPath: string) => {
-  const raw = await readFile(sfcPath, 'utf8')
-  const parsed = JSON.parse(raw) as unknown
-  const parsedSfc = parseSfcObject(parsed, { metasets: [], substatTargets: defaultSubstatTargets() })
-  const noteValue = (parsed as { Note?: unknown }).Note
-  const note = Array.isArray(noteValue) ? (noteValue as string[]).join('\n')
-    : typeof noteValue === 'string' ? noteValue : ''
-  return {
-    rawRules: parsedSfc.safeguardRules ?? [],
-    metasets: parsedSfc.metasets,
-    note,
-    // The preset's keep-recipes. Without them NOTHING is a sell candidate, so safeguards have
-    // nothing to rescue and every measurement reads as "all 8286 kept" — the run must be scored
-    // against the same recipes the user actually exports with.
-    recipes: parsedSfc.recipes ?? [],
-    substatTargets: parsedSfc.substatTargets ?? defaultSubstatTargets(),
-    finalSellRemainder: parsedSfc.finalSellRemainder ?? null,
-  }
-}
-
-const loadGear = async (dbPath: string): Promise<NormalizedGearArtifact[]> => {
-  const buffer = await readFile(dbPath)
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-  const imported = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  return [...imported.artifacts, ...imported.inboxArtifacts]
+// Every distinct item key protected across a set of entries.
+const distinctKept = (entries: readonly (SafeguardDetectionEntry | undefined)[]): Set<number> => {
+  const keys = new Set<number>()
+  for (const entry of entries) entry?.itemKeys.forEach((key) => keys.add(key))
+  return keys
 }
 
 const run = async (): Promise<void> => {
-  await installNodeFileFetch()
-  await syncCompiledWasmBindings()
-  await warmupWasmRuleEngine()
+  await prepareHeadlessRuleEngine()
   const sfcPath = resolvePath(process.cwd(), SFC_PATH)
   const dbPath = resolvePath(process.cwd(), DB_PATH)
-  const { rawRules, metasets, note, recipes, substatTargets, finalSellRemainder } = await loadSfc(sfcPath)
+  const sfc = await loadSfc(sfcPath)
+  const rawRules = sfc.safeguardRules ?? []
+  // The note exactly as the app would use it (canonicalized + migrated by the SFC parser).
+  const note = sfc.note ?? ''
+  // The preset's keep-recipes. Without them NOTHING is a sell candidate, so safeguards have
+  // nothing to rescue and every measurement reads as "all kept" — the run must be scored against
+  // the same recipes the user actually exports with.
+  const recipes = sfc.recipes
+  const substatTargets = sfc.substatTargets ?? defaultSubstatTargets()
 
-  const metasetResolved = resolveSafeguardRulesWithMetasets(rawRules, metasets)
+  const metasetResolved = resolveSafeguardRulesWithMetasets(rawRules, sfc.metasets)
   let resolvedRules: SafeguardRule[]
-  if (ACCOUNT_MODE === 'none') {
+  if (ACCOUNT_MODE === MODE_NONE) {
     // "Dynamic overrides disabled": the rules exactly as stored, no note applied.
     resolvedRules = [...metasetResolved]
   } else {
     // Resolve the note's dynamic overrides exactly as the app does for the chosen account mode.
-    const recipeQuestions = resolveRecipeOverridesTags(note, {}).questions
-    let questionId: string | undefined
-    let optionId: string | undefined
-    for (const question of recipeQuestions) {
-      const option = question.options.find((o) => (o as { token?: string }).token === ACCOUNT_MODE)
-      if (option) { questionId = question.id; optionId = option.id; break }
-    }
-    if (!questionId || !optionId) throw new Error(`no account-mode option '${ACCOUNT_MODE}'`)
-    const safeguardAnswers = seedSafeguardAnswersFromRecipeDefaults(note, { [questionId]: [optionId] }, {})
+    const recipeAnswers = recipeAnswersSelectingToken(resolveRecipeOverridesTags(note, {}).questions, ACCOUNT_MODE)
+    const safeguardAnswers = seedSafeguardAnswersFromRecipeDefaults(note, recipeAnswers, {})
     const sgResolution = resolveNoteSafeguardOverridesTags(note, safeguardAnswers)
     resolvedRules = [...applySafeguardOverrides(metasetResolved, sgResolution.instructions)]
   }
@@ -165,6 +149,8 @@ const run = async (): Promise<void> => {
     resolvedRules = resolvedRules.slice(runStart)
     groupIndices = GROUP_INDICES.map((index) => index - runStart)
   }
+  const missing = groupIndices.filter((index) => resolvedRules[index] === undefined)
+  if (missing.length) throw new Error(`MGE_GROUP indices out of range: ${missing.join(',')} (rules: ${resolvedRules.length})`)
   // The weight keys every member carries with an identical value are the members' COMMON
   // yardstick; everything else is what tells them apart. Scaling only the latter answers "would
   // the members disagree if their differences mattered more?" without inventing new stats.
@@ -176,11 +162,19 @@ const run = async (): Promise<void> => {
     Object.keys(firstTable).filter((key) =>
       memberWeightTables.every((table) => table[key] !== undefined && table[key] === firstTable[key])),
   )
+  // The group the run is measured under: the stored one when the head already carries it,
+  // otherwise formed here from the head's own count and chips so the A/B is never vacuous.
+  const head = resolvedRules[groupIndices[0]!]!
+  const storedGroup = head.group
+  const groupSettings: NonNullable<SafeguardRule['group']> = {
+    id: storedGroup?.id ?? FORMED_GROUP_ID,
+    requiredCount: GROUP_COUNT ?? storedGroup?.requiredCount ?? head.requiredCount,
+    countMode: storedGroup?.countMode ?? head.countMode,
+  }
   const grouped: SafeguardRule[] = resolvedRules.map((rule, index) => {
     if (!groupIndices.includes(index)) return rule
-    const next: SafeguardRule = { ...rule }
+    const next: SafeguardRule = { ...rule, group: groupSettings }
     if (MEMBER_COUNT !== null) next.requiredCount = MEMBER_COUNT
-    if (GROUP_COUNT !== null && next.group) next.group = { ...next.group, requiredCount: GROUP_COUNT }
     if (WEIGHT_SCALE !== null && next.substatWeights) {
       const scaled: Record<string, number> = {}
       for (const [key, weight] of Object.entries(next.substatWeights as Record<string, number | undefined>)) {
@@ -198,7 +192,8 @@ const run = async (): Promise<void> => {
 
   const gear = await loadGear(dbPath)
   console.log(`SFC=${SFC_PATH} mode=${ACCOUNT_MODE} dropBefore=${DROP_BEFORE} `
-    + `memberCount=${MEMBER_COUNT ?? 'as-is'} groupCount=${GROUP_COUNT ?? 'as-is'}`)
+    + `memberCount=${MEMBER_COUNT ?? 'as-is'} `
+    + `group=${storedGroup ? 'as stored' : 'FORMED'} groupCount=${groupSettings.requiredCount}`)
   console.log(`Loaded ${gear.length} artifacts; ${grouped.length} rules; run=[${groupIndices.join(',')}]`)
 
   // Build the preset's real keep-recipes: they decide which pieces are SELL candidates, and a
@@ -207,10 +202,10 @@ const run = async (): Promise<void> => {
   const baseRules = computeMergedRules({
     hsf: null,
     customRecipes: recipes,
-    metasets,
+    metasets: sfc.metasets,
     substatTargets,
     // Omitted rather than passed as null: the param is optional, not nullable.
-    ...(finalSellRemainder ? { finalSellRemainder } : {}),
+    ...(sfc.finalSellRemainder ? { finalSellRemainder: sfc.finalSellRemainder } : {}),
   })
   configureWasmRuleEngineWithLoadedWasm({ rules: baseRules, recipeModes: [] })
   storeArtifactRows(gear.map(toWasmArtifactStoreRow))
@@ -232,50 +227,43 @@ const run = async (): Promise<void> => {
     rows, baseRules, recipeModes: [], rules, enabled: true, now: Date.now(),
   }).detection
 
-  const report = (label: string, rules: SafeguardRule[]) => {
-    const detection = scan(rules)
-    const total = new Set<number>()
+  // One full detection per scenario; the funnel breakdown and the report share it.
+  const groupedDetection = scan(grouped)
+
+  const report = (label: string, rules: SafeguardRule[], detection: ReturnType<typeof scan>) => {
     console.log(`\n=== ${label} ===`)
     for (const index of groupIndices) {
-      const entry = detection.entries[index]
-      const keys = entry?.itemKeys ?? []
-      keys.forEach((k) => total.add(k))
-      const rule = rules[index]
-      console.log(`  [${index}] ${(rule?.appearance?.name ?? '?').padEnd(32)} keeps ${String(keys.length).padStart(4)}`
-        + `  ${keys.length <= 12 ? `[${[...keys].sort((a, b) => a - b).join(',')}]` : ''}`)
+      console.log(keepLine(index, rules[index]?.appearance?.name, detection.entries[index]?.itemKeys ?? []))
     }
-    console.log(`  ${'union of the run'.padEnd(37)} ${String(total.size).padStart(4)} distinct pieces`)
+    const runTotal = distinctKept(groupIndices.map((index) => detection.entries[index])).size
+    console.log(totalLine('union of the run', runTotal, 'distinct pieces'))
     // Whole-file total, so a change inside the run that merely displaces protection elsewhere
     // cannot read as a real tightening.
-    const allKept = new Set<number>()
-    for (const entry of detection.entries) entry.itemKeys.forEach((k) => allKept.add(k))
-    console.log(`  ${'whole preset'.padEnd(37)} ${String(allKept.size).padStart(4)} distinct pieces`)
-    return { runTotal: total.size, fileTotal: allKept.size }
+    const fileTotal = distinctKept(detection.entries).size
+    console.log(totalLine('whole preset', fileTotal, 'distinct pieces'))
+    return { runTotal, fileTotal }
   }
 
   // ── Why is the pool the size it is? Break the funnel down for the run. ───────
   // A group can only arbitrate over gear its members FED it, and a member only feeds what it
   // selected, and it only selects SELL candidates whose bucket quota is not already met. Any of
   // those three can be the floor, so print all of them rather than guessing which bit.
-  {
-    const detection = scan(grouped)
-    for (const index of groupIndices) {
-      const entry = detection.entries[index]
-      if (!entry) continue
-      // Each member's own top-N BEFORE the group cap: sorted by the member's own score, the
-      // first `perBucketRequiredCount` per bucket is what it feeds. Printing the top few shows
-      // whether the members really rank the shared gear differently.
-      const scored = [...(entry.candidates ?? [])]
-        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      const top = scored.slice(0, Math.max(entry.perBucketRequiredCount, 1) + 2)
-        .map((c) => `${c.itemKey}@${(c.score ?? 0).toFixed(3)}`)
-      console.log(`  [${index}] required=${entry.requiredCount} current=${entry.currentCount} `
-        + `projected=${entry.projectedCount} deficit=${entry.deficit} `
-        + `buckets=${entry.bucketsTracked} perBucket=${entry.perBucketRequiredCount} `
-        + `coveredByExisting=${entry.coveredByExisting} kept=${entry.itemKeys.length} `
-        + `scored=${scored.length}`)
-      console.log(`        own top-N by own score: ${top.join('  ')}`)
-    }
+  for (const index of groupIndices) {
+    const entry = groupedDetection.entries[index]
+    if (!entry) continue
+    // Each member's own top-N BEFORE the group cap: sorted by the member's own score, the
+    // first `perBucketRequiredCount` per bucket is what it feeds. Printing the top few shows
+    // whether the members really rank the shared gear differently.
+    const scored = [...(entry.candidates ?? [])]
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    const top = scored.slice(0, Math.max(entry.perBucketRequiredCount, 1) + TOP_N_CONTEXT_ROWS)
+      .map((c) => `${c.itemKey}@${(c.score ?? 0).toFixed(3)}`)
+    console.log(`  [${index}] required=${entry.requiredCount} current=${entry.currentCount} `
+      + `projected=${entry.projectedCount} deficit=${entry.deficit} `
+      + `buckets=${entry.bucketsTracked} perBucket=${entry.perBucketRequiredCount} `
+      + `coveredByExisting=${entry.coveredByExisting} kept=${entry.itemKeys.length} `
+      + `scored=${scored.length}`)
+    console.log(`        own top-N by own score: ${top.join('  ')}`)
   }
 
   // Every member selecting fully ALONE — a rule list holding only that member, ungrouped. The
@@ -289,21 +277,19 @@ const run = async (): Promise<void> => {
   for (const index of groupIndices) {
     const only = ungrouped[index]
     if (!only) continue
-    const detection = scan([only])
-    const keys = [...(detection.entries[0]?.itemKeys ?? [])].sort((a, b) => a - b)
+    const keys = sortedKeys(scan([only]).entries[0]?.itemKeys ?? [])
     aloneSets.push(keys)
-    console.log(`  [${index}] ${(only.appearance?.name ?? '?').padEnd(32)} keeps ${String(keys.length).padStart(4)}`
-      + `  ${keys.length <= 12 ? `[${keys.join(',')}]` : ''}`)
+    console.log(keepLine(index, only.appearance?.name, keys))
   }
   const aloneUnion = new Set(aloneSets.flat())
   const aloneCommon = aloneSets.length
     ? aloneSets.reduce((acc, keys) => acc.filter((k) => keys.includes(k)), aloneSets[0]!)
     : []
-  console.log(`  ${'union'.padEnd(37)} ${String(aloneUnion.size).padStart(4)} distinct pieces`)
-  console.log(`  ${'picked by EVERY member'.padEnd(37)} ${String(aloneCommon.length).padStart(4)} pieces`)
+  console.log(totalLine('union', aloneUnion.size, 'distinct pieces'))
+  console.log(totalLine('picked by EVERY member', aloneCommon.length, 'pieces'))
 
-  const withGroup = report('AS SHIPPED (grouped)', grouped)
-  const without = report('GROUPS STRIPPED', ungrouped)
+  const withGroup = report(storedGroup ? 'GROUPED (as stored)' : 'GROUPED (formed by this tool)', grouped, groupedDetection)
+  const without = report('GROUPS STRIPPED', ungrouped, scan(ungrouped))
   console.log(`\nDelta from grouping: run ${without.runTotal} -> ${withGroup.runTotal} `
     + `(${withGroup.runTotal - without.runTotal}), `
     + `whole file ${without.fileTotal} -> ${withGroup.fileTotal} `

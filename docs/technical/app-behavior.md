@@ -57,7 +57,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ### Gear Inspector measurements
 
-- `npm run measure:gear-inspector` compiles `scripts/measure-gear-inspector.ts` and replays the entire Gear Inspector pipeline (SFC load → merged rule build → matcher → Safeguard detection). The default pairing benchmarks `presets/lategame.sfc` against `examples/251112_042110.db`, mirroring the heavy user scenario so regressions show up immediately.
+- `npm run measure:gear-inspector` compiles `scripts/tooling/measure-gear-inspector.ts` (via `tsconfig.scripts.json`) and replays the entire Gear Inspector pipeline (SFC load → merged rule build → matcher → Safeguard detection). The default pairing benchmarks `presets/lategame.sfc` against `examples/251112_042110.db`, mirroring the heavy user scenario so regressions show up immediately.
 - Override the inputs with `--sfc=/path/to/file.sfc` (legacy `.sfc` also works) and/or `--db=/path/to/raid.db`. The script echoes base matcher timings, Safeguard candidate/detection durations, emitted Safeguard rule counts, and the matcher timings after those rules are appended so optimizations can be compared without manual instrumentation.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
@@ -239,24 +239,38 @@ weights still matter after it joins a group. Ties break by the member's own rank
 order, then item key, so a run is reproducible. Rules with **no** substats score zero across the
 board and fall through to list order, exactly as they behaved before groups existed.
 
-**Members do not starve each other: a group evaluates against ONE cumulative state.** Safeguards
-normally run cumulatively — each rule sees earlier rules' picks as already protected, so a later
-rule does not redundantly re-protect them. Between members of one group that reasoning does not
-apply: the group is the arbiter, and it can only arbitrate over gear it actually *receives*. So
-every member reads the cumulative state **snapshotted at its run's start**, and its own picks are
-withheld from that state until the whole run has evaluated, then published together. Consequences:
+**A run publishes only what it KEEPS, and only once it has closed.** Safeguards run
+cumulatively — each rule sees earlier rules' picks as already protected, so a later rule does not
+redundantly re-protect them. A group is a cap over its members' *finished* selections, so what a
+run contributes to that cumulative state is only known after the cap: a piece a member fed but
+the group **dropped** is sold, and a later rule must stay free to protect it — exactly as after an
+equivalent flat list. Members therefore do not publish inline; their picks are **withheld** until
+the run closes, and the close caps first and publishes the survivors
+(`safeguard_close_group_run`, before the next rule evaluates). Consequences:
 
-- members with overlapping filters each rank the **full** pool by their own yardstick, which is
-  what makes several substat-weightings over the same gear meaningful (the reason to group at all);
-- a rule *after* the group still sees the group's gear as protected — cumulative behaviour across
-  the group boundary is unchanged;
-- `ignorePreviousSafeguards` on a member still means "ignore everything before me", widening its
-  view to the baseline rather than narrowing it to the run's snapshot;
-- ungrouped lists are untouched — the snapshot is only allocated when a run exists.
+- a rule *after* the group sees exactly the group's *kept* gear as protected — what the cap
+  dropped is sold and stays free for a later rule to rescue (`what_the_group_drops_*`); an
+  activation-Off member's stale UI `itemKeys` never count as survivors
+  (`an_off_members_stale_keys_*`);
+- while a run is open nothing writes the cumulative/protected vectors, so every member evaluates
+  against the **pre-run** state: its siblings' picks are invisible to it and it ranks the run's
+  full pool by its own yardstick (`overlapping_members_*`, `a_members_picks_*`). Note what this
+  does **not** change: the ranking path always ranked kept pieces too and emitted only the sold
+  ones, so a later member's contribution was always "its top-N minus what a sibling already
+  took" — and the cap's first-feeder dedupe (`a_shared_pick_*`) credits it the same way now. What
+  moves is a member's own kept/sold split, not what the run keeps;
+- `ignorePreviousSafeguards` on a member still means "ignore everything before me": its sold
+  view widens to the baseline, and on the ranking path its pool exclusion still counts the run's
+  earlier members as "before me" (their pending picks are folded into its view), so it keeps
+  reaching *past* its siblings' picks exactly as it did when members published inline
+  (`an_ignore_previous_member_*`);
+- placeholders (anticipate modes) are cleared only when the group actually turned one of that
+  member's fed pieces away — losing a shared piece to an earlier feeder's column is dedupe, not a
+  full bucket (`a_pick_credited_to_a_sibling_*`);
+- ungrouped lists are untouched: they publish inline as always, and no per-run state is
+  allocated for them.
 
-Before this, member 1 consumed the candidates and members 2..n selected nothing, so a group of
-overlapping rules behaved exactly like its head and grouping had no observable effect at all.
-Pinned by the `overlapping_members_*` tests in `safeguards/group_tests.rs`.
+All pinned in `safeguards/group_tests.rs`.
 
 **Settings ride inline on every member.** `SafeguardRule.group` is
 `{ id, requiredCount, countMode }` (`SafeguardGroupSettings`, `lib/safeguards.ts`); every member of
@@ -289,7 +303,7 @@ places — the mutation funnel `applySafeguardRulesChange`, the SFC parse path a
    fans out to its whole run), and the run's head otherwise.
 
 **Engine shape.** Members run through the unchanged per-rule evaluation in array order, and
-`safeguard_apply_group_caps` then visits each run once (at its head), pools the members' finished
+`safeguard_apply_group_cap` runs the moment a run's last member has evaluated (via `safeguard_close_group_run`), pools the members' finished
 `item_keys` (each carrying the score from its own member's `candidates`), sorts the pool, keeps the
 head's `requiredCount` per bucket keyed by the head's `countMode`, and writes the survivors back
 onto the members that fed them — a decision over completed selections rather than an evaluation
@@ -390,7 +404,7 @@ sells get the group's colour and the "sold by the group" tooltip — but only wh
 owns the outcome (a final-sell claim is that rule's decision, not a group trim). A *Group* toggle
 chip in the flyout header (members only, once detection ran) swaps the list for the pooled **group
 view** (`lib/safeguardGroupPool.ts`): every piece the run's members fed, ranked exactly as
-`safeguard_apply_group_caps` ranks them, cut at the group's count per group bucket. Built purely
+`safeguard_apply_group_cap` ranks them, cut at the group's count per group bucket. Built purely
 from the members' detection entries (`candidates[].isWithinQuota` = fed, `itemKeys` = survived) —
 no second scoring pass.
 

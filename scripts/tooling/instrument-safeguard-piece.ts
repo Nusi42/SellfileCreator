@@ -27,10 +27,7 @@
  *     && node --experimental-wasm-modules \
  *        tmp/tsc/scripts/scripts/tooling/instrument-safeguard-piece.js
  */
-import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
-import { parseSfcObject } from '../../src/lib/sfcIO.js'
-import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import {
   resolveSafeguardRulesWithMetasets,
   collectAndComputeSafeguardProtection,
@@ -39,19 +36,14 @@ import {
   computeSafeguardScoreFromArtifact,
   storeArtifactRows,
   toWasmArtifactStoreRow,
-  type SafeguardRule,
 } from '../../src/lib/safeguards.js'
-import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
-import type { Metaset } from '../../src/lib/metasets.js'
 import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeguardImprovementChance.js'
-import {
-  warmupWasmRuleEngine,
-  configureWasmRuleEngineWithLoadedWasm,
-} from '../../src/lib/wasm/wasmRuleEngine.js'
+import { configureWasmRuleEngineWithLoadedWasm } from '../../src/lib/wasm/wasmRuleEngine.js'
 import { StatVariant, ArtifactSet, ArtifactType } from '../../src/lib/types.js'
 import {
   resolveRecipeOverridesTags,
+  recipeAnswersSelectingToken,
   seedSafeguardAnswersFromRecipeDefaults,
 } from '../../src/lib/noteRecipeOverrides.js'
 import {
@@ -59,62 +51,8 @@ import {
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
-
-// ── Node shims so the browser-oriented importer/WASM loader work headless ──────
-const installNodeFileFetch = async (): Promise<void> => {
-  const originalFetch = globalThis.fetch
-  if (typeof originalFetch !== 'function') return
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === 'string'
-      ? input
-      : (input instanceof URL ? input.href : input.url)
-    if (url.startsWith('file://')) {
-      const bytes = await readFile(new URL(url))
-      return new Response(new Uint8Array(bytes), {
-        status: 200,
-        headers: { 'content-type': 'application/wasm' },
-      })
-    }
-    return originalFetch(input, init)
-  }) as typeof fetch
-}
-
-const syncCompiledWasmBindings = async (): Promise<void> => {
-  const root = process.cwd()
-  const sourceDir = resolvePath(root, 'src/lib/wasm/generated')
-  const targetDir = resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated')
-  try {
-    await mkdir(targetDir, { recursive: true })
-    await cp(sourceDir, targetDir, { recursive: true, force: true })
-  } catch {
-    // non-fatal
-  }
-}
-
-// ── SFC / DB loaders ──────────────────────────────────────────────────────────
-const loadSfc = async (sfcPath: string): Promise<{
-  rawRules: SafeguardRule[]
-  metasets: Metaset[]
-  note: string
-}> => {
-  const raw = await readFile(sfcPath, 'utf8')
-  const parsed = JSON.parse(raw) as unknown
-  const parsedSfc = parseSfcObject(parsed, {
-    metasets: [],
-    substatTargets: defaultSubstatTargets(),
-  })
-  const note = Array.isArray((parsed as { Note?: unknown }).Note)
-    ? ((parsed as { Note: string[] }).Note).join('\n')
-    : (typeof (parsed as { Note?: unknown }).Note === 'string' ? (parsed as { Note: string }).Note : '')
-  return { rawRules: parsedSfc.safeguardRules ?? [], metasets: parsedSfc.metasets, note }
-}
-
-const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> => {
-  const buffer = await readFile(gearDbPath)
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-  const imported = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  return [...imported.artifacts, ...imported.inboxArtifacts]
-}
+// Node shims + SFC/DB loaders shared by every headless tooling script.
+import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const RES = Number(StatVariant.RES)
@@ -150,32 +88,24 @@ const patchTo = (
 })
 
 const run = async (): Promise<void> => {
-  await installNodeFileFetch()
-  await syncCompiledWasmBindings()
-  await warmupWasmRuleEngine()
+  await prepareHeadlessRuleEngine()
 
   const sfcPath = resolvePath(process.cwd(), 'presets/lategame.sfc')
   const dbPath = resolvePath(process.cwd(), 'examples/um109288203_RSLHelper.db')
   console.log(`SFC: ${sfcPath}`)
   console.log(`DB:  ${dbPath}`)
 
-  const { rawRules, metasets, note } = await loadSfc(sfcPath)
+  const sfc = await loadSfc(sfcPath)
+  const rawRules = sfc.safeguardRules ?? []
+  const metasets = sfc.metasets
+  // The note exactly as the app would use it (canonicalized + migrated by the SFC parser).
+  const note = sfc.note ?? ''
 
   // ── Apply the `endgame` dynamic override exactly as the app does ─────────────
   // 1. Recipe answer = endgame. 2. seed forces impr_art=50 into safeguard answers.
   // 3. Resolve safeguard instructions and apply them to the metaset-resolved rules.
-  const recipeAnswers = { /* questionId */ } as Record<string, string[]>
-  // The account-mode question id is the first recipe-overrides question; select endgame by id.
-  const recipeQuestions = resolveRecipeOverridesTags(note, recipeAnswers).questions
   // DSL `id=endgame` is carried as option.token; the answer value is the synthesized option.id.
-  let endgameQuestionId: string | undefined
-  let endgameOptionId: string | undefined
-  for (const q of recipeQuestions) {
-    const opt = q.options.find((o) => (o as { token?: string }).token === 'endgame')
-    if (opt) { endgameQuestionId = q.id; endgameOptionId = opt.id; break }
-  }
-  if (!endgameQuestionId || !endgameOptionId) throw new Error('Could not find account-mode question with endgame option')
-  const endgameAnswers: Record<string, string[]> = { [endgameQuestionId]: [endgameOptionId] }
+  const endgameAnswers = recipeAnswersSelectingToken(resolveRecipeOverridesTags(note, {}).questions, 'endgame')
 
   // Seed safeguard answers (impr_art=50 etc.) from the endgame recipe selection.
   const safeguardAnswers = seedSafeguardAnswersFromRecipeDefaults(note, endgameAnswers, {})

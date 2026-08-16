@@ -7,10 +7,7 @@
  *
  * Usage: node sim-improvement-chance.js --sfc presets/lategame.sfc --db examples/um109288203_RSLHelper.db
  */
-import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
-import { parseSfcObject } from '../../src/lib/sfcIO.js'
-import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import {
   resolveSafeguardRulesWithMetasets,
   collectAndComputeSafeguardProtection,
@@ -18,72 +15,19 @@ import {
   getSafeguardCountKey,
   storeArtifactRows,
   toWasmArtifactStoreRow,
-  type SafeguardRule,
 } from '../../src/lib/safeguards.js'
-import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
-import type { Metaset } from '../../src/lib/metasets.js'
 import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeguardImprovementChance.js'
-import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import { StatVariant } from '../../src/lib/types.js'
 import { normalizeSubstatByMax6 } from '../../src/lib/substatRollNormalization.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+// Node shims + SFC/DB loaders shared by every headless tooling script.
+import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
 const TARGET_ARTIFACT_ID = 70081
 const MODIFIED_CDMG_PERCENT = 12   // percent
 const MODIFIED_LEVEL = 12
 const MODIFIED_CDMG_ROLLS = 1      // extra rolls on CDMG at level 12
-
-const installNodeFileFetch = async (): Promise<void> => {
-  const originalFetch = globalThis.fetch
-  if (typeof originalFetch !== 'function') return
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === 'string'
-      ? input
-      : (input instanceof URL ? input.href : input.url)
-    if (url.startsWith('file://')) {
-      const { readFile } = await import('node:fs/promises')
-      const bytes = await readFile(new URL(url))
-      return new Response(new Uint8Array(bytes), {
-        status: 200,
-        headers: { 'content-type': 'application/wasm' },
-      })
-    }
-    return originalFetch(input, init)
-  }) as typeof fetch
-}
-
-const syncCompiledWasmBindings = async (): Promise<void> => {
-  const root = process.cwd()
-  const sourceDir = resolvePath(root, 'src/lib/wasm/generated')
-  const targetDir = resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated')
-  try {
-    await mkdir(targetDir, { recursive: true })
-    await cp(sourceDir, targetDir, { recursive: true, force: true })
-  } catch {
-    // non-fatal
-  }
-}
-
-const loadSfc = async (sfcPath: string): Promise<{
-  safeguardRules: SafeguardRule[]
-  metasets: Metaset[]
-}> => {
-  const raw = await readFile(sfcPath, 'utf8')
-  const parsed = JSON.parse(raw) as unknown
-  const parsedSfc = parseSfcObject(parsed, {
-    metasets: [],
-    substatTargets: defaultSubstatTargets(),
-  })
-  return { safeguardRules: parsedSfc.safeguardRules ?? [], metasets: parsedSfc.metasets }
-}
-
-const loadGear = async (gearDbPath: string): Promise<NormalizedGearArtifact[]> => {
-  const buffer = await readFile(gearDbPath)
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-  const imported = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  return [...imported.artifacts, ...imported.inboxArtifacts]
-}
 
 // Patch the target artifact to simulate level 12 + CDMG=12%
 const patchArtifact = (artifact: NormalizedGearArtifact): NormalizedGearArtifact => {
@@ -107,9 +51,7 @@ const patchArtifact = (artifact: NormalizedGearArtifact): NormalizedGearArtifact
 }
 
 const run = async (): Promise<void> => {
-  await installNodeFileFetch()
-  await syncCompiledWasmBindings()
-  await warmupWasmRuleEngine()
+  await prepareHeadlessRuleEngine()
 
   const args = process.argv.slice(2)
   const sfcPath = resolvePath(process.cwd(), args.includes('--sfc') ? args[args.indexOf('--sfc') + 1] ?? 'presets/lategame.sfc' : 'presets/lategame.sfc')
@@ -118,8 +60,9 @@ const run = async (): Promise<void> => {
   console.log(`Loading SFC: ${sfcPath}`)
   console.log(`Loading DB:  ${dbPath}`)
 
-  const { safeguardRules: rawRules, metasets } = await loadSfc(sfcPath)
-  const safeguardRules = resolveSafeguardRulesWithMetasets(rawRules, metasets)
+  const sfc = await loadSfc(sfcPath)
+  const rawRules = sfc.safeguardRules ?? []
+  const safeguardRules = resolveSafeguardRulesWithMetasets(rawRules, sfc.metasets)
 
   const gear = await loadGear(dbPath)
 

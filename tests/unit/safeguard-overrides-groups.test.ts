@@ -13,19 +13,17 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import {
   resolveNoteSafeguardOverridesTags,
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides'
 import {
   createFactorySafeguardBuilderDefaults,
-  normalizeSafeguardRule,
   SAFEGUARD_DEFAULT_COUNT_MODE,
   type SafeguardRule,
 } from '../../src/lib/safeguards'
-import { normalizeSafeguardGroups } from '../../src/lib/safeguardGroups'
+import { safeguardListHasGroups } from '../../src/lib/safeguardGroups'
+import { loadLategameNote, loadLategameSafeguardRules } from '../setup/presetFixtures.js'
 
 // A run of two grouped members (same id, adjacent) plus one ungrouped bystander after them.
 // Only `first` carries the `boots` tag, so selectors can address a NON-head member too.
@@ -202,22 +200,19 @@ test('an unknown group.* suffix is skipped without disturbing its neighbours', (
 // note: each factor block resolves to a `count` AND a `groupCount` op with the SAME expression,
 // and applying them writes every rule's own count while no rule grows a group.
 test('every lategame slider factor block mirrors count with group.count and no-ops until a group exists', () => {
-  const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8')) as {
-    Safeguards: unknown[]
-    Note: string[]
-  }
-  const rules = normalizeSafeguardGroups(
-    sfc.Safeguards
-      .map((entry) => normalizeSafeguardRule(entry))
-      .filter((entry): entry is SafeguardRule => entry !== null),
-  )
-  assert.equal(rules.some((rule) => rule.group !== undefined), false, 'the preset ships no groups')
-  const note = sfc.Note.join('\n')
+  const rules = loadLategameSafeguardRules()
+  assert.equal(safeguardListHasGroups(rules), false, 'the preset ships no groups')
+  const note = loadLategameNote()
   // Default answers: every slider at its default, so every factor block resolves.
-  const { instructions } = resolveNoteSafeguardOverridesTags(note, {})
+  const { questions, instructions } = resolveNoteSafeguardOverridesTags(note, {})
   const countBlocks = instructions.filter((instruction) =>
     instruction.operations.some((op) => op.kind === 'count'))
-  assert.ok(countBlocks.length >= 20, `expected the preset's factor blocks, got ${countBlocks.length}`)
+  const groupCountBlocks = instructions.filter((instruction) =>
+    instruction.operations.some((op) => op.kind === 'groupCount'))
+  assert.ok(countBlocks.length > 0, 'the preset must resolve count-writing factor blocks')
+  // The mirror is exact in both directions: no count without its group.count and no stray
+  // group.count either (the per-slider `blk:count+groupCount` shape is pinned by the golden).
+  assert.equal(groupCountBlocks.length, countBlocks.length, 'every count block mirrors group.count and nothing else does')
   for (const block of countBlocks) {
     const count = block.operations.find((op) => op.kind === 'count')
     const groupCount = block.operations.find((op) => op.kind === 'groupCount')
@@ -235,11 +230,14 @@ test('every lategame slider factor block mirrors count with group.count and no-o
   for (const [index, rule] of out.entries()) {
     assert.equal(rule.group, undefined, `rule ${index} must stay ungrouped — group.count is a no-op here`)
   }
-  // And a concrete write still lands: answer the damage/survivability slider (question id
-  // `q_tk0vqr`) with a value distinct from the on-disk 32 and every damage/div1 rule follows.
+  // And a concrete write still lands: answer the damage/survivability slider (addressed by its
+  // DSL id — question ids are content hashes and would move with an edit to the prompt) with a
+  // value distinct from the on-disk 32 and every damage/div1 rule follows.
+  const damageSlider = questions.find((question) => question.options.some((option) => option.token === 'min_dmgsurv_pieces'))
+  assert.ok(damageSlider, 'the preset carries the min_dmgsurv_pieces slider')
   const retuned = applySafeguardOverrides(
     rules,
-    resolveNoteSafeguardOverridesTags(note, { q_tk0vqr: ['20'] }).instructions,
+    resolveNoteSafeguardOverridesTags(note, { [damageSlider.id]: ['20'] }).instructions,
   )
   const damageDiv1 = retuned.filter((rule) => (rule.tags ?? []).includes('damage') && (rule.tags ?? []).includes('div1'))
   assert.ok(damageDiv1.length > 0)

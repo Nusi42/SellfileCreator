@@ -7,13 +7,15 @@
  * `isWithinQuota` are the pieces it fed) and its post-cap `itemKeys` (what survived the group's
  * decision) — so the view shows exactly what the scan decided, without a second scoring pass.
  *
- * Ordering mirrors `safeguard_apply_group_caps`: score descending, then the feeder's own rank,
- * then the feeder's position in the run, then the item key. Ranks are re-numbered over the pool
- * (`candidateRank`) and within each of the group's buckets (`bucketRank`, keyed by the group's
- * own scope chips through the same focus-key helper the flyout's focus chip uses).
+ * Ordering mirrors `safeguard_apply_group_cap` (wasm `safeguards/mod.rs`): score descending, then
+ * the feeder's own rank, then the feeder's position in the run, then the item key. Ranks are
+ * re-numbered over the pool (`candidateRank`) and within each of the group's buckets
+ * (`bucketRank`, keyed by the group's own scope chips through the same focus-key helper the
+ * flyout's focus chip uses).
  */
 import {
   safeguardFocusBucketKeyFor,
+  SafeguardRuleActivation,
   type SafeguardCandidateOut,
   type SafeguardDetectionArtifact,
   type SafeguardDetectionEntry,
@@ -81,6 +83,11 @@ export const buildSafeguardGroupPool = (
     // the feeder marker at an unrelated chip whenever the group does not start the list.
     const feederOrdinal = entry.ruleOrdinal
     if (feederOrdinal == null) return
+    // A member switched Off feeds nothing and the engine's cap never trims it, yet its entry can
+    // still carry a scored ranking and untrimmed `itemKeys` for the UI. Pooling those would credit
+    // an Off member with pieces it never fed — and, since the first feeder keeps a shared piece,
+    // hide the real feeder's contribution. The engine skips Off members for exactly this reason.
+    if (entry.ruleActivation === SafeguardRuleActivation.Off) return
     for (const artifact of entry.artifacts ?? []) artifacts.set(artifact.itemKey, artifact)
     const kept = new Set(entry.itemKeys)
     for (const candidate of entry.candidates ?? []) {
@@ -88,7 +95,8 @@ export const buildSafeguardGroupPool = (
       // Only what the member actually FED reaches the pool: its own top-N (kept and sold alike).
       if (!candidate.isWithinQuota) continue
       // A piece two overlapping members both fed is one piece in the pool; the first (higher in
-      // the run) keeps it, matching how the engine's cumulative protection assigns it.
+      // the run) keeps it — every member ranks the run's full pool, siblings' picks invisible to
+      // it, and the engine's cap credits a shared piece to its first feeder the same way.
       if (pieces.has(candidate.itemKey)) continue
       pieces.set(candidate.itemKey, {
         itemKey: candidate.itemKey,

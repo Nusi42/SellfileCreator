@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { loadLategameSfc } from '../setup/presetFixtures.js'
-import { resolveRecipeOverridesTags } from '../../src/lib/noteRecipeOverrides.js'
+import { findRecipeOptionByToken, resolveRecipeOverridesTags } from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags, SLIDER_TOGGLE_OFF } from '../../src/lib/noteSafeguardOverrides.js'
 import {
   buildDynamicOverridesPresetSummary,
@@ -14,9 +14,9 @@ const sfc = loadLategameSfc()
 const note: string = (sfc.Note as string[]).join('\n')
 
 const seed = resolveRecipeOverridesTags(note)
-const acctQ = seed.questions.find((q) => q.options.some((o) => o.token === 'lategame'))!
-const lategameOpt = acctQ.options.find((o) => o.token === 'lategame')!
-const midgameOpt = acctQ.options.find((o) => o.token === 'midgame')!
+// The account-tier question, addressed by its options' DSL ids (question ids are content hashes).
+const { question: acctQ, option: lategameOpt } = findRecipeOptionByToken(seed.questions, 'lategame')!
+const midgameOpt = findRecipeOptionByToken(seed.questions, 'midgame')!.option
 
 test('summary preserves option-label markdown verbatim (backticks render, not leak)', () => {
   const { lines } = buildDynamicOverridesPresetSummary(note, { [acctQ.id]: [midgameOpt.id] }, {})

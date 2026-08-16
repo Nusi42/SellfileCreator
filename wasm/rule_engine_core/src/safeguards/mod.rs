@@ -2949,20 +2949,65 @@ pub(super) fn safeguard_matches_selection(selection: &[i64], candidate: i64) -> 
     selection.contains(&candidate)
 }
 
-/// Drains a run's held-back picks into the cumulative + protected state.
+/// The member range of the run headed at `head`, clipped to the entries evaluated so far.
+///
+/// SSOT for "which entries belong to this run" — the cap pass and the run-close publish both
+/// walk exactly this range, so a run can never be capped over one set of members and published
+/// over another.
+fn safeguard_group_run_members(
+    groups: &groups::SafeguardGroupsOut,
+    head: usize,
+    entries_len: usize,
+) -> core::ops::Range<usize> {
+    let run_len = groups.run_lens.get(head).copied().unwrap_or(0).max(0) as usize;
+    head..(head + run_len).min(entries_len)
+}
+
+// Everything a group cap reads that is fixed for the whole scan: the resolved runs, each rule's
+// inline group settings, the candidates, and the item_key → artifact index the cap re-buckets by.
+// Built once per scan (`artifact_by_item_key` is borrowed, not cloned — an artifact carries a
+// substat Vec and a developed account reaches thousands of candidates), then handed to every run
+// close, so the two close sites in the eval loop cannot drift apart in what they pass.
+struct GroupCapContext<'scan> {
+    groups: &'scan groups::SafeguardGroupsOut,
+    group_settings: &'scan [Option<SafeguardWasmGroupIn>],
+    candidates: &'scan [SafeguardWasmCandidateIn],
+    artifact_by_item_key: BTreeMap<i64, &'scan SafeguardWasmArtifactIn>,
+}
+
+/// Closes a finished group run: caps it, then publishes only what SURVIVED the cap.
 ///
 /// Group members do not publish their selections inline (that would let member 1 starve its
-/// siblings, see the eval loop), so their indices queue here until the run ends. Draining is
-/// idempotent by construction — the vector is emptied — and a no-op on the flat-list path, where
-/// nothing is ever queued.
-fn safeguard_publish_pending_picks(
+/// siblings, see the eval loop), so their candidate indices queue in `pending` until the run
+/// ends. Publishing before the cap would be wrong in the other direction: a piece the group
+/// DROPS is sold, and a later rule must still be free to protect it — an equivalent flat list
+/// would. So the cap runs first and only the run's surviving `item_keys` reach the cumulative +
+/// protected state. Draining is idempotent by construction — the vector is emptied — and the
+/// flat-list path never queues anything.
+fn safeguard_close_group_run(
+    context: &GroupCapContext<'_>,
+    head: usize,
+    entries: &mut [SafeguardWasmEntryOut],
     pending: &mut Vec<usize>,
     cumulative_candidate_sold_state: &mut [bool],
     previously_protected_state: &mut [bool],
 ) {
+    safeguard_apply_group_cap(context, head, entries);
+    // What the run kept after the cap; a member's `item_keys` and its selected candidate indices
+    // are the same sold subset, so filtering the pending indices by item_key is exact. An
+    // activation-off member never queued anything and the cap never trims it, yet its entry can
+    // still carry scored `item_keys` for the UI — reading those here would publish a piece the
+    // group actually DROPPED, exactly the leak this function exists to prevent.
+    let survivors = safeguard_group_run_members(context.groups, head, entries.len())
+        .filter_map(|member_index| entries.get(member_index))
+        .filter(|entry| !safeguard_is_activation_off(&entry.rule_activation))
+        .flat_map(|entry| entry.item_keys.iter().copied())
+        .collect::<BTreeSet<i64>>();
     for candidate_idx in pending.drain(..) {
-        // Bounds-checked exactly like the inline path it defers.
-        if candidate_idx >= cumulative_candidate_sold_state.len() {
+        // Candidates and both state vectors are parallel (all sized from the parsed candidate
+        // list), so one lookup bounds-checks the index for all three.
+        let Some(candidate) = context.candidates.get(candidate_idx) else { continue };
+        if !survivors.contains(&candidate.item_key) {
             continue;
         }
         cumulative_candidate_sold_state[candidate_idx] = false;
@@ -2970,7 +3015,7 @@ fn safeguard_publish_pending_picks(
     }
 }
 
-/// Applies every group's cap to the finished member selections.
+/// Applies ONE group's cap — the run headed at `head` — to its finished member selections.
 ///
 /// This is the whole of what a group does. Members evaluate exactly as if ungrouped — own
 /// filters, substats, weights, count mode, ranking, required count — and produce their own
@@ -2988,135 +3033,137 @@ fn safeguard_publish_pending_picks(
 ///
 /// A group with nothing to decide over — no active member, or a count at or above what was fed —
 /// leaves every member's selection untouched, so a flat list is bit-identical to before.
-fn safeguard_apply_group_caps(
-    groups: &groups::SafeguardGroupsOut,
-    group_settings: &[Option<SafeguardWasmGroupIn>],
-    candidates: &[SafeguardWasmCandidateIn],
+///
+/// Called by `safeguard_close_group_run` the moment a run's last member has evaluated, so the
+/// run's survivors are known BEFORE the next rule reads cumulative state. `context` is the
+/// scan-wide read-only input (see `GroupCapContext`); `entries` is a disjoint borrow, so the
+/// artifact references in it stay valid across the mutation below.
+fn safeguard_apply_group_cap(
+    context: &GroupCapContext<'_>,
+    head: usize,
     entries: &mut [SafeguardWasmEntryOut],
 ) {
-    // item_key → artifact, so a member's selections can be re-bucketed by the group's mode.
-    // Borrowed, not cloned: an artifact carries a substat Vec, and a developed account reaches
-    // thousands of candidates — cloning them all per scan would be pure waste. `entries` is a
-    // disjoint borrow, so these references stay valid across the mutation below.
-    let artifact_by_item_key = candidates
-        .iter()
-        .map(|candidate| (candidate.item_key, &candidate.artifact))
-        .collect::<BTreeMap<i64, &SafeguardWasmArtifactIn>>();
-    for head in 0..entries.len() {
-        // Visit each run once, at its head.
-        if groups.run_starts.get(head).copied().unwrap_or(-1) != head as i64 {
+    let GroupCapContext { groups, group_settings, artifact_by_item_key, .. } = context;
+    // Only ever called at a run's head; anything else has no group to cap.
+    if groups.run_starts.get(head).copied().unwrap_or(-1) != head as i64 {
+        return;
+    }
+    let members = safeguard_group_run_members(groups, head, entries.len());
+    // The head's settings are the group's settings. A count below 1 would mean "keep
+    // nothing", so it clamps like every other required count.
+    let Some(settings) = group_settings.get(head).and_then(Option::as_ref) else { return };
+    let demand = settings.required_count.unwrap_or(1).max(1);
+    // The group's own count mode defines the merged buckets — "merged based on the
+    // bucket-defining properties". Members' chips still shape their OWN feed; they just do
+    // not decide what counts as the same bucket once that feed arrives here.
+    let group_mode = safeguard_resolve_count_mode(settings.count_mode);
+    // Pool every member's feed into one list before deciding anything. Members do not keep
+    // gear of their own inside a group — each one's required count sized what it fed, and
+    // the group now picks the survivors across all of it.
+    let mut pooled = Vec::<PooledGroupCandidate>::new();
+    // One PIECE is one entry in the pool, whoever fed it. Two members whose filters overlap
+    // both list the same item_key — every member ranks the run's FULL pre-group pool, its
+    // siblings' picks invisible to it (see the eval loop) — and without this the piece would
+    // consume the group's bucket room TWICE, so the group would keep fewer distinct pieces
+    // than its count promises.
+    // The first member of the run keeps it, matching `buildSafeguardGroupPool` in
+    // lib/safeguardGroupPool.ts — the flyout's pooled view must not disagree with the scan.
+    let mut pooled_item_keys = BTreeSet::<i64>::new();
+    for (member_order, member_index) in members.clone().enumerate() {
+        let Some(entry) = entries.get(member_index) else { continue };
+        // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
+        // it — but its entry can still carry scored item_keys for the UI. Letting those
+        // into the pool would have a switched-Off rule silently crowd out its siblings.
+        if safeguard_is_activation_off(&entry.rule_activation) {
             continue;
         }
-        let run_len = groups.run_lens.get(head).copied().unwrap_or(0).max(0) as usize;
-        let members = head..(head + run_len).min(entries.len());
-        // The head's settings are the group's settings. A count below 1 would mean "keep
-        // nothing", so it clamps like every other required count.
-        let Some(settings) = group_settings.get(head).and_then(Option::as_ref) else { continue };
-        let demand = settings.required_count.unwrap_or(1).max(1);
-        // The group's own count mode defines the merged buckets — "merged based on the
-        // bucket-defining properties". Members' chips still shape their OWN feed; they just do
-        // not decide what counts as the same bucket once that feed arrives here.
-        let group_mode = safeguard_resolve_count_mode(settings.count_mode);
-        // Pool every member's feed into one list before deciding anything. Members do not keep
-        // gear of their own inside a group — each one's required count sized what it fed, and
-        // the group now picks the survivors across all of it.
-        let mut pooled = Vec::<PooledGroupCandidate>::new();
-        // One PIECE is one entry in the pool, whoever fed it. Two members whose filters overlap
-        // (only reachable once a member turns `ignorePreviousSafeguards` on — the cumulative
-        // path otherwise stops the second one re-protecting what the first already took) both
-        // list the same item_key, and without this the piece would consume the group's bucket
-        // room TWICE, so the group would keep fewer distinct pieces than its count promises.
-        // The first member of the run keeps it, matching `buildSafeguardGroupPool` in
-        // lib/safeguardGroupPool.ts — the flyout's pooled view must not disagree with the scan.
-        let mut pooled_item_keys = BTreeSet::<i64>::new();
-        for (member_order, member_index) in members.clone().enumerate() {
-            let Some(entry) = entries.get(member_index) else { continue };
-            // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
-            // it — but its entry can still carry scored item_keys for the UI. Letting those
-            // into the pool would have a switched-Off rule silently crowd out its siblings.
-            if safeguard_is_activation_off(&entry.rule_activation) {
+        // Each fed piece keeps the score its OWN member gave it — that is the yardstick the
+        // pool is sorted by, so a member's ranking survives into the shared decision.
+        let score_by_item_key = entry
+            .candidates
+            .iter()
+            .map(|candidate| (candidate.item_key, (candidate.score, candidate.candidate_rank)))
+            .collect::<BTreeMap<i64, (f64, u32)>>();
+        for item_key in entry.item_keys.iter().copied() {
+            // Already fed by an earlier member of this run — one piece, one pool slot.
+            if !pooled_item_keys.insert(item_key) {
                 continue;
             }
-            // Each fed piece keeps the score its OWN member gave it — that is the yardstick the
-            // pool is sorted by, so a member's ranking survives into the shared decision.
-            let score_by_item_key = entry
-                .candidates
-                .iter()
-                .map(|candidate| (candidate.item_key, (candidate.score, candidate.candidate_rank)))
-                .collect::<BTreeMap<i64, (f64, u32)>>();
-            for item_key in entry.item_keys.iter().copied() {
-                // Already fed by an earlier member of this run — one piece, one pool slot.
-                if !pooled_item_keys.insert(item_key) {
-                    continue;
-                }
-                // Rules with no substats take the non-ranking path and score 0 across the board;
-                // the tie-break below then falls through to member order, which is exactly the
-                // "first member fills first" behaviour those rules had before.
-                let (score, own_rank) = score_by_item_key.get(&item_key).copied().unwrap_or((0.0, 0));
-                pooled.push(PooledGroupCandidate {
-                    item_key,
-                    member_index,
-                    member_order,
-                    score,
-                    own_rank,
-                });
-            }
+            // Rules with no substats take the non-ranking path and score 0 across the board;
+            // the tie-break below then falls through to member order, which is exactly the
+            // "first member fills first" behaviour those rules had before.
+            let (score, own_rank) = score_by_item_key.get(&item_key).copied().unwrap_or((0.0, 0));
+            pooled.push(PooledGroupCandidate {
+                item_key,
+                member_index,
+                member_order,
+                score,
+                own_rank,
+            });
         }
-        // Best score first. Every tie-break is deterministic so two runs over the same account
-        // cannot disagree about which piece got the last slot: a member's own rank, then its
-        // position in the list (the user's stated priority), then the item key.
-        pooled.sort_by(|left, right| {
-            right
-                .score
-                .partial_cmp(&left.score)
-                .unwrap_or(core::cmp::Ordering::Equal)
-                .then(left.own_rank.cmp(&right.own_rank))
-                .then(left.member_order.cmp(&right.member_order))
-                .then(left.item_key.cmp(&right.item_key))
-        });
-        // Remaining room per merged bucket, seeded lazily as buckets are first touched.
-        let mut room = BTreeMap::<SafeguardCountKey, i64>::new();
-        // Survivors per member, so each entry keeps reporting the gear IT contributed.
-        let mut survivors = BTreeMap::<usize, Vec<i64>>::new();
-        for candidate in &pooled {
-            let Some(artifact) = artifact_by_item_key.get(&candidate.item_key) else { continue };
-            let key = safeguard_count_key_from_parts(
-                artifact.slot,
-                artifact.set,
-                artifact.faction,
-                artifact.main_stat,
-                group_mode,
-            );
-            let left = room.entry(key).or_insert(demand);
-            if *left > 0 {
-                *left -= 1;
-                survivors.entry(candidate.member_index).or_default().push(candidate.item_key);
-            }
+    }
+    // Best score first. Every tie-break is deterministic so two runs over the same account
+    // cannot disagree about which piece got the last slot: a member's own rank, then its
+    // position in the list (the user's stated priority), then the item key.
+    pooled.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(core::cmp::Ordering::Equal)
+            .then(left.own_rank.cmp(&right.own_rank))
+            .then(left.member_order.cmp(&right.member_order))
+            .then(left.item_key.cmp(&right.item_key))
+    });
+    // Remaining room per merged bucket, seeded lazily as buckets are first touched.
+    let mut room = BTreeMap::<SafeguardCountKey, i64>::new();
+    // Survivors per member, so each entry keeps reporting the gear IT contributed.
+    let mut survivors = BTreeMap::<usize, Vec<i64>>::new();
+    // Every piece the group kept, whoever it was credited to. A member whose pick was deduped
+    // onto an earlier sibling did NOT have it turned away — the group kept it — so this is the
+    // set the placeholder decision below reads, not the per-member credit.
+    let mut kept_item_keys = BTreeSet::<i64>::new();
+    for candidate in &pooled {
+        let Some(artifact) = artifact_by_item_key.get(&candidate.item_key) else { continue };
+        let key = safeguard_count_key_from_parts(
+            artifact.slot,
+            artifact.set,
+            artifact.faction,
+            artifact.main_stat,
+            group_mode,
+        );
+        let left = room.entry(key).or_insert(demand);
+        if *left > 0 {
+            *left -= 1;
+            survivors.entry(candidate.member_index).or_default().push(candidate.item_key);
+            kept_item_keys.insert(candidate.item_key);
         }
-        for member_index in members {
-            let Some(entry) = entries.get_mut(member_index) else { continue };
-            if safeguard_is_activation_off(&entry.rule_activation) {
-                continue;
-            }
-            let before = entry.item_keys.len();
-            let mut kept = survivors.remove(&member_index).unwrap_or_default();
-            // Restore this member's own ranked order within what survived, so the UI's rank
-            // overlays and the preview rows stay in the order the member scored them.
-            let rank_of = entry
-                .item_keys
-                .iter()
-                .enumerate()
-                .map(|(position, item_key)| (*item_key, position))
-                .collect::<BTreeMap<i64, usize>>();
-            kept.sort_by_key(|item_key| rank_of.get(item_key).copied().unwrap_or(usize::MAX));
-            // Placeholders reserve slots for gear the user does not own yet. Once the shared
-            // bucket is turning real contributions away there is nothing left to anticipate.
-            if kept.len() < before {
-                entry.placeholders.clear();
-                entry.placeholder_count = 0;
-            }
-            entry.item_keys = kept;
+    }
+    for member_index in members {
+        let Some(entry) = entries.get_mut(member_index) else { continue };
+        if safeguard_is_activation_off(&entry.rule_activation) {
+            continue;
         }
+        // Placeholders reserve slots for gear the user does not own yet. Once the shared bucket
+        // is turning this member's real contributions away there is nothing left to anticipate.
+        // Judged against what the GROUP kept, not what was credited to this member: overlapping
+        // members routinely feed the same piece, and losing it to the first feeder's column is
+        // not the bucket saying no.
+        let fed_piece_dropped = entry.item_keys.iter().any(|item_key| !kept_item_keys.contains(item_key));
+        let mut kept = survivors.remove(&member_index).unwrap_or_default();
+        // Restore this member's own ranked order within what survived, so the UI's rank
+        // overlays and the preview rows stay in the order the member scored them.
+        let rank_of = entry
+            .item_keys
+            .iter()
+            .enumerate()
+            .map(|(position, item_key)| (*item_key, position))
+            .collect::<BTreeMap<i64, usize>>();
+        kept.sort_by_key(|item_key| rank_of.get(item_key).copied().unwrap_or(usize::MAX));
+        if fed_piece_dropped {
+            entry.placeholders.clear();
+            entry.placeholder_count = 0;
+        }
+        entry.item_keys = kept;
     }
 }
 
@@ -4561,7 +4608,7 @@ fn compute_safeguard_protection_core(
     // Captured before the rules are consumed below. A group does NOT evaluate — its members do,
     // each exactly as if ungrouped, which is what makes each member's own required count the
     // size of its FEED. The group then pools those feeds and decides what survives (see
-    // safeguard_apply_group_caps), so nothing here touches candidate collection or scoring.
+    // safeguard_apply_group_cap), so nothing here touches candidate collection or scoring.
     // Separators reach this function already projected to activation=off; they carry no group
     // in the wire projection, so they end a run exactly as the resolver requires.
     let group_entries = parsed_rules
@@ -4684,68 +4731,101 @@ fn compute_safeguard_protection_core(
     // matches the ordinal stamped on the resulting entry (used as the dimension for per-rule
     // improvement_chance lookups).
     let mut rule_ordinal = 0i64;
-    // ── A group evaluates against ONE cumulative state: the one from before it ──────────────
-    // Members must not starve each other. Cumulative protection exists so a LATER rule does not
-    // redundantly re-protect what an EARLIER one already saved; between members of one group
-    // that reasoning does not apply, because the group is the arbiter and can only arbitrate
-    // over gear it actually receives. Letting member 1 consume the candidates means members 2..n
-    // feed nothing, the pool is degenerate, and the cap has nothing to decide — which made
-    // grouping a no-op for overlapping members and left the whole run behaving like its head.
+    // ── A group run publishes only what it KEEPS, and only once it has closed ────────────────
+    // A group is a cap over its members' finished selections, so what the run contributes to
+    // the cumulative state can only be known after the cap has run: a piece a member fed but the
+    // group dropped is SOLD, and a later rule must stay free to protect it — exactly as it would
+    // after an equivalent flat list. Members therefore do not publish inline; their picks are
+    // WITHHELD until the run closes, and the close caps first and publishes the survivors.
     //
-    // So each member reads the cumulative state SNAPSHOT taken when its run started, while its
-    // own picks are withheld from that state until the run ends (see the deferred publish below).
-    // Ungrouped rules are completely unaffected: `run_starts` is -1 for them, and the flat-list
-    // fast path never allocates a snapshot at all.
-    let mut run_snapshot: Option<(usize, Vec<bool>, Vec<bool>)> = None;
-    // Picks made by the members of the run currently being evaluated, held back from cumulative
-    // state until the run completes. Indices only — the cap pass decides which ones survive.
+    // A consequence: while a run is open nothing writes the cumulative + protected vectors, so
+    // every member evaluates against the pre-run state — its siblings' picks are invisible to it,
+    // and each member ranks the run's FULL pool by its own yardstick. That changes a member's own
+    // kept/sold split, not what the run keeps: the ranking path already ranks kept pieces too and
+    // emits only the sold ones, so a member's contribution was always "its top-N minus what a
+    // sibling already took", and the cap's first-feeder dedupe credits it the same way now.
+    // Ungrouped rules are completely unaffected: `run_starts` is -1 for them and they publish
+    // inline as always.
+    //
+    // Head index of the run currently being evaluated, or None between runs / on a flat list.
+    let mut open_run: Option<usize> = None;
+    // Picks made by the members of the open run, held back from cumulative state until the run
+    // closes. Indices only — the cap decides which ones survive, and only the survivors are
+    // published (see safeguard_close_group_run).
     let mut pending_run_picks = Vec::<usize>::new();
+    // The scan-wide read-only input every run close reads. The item_key → artifact index is
+    // built once here; a flat list never caps anything, so it stays empty there.
+    let cap_context = GroupCapContext {
+        groups: &resolved_groups,
+        group_settings: &group_settings,
+        candidates: &parsed_candidates,
+        artifact_by_item_key: if resolved_groups.has_groups {
+            parsed_candidates
+                .iter()
+                .map(|candidate| (candidate.item_key, &candidate.artifact))
+                .collect::<BTreeMap<i64, &SafeguardWasmArtifactIn>>()
+        } else {
+            BTreeMap::new()
+        },
+    };
+    // `run_starts` is stamped per parsed rule and `prepared_rules` maps them 1:1; a future filter
+    // on either side would silently desync every run boundary below.
+    debug_assert_eq!(resolved_groups.run_starts.len(), prepared_rules.len());
     for (rule_index, prepared_rule) in prepared_rules.iter().enumerate() {
         rule_ordinal += 1;
-        // The run this rule belongs to, or None when ungrouped (`run_starts` is -1).
-        let run_start = if resolved_groups.has_groups {
-            match resolved_groups.run_starts.get(rule_index).copied().unwrap_or(-1) {
-                start if start >= 0 => Some(start as usize),
-                _ => None,
-            }
-        } else {
-            None
+        // The run this rule belongs to, or None when ungrouped (`run_starts` is -1 there, and
+        // for every entry of a flat list).
+        let run_start = match resolved_groups.run_starts.get(rule_index).copied().unwrap_or(-1) {
+            start if start >= 0 => Some(start as usize),
+            _ => None,
         };
-        // Entering a different run (or leaving one) publishes the previous run's held-back picks
-        // and re-snapshots. Doing it here, rather than at the run's end, keeps the loop single-pass.
-        if run_snapshot.as_ref().map(|(start, _, _)| *start) != run_start {
-            safeguard_publish_pending_picks(
-                &mut pending_run_picks,
-                &mut cumulative_candidate_sold_state,
-                &mut previously_protected_state,
-            );
-            run_snapshot = run_start.map(|start| {
-                (
-                    start,
-                    cumulative_candidate_sold_state.clone(),
-                    previously_protected_state.clone(),
-                )
-            });
+        // Entering a different run (or leaving one) closes the previous run — caps it and
+        // publishes its survivors. Doing it here, rather than at the run's end, keeps the loop
+        // single-pass; `entries` holds exactly the rules before this one, so the closing run is
+        // its tail.
+        if open_run != run_start {
+            if let Some(head) = open_run.take() {
+                safeguard_close_group_run(
+                    &cap_context,
+                    head,
+                    &mut entries,
+                    &mut pending_run_picks,
+                    &mut cumulative_candidate_sold_state,
+                    &mut previously_protected_state,
+                );
+            }
+            open_run = run_start;
         }
-        // Per-rule toggle decides whether this rule sees prior safeguard selections. A member
-        // reads its run's snapshot instead of the running state, so its siblings are invisible
-        // to it; `ignore_previous_safeguards` still widens that to the baseline, meaning "ignore
+        // Per-rule toggle decides whether this rule sees prior safeguard selections. Inside a
+        // run the cumulative state still holds the pre-run view (siblings' picks are pending, so
+        // invisible); `ignore_previous_safeguards` widens that to the baseline, meaning "ignore
         // everything before me" including what preceded the group.
         let candidate_sold_state = if prepared_rule.ignore_previous_safeguards {
             &baseline_candidate_sold_state
-        } else if let Some((_, sold_snapshot, _)) = run_snapshot.as_ref() {
-            sold_snapshot
         } else {
             &cumulative_candidate_sold_state
         };
-        // The ranking path's pool exclusion reads the protected set; a member must see the same
-        // pre-group view there too, or its siblings' picks would be excluded from its ranking.
-        let previously_protected_state_view = match run_snapshot.as_ref() {
-            Some((_, _, protected_snapshot)) if !prepared_rule.ignore_previous_safeguards => {
-                protected_snapshot
-            }
-            _ => &previously_protected_state,
-        };
+        // The ranking path's pool exclusion for `ignore_previous_safeguards` — "do not re-rank
+        // what is already protected before me; reach deeper" — must keep counting the run's
+        // earlier members as "before me". Their picks are pending rather than published, so an
+        // ignore-previous member gets a view with the pending picks folded in; otherwise it would
+        // re-rank its siblings' gear, the dedupe would credit that gear back to them, and the one
+        // toggle that lets a later member feed DIFFERENT pieces would silently stop working.
+        // Only built for that member (an owned copy is O(candidates), so not per rule).
+        let ignore_previous_view;
+        let previously_protected_state_view: &[bool] =
+            if prepared_rule.ignore_previous_safeguards && !pending_run_picks.is_empty() {
+                let mut view = previously_protected_state.clone();
+                for candidate_idx in &pending_run_picks {
+                    if let Some(flag) = view.get_mut(*candidate_idx) {
+                        *flag = true;
+                    }
+                }
+                ignore_previous_view = view;
+                &ignore_previous_view
+            } else {
+                &previously_protected_state
+            };
         // Track selected sold candidates so optional cascading can mutate state once.
         let eval_result = if prepared_rule.substat_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT
             && prepared_rule.selected_substats.len() > 1
@@ -4790,11 +4870,11 @@ fn compute_safeguard_protection_core(
             )
         };
         // Active safeguards always contribute to cumulative state for later rules — but a group
-        // MEMBER's picks are held back until the whole run has evaluated. Publishing them inline
-        // is what starved its siblings; publishing them after the run keeps every later rule's
+        // MEMBER's picks are held back until its run closes. Publishing them inline is what
+        // starved its siblings; publishing the run's SURVIVORS at close keeps every later rule's
         // view identical to what it would have seen from an equivalent flat list.
         if prepared_rule.rule_active {
-            if run_snapshot.is_some() {
+            if open_run.is_some() {
                 pending_run_picks.extend(eval_result.selected_candidate_indices.iter().copied());
             } else {
                 for candidate_idx in &eval_result.selected_candidate_indices {
@@ -4814,19 +4894,20 @@ fn compute_safeguard_protection_core(
         entry.rule_ordinal = Some(rule_ordinal);
         entries.push(entry);
     }
-    // A run that ran to the end of the list still has picks held back; publish them so the
-    // cumulative state is complete for anything reading it after this loop.
-    safeguard_publish_pending_picks(
-        &mut pending_run_picks,
-        &mut cumulative_candidate_sold_state,
-        &mut previously_protected_state,
-    );
-
-    // Groups cap what their members were allowed to keep. Applied here, after every member has
-    // evaluated independently, because that is precisely what a group is: a constraint over
-    // finished selections rather than an evaluation of its own. No-op on a flat list.
-    if resolved_groups.has_groups {
-        safeguard_apply_group_caps(&resolved_groups, &group_settings, &parsed_candidates, &mut entries);
+    // A run that reached the end of the list is still open: close it the same way — cap, then
+    // publish the survivors — so the entries leave here capped and the cumulative state is
+    // complete for anything reading it after this loop. Groups cap what their members were
+    // allowed to keep, and that is the whole of what a group is: a constraint over finished
+    // selections rather than an evaluation of its own. No-op on a flat list.
+    if let Some(head) = open_run.take() {
+        safeguard_close_group_run(
+            &cap_context,
+            head,
+            &mut entries,
+            &mut pending_run_picks,
+            &mut cumulative_candidate_sold_state,
+            &mut previously_protected_state,
+        );
     }
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.

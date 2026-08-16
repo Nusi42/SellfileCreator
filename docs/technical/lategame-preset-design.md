@@ -100,8 +100,10 @@ and substats — names only add role + tier.
   group formed later out of ANY family is driven by its slider the moment it exists. Same
   expression, not `$value`: a group seeds from the MIN of its members' counts, so `div8` members
   promise `$value/8` and their group must too (`$value` would silently 8× it). Blocks apply in
-  order and a group takes the LAST matching write, so a group mixing factor tags is driven by
-  whichever factor's block comes later — another reason not to group across factors. When adding
+  **note order across every question** (questions → options → blocks, as `applySafeguardOverrides`
+  walks the resolved instruction list) and a group takes the LAST matching write, so a group
+  mixing factor tags is driven by whichever factor's block sits later in the note — not by which
+  slider was moved last — another reason not to group across factors. When adding
   a factor block, add the mirror; pinned across every slider by
   `tests/unit/safeguard-overrides-groups.test.ts` and the golden digest.
 - Factor-tag collision: SPD-banner fallback and Mercurial accessories share

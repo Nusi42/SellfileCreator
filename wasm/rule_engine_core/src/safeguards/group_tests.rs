@@ -55,6 +55,30 @@ fn sold(id: i64, slot: i64, set: i64, faction: i64) -> SafeguardWasmCandidateIn 
     }
 }
 
+// The scenario every overlap test starts from: `n` sold rings of one set/faction, SPD 1..=n.
+fn rings(n: i64) -> Vec<SafeguardWasmCandidateIn> {
+    (1..=n).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect()
+}
+
+// `rings(n)` with a SECOND yardstick running the opposite way: CR% = n + 1 - id. Two members
+// over the same rings can then rank the SAME pool in opposite orders — the only way to observe
+// that a member ranked the full pool rather than its sibling's leftovers, because with one shared
+// yardstick a quota already met by a sibling's picks selects the very same pieces either way.
+fn rings_with_opposed_yardsticks(n: i64) -> Vec<SafeguardWasmCandidateIn> {
+    rings(n)
+        .into_iter()
+        .map(|mut candidate| {
+            candidate.artifact.substats.push(crate::safeguards::fast_path_types::SafeguardWasmSubstatIn {
+                variant: STAT_VARIANT_CR,
+                is_flat: false,
+                value: (n + 1 - candidate.item_key) as f64,
+                rolls: None,
+            });
+            candidate
+        })
+        .collect()
+}
+
 // Count mode with every scope chip off — one shared pool per entry.
 fn per_rule_mode() -> SafeguardWasmCountMode {
     SafeguardWasmCountMode {
@@ -82,13 +106,26 @@ fn group(id: &str, required: i64, count_mode: SafeguardWasmCountMode) -> Option<
     Some(SafeguardWasmGroupIn { id: id.to_string(), required_count: Some(required), count_mode: Some(count_mode) })
 }
 
-// A wire rule, optionally a member of a group. `slots` empty means Any.
+// A wire rule ranking by SPD, optionally a member of a group. `slots` empty means Any.
 fn rule_in(
     name: &str,
     slots: Vec<i64>,
     required: i64,
     group: Option<SafeguardWasmGroupIn>,
     count_mode: SafeguardWasmCountMode,
+) -> SafeguardWasmRuleIn {
+    rule_ranked_by(name, slots, required, group, count_mode, STAT_VARIANT_SPD)
+}
+
+// `rule_in` with the ranking yardstick chosen by the caller — the one substat the rule ranks by,
+// so its required count actually limits the selection.
+fn rule_ranked_by(
+    name: &str,
+    slots: Vec<i64>,
+    required: i64,
+    group: Option<SafeguardWasmGroupIn>,
+    count_mode: SafeguardWasmCountMode,
+    yardstick: i64,
 ) -> SafeguardWasmRuleIn {
     SafeguardWasmRuleIn {
         id: Some(name.to_string()),
@@ -108,8 +145,7 @@ fn rule_in(
         ignore_previous_safeguards: None,
         ignore_equipped_in_collection: None,
         ignore_equipped_in_vault: None,
-        // Rank by SPD so the required count actually limits the selection.
-        substats: Some(vec![STAT_VARIANT_SPD]),
+        substats: Some(vec![yardstick]),
         substat_match: None,
         substat_weights: None,
         weight_main_stat_by_rank: None,
@@ -159,7 +195,7 @@ fn the_groups_own_count_decides_how_much_survives() {
     // Two rules that both want ring protection. Ungrouped they would keep 3 + 2 = 5 rings.
     // Grouped with a group count of 2, exactly 2 survive: the group's number is the promise,
     // and the members' 3 and 2 only sized what they handed over.
-    let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let candidates = rings(5);
     let rules = vec![
         rule_in("rings A", vec![ARTIFACT_TYPE_RING], 3, group("g", 2, per_rule_mode()), per_rule_mode()),
         rule_in("rings B", vec![ARTIFACT_TYPE_RING], 2, group("g", 2, per_rule_mode()), per_rule_mode()),
@@ -173,7 +209,7 @@ fn the_groups_own_count_decides_how_much_survives() {
 fn the_runs_head_carries_the_settings_the_engine_reads() {
     // The normalizer keeps every member identical, but the engine must not depend on it: a
     // second member claiming a different count is ignored in favour of the head's.
-    let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let candidates = rings(5);
     let rules = vec![
         rule_in("rings A", vec![ARTIFACT_TYPE_RING], 3, group("g", 2, per_rule_mode()), per_rule_mode()),
         rule_in("rings B", vec![ARTIFACT_TYPE_RING], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
@@ -289,7 +325,7 @@ fn a_group_with_no_scope_chips_merges_everything_into_one_bucket() {
 fn a_count_above_the_feed_keeps_everything_that_was_fed() {
     // Asking for more than the members offer is not an error and invents nothing: the group can
     // only ever keep gear that reached its pool.
-    let candidates = (1..=4).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    let candidates = rings(4);
     let rules = vec![
         rule_in("rings", vec![ARTIFACT_TYPE_RING], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
         rule_in("amulets", vec![ARTIFACT_TYPE_AMULET], 2, group("g", 9, per_rule_mode()), per_rule_mode()),
@@ -377,62 +413,74 @@ fn a_flat_list_is_completely_unaffected() {
     assert_eq!(protected(&entries[1]).len(), 1);
 }
 
-// ── Members must not starve each other ────────────────────────────────────────
-// Cumulative protection exists so a LATER rule does not redundantly re-protect what an EARLIER
-// one already saved. Between members of one group that reasoning does not apply: the group is
-// the arbiter, and it can only arbitrate over gear it actually receives. Before this was fixed,
-// member 1 consumed the candidates, members 2..n fed nothing, and the whole run behaved exactly
-// like its head — grouping was a no-op for overlapping members, whether grouped or not.
+// ── A run publishes only what it keeps, and only once it has closed ────────────
+// A group is a cap over finished selections, so what a run contributes to the cumulative state
+// is only known after the cap: a piece a member fed but the group DROPPED is sold, and a later
+// rule must stay free to protect it. Members therefore hold their picks back until the run
+// closes; the close caps the run and publishes the survivors. While the run is open every member
+// evaluates against the pre-run state — its siblings' picks are invisible, and each member ranks
+// the run's full pool by its own yardstick — which changes a member's own kept/sold split but not
+// what the run keeps (the ranking path always ranked kept pieces too and emitted the sold ones,
+// so a member's contribution was always "its top-N minus what a sibling already took", and the
+// cap's first-feeder dedupe credits it the same way).
 
 #[test]
 fn overlapping_members_all_feed_the_pool() {
-    // Two members with the SAME filter and count 3, over 5 candidates, group count 5.
-    // Each must select its own top 3 from the FULL pool, not from what the other left behind.
-    // The group then keeps 5 — reachable only because both members really fed.
-    let candidates = (1..=5).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    // Two members over the SAME six rings, count 2 each, ranking by opposite yardsticks (A by
+    // SPD, B by CR%), group count 4. Each selects its own top 2 from the FULL pool by its own
+    // yardstick, and both feeds reach the pool — the reason to group several weightings over the
+    // same gear at all.
+    let candidates = rings_with_opposed_yardsticks(6);
     let rules = vec![
-        rule_in("A", vec![ARTIFACT_TYPE_RING], 3, group("g", 5, per_rule_mode()), per_rule_mode()),
-        rule_in("B", vec![ARTIFACT_TYPE_RING], 3, group("g", 5, per_rule_mode()), per_rule_mode()),
+        rule_in("A by SPD", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_ranked_by("B by CR", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode(), STAT_VARIANT_CR),
     ];
     let entries = scan(candidates, rules);
-    // One piece occupies ONE pool slot whoever fed it (the first member of the run keeps it),
-    // so the union is the three both members ranked highest — not an empty second member.
-    assert_eq!(protected_across(&entries, &[0, 1]), vec![3, 4, 5]);
-    assert_eq!(protected(&entries[0]), vec![3, 4, 5], "the head keeps the shared pieces");
+    assert_eq!(protected(&entries[0]), vec![5, 6], "A feeds its own top 2 by SPD");
+    assert_eq!(protected(&entries[1]), vec![1, 2], "B feeds its own top 2 by CR — the full pool, not A's leftovers");
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![1, 2, 5, 6], "the group keeps everything both fed");
 }
 
 #[test]
-fn a_starved_member_no_longer_collapses_the_group() {
-    // The regression in its plainest form: with a group count ABOVE what one member can feed,
-    // the group's promise is only reachable if every member contributes. Member A's count (2)
-    // caps its own feed, so the group can only reach 4 by taking B's picks too.
-    let candidates = (1..=6).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+fn a_shared_pick_sits_with_its_first_feeder_and_costs_one_slot() {
+    // Same yardstick, same count: both members select the same top 2 out of the full pool. One
+    // piece is one pool slot whoever fed it — the first member of the run keeps it, matching the
+    // flyout's pooled view (`buildSafeguardGroupPool`) — so the group keeps 2 distinct pieces
+    // rather than spending 2 slots twice, and B's column is empty only because A already lists
+    // both, not because B was starved: B's own ranking still shows them inside its quota.
+    let candidates = rings(4);
     let rules = vec![
-        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
-        rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 3, per_rule_mode()), per_rule_mode()),
+        rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 3, per_rule_mode()), per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    // Both members rank the same way here, so they feed the same top 2 — one pool slot each.
-    // The group keeps what reached it; the point is that B was ABLE to feed at all.
-    let kept = protected_across(&entries, &[0, 1]);
-    assert_eq!(kept, vec![5, 6], "both members ranked the same top 2 out of the full pool");
-    assert!(!entries[1].item_keys.is_empty() || !entries[0].item_keys.is_empty());
+    assert_eq!(protected(&entries[0]), vec![3, 4], "the first feeder is credited with the shared pieces");
+    assert!(protected(&entries[1]).is_empty(), "the second feeder is not credited twice");
+    let mut b_fed = entries[1]
+        .candidates
+        .iter()
+        .filter(|candidate| candidate.is_within_quota)
+        .map(|candidate| candidate.item_key)
+        .collect::<Vec<_>>();
+    b_fed.sort_unstable();
+    assert_eq!(b_fed, vec![3, 4], "B really did feed them — they sit inside its own quota");
 }
 
 #[test]
 fn a_members_picks_stay_invisible_to_its_siblings_but_reach_later_rules() {
-    // A group member's selections are held back from cumulative state until the run ends, then
-    // published — so a rule AFTER the group still sees the group's gear as protected and does
-    // not redundantly re-protect it. Ring members, then a ring rule after the group.
-    let candidates = (1..=4).map(|id| sold(id, ARTIFACT_TYPE_RING, 10, 1)).collect::<Vec<_>>();
+    // Four rings, opposite yardsticks: A (SPD, count 2) takes {3,4}, B (CR, count 2) takes {1,2}
+    // — B ranks the FULL pool because A's picks are held back while the run is open. Once the
+    // run closes its survivors are published, so a ring rule AFTER the group with count 4 finds
+    // its quota met and adds nothing — exactly the cumulative behaviour an equivalent flat list
+    // would show.
+    let candidates = rings_with_opposed_yardsticks(4);
     let rules = vec![
-        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
-        rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
-        rule_in("after", vec![ARTIFACT_TYPE_RING], 2, None, per_rule_mode()),
+        rule_in("A by SPD", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        rule_ranked_by("B by CR", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode(), STAT_VARIANT_CR),
+        rule_in("after", vec![ARTIFACT_TYPE_RING], 4, None, per_rule_mode()),
     ];
     let entries = scan(candidates, rules);
-    // The trailing rule's quota is already satisfied by what the group protected, so it adds
-    // nothing — exactly the cumulative behaviour an equivalent flat list would show.
+    assert_eq!(protected(&entries[1]), vec![1, 2], "B ranked the full pool — A's picks were invisible to it");
     assert!(
         entries[2].item_keys.is_empty(),
         "the rule after the group must see the group's picks as already protected, got {:?}",
@@ -440,4 +488,90 @@ fn a_members_picks_stay_invisible_to_its_siblings_but_reach_later_rules() {
     );
 }
 
+#[test]
+fn what_the_group_drops_stays_sellable_for_later_rules() {
+    // A run publishes only its SURVIVORS to cumulative state, and it does so before the next
+    // rule evaluates. A feeds rings 1..2, B feeds amulets 3..4 (distinct pieces), the group keeps
+    // 2 of those 4. A trailing rule over both slots with count 4 must still be free to protect
+    // the two the group DROPPED — they are sold, and an equivalent flat list would rescue them.
+    let candidates = vec![
+        sold(1, ARTIFACT_TYPE_RING, 10, 1),
+        sold(2, ARTIFACT_TYPE_RING, 10, 1),
+        sold(3, ARTIFACT_TYPE_AMULET, 10, 1),
+        sold(4, ARTIFACT_TYPE_AMULET, 10, 1),
+    ];
+    let rules = vec![
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 2, per_rule_mode()), per_rule_mode()),
+        rule_in("B", vec![ARTIFACT_TYPE_AMULET], 2, group("g", 2, per_rule_mode()), per_rule_mode()),
+        rule_in("after", vec![ARTIFACT_TYPE_RING, ARTIFACT_TYPE_AMULET], 4, None, per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![3, 4], "the group keeps the 2 best");
+    assert_eq!(protected(&entries[2]), vec![1, 2], "the later rule protects what the group dropped");
+}
 
+#[test]
+fn an_off_members_stale_keys_never_publish_what_the_group_dropped() {
+    // An Off member's entry still carries scored item_keys for the UI, and the cap never trims
+    // it (it fed nothing). Those keys must not count as the run's survivors: A feeds both rings,
+    // the group keeps 1, and a later ring rule must still be free to protect the ring the group
+    // DROPPED — even though the Off sibling's untrimmed list still names it.
+    let candidates = rings(2);
+    let mut off = rule_in("off rings", vec![ARTIFACT_TYPE_RING], 2, group("g", 1, per_rule_mode()), per_rule_mode());
+    off.activation = Some(SAFEGUARD_ACTIVATION_OFF.to_string());
+    let rules = vec![
+        off,
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 1, per_rule_mode()), per_rule_mode()),
+        rule_in("after", vec![ARTIFACT_TYPE_RING], 2, None, per_rule_mode()),
+    ];
+    let entries = scan(candidates, rules);
+    assert_eq!(protected(&entries[0]), vec![1, 2], "the Off entry's UI keys are the trap this test sets");
+    assert_eq!(protected(&entries[1]), vec![2], "the group keeps its 1");
+    assert_eq!(protected(&entries[2]), vec![1], "the dropped ring stays sellable — and rescuable");
+}
+
+#[test]
+fn a_pick_credited_to_a_sibling_is_not_a_pick_the_group_turned_away() {
+    // Anticipate-gaps members reserve placeholders for gear the user lacks; the cap clears them
+    // once the shared bucket is turning that member's real contributions away. Both members feed
+    // the same 2 rings (count 3 → deficit 1 each). With group room to spare (count 6) B losing
+    // both to A's column is dedupe, not a full bucket, so B's placeholder must survive. With the
+    // group cut to 1, a real piece each fed was dropped and both members' placeholders go.
+    let anticipating = |name: &str, group_count: i64| {
+        let mut rule = rule_in(name, vec![ARTIFACT_TYPE_RING], 3, group("g", group_count, per_rule_mode()), per_rule_mode());
+        rule.activation = Some(SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS.to_string());
+        rule
+    };
+    let entries = scan(rings(2), vec![anticipating("A", 6), anticipating("B", 6)]);
+    assert_eq!(protected(&entries[0]), vec![1, 2]);
+    assert!(protected(&entries[1]).is_empty(), "shared pieces sit with the first feeder");
+    assert_eq!(entries[0].placeholders.len(), 1, "A still anticipates its missing third ring");
+    assert_eq!(entries[1].placeholders.len(), 1, "so does B — nothing it fed was turned away");
+
+    let entries = scan(rings(2), vec![anticipating("A", 1), anticipating("B", 1)]);
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![2], "the group keeps its 1");
+    assert!(entries[0].placeholders.is_empty(), "A had a real piece dropped — nothing left to anticipate");
+    assert!(entries[1].placeholders.is_empty(), "B fed that same dropped piece — same verdict");
+}
+
+#[test]
+fn an_ignore_previous_member_still_reaches_past_its_siblings_picks() {
+    // On the ranking path `ignorePreviousSafeguards` means "do not re-rank what is already
+    // protected before me — reach deeper". Siblings evaluated earlier in the run count as
+    // "before me" too, exactly as they did when members published inline: A (count 2) takes
+    // {5,6}; B (same yardstick, count 2, ignore-previous) ranks the rest and takes {3,4}. Were
+    // A's pending picks left out of B's exclusion, B's top 2 would be {5,6} again, the dedupe
+    // would credit them to A, and the one toggle that lets a later member feed DIFFERENT pieces
+    // would silently stop working — the group would decide over 2 pieces instead of 4.
+    let candidates = rings(6);
+    let mut b = rule_in("B", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode());
+    b.ignore_previous_safeguards = Some(true);
+    let rules = vec![
+        rule_in("A", vec![ARTIFACT_TYPE_RING], 2, group("g", 4, per_rule_mode()), per_rule_mode()),
+        b,
+    ];
+    let entries = scan(candidates, rules);
+    assert_eq!(protected(&entries[0]), vec![5, 6], "A takes the top 2");
+    assert_eq!(protected(&entries[1]), vec![3, 4], "B reaches past A's picks to the next 2");
+    assert_eq!(protected_across(&entries, &[0, 1]), vec![3, 4, 5, 6], "the group decides over all 4");
+}

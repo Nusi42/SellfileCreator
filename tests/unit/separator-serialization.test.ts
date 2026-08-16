@@ -12,8 +12,6 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import {
   buildReadableRecipe,
   buildReadableSafeguardRuleEntry,
@@ -29,6 +27,7 @@ import {
   SafeguardRuleActivation,
   type SafeguardRule,
 } from '../../src/lib/safeguards'
+import { loadLategameSfc } from '../setup/presetFixtures.js'
 
 // ── recipe separators ────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ test('legacy SellfileVisibility="Separator" entries still load — and re-save i
 })
 
 test('every separator in the shipped lategame preset is minimal and in the unified format', () => {
-  const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8'))
+  const sfc = loadLategameSfc()
   const separators = (sfc.Recipes as Array<Record<string, unknown>>)
     .filter((rec) => rec.Separator === true)
   assert.ok(separators.length > 0, 'the preset must contain separator recipes')

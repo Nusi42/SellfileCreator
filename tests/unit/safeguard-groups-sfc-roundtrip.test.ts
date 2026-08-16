@@ -14,8 +14,6 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { buildReadableSafeguardRuleEntry } from '../../src/lib/sfcIO.js'
 import {
   createFactorySafeguardBuilderDefaults,
@@ -27,6 +25,7 @@ import {
   safeguardGroupRunRange,
   safeguardGroupSettingsAt,
 } from '../../src/lib/safeguardGroups.js'
+import { loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
 
 // Writes a rule list out and reads it straight back, the way a save/load cycle does.
 const roundTrip = (rules: readonly SafeguardRule[]): SafeguardRule[] => normalizeSafeguardGroups(
@@ -71,16 +70,10 @@ test('a second round trip is a fixed point', () => {
 })
 
 test('every safeguard entry in the shipped lategame preset re-serializes byte-identically', () => {
-  const sfc = JSON.parse(readFileSync(resolve(process.cwd(), 'presets/lategame.sfc'), 'utf-8')) as {
-    Safeguards: unknown[]
-  }
-  const rules = normalizeSafeguardGroups(
-    sfc.Safeguards
-      .map((entry) => normalizeSafeguardRule(entry))
-      .filter((entry): entry is SafeguardRule => entry !== null),
-  )
+  const rules = loadLategameSafeguardRules()
+  const storedEntries = loadLategameSfc().Safeguards ?? []
   assert.ok(rules.length > 0)
-  for (const [index, entry] of sfc.Safeguards.entries()) {
+  for (const [index, entry] of storedEntries.entries()) {
     const written = buildReadableSafeguardRuleEntry(rules[index] as SafeguardRule)
     assert.equal('Group' in written, false, `preset entry ${index} must not gain a Group key`)
     assert.deepEqual(written, entry, `preset entry ${index} must round-trip byte-identically`)

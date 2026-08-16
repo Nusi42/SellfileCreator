@@ -11,11 +11,12 @@ const makeEntry = (params: {
   ruleOrdinal: number | null
   candidates: { itemKey: number, score: number, candidateRank: number, isWithinQuota: boolean }[]
   itemKeys: number[]
+  activation?: SafeguardRuleActivation
 }): SafeguardDetectionEntry => ({
   hash: `entry-${params.ruleOrdinal}`,
   combination: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   ruleOrdinal: params.ruleOrdinal,
-  ruleActivation: SafeguardRuleActivation.ProtectExisting,
+  ruleActivation: params.activation ?? SafeguardRuleActivation.ProtectExisting,
   countMode: SAFEGUARD_DEFAULT_COUNT_MODE,
   perBucketRequiredCount: 1,
   bucketsTracked: 1,
@@ -84,7 +85,7 @@ test('a member with no appearance yields an undefined appearance, not a sibling\
 })
 
 test('a piece fed by two overlapping members is pooled once, to the earlier member', () => {
-  // Mirrors the engine's cumulative assignment (and the Rust BTreeSet dedupe): one piece, one row.
+  // Mirrors the engine's first-feeder dedupe in `safeguard_apply_group_cap`: one piece, one row.
   const members = [
     makeEntry({ ruleOrdinal: 4, candidates: [{ itemKey: 700, score: 9, candidateRank: 1, isWithinQuota: true }], itemKeys: [700] }),
     makeEntry({ ruleOrdinal: 5, candidates: [{ itemKey: 700, score: 9, candidateRank: 1, isWithinQuota: true }], itemKeys: [] }),
@@ -92,4 +93,17 @@ test('a piece fed by two overlapping members is pooled once, to the earlier memb
   const pool = buildSafeguardGroupPool(members, SAFEGUARD_DEFAULT_COUNT_MODE, new Map())
   assert.equal(pool?.candidates.filter((row) => row.itemKey === 700).length, 1)
   assert.equal(pool?.feederByItemKey.get(700)?.ordinal, 4)
+})
+
+test('an Off member feeds nothing to the pool, even when its entry still carries a ranking', () => {
+  // The engine skips Off members when pooling and never trims their `itemKeys`; an Off entry
+  // listed FIRST would otherwise be credited with the shared piece and read as "kept by the
+  // group" from its untrimmed keys, hiding the real feeder. Mirrors `safeguard_apply_group_cap`.
+  const members = [
+    makeEntry({ ruleOrdinal: 1, activation: SafeguardRuleActivation.Off, candidates: [{ itemKey: 800, score: 9, candidateRank: 1, isWithinQuota: true }], itemKeys: [800] }),
+    makeEntry({ ruleOrdinal: 2, candidates: [{ itemKey: 800, score: 9, candidateRank: 1, isWithinQuota: true }], itemKeys: [] }),
+  ]
+  const pool = buildSafeguardGroupPool(members, SAFEGUARD_DEFAULT_COUNT_MODE, new Map())
+  assert.equal(pool?.feederByItemKey.get(800)?.ordinal, 2, 'the active member is the feeder')
+  assert.equal(pool?.candidates.find((row) => row.itemKey === 800)?.isWithinQuota, false, 'kept is read from the real feeder')
 })
