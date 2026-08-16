@@ -18,6 +18,7 @@
     "scripts/tooling/measure-rule-tester.ts",
     "scripts/tooling/sim-improvement-chance.ts",
     "scripts/tooling/instrument-safeguard-piece.ts",
+    "scripts/tooling/measure-group-effect.ts",
     "src/types/globals.d.ts"
   ]
 }
