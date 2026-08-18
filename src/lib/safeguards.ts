@@ -1565,25 +1565,40 @@ export const computeSafeguardScoreFromArtifact = (
   weightMainStatByRank = false,
   // Tunable multiplier on the main-stat rank bonus; defaults to the neutral SSOT default (1.0).
   mainStatRankWeightFactor = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  // The rule's FULL substat selection, when it differs from the slice being ranked. Only the
+  // perSubstat path passes both: each pass ranks by one variant while the rule selects several,
+  // and the epsilon ladder must classify against the rule's selection so the rule's other picks
+  // are never scored as "unselected" padding. Defaults to the ranked slice for every other caller.
+  // Mirrors ranked_substats / rule_substats in Rust safeguard_compute_score_for_pass.
+  ruleSubstats: readonly number[] = selectedSubstats,
 ): number => {
   const rank = Number(artifact.rank)
   let total = 0
+  // Whether any RANKED substat is actually present — the membership gate mirrored from Rust.
+  let hasRankedSubstat = false
   for (const variant of selectedSubstats) {
     const raw = getArtifactSubstatValue(artifact, variant)
     const weight = Number(weights.get(variant) ?? 1)
+    if (raw > 0) hasRankedSubstat = true
     // Shared SSOT contribution: normalized current value + rank-limited glyph potential.
     total += substatNormalizedContribution(rank, variant as StatVariant, raw, weight)
   }
+  // Presence gate: substats selected but none of the RANKED ones on the piece scores exactly
+  // zero, so callers' `score <= 0` filters exclude it. Without this the pass-independent terms
+  // below lift a piece lacking the ranked substat above zero, which on the perSubstat path let
+  // gear with no DEF% into the DEF% sub-bucket and made that bucket's membership move whenever
+  // an unrelated substat's weight changed. Mirrors the Rust gate exactly.
+  if (selectedSubstats.length > 0 && !hasRankedSubstat) return 0
   // Epsilon tie-break ladder for present-but-unselected substats (non-flat lines, then
-  // relevance-aligned flats). Gated like the main-stat bonus on a non-empty selection
-  // (mirrors the Rust scorer's gate exactly).
-  if (selectedSubstats.length > 0) {
+  // relevance-aligned flats), classified against the rule's full selection. Gated like the
+  // main-stat bonus on a non-empty selection (mirrors the Rust scorer's gate exactly).
+  if (ruleSubstats.length > 0) {
     total += unselectedSubstatEpsilonBonus(
       (artifact.substats ?? []).map((substat) => ({
         variant: Number(substat.variant),
         value: Number(substat.totalValue),
       })),
-      selectedSubstats,
+      ruleSubstats,
       // Main alignment keys off the piece's own main stat; absent mains disable the tier.
       artifact.mainStat ? Number(artifact.mainStat.variant) : undefined,
       // Slot drives the twin-rollability check (amulet flats count as useful lines).
@@ -1592,8 +1607,9 @@ export const computeSafeguardScoreFromArtifact = (
   }
   // Add the per-artifact main-stat rank bonus. Mirrors safeguard_main_stat_rank_bonus in Rust:
   // gated by the toggle and by having at least one selected substat (constant across levels),
-  // scaled by the tunable factor (WEIGHT * factor * ratio).
-  if (weightMainStatByRank && selectedSubstats.length > 0 && artifact.mainStat) {
+  // scaled by the tunable factor (WEIGHT * factor * ratio). Reaching here means the presence
+  // gate passed, so this only tie-breaks gear that genuinely carries a ranked substat.
+  if (weightMainStatByRank && ruleSubstats.length > 0 && artifact.mainStat) {
     total += SAFEGUARD_MAIN_STAT_RANK_WEIGHT
       * mainStatRankWeightFactor
       * mainStatRankRatio(rank, Number(artifact.slot), Number(artifact.mainStat.variant))

@@ -3395,9 +3395,17 @@ pub(super) fn glyph_average_for_variant(rank: i64, variant: i64) -> f64 {
 
 // pub(super) so improvement_chance can use current-level scores, and so the ranking path
 // can use it for standard-mode (no improvement_chance_threshold) candidate scoring.
-pub(super) fn safeguard_compute_score(
+//
+// `ranked_substats` are the substats this scoring pass sums (its weighted value + glyph terms).
+// `rule_substats` is the rule's FULL selection, used only to classify lines for the epsilon
+// ladder. The two differ exactly on the perSubstat path, where each pass ranks by ONE variant
+// while the rule still selects several: there, the rule's other picks must NOT be mistaken for
+// "unselected" lines and earn tie-break epsilons. Every other caller passes the same slice twice
+// (see safeguard_compute_score).
+pub(super) fn safeguard_compute_score_for_pass(
     artifact: &SafeguardWasmArtifactIn,
-    selected_substats: &[i64],
+    ranked_substats: &[i64],
+    rule_substats: &[i64],
     weights: &BTreeMap<i64, f64>,
     weight_main_stat_by_rank: bool,
     // Tunable multiplier on the main-stat rank bonus (SSOT default 1.0). See
@@ -3407,7 +3415,11 @@ pub(super) fn safeguard_compute_score(
     // Weighted normalized sum mirrors safeguards.ts scoring semantics.
     // Includes glyph potential for present substats.
     let mut total = 0.0;
-    for variant in selected_substats {
+    // Tracks whether any ranked substat is actually PRESENT on the piece. This is the
+    // membership gate: a pass must not admit gear that lacks the substat it ranks by, no
+    // matter how much rank bonus or epsilon the piece would otherwise collect.
+    let mut has_ranked_substat = false;
+    for variant in ranked_substats {
         // Read raw value for this variant from artifact substats.
         let raw = safeguard_stat_value_for_variant(artifact, *variant);
         // Normalize against canonical max roll baseline.
@@ -3417,28 +3429,41 @@ pub(super) fn safeguard_compute_score(
         total += weight * normalized;
         // Add glyph potential for present substats — mirrors TS scoring (SSOT).
         if raw > 0.0 {
+            has_ranked_substat = true;
             let glyph_avg = glyph_average_for_variant(artifact.rank, *variant);
             if glyph_avg > 0.0 {
                 total += weight * safeguard_normalize_substat_value(*variant, glyph_avg);
             }
         }
     }
+    // Presence gate: with substats selected but none of the RANKED ones on the piece, the score
+    // is exactly zero so the caller's `score <= 0.0` filter excludes it. Without this the
+    // pass-independent terms below (epsilon ladder, main-stat rank bonus) lift a piece that has
+    // none of the ranked substats above zero — which on the perSubstat path put gear with no
+    // DEF% into the DEF% sub-bucket, and made that bucket's MEMBERSHIP shift whenever an
+    // unrelated substat's weight was edited.
+    if !ranked_substats.is_empty() && !has_ranked_substat {
+        return 0.0;
+    }
     // Epsilon tie-break ladder for unselected substats (non-flat lines, then relevance-aligned
-    // flats — see safeguard_unselected_substat_epsilon_bonus). Gated like the main-stat bonus on
-    // a non-empty selection so no-substat rules keep their legacy all-zero scoring. Deliberately
-    // NOT mirrored into the improvement-chance projections (compute_projected_challenger_score /
+    // flats — see safeguard_unselected_substat_epsilon_bonus). Classified against the RULE's full
+    // selection, not this pass's ranked slice, so a perSubstat pass never treats the rule's other
+    // picks as unselected padding. Gated like the main-stat bonus on a non-empty selection so
+    // no-substat rules keep their legacy all-zero scoring. Deliberately NOT mirrored into the
+    // improvement-chance projections (compute_projected_challenger_score /
     // compute_score_from_state): those compare epsilon-free scores against epsilon-free
     // boundaries — internally consistent — and their quantization grids dwarf these terms.
-    if !selected_substats.is_empty() {
-        total += safeguard_unselected_substat_epsilon_bonus(artifact, selected_substats);
+    if !rule_substats.is_empty() {
+        total += safeguard_unselected_substat_epsilon_bonus(artifact, rule_substats);
     }
     // Add the per-artifact main-stat rank bonus (SSOT helper). Zero unless the rule's
-    // "Weight by Rank" toggle is on and at least one substat is selected.
+    // "Weight by Rank" toggle is on and at least one substat is selected. Reaching here means the
+    // presence gate passed, so this only ever tie-breaks gear that genuinely has a ranked substat.
     total += safeguard_main_stat_rank_bonus(
         artifact,
         weight_main_stat_by_rank,
         main_stat_rank_weight_factor,
-        !selected_substats.is_empty(),
+        !rule_substats.is_empty(),
     );
     // Defensive guard: never return NaN/Infinity to sort comparator.
     if total.is_finite() {
@@ -3446,6 +3471,25 @@ pub(super) fn safeguard_compute_score(
     } else {
         0.0
     }
+}
+
+// Single-selection scoring: the pass ranks by exactly the rule's selection. Thin wrapper over
+// safeguard_compute_score_for_pass so the common (non-perSubstat) callers stay unchanged.
+pub(super) fn safeguard_compute_score(
+    artifact: &SafeguardWasmArtifactIn,
+    selected_substats: &[i64],
+    weights: &BTreeMap<i64, f64>,
+    weight_main_stat_by_rank: bool,
+    main_stat_rank_weight_factor: f64,
+) -> f64 {
+    safeguard_compute_score_for_pass(
+        artifact,
+        selected_substats,
+        selected_substats,
+        weights,
+        weight_main_stat_by_rank,
+        main_stat_rank_weight_factor,
+    )
 }
 
 // Keep strict "better than" logic separate from presentation sorting.
@@ -3851,8 +3895,11 @@ fn safeguard_build_entry_for_substats(
                 // Always rank by current substat value. When a threshold is set, the
                 // top-N is still determined by current score; improvement_chance is then
                 // checked independently to expand the keep-list, not replace it.
-                let score = safeguard_compute_score(
-                    &candidate.artifact, selected_substats, &prepared_rule.weights,
+                // `selected_substats` is this pass's ranked slice (one variant on the perSubstat
+                // path); the rule's full selection classifies the epsilon ladder separately.
+                let score = safeguard_compute_score_for_pass(
+                    &candidate.artifact, selected_substats, &prepared_rule.selected_substats,
+                    &prepared_rule.weights,
                     prepared_rule.weight_main_stat_by_rank,
                     prepared_rule.main_stat_rank_weight_factor,
                 );
@@ -5124,7 +5171,10 @@ pub struct SafeguardWasmScorePreviewIn {
 // detection-side tie-boundary top-N semantics.
 fn score_and_bucket_preview_candidates(
     candidates: &[SafeguardWasmCandidateIn],
+    // The substats THIS pass ranks by — one variant per perSubstat sub-bucket pass.
     substats: &[i64],
+    // The rule's full selection, for epsilon classification (see safeguard_compute_score_for_pass).
+    rule_substats: &[i64],
     weights: &BTreeMap<i64, f64>,
     weight_main_stat_by_rank: bool,
     main_stat_rank_weight_factor: f64,
@@ -5136,8 +5186,8 @@ fn score_and_bucket_preview_candidates(
         .iter()
         .enumerate()
         .filter_map(|(idx, candidate)| {
-            let score = safeguard_compute_score(
-                &candidate.artifact, substats, weights, weight_main_stat_by_rank,
+            let score = safeguard_compute_score_for_pass(
+                &candidate.artifact, substats, rule_substats, weights, weight_main_stat_by_rank,
                 main_stat_rank_weight_factor,
             );
             if score > 0.0 {
@@ -5232,8 +5282,10 @@ pub fn score_safeguard_candidates_for_preview_core(
         .collect();
     // Combined-score partition drives the top-level score/rank/bucket_rank + isWithinQuota for the
     // ordered list. This is the SSOT for the cutoff divider position, unchanged from before.
+    // Combined pass: ranked slice and rule selection are the same list here.
     let (within_quota_indices, bucket_rank_by_idx) = score_and_bucket_preview_candidates(
-        &candidates, &input.substats, &input.weights, input.weight_main_stat_by_rank,
+        &candidates, &input.substats, &input.substats, &input.weights,
+        input.weight_main_stat_by_rank,
         input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
     );
 
@@ -5256,7 +5308,8 @@ pub fn score_safeguard_candidates_for_preview_core(
             let single_weight: BTreeMap<i64, f64> =
                 input.weights.get(&variant).map(|&w| (variant, w)).into_iter().collect();
             let (sub_within, sub_bucket_rank) = score_and_bucket_preview_candidates(
-                &candidates, &[variant], &single_weight, input.weight_main_stat_by_rank,
+                &candidates, &[variant], &input.substats, &single_weight,
+                input.weight_main_stat_by_rank,
                 input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
             );
             for (&idx, &bucket_rank) in &sub_bucket_rank {
@@ -5480,6 +5533,96 @@ mod score_safeguard_candidates_for_preview_core_tests {
             safeguard_compute_score(&with_spd, &[], &weights, false, f),
             0.0,
             "no selected substats must still score 0 (epsilon gated on non-empty selection)",
+        );
+    }
+
+    // Regression: a perSubstat pass must not admit gear that lacks the substat it ranks by, and
+    // the rule's OTHER selected substats must not be scored as unselected epsilon padding.
+    //
+    // Finding from real use: the DEF% bucket list reshuffled when the HP% weight was raised. A DEF-main ring
+    // with no DEF% substat still scored above zero in the DEF% pass — the main-stat rank bonus
+    // plus epsilons for the rule's own HP%/ATK% picks lifted it — so it entered the DEF%
+    // sub-bucket, and weight edits moved pieces across that `score > 0` membership boundary.
+    #[test]
+    fn per_substat_pass_excludes_gear_without_the_ranked_substat() {
+        // DEF-flat-main ring at the given rank with an explicit substat list.
+        fn ring(id: i64, rank: i64, substats: &[(i64, f64)]) -> SafeguardWasmArtifactIn {
+            SafeguardWasmArtifactIn {
+                id: Some(id),
+                slot: SAFEGUARD_SLOT_RING,
+                set: 1,
+                rank,
+                rarity: 6,
+                level: 12,
+                exact_level: Some(12),
+                faction: 0,
+                main_stat: STAT_VARIANT_DEF_FLAT,
+                equipped_in_collection: false,
+                equipped_in_vault: false,
+                substats: substats
+                    .iter()
+                    .map(|&(variant, value)| SafeguardWasmSubstatIn {
+                        variant, is_flat: false, value, rolls: Some(1),
+                    })
+                    .collect(),
+            }
+        }
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
+        // The rule selects three percent substats and ranks each independently.
+        let rule_substats = [
+            SAFEGUARD_MAIN_HP_PERCENT, SAFEGUARD_MAIN_ATK_PERCENT, SAFEGUARD_MAIN_DEF_PERCENT,
+        ];
+        let weights = BTreeMap::<i64, f64>::new(); // all default (1.0)
+        // Rank 6 carrying HP%/ATK% but NO DEF% — the piece from the bug report.
+        let no_def = ring(1, 6, &[(SAFEGUARD_MAIN_HP_PERCENT, 6.0), (SAFEGUARD_MAIN_ATK_PERCENT, 17.0)]);
+        // Rank 5 that genuinely has DEF%.
+        let has_def = ring(2, 5, &[(SAFEGUARD_MAIN_HP_PERCENT, 9.0), (SAFEGUARD_MAIN_DEF_PERCENT, 10.0)]);
+
+        // DEF% pass: the piece without DEF% scores exactly zero, so the caller's `score <= 0`
+        // filter drops it and it never earns a DEF% sub-bucket — with the rank toggle ON, which
+        // is what previously carried it over the line.
+        let no_def_in_def_pass = safeguard_compute_score_for_pass(
+            &no_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &weights, true, f);
+        assert_eq!(
+            no_def_in_def_pass, 0.0,
+            "a piece without DEF% must score 0 in the DEF% pass regardless of rank bonus/epsilons",
+        );
+        // The piece that HAS DEF% still scores in that pass.
+        let has_def_in_def_pass = safeguard_compute_score_for_pass(
+            &has_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &weights, true, f);
+        assert!(
+            has_def_in_def_pass > 0.0,
+            "a piece with DEF% must still rank in the DEF% pass",
+        );
+
+        // Membership must not depend on an unrelated substat's weight: re-score the DEF% pass with
+        // a heavily raised HP% weight and confirm both verdicts are unchanged. This is the exact
+        // interaction the user hit by editing HP% while focused on the DEF% bucket.
+        let mut heavy_hp = BTreeMap::<i64, f64>::new();
+        heavy_hp.insert(SAFEGUARD_MAIN_HP_PERCENT, 50.0);
+        assert_eq!(
+            safeguard_compute_score_for_pass(
+                &no_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &heavy_hp, true, f),
+            0.0,
+            "raising the HP% weight must not admit a DEF%-less piece into the DEF% bucket",
+        );
+        assert_eq!(
+            safeguard_compute_score_for_pass(
+                &has_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &heavy_hp, true, f),
+            has_def_in_def_pass,
+            "the DEF% pass score must be independent of the HP% weight",
+        );
+
+        // The rule's other picks must not earn epsilon padding inside a single-variant pass:
+        // scoring the HP% pass against the full rule selection equals scoring it against a
+        // selection where ATK%/DEF% are likewise known-selected (i.e. no extra epsilon appears).
+        let hp_pass = safeguard_compute_score_for_pass(
+            &no_def, &[SAFEGUARD_MAIN_HP_PERCENT], &rule_substats, &weights, false, f);
+        let hp_only_selection = safeguard_compute_score_for_pass(
+            &no_def, &[SAFEGUARD_MAIN_HP_PERCENT], &[SAFEGUARD_MAIN_HP_PERCENT], &weights, false, f);
+        assert!(
+            hp_pass < hp_only_selection,
+            "the rule's other picks must be excluded from the epsilon ladder, not counted as padding",
         );
     }
 
