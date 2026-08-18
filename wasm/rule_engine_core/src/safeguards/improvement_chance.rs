@@ -699,18 +699,15 @@ fn state_matches_substats(
     substat_match: &str,
     main_stat: i64,
 ) -> bool {
-    // Gate on substat presence; mirrors stateMatchesScenarioSubstats.
+    // Gate on substat presence, against the recursion's simulated state.
     if selected.is_empty() {
         return true;
     }
     let matched = count_matched_in_state(state, selected);
     let min_count = super::safeguard_substat_min_count(substat_match, selected.len());
-    // Substats that equal the piece's mainstat are impossible; cap the required total.
-    let possible_count = if main_stat == STAT_VARIANT_ANY {
-        selected.len()
-    } else {
-        selected.iter().filter(|&&v| v != main_stat).count()
-    };
+    // Substats that equal the piece's mainstat are impossible; cap the required total
+    // with the shared counting rule.
+    let possible_count = super::safeguard_possible_substat_count(selected, main_stat);
     let effective_required = min_count.min(possible_count);
     if effective_required == 0 {
         return true;
@@ -724,7 +721,7 @@ fn compute_score_from_state(
     weights: &BTreeMap<i64, f64>,
     rank: i64,
 ) -> f64 {
-    // Weighted normalized sum from recursion state; mirrors computeSafeguardScoreFromState.
+    // Weighted normalized sum over the recursion state.
     // Includes glyph potential for present substats.
     let mut total = 0.0;
     for &variant in selected {
@@ -791,11 +788,12 @@ fn resolve_expected_gain(
 // ─── challenger projection (Bug 2 fix) ───────────────────────────────────────
 
 fn build_legal_addition_pool(artifact: &SafeguardWasmArtifactIn) -> Vec<i64> {
-    // Slot-filtered pool excluding the artifact's main stat.
-    // HP%/HP_FLAT have distinct variant values so exact-match exclusion is correct.
+    // Slot-filtered pool excluding the artifact's main stat, via the shared possibility
+    // predicate. HP%/HP_FLAT have distinct variant values so exact-match exclusion is correct.
+    // The slot restriction is applied by the source pool, so no slot filter is passed here.
     let mut pool: Vec<i64> = allowed_substats_for_slot(artifact.slot)
         .iter()
-        .filter(|&&v| v != artifact.main_stat)
+        .filter(|&&v| super::safeguard_placeholder_substat_possible(v, artifact.main_stat, None))
         .copied()
         .collect();
     pool.sort_unstable();
@@ -892,7 +890,8 @@ fn is_challenger_strictly_better(
     cand_main: i64,
     cand_rank: i64,
 ) -> bool {
-    // Mirror isChallengerStrictlyBetterThanCandidate in safeguardImprovementChance.ts.
+    // Strict-improvement test: a challenger must beat the candidate outside the tie epsilon,
+    // with main-stat and rank breaking exact ties.
     let delta = ch_score - cand_score;
     if delta.abs() > SCORE_TIE_EPSILON {
         return delta > 0.0;
@@ -995,7 +994,6 @@ fn is_state_selected_by_any_scenario(
     ctx: &RecursionContext<'_>,
 ) -> bool {
     // Test whether the projected state is safeguard-selected by any scenario.
-    // Mirrors isStateSelectedByAnyScenario in TS.
     // ctx.scenarios is pre-filtered to scenarios applicable to ctx.artifact_id (via scenarios_by_id
     // index built in compute_improvement_chance), so no applicability check is needed here.
     ctx.scenarios
@@ -1374,19 +1372,17 @@ fn artifact_matches_substats(
     selected: &[i64],
     substat_match: &str,
 ) -> bool {
-    // Current-state substat gate; mirrors artifactMatchesScenarioSubstats.
+    // Current-state substat gate, against the piece as it stands today.
     if selected.is_empty() {
         return true;
     }
     let selected_set: HashSet<i64> = selected.iter().copied().collect();
     let matched = count_matched_on_artifact(artifact, &selected_set);
     let min_count = super::safeguard_substat_min_count(substat_match, selected_set.len());
-    // Substats that equal the piece's mainstat are impossible; cap the required total.
-    let possible_count = if artifact.main_stat == STAT_VARIANT_ANY {
-        selected_set.len()
-    } else {
-        selected_set.iter().filter(|&&v| v != artifact.main_stat).count()
-    };
+    // Substats that equal the piece's mainstat are impossible; cap the required total
+    // with the shared counting rule.
+    let possible_count =
+        super::safeguard_possible_substat_count(&selected_set, artifact.main_stat);
     let effective_required = min_count.min(possible_count);
     if effective_required == 0 {
         return true;
@@ -1691,19 +1687,17 @@ fn scenario_can_match_by_level16(
     scenario: &UpgradeScenario,
     viability: &ViabilityContext,
 ) -> bool {
-    // Mirror scenarioCanMatchArtifactByLevel16; prunes impossible scenarios fast.
+    // Prune scenarios that can never match by level 16, before the expensive recursion.
     let selected = &scenario.selected_substats;
     if selected.is_empty() {
         return false;
     }
     let matched_now = count_matched_in_state(&viability.initial_state, selected);
     let min_count = super::safeguard_substat_min_count(&scenario.substat_match, selected.len());
-    // Substats that equal the piece's mainstat are impossible; cap the required total.
-    let possible_count = if viability.main_stat == STAT_VARIANT_ANY {
-        selected.len()
-    } else {
-        selected.iter().filter(|&&v| v != viability.main_stat).count()
-    };
+    // Substats that equal the piece's mainstat are impossible; cap the required total
+    // with the shared counting rule.
+    let possible_count =
+        super::safeguard_possible_substat_count(selected, viability.main_stat);
     let effective_required = min_count.min(possible_count);
     // Vacuously satisfied when no possible substat can satisfy the filter.
     if effective_required == 0 {
@@ -1719,8 +1713,8 @@ fn scenario_can_match_by_level16(
     // Count how many missing-but-possible variants can still be added.
     let mut missing_addable = 0usize;
     for &v in selected {
-        // Substats that match the mainstat are structurally impossible — skip.
-        if viability.main_stat != STAT_VARIANT_ANY && v == viability.main_stat {
+        // Substats that match the mainstat are structurally impossible — skip (shared predicate).
+        if !super::safeguard_placeholder_substat_possible(v, viability.main_stat, None) {
             continue;
         }
         if get_state_raw_value(&viability.initial_state, v) > 0.0 {
@@ -1742,7 +1736,7 @@ fn scenario_can_match_by_level16(
 // ─── rule preparation ─────────────────────────────────────────────────────────
 
 fn normalize_selected_substats(substats: &[i64]) -> Vec<i64> {
-    // Deduplicate and exclude wildcard/roll-count sentinels; mirrors normalizeSelectedSubstats.
+    // Deduplicate and exclude wildcard/roll-count sentinels.
     let mut seen = HashSet::<i64>::new();
     let mut out = Vec::<i64>::new();
     for &variant in substats {
@@ -1763,7 +1757,7 @@ fn normalize_selected_substats(substats: &[i64]) -> Vec<i64> {
 // pub(super) so improvement_watch prepares the FULL rule list (rule_order indices then
 // align with detection rule ordinals: ordinal = rule_order + 1).
 pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<PreparedUpgradeRule> {
-    // Filter and pre-compute; mirrors prepareSubstatSafeguardRules.
+    // Filter out non-contributing rules and pre-compute per-rule data.
     let mut prepared = Vec::<PreparedUpgradeRule>::new();
     for (rule_order, rule) in rules.iter().enumerate() {
         // Disabled rules contribute nothing to improvement chance.
@@ -1815,7 +1809,7 @@ fn upgrade_rule_applies_to_artifact(
     rule: &PreparedUpgradeRule,
     artifact: &SafeguardWasmArtifactIn,
 ) -> bool {
-    // Mirrors ruleAppliesToArtifact; called for every (rule × artifact) pair.
+    // Rule applicability gate; called for every (rule × artifact) pair.
     if rule.ignore_equipped_in_collection && artifact.equipped_in_collection {
         return false;
     }
@@ -1880,7 +1874,7 @@ pub(super) fn build_scenarios(
     rows: &[SafeguardCollectRowIn],
     rules: &[PreparedUpgradeRule],
 ) -> (Vec<UpgradeScenario>, BTreeMap<i64, Vec<usize>>) {
-    // Builds shared challenger scenarios; mirrors buildRuleScenarios.
+    // Builds the challenger scenarios shared across artifacts.
     // Returns scenarios plus an artifact-id → scenario-index map so callers do not need
     // to store applicable_artifact_ids inside each UpgradeScenario (~64 KB × N scenarios).
     // BTreeMap: up to 7982 entries — avoids the large contiguous backing-array realloc that
@@ -1990,7 +1984,7 @@ fn resolve_most_likely_scenario_idx<'a>(
     artifact: &SafeguardWasmArtifactIn,
     viable: &'a [&'a UpgradeScenario],
 ) -> Option<usize> {
-    // Mirror resolveMostLikelyScenario; returns the index in `viable`.
+    // Pick the likeliest scenario; returns the index in `viable`.
     if viable.is_empty() {
         return None;
     }
@@ -2060,7 +2054,7 @@ fn build_chance_debug(
     viability: &ViabilityContext,
     viable_scenario_count: u32,
 ) -> ImprovementChanceDebug {
-    // Mirror buildChanceDebugSnapshot; populates tooltip data.
+    // Populates the tooltip debug snapshot.
     let artifact_id = artifact.id.unwrap_or(0);
     // Current score (not projected) for the "betterCount" display in the tooltip. Includes the
     // main-stat rank bonus so the comparison against (bonus-inclusive) challenger scores is fair.

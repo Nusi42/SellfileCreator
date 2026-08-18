@@ -248,6 +248,14 @@ export default defineConfig({
       // Standalone mode: always start fresh so we never silently inherit a stale bundle (the
       // exact failure mode that produced the README-dialog regression after a version bump).
       reuseExistingServer: useExternalServer,
+      // Readiness budget for the URL above. External mode probes an already-running server,
+      // so it stays short; standalone mode must first run `npm run build` inside this window
+      // (cold WASM recompile + full Vite production build), which overruns Playwright's 60 s
+      // default and aborted the entire run before any test started. Named budgets, not raw
+      // literals, per the timeout policy.
+      timeout: useExternalServer
+        ? PLAYWRIGHT_TIMEOUTS.webServerReuse
+        : PLAYWRIGHT_TIMEOUTS.webServerBuild,
       stdout: 'pipe',
       stderr: 'pipe',
     };

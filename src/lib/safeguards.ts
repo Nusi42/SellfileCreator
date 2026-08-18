@@ -2,7 +2,7 @@ import { stableSerialize } from './stableSerialize'
 import { isAccessorySlot, ACCESSORY_SLOT_IDS } from './gearInspectorDomain'
 import { normalizeGearInspectorSortWeight, GEAR_INSPECTOR_SORT_WEIGHT_DEFAULT } from './gearInspectorSort'
 import { substatNormalizedContribution, mainStatRankRatio, unselectedSubstatEpsilonBonus } from './substatRollNormalization'
-import { retainAllowedSubstats } from './statCompatibility'
+import { retainAllowedSubstats, substatMatchesMainVariant } from './statCompatibility'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import type {
   ArtifactSetId,
@@ -1547,6 +1547,27 @@ const getArtifactSubstatValue = (artifact: NormalizedGearArtifact, variant: numb
   return 0
 }
 
+// How many of `variants` can actually roll as substats on this piece? A substat that duplicates
+// the piece's concrete main stat can never appear, which is exactly why the substat filter admits
+// such gear VACUOUSLY. The per-variant conflict rule comes from the shared SSOT predicate
+// substatMatchesMainVariant (flat-vs-percent aware for HP/ATK/DEF). Mirrors the Rust
+// safeguard_possible_substat_count.
+const possibleSubstatCount = (
+  artifact: NormalizedGearArtifact,
+  variants: readonly number[],
+): number => {
+  // No concrete main stat means nothing is excluded.
+  const mainVariant = artifact.mainStat ? Number(artifact.mainStat.variant) : StatVariantEnum.Any
+  return variants.filter((variant) => !substatMatchesMainVariant(variant, mainVariant)).length
+}
+
+// The `> 0` case of the counting rule above: is a presence gate meaningful for this piece at all?
+// A pass ranking only by an impossible variant is vacuous and must not be gated on presence.
+const anyRankedSubstatPossible = (
+  artifact: NormalizedGearArtifact,
+  rankedSubstats: readonly number[],
+): boolean => possibleSubstatCount(artifact, rankedSubstats) > 0
+
 // Compute safeguard ranking score using weighted normalized selected substats.
 // Each present substat contributes via the shared substatNormalizedContribution helper:
 // its weighted normalized current value plus rank-limited glyph potential (stronger glyphs
@@ -1588,7 +1609,8 @@ export const computeSafeguardScoreFromArtifact = (
   // below lift a piece lacking the ranked substat above zero, which on the perSubstat path let
   // gear with no DEF% into the DEF% sub-bucket and made that bucket's membership move whenever
   // an unrelated substat's weight changed. Mirrors the Rust gate exactly.
-  if (selectedSubstats.length > 0 && !hasRankedSubstat) return 0
+  if (selectedSubstats.length > 0 && !hasRankedSubstat
+    && anyRankedSubstatPossible(artifact, selectedSubstats)) return 0
   // Epsilon tie-break ladder for present-but-unselected substats (non-flat lines, then
   // relevance-aligned flats), classified against the rule's full selection. Gated like the
   // main-stat bonus on a non-empty selection (mirrors the Rust scorer's gate exactly).

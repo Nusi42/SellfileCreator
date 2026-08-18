@@ -30,6 +30,24 @@ const TEST_TIMEOUT_ENDPOINT_BURST_MS = 240_000
 // A run near this bound means per-iteration settle is regressing — profile it.
 const TEST_TIMEOUT_ENDPOINT_SWEEP_MS = 480_000
 
+// Web-server readiness budgets for `playwright.config.ts` -> `webServer.timeout`.
+// These bound how long Playwright waits for the preview URL to answer before giving up —
+// NOT how long any test may run — so raising them cannot mask a slow or flaky test.
+//
+// External mode (E2E_EXTERNAL_SERVER=1): scripts/test/run-e2e.mjs has already built the
+// bundle and started the shared preview server, so this is a pure liveness probe.
+const WEB_SERVER_REUSE_TIMEOUT_MS = 30_000
+// Standalone mode (`npx playwright test`, `npm run test:e2e:chromium`): the webServer command
+// is `npm run build && npm run preview`, so the readiness window must cover a COLD build —
+// a release WASM recompile (~45 s observed when Rust sources changed) plus a ~4000-module
+// Vite production build — before Vite starts listening. Playwright's 60 s default cannot,
+// so any standalone run following a Rust edit died with
+// "Timed out waiting 60000ms from config.webServer" before a single test executed.
+// This is a BUILD budget, not a test budget. The real fix for suite wall-clock is to build
+// once via `npm run test:e2e` (the orchestrator, which then uses webServerReuse above);
+// this ceiling only keeps the standalone fallback from failing spuriously.
+const WEB_SERVER_BUILD_TIMEOUT_MS = 300_000
+
 // Default expect timeout for fast-fail UI assertions.
 const EXPECT_TIMEOUT_DEFAULT_MS = 3_000
 // Long expect timeout reserved for rule rebuilds or matching results.
@@ -82,6 +100,10 @@ export const PLAYWRIGHT_TIMEOUTS = {
   navigation: NAVIGATION_TIMEOUT_MS,
   // APP_GOTO_OPTIONS timeout.
   appGoto: APP_GOTO_TIMEOUT_MS,
+  // webServer readiness when the orchestrator already built and started the shared server.
+  webServerReuse: WEB_SERVER_REUSE_TIMEOUT_MS,
+  // webServer readiness when the standalone command must build the bundle first.
+  webServerBuild: WEB_SERVER_BUILD_TIMEOUT_MS,
   // Busy indicator idle wait.
   workloadIdle: WORKLOAD_IDLE_TIMEOUT_MS,
 } as const

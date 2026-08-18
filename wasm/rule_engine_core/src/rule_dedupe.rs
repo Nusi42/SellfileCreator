@@ -303,8 +303,8 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
     // Sort set ids for the same reason: input ordering should be irrelevant.
     let mut artifact_sets = rule.ArtifactSet.clone().unwrap_or_default();
     artifact_sets.sort_unstable();
-    // Keep original substat slot order to match merge.ts::canonicalRuleKey.
-    // The JS canonical key does not reorder the 4 substat positions.
+    // Keep original substat slot order: the canonical rule identity does not reorder the
+    // 4 substat positions.
     // Sorting here over-collapses distinct rules that only differ by slot order.
     // Clone once so we can read slots without mutating the original payload.
     let substats = rule.Substats.clone().unwrap_or_default();
@@ -320,7 +320,7 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
             value_bits: normalize_f64_bits(sub.Value.unwrap_or(0.0)),
         })
         .collect::<Vec<_>>();
-    // Build one full key that mirrors merge.ts::canonicalRuleKey dimensions.
+    // Build one full key covering every dimension of the canonical rule identity.
     CollapseCanonicalKey {
         keep: rule.Keep.unwrap_or(false),
         use_flag: rule.Use.unwrap_or(true),

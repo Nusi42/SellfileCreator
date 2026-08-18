@@ -1811,7 +1811,7 @@ fn safeguard_clamp_rank_or_rarity_value(value: i64) -> i64 {
     value.clamp(RANK_VALUE_MIN, RANK_VALUE_MAX)
 }
 
-// Keep rarity code mapping aligned with merge.ts::rarityValueToCode.
+// Keep rarity code mapping aligned with types.ts::rarityCodeFromRankValue.
 fn safeguard_rarity_value_to_code(value: i64) -> i64 {
     match safeguard_clamp_rank_or_rarity_value(value) {
         1 => RARITY_CODE_COMMON,
@@ -1823,7 +1823,8 @@ fn safeguard_rarity_value_to_code(value: i64) -> i64 {
     }
 }
 
-// Keep level-coverage expansion aligned with merge.ts::coverageLevelsForArtifact.
+// Level-coverage expansion for a placeholder artifact. Rust owns this rule outright — the
+// former TS twin was retired when rule building consolidated here.
 fn safeguard_coverage_levels_for_artifact(artifact: &SafeguardWasmArtifactOut) -> Vec<i64> {
     let resolved = artifact
         .exact_level
@@ -1903,7 +1904,8 @@ pub fn safeguard_variant_to_sub(variant: i64) -> (i64, bool) {
     }
 }
 
-// Keep four-substat padding aligned with merge.ts::cloneAnySubstats.
+// Four-substat ANY padding for emitted rules. Rust owns this shape outright — the former TS
+// twin was retired when rule building consolidated here.
 pub fn safeguard_clone_any_substats() -> Vec<RuleSubRaw> {
     vec![
         RuleSubRaw {
@@ -2045,6 +2047,22 @@ pub(super) fn safeguard_placeholder_substat_possible(
         && slot_filter.map_or(true, |allowed| allowed.contains(&variant))
 }
 
+// How many of `variants` can actually roll as substats on a piece with `main_variant`?
+// A substat equal to the concrete mainstat can never appear there, so it must not inflate a
+// min-count requirement. This is the counting rule for the whole engine: every substat-match
+// gate caps its threshold with it, and the ranking presence gate asks it for `> 0`. Per-variant
+// possibility delegates to the SSOT predicate above (slot filter None: callers hold a concrete
+// piece, so only the mainstat conflict applies). pub(super) for improvement_chance reuse.
+pub(super) fn safeguard_possible_substat_count<'a, I>(variants: I, main_variant: i64) -> usize
+where
+    I: IntoIterator<Item = &'a i64>,
+{
+    variants
+        .into_iter()
+        .filter(|&&variant| safeguard_placeholder_substat_possible(variant, main_variant, None))
+        .count()
+}
+
 // Enumerate all combinations of `k` elements from `pool` (order-independent).
 // Used to generate permutation rules for min-count substat anticipation.
 // pub(super) so improvement_watch enumerates corner substat subsets with the same helper.
@@ -2133,7 +2151,8 @@ fn safeguard_normalize_f64_bits(value: f64, fallback: f64) -> u64 {
     }
 }
 
-// Canonical key mirrors merge.ts::canonicalRuleKey for placeholder dedupe.
+// Canonical key for placeholder dedupe. Must stay in step with the collapse key in
+// rule_dedupe.rs, which keys the same rule identity for a different consumer.
 fn safeguard_canonical_rule_key(rule: &RuleRaw) -> SafeguardCanonicalRuleKey {
     let artifact_types = normalize_i64_array(rule.ArtifactType.as_ref());
     let artifact_sets = normalize_i64_array(rule.ArtifactSet.as_ref());
@@ -3272,12 +3291,8 @@ fn safeguard_candidate_matches_substats(
     // Resolve the minimum count threshold from the match token.
     let min_count = safeguard_substat_min_count(substat_match, selected_substats.len());
     // Substats that duplicate the piece's mainstat can never appear on that piece;
-    // they must not inflate the required total. SAFEGUARD_MAIN_ANY = no restriction.
-    let possible_count = if artifact.main_stat == SAFEGUARD_MAIN_ANY {
-        selected_substats.len()
-    } else {
-        selected_substats.iter().filter(|&&v| v != artifact.main_stat).count()
-    };
+    // they must not inflate the required total (shared counting rule).
+    let possible_count = safeguard_possible_substat_count(selected_substats, artifact.main_stat);
     // Effective requirement is capped at what is actually achievable on this piece.
     let effective_required = min_count.min(possible_count);
     // Vacuously satisfied when no possible substat can satisfy the filter.
@@ -3393,6 +3408,17 @@ pub(super) fn glyph_average_for_variant(rank: i64, variant: i64) -> f64 {
     0.0
 }
 
+// Can ANY of the ranked substats actually appear on this piece? A substat equal to the
+// concrete main stat can never roll, so a pass ranking only by that variant is vacuous for
+// this piece and must not be gated on presence. This is exactly the `> 0` case of the shared
+// counting rule the substat-match gates use, so it delegates rather than restating it.
+fn safeguard_any_ranked_substat_possible(
+    artifact: &SafeguardWasmArtifactIn,
+    ranked_substats: &[i64],
+) -> bool {
+    safeguard_possible_substat_count(ranked_substats, artifact.main_stat) > 0
+}
+
 // pub(super) so improvement_chance can use current-level scores, and so the ranking path
 // can use it for standard-mode (no improvement_chance_threshold) candidate scoring.
 //
@@ -3442,7 +3468,14 @@ pub(super) fn safeguard_compute_score_for_pass(
     // none of the ranked substats above zero — which on the perSubstat path put gear with no
     // DEF% into the DEF% sub-bucket, and made that bucket's MEMBERSHIP shift whenever an
     // unrelated substat's weight was edited.
-    if !ranked_substats.is_empty() && !has_ranked_substat {
+    // The gate must not fire when the ranked substat could never roll on this piece: a substat
+    // equal to the concrete main stat is impossible, which is exactly why
+    // safeguard_candidate_matches_substats admits such gear VACUOUSLY. Dropping it here would
+    // silently unprotect e.g. every DEF%-main ring under a [DEF%] rule.
+    if !ranked_substats.is_empty()
+        && !has_ranked_substat
+        && safeguard_any_ranked_substat_possible(artifact, ranked_substats)
+    {
         return 0.0;
     }
     // Epsilon tie-break ladder for unselected substats (non-flat lines, then relevance-aligned
@@ -5626,6 +5659,71 @@ mod score_safeguard_candidates_for_preview_core_tests {
         );
     }
 
+    // Regression companion to the presence gate: the gate must NOT fire when the ranked
+    // substat is impossible on the piece. DEF% can never roll on a DEF%-MAIN ring, which is
+    // why safeguard_candidate_matches_substats admits such gear vacuously. If the gate still
+    // zeroed it, every DEF%-main ring would silently drop out of a [DEF%] rule entirely.
+    #[test]
+    fn vacuous_ranked_substat_still_scores() {
+        // DEF%-MAIN ring: DEF% is unrollable as a substat here.
+        let art = SafeguardWasmArtifactIn {
+            id: Some(9), slot: SAFEGUARD_SLOT_RING, set: 1, rank: 6, rarity: 6,
+            level: 12, exact_level: Some(12), faction: 0,
+            main_stat: SAFEGUARD_MAIN_DEF_PERCENT,
+            equipped_in_collection: false, equipped_in_vault: false,
+            substats: vec![
+                SafeguardWasmSubstatIn {
+                    variant: STAT_VARIANT_SPD, is_flat: true, value: 10.0, rolls: Some(2),
+                },
+            ],
+        };
+        let selected = [SAFEGUARD_MAIN_DEF_PERCENT];
+        let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
+        let weights = BTreeMap::<i64, f64>::new();
+        // The rule gate admits it vacuously...
+        let set: HashSet<i64> = selected.iter().copied().collect();
+        assert!(
+            safeguard_candidate_matches_substats(&art, &set, SAFEGUARD_SUBSTAT_ANY),
+            "an impossible selected substat must match vacuously",
+        );
+        // ...so the scorer must keep it rankable rather than zeroing it out.
+        assert!(
+            safeguard_compute_score(&art, &selected, &weights, true, f) > 0.0,
+            "a piece whose ranked substat cannot roll must stay rankable, not score 0",
+        );
+    }
+
+    // The min-count threshold must be capped at what can actually roll on the piece. An "all"
+    // rule over [DEF%, SPD] on a DEF%-main ring can only ever be satisfied by SPD, so the piece
+    // must match on SPD alone — the impossible DEF% must not inflate the requirement to 2.
+    #[test]
+    fn impossible_substat_does_not_inflate_min_count() {
+        // DEF%-MAIN ring holding only SPD: DEF% is unrollable as a substat here.
+        let art = SafeguardWasmArtifactIn {
+            id: Some(11), slot: SAFEGUARD_SLOT_RING, set: 1, rank: 6, rarity: 6,
+            level: 12, exact_level: Some(12), faction: 0,
+            main_stat: SAFEGUARD_MAIN_DEF_PERCENT,
+            equipped_in_collection: false, equipped_in_vault: false,
+            substats: vec![
+                SafeguardWasmSubstatIn {
+                    variant: STAT_VARIANT_SPD, is_flat: true, value: 10.0, rolls: Some(2),
+                },
+            ],
+        };
+        // Only SPD is possible, so the shared counting rule must report exactly 1 of 2.
+        let selected = [SAFEGUARD_MAIN_DEF_PERCENT, STAT_VARIANT_SPD];
+        assert_eq!(
+            safeguard_possible_substat_count(selected.iter(), art.main_stat),
+            1,
+            "the mainstat-duplicating selection must not be counted as possible",
+        );
+        // "all" would demand 2 matches uncapped; capped at 1 the piece passes on SPD alone.
+        let set: HashSet<i64> = selected.iter().copied().collect();
+        assert!(
+            safeguard_candidate_matches_substats(&art, &set, SAFEGUARD_SUBSTAT_ALL),
+            "an all-match rule must cap its threshold at the rollable substats",
+        );
+    }
     // Aligned-flat epsilon tiers: a flat line earns a micro tie-break only when its percent
     // twin is a selected substat and/or the piece's own main stat; unrelated flats earn 0 and
     // any useful non-flat line still outranks even a max-rolled aligned flat.
