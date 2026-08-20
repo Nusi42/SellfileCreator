@@ -223,7 +223,7 @@ import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
 import { resolveSafeguardActivationTextColor } from './safeguardSummaryParts'
-import { normalizeTagValue, mergeTagList, summarizeTagPresence, applyReworkTagExclusivity, isReworkTag, oppositeReworkTag, type TagVocabulary } from '../lib/tagHelpers'
+import { normalizeTagValue, summarizeTagPresence, canonicalTagTokens, mergeTagsWithReworkExclusivity, reworkTagToClearForMultiEdit, type TagVocabulary } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
@@ -1684,11 +1684,9 @@ export default function SafeguardBuilderPanel({
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
       // The two rework tags are mutually exclusive: adding one clears the other across
       // the whole selection, mirroring the single-edit path above.
-      if (target === 'all' && isReworkTag(tag)) {
-        const opposite = oppositeReworkTag(tag)
-        if (opposite) {
-          nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
-        }
+      const opposite = reworkTagToClearForMultiEdit(tag, target)
+      if (opposite) {
+        nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
       }
     })
     multiEdit.updateField('tags', {
@@ -1710,24 +1708,19 @@ export default function SafeguardBuilderPanel({
     if (multiEditActive) {
       stageTagPatch(normalizedAdds, 'all')
     } else {
-      // Merge into the current tag list (order-preserving, deduped), then enforce
-      // rework-tag mutual exclusivity so adding one drops the other — same rule as the
-      // recipe panel, via the shared helper rather than a second implementation.
+      // Merge into the current tag list and enforce rework-tag mutual exclusivity through
+      // the shared helper — the single definition both builder panels use.
       updateRule((prev) => ({
         ...prev,
-        // Rebuild left-to-right: each tag first evicts its rework opposite, then appends.
-        // A later rework tag therefore wins over an earlier one, matching "adding one
-        // removes the other" and the identical reduce in the recipe panel.
-        tags: mergeTagList(prev.tags ?? [], normalizedAdds).reduce<string[]>(
-          (acc, tag) => (acc.includes(tag) ? acc : [...applyReworkTagExclusivity(acc, tag), tag]),
-          [],
-        ),
+        tags: mergeTagsWithReworkExclusivity(prev.tags ?? [], normalizedAdds),
       }))
     }
     setTagsDraft('')
   }, [multiEditActive, stageTagPatch, tagsDraft, updateRule])
   // Tags currently applied, for the picker's toggle state (the union in multi-edit).
-  const selectedTagSet = useMemo(() => new Set(tagDisplay), [tagDisplay])
+  // Canonicalized so it compares like-for-like against the vocabulary: a rule storing a
+  // legacy spelling must not be offered its own tag again under the current name.
+  const selectedTagSet = useMemo(() => canonicalTagTokens(tagDisplay), [tagDisplay])
   // Adding from the picker reuses the same write paths as typed input, so exclusivity and
   // multi-edit patching behave identically either way.
   const addTagFromPicker = useCallback((tag: string) => {
@@ -1737,9 +1730,7 @@ export default function SafeguardBuilderPanel({
     }
     updateRule((prev) => ({
       ...prev,
-      tags: [...applyReworkTagExclusivity(prev.tags ?? [], tag), ...(
-        (prev.tags ?? []).some((existing) => existing === tag) ? [] : [tag]
-      )],
+      tags: mergeTagsWithReworkExclusivity(prev.tags ?? [], [tag]),
     }))
   }, [multiEditActive, stageTagPatch, updateRule])
   // Remove a single tag from the rule or from all selected rules via patch.

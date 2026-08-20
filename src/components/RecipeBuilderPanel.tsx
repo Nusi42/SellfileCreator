@@ -124,7 +124,7 @@ import {
   applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
 } from '../lib/recipeMultiEditDraft'
-import { applyReworkTagExclusivity, isReworkTag, mergeTagList, normalizeTagValue, oppositeReworkTag, summarizeTagPresence, type TagVocabulary } from '../lib/tagHelpers'
+import { canonicalTagTokens, mergeTagList, mergeTagsWithReworkExclusivity, normalizeTagValue, reworkTagToClearForMultiEdit, summarizeTagPresence, type TagVocabulary } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
@@ -2035,11 +2035,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
       // The two rework tags are mutually exclusive: adding one clears the other on every
       // selected recipe, matching the single-edit behavior in commitTags.
-      if (target === 'all' && isReworkTag(tag)) {
-        const opposite = oppositeReworkTag(tag)
-        if (opposite) {
-          nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
-        }
+      const opposite = reworkTagToClearForMultiEdit(tag, target)
+      if (opposite) {
+        nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
       }
     })
     // Persist the patch without clobbering the underlying tag values.
@@ -2060,11 +2058,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       seen.add(normalizedTag)
       normalized.push(normalizedTag)
     })
-    // Enforce rework-tag mutual exclusivity: rebuilding the list left-to-right means a
-    // later rework tag evicts an earlier opposite, mirroring "adding one removes the other".
-    const deduped = normalized.reduce<string[]>((acc, tag) => (
-      [...applyReworkTagExclusivity(acc, tag), tag]
-    ), [])
+    // Enforce rework-tag mutual exclusivity via the shared helper, so typing, picking, and
+    // pasting a tag can never disagree about de-duplication or which rework tag survives.
+    const deduped = mergeTagsWithReworkExclusivity([], normalized)
     // Route updates through multi-edit patches when active.
     if (multiEditActive) {
       stageTagPatch(deduped, 'all')
@@ -2097,8 +2093,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     setTagsDraft('')
   }, [commitTags, multiEditActive, stageTagPatch, tagsDraft, tagsValue])
   // Tags currently applied to the selection, for the picker's toggle state. In multi-edit
-  // this is the union shown as chips, matching what the chip list renders.
-  const selectedTagSet = useMemo(() => new Set(tagDisplay), [tagDisplay])
+  // this is the union shown as chips. Canonicalized so it compares like-for-like against
+  // the vocabulary: a recipe storing a legacy spelling must not be offered its own tag again.
+  const selectedTagSet = useMemo(() => canonicalTagTokens(tagDisplay), [tagDisplay])
   // Adding from the picker goes through the same paths as typing a tag, so rework-tag
   // exclusivity and multi-edit patching behave identically either way.
   const addTagFromPicker = useCallback((tag: string) => {

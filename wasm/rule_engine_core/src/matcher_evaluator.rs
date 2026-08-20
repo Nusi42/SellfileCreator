@@ -564,6 +564,17 @@ fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<
         .and_then(|values| values.iter().find(|(k, _)| *k == variant).map(|(_, v)| *v))
 }
 
+/// The single definition of "this item has been reworked" (a Chaos Ore was applied).
+///
+/// Items that never reported a rework count are treated as never reworked, matching how
+/// the Gear Inspector chaos-ore filter reads missing data. The TS side expresses the same
+/// predicate as `rerollCount > 0` in src/lib/rulesFilter.ts (chaosMode) and
+/// src/lib/gearAnalytics.ts (the "Chaos'd" KPI); if the meaning of the count ever changes,
+/// all three must change together.
+pub fn item_has_been_reworked(reroll_count: Option<i64>) -> bool {
+    reroll_count.unwrap_or(0) > 0
+}
+
 // Gate half of the rule predicate: every field that is CONSTANT across a generated rule
 // group. Substats are the only per-member variation and live in match_rule_substats.
 // This predicate (gate + substats) is the SSOT for rule matching — it mirrors RSL
@@ -622,12 +633,9 @@ fn match_rule_gate(
 
     // Rework gate. ORE_ANY short-circuits so untagged rules pay only one compare.
     if gate.ore != ORE_ANY {
-        // Items that never reported a rework count are treated as never reworked (0),
-        // which matches how the Gear Inspector chaos-ore filter reads missing data.
-        let has_been_ored = item.reroll_count.unwrap_or(0) > 0;
         // ORE_ORED demands a reworked item; any other constrained value demands a pristine one.
         let wants_ored = gate.ore == ORE_ORED;
-        if has_been_ored != wants_ored {
+        if item_has_been_reworked(item.reroll_count) != wants_ored {
             return false;
         }
     }

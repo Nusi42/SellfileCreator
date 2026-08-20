@@ -37,7 +37,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
-import { isChaosOreConstrained } from '../lib/tagHelpers'
+import { isChaosOreConstrained, normalizeOreValue } from '../lib/tagHelpers'
 import { ORE_ORED } from '../lib/generated/domainConstants'
 import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
@@ -1396,22 +1396,25 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   // Show the Ore column automatically when any rule actually gates on chaos-ore state.
   // isChaosOreConstrained is the SSOT for "this value narrows something" (ORE_ANY does not).
-  const anyWithOre = useMemo(() => rules.some((r) => r && isChaosOreConstrained(r.Ore)), [rules])
+  // normalizeOreValue keeps this agreeing with the cell renderer for loaded HSF files,
+  // whose JSON may carry Ore as a numeric string rather than a number.
+  const anyWithOre = useMemo(() => rules.some((r) => r && isChaosOreConstrained(normalizeOreValue(r.Ore))), [rules])
+  // What "Auto" resolves to per auto-capable column. Keyed the same way the header menu
+  // detects them (a declared `mode`), so a new auto column only has to register here.
+  const autoColumnPredicates = useMemo<Partial<Record<ColKey, boolean>>>(
+    () => ({ Faction: anyWithFaction, Ore: anyWithOre }),
+    [anyWithFaction, anyWithOre],
+  )
   const isColVisible = React.useCallback((c: ColConfig) => {
-    if (c.key === 'Ore') {
-      const m = c.mode ?? 'auto'
-      if (m === 'show') return true
-      if (m === 'hide') return false
-      return anyWithOre
-    }
-    if (c.key === 'Faction') {
-      const m = c.mode ?? 'auto'
-      if (m === 'show') return true
-      if (m === 'hide') return false
-      return anyWithFaction
-    }
-    return c.visible
-  }, [anyWithFaction, anyWithOre])
+    // Plain columns just honour their stored show/hide flag.
+    if (c.mode === undefined) return c.visible
+    // Explicit user choices win over the auto heuristic in both directions.
+    const mode = c.mode
+    if (mode === 'show') return true
+    if (mode === 'hide') return false
+    // 'auto': fall back to the column's registered predicate (hidden if none is registered).
+    return autoColumnPredicates[c.key] ?? false
+  }, [autoColumnPredicates])
 
   
 
@@ -1715,8 +1718,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               }
               else if (c.key === 'Ore') {
                 // Unconstrained rules render blank, mirroring how an Any main stat shows nothing.
-                value = isChaosOreConstrained(rule.Ore)
-                  ? (Number(rule.Ore) === ORE_ORED ? t('oreOred') : t('oreNotOred'))
+                // Coerce once, then use that single value for both the guard and the branch —
+                // mixing a strict check with a Number() branch made a string "1" blank the cell.
+                const oreValue = normalizeOreValue(rule.Ore)
+                value = isChaosOreConstrained(oreValue)
+                  ? (oreValue === ORE_ORED ? t('oreOred') : t('oreNotOred'))
                   : ''
               }
               else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)

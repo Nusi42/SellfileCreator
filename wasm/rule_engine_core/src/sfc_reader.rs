@@ -456,10 +456,14 @@ pub struct ReadableRecipeParsed {
 
 /// Resolve a recipe tag list into the HSF `Ore` sentinel.
 ///
-/// Mirror of `resolveChaosOreTagValue` in src/lib/tagHelpers.ts — the tag spellings and
-/// the sentinels both come from shared/domain-constants.json, so only this precedence
-/// logic is duplicated, and the shared test vectors below pin the two implementations
-/// to identical behaviour.
+/// Mirror of `resolveChaosOreTagValue` in src/lib/tagHelpers.ts. The tag spellings and the
+/// sentinels both come from shared/domain-constants.json, so those cannot drift. What IS
+/// duplicated is the precedence rule below AND a minimal form of the tag grammar: TS runs
+/// `normalizeTagValue` (trim, lowercase, reject whitespace, enforce TAG_TOKEN_REGEX) while
+/// this side only trims and lowercases. That is sufficient because a token failing the TS
+/// grammar can never equal one of the four Ore spellings anyway — but any change to the tag
+/// grammar that affects those spellings must be mirrored here. The shared test vectors in
+/// matcher_evaluator.rs pin the two implementations to identical behaviour.
 ///
 /// The two tags are mutually exclusive per recipe (the editors drop one when the other is
 /// added), so "both set" should not occur. A hand-edited or legacy file can still carry both;

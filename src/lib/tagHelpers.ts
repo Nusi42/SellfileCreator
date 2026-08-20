@@ -203,6 +203,21 @@ export const resolveChaosOreTagValue = (tags: readonly string[] | null | undefin
   return ORE_ANY
 }
 
+/**
+ * Coerce a rule's raw `Ore` field into an Ore sentinel.
+ *
+ * Rules reach the UI from two sources: freshly built ones always carry a number, but a
+ * loaded HSF file is untrusted JSON that can carry the value as a numeric string. Coerce
+ * in one place so callers never mix a strict comparison with an ad-hoc `Number(...)`.
+ */
+export const normalizeOreValue = (ore: unknown): number => {
+  // Absent means "this rule does not care", the same as an explicit ORE_ANY.
+  if (ore === null || ore === undefined || ore === '') return ORE_ANY
+  // Coerce numbers and numeric strings alike; anything unparseable stays unconstrained.
+  const parsed = Number(ore)
+  return Number.isFinite(parsed) ? parsed : ORE_ANY
+}
+
 /** True when the resolved Ore sentinel actually narrows a rule. */
 export const isChaosOreConstrained = (ore: number | null | undefined): boolean => (
   // Only the two concrete states constrain; ORE_ANY and nullish do not.
@@ -245,9 +260,17 @@ export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined
  */
 export const SEMANTIC_TAG_CONTRIBUTIONS = Object.freeze({
   // Excludes a recipe's keeps from safeguard coverage; changes match ordering.
-  ignoreSafeguardTag: (tags: readonly string[] | null | undefined) => hasIgnoreSafeguardTag(tags),
+  ignoreSafeguardTag: {
+    // Current spellings this entry recognizes; legacy aliases fold onto these on read.
+    tags: [SAFEGUARD_IGNORE_TAG],
+    contribute: (tags: readonly string[] | null | undefined) => hasIgnoreSafeguardTag(tags),
+  },
   // Selects the emitted HSF `Ore` gate (rework state); changes the generated rules.
-  oreTagGate: (tags: readonly string[] | null | undefined) => resolveChaosOreTagValue(tags),
+  oreTagGate: {
+    // Both rework tags belong to this one gate, so they are registered together.
+    tags: [REWORK_ONLY_TAG, REWORK_EXCLUDE_TAG],
+    contribute: (tags: readonly string[] | null | undefined) => resolveChaosOreTagValue(tags),
+  },
 } as const)
 
 /**
@@ -261,38 +284,41 @@ export const describeSemanticTags = (
 ): Record<string, unknown> => {
   // Evaluate each registered contribution against this recipe's tag list.
   const described: Record<string, unknown> = {}
-  for (const [key, contribute] of Object.entries(SEMANTIC_TAG_CONTRIBUTIONS)) {
-    described[key] = contribute(tags)
+  for (const [key, entry] of Object.entries(SEMANTIC_TAG_CONTRIBUTIONS)) {
+    described[key] = entry.contribute(tags)
   }
   return described
 }
 
 /**
- * True when a tag carries app-driven meaning (as opposed to being a plain user label).
- *
- * Useful for UI affordances that want to treat behavior-carrying tags differently from
- * cosmetic ones. Derived from the same registry, so it cannot drift from the cache key.
- */
-export const isSemanticTag = (tag: string): boolean => {
-  // A tag is semantic when adding it to an empty list changes any contribution.
-  const baseline = describeSemanticTags([])
-  const withTag = describeSemanticTags([tag])
-  return Object.keys(baseline).some((key) => baseline[key] !== withTag[key])
-}
-
-/**
  * Every tag the app itself gives meaning to, in a stable display order.
  *
- * Derived from the semantic-tag registry's own vocabulary rather than re-listing tokens,
- * so a newly registered semantic tag shows up in the tag picker automatically. Only the
- * CURRENT spellings appear — legacy aliases still load, but should never be offered for
- * new use.
+ * Derived from the semantic-tag registry's own `tags` vocabulary rather than re-listing
+ * tokens, so a newly registered semantic tag shows up in the tag picker automatically.
+ * Only the CURRENT spellings appear — legacy aliases still load, but should never be
+ * offered for new use.
  */
-export const APP_KNOWN_TAGS: readonly string[] = Object.freeze([
-  SAFEGUARD_IGNORE_TAG,
-  REWORK_ONLY_TAG,
-  REWORK_EXCLUDE_TAG,
-])
+export const APP_KNOWN_TAGS: readonly string[] = Object.freeze(
+  Object.values(SEMANTIC_TAG_CONTRIBUTIONS).flatMap((entry) => [...entry.tags]),
+)
+// Membership set built once; the picker and isSemanticTag both consult it.
+const APP_KNOWN_TAG_TOKEN_SET = new Set<string>(APP_KNOWN_TAGS)
+
+/**
+ * True when a tag carries app-driven meaning (as opposed to being a plain user label).
+ *
+ * Used by the tags picker to flag behavior-carrying tags. Derived from the same registry
+ * as APP_KNOWN_TAGS and the cache key, so the three cannot drift apart. Legacy spellings
+ * are folded first, so a pre-rename tag is recognized as semantic too.
+ */
+export const isSemanticTag = (tag: string): boolean => {
+  // Normalize to the shared grammar before comparing tokens.
+  const normalized = normalizeTagValue(String(tag))
+  // Non-conforming tokens can never be app-known.
+  if (!normalized) return false
+  // Fold legacy aliases so pre-rename spellings count as semantic as well.
+  return APP_KNOWN_TAG_TOKEN_SET.has(canonicalizeKnownTagAlias(normalized))
+}
 
 /** Vocabulary payload consumed by the tags picker in both builder panels. */
 export interface TagVocabulary {
@@ -331,12 +357,70 @@ export function buildTagVocabulary(
     for (const tag of unique) counts[tag] = (counts[tag] ?? 0) + 1
   }
   // App-known tags lead the list so the meaningful ones are always discoverable.
-  const appKnown = new Set<string>(APP_KNOWN_TAGS)
+  const appKnown = APP_KNOWN_TAG_TOKEN_SET
   // The rest are the user's own tags, sorted for predictable scanning.
   const userTags = Object.keys(counts)
     .filter((tag) => !appKnown.has(tag))
     .sort((a, b) => a.localeCompare(b))
   return { tags: [...APP_KNOWN_TAGS, ...userTags], counts, appKnown }
+}
+
+/**
+ * The rework tag a multi-edit patch must clear when `addedTag` is applied to the whole
+ * selection, or null when nothing needs clearing.
+ *
+ * Multi-edit cannot use `mergeTagsWithReworkExclusivity` (it stages tri-state patches
+ * rather than rewriting arrays), so this is the one place that names the multi-edit half
+ * of the exclusivity rule — both builder panels call it instead of repeating the branch.
+ */
+export const reworkTagToClearForMultiEdit = (
+  addedTag: string,
+  target: 'all' | 'none',
+): string | null => (
+  // Only ADDING a rework tag evicts its opposite; removals and plain tags clear nothing.
+  target === 'all' && isReworkTag(addedTag) ? oppositeReworkTag(addedTag) : null
+)
+
+/**
+ * Canonical tokens for a stored tag list, matching what `buildTagVocabulary` produces.
+ *
+ * The picker compares "already applied" against its vocabulary, and the vocabulary holds
+ * canonical tokens while a recipe may still store a legacy spelling. Comparing the raw
+ * stored strings would offer `if_reworked` to a recipe already carrying
+ * `only_for_chaos_ored`, so both sides must be canonicalized through this one helper.
+ */
+export function canonicalTagTokens(tags: readonly string[] | null | undefined): Set<string> {
+  // Collect canonical tokens; malformed entries simply drop out.
+  const tokens = new Set<string>()
+  for (const rawTag of tags ?? []) {
+    // Same normalize + canonicalize pipeline the vocabulary uses.
+    const normalized = normalizeTagValue(String(rawTag))
+    if (!normalized) continue
+    tokens.add(canonicalizeKnownTagAlias(normalized))
+  }
+  return tokens
+}
+
+/**
+ * THE definition of "add these tags to that list" for the builder panels.
+ *
+ * Merges `additions` into `base` (order-preserving, de-duped) and then rebuilds the list
+ * left-to-right so each entry evicts its rework opposite — a later rework tag therefore
+ * wins over an earlier one, matching "adding one removes the other".
+ *
+ * Single-edit typing, the tag picker, and paste flows all route through here so they can
+ * never disagree about de-duplication or mutual exclusivity.
+ */
+export function mergeTagsWithReworkExclusivity(
+  base: readonly string[],
+  additions: readonly string[],
+): string[] {
+  // Merge first so ordering follows "existing tags, then new ones".
+  return mergeTagList(base, additions).reduce<string[]>(
+    // Skip exact duplicates, then drop the opposite rework tag before appending.
+    (acc, tag) => (acc.includes(tag) ? acc : [...applyReworkTagExclusivity(acc, tag), tag]),
+    [],
+  )
 }
 
 // Normalize an unknown list into a stable, de-duped tag array.

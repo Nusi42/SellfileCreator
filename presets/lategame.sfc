@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.39-dev",
+  "Version": "1.0.42-dev",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -10223,6 +10223,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6mythical"
       ],
@@ -10314,6 +10315,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6mythical"
       ],
@@ -10413,6 +10415,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6legendary"
       ],
@@ -10504,6 +10507,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6legendary"
       ],
@@ -10603,6 +10607,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6epic"
       ],
@@ -10694,6 +10699,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6epic"
       ],
@@ -10793,6 +10799,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5mythical"
       ],
@@ -10879,6 +10886,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5mythical"
       ],
@@ -10973,6 +10981,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5legendary"
       ],
@@ -11059,6 +11068,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5legendary"
       ],
@@ -11153,6 +11163,7 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5epic"
       ],
@@ -11239,6 +11250,7 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore5epic"
       ],
@@ -11333,6 +11345,7 @@
         "fgColor": "#88FF00"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6legendary_allsets"
       ],
@@ -11416,6 +11429,7 @@
         "fgColor": "#88FF00"
       },
       "Tags": [
+        "if_not_reworked",
         "ignore_by_safeguards",
         "ore6legendary_allsets"
       ],
