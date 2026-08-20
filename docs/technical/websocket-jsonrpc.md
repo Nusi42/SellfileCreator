@@ -394,7 +394,7 @@ Fields present in every artifact row from RSL Helper:
 | `rankId` | number | star rank (1–6) |
 | `rarityId` | number | rarity (1=common … 6=legendary) |
 | `setKindId` | number | set id |
-| `variantId` | number | item variant: `0` = ordinary gear, `1` = **Anomalous Accessory**. An intrinsic property of the piece — a value of `1` does not require the item to carry any mode-damage substat. Optional: present on `artifacts` rows and on enveloped `inboxArtifacts` rows; absent from flat-shape inbox rows, so a missing field means "not reported", not `0`. |
+| `variantId` | number | item variant: `0` = ordinary gear, `1` = **Anomalous Accessory**. An intrinsic property of the piece — a value of `1` does not require the item to carry any mode-damage substat, and a piece carrying none can still be one. Optional: observed on `artifacts` rows and on enveloped `inboxArtifacts` rows, absent from flat-shape inbox rows. Treat a missing field — and a negative value such as `-1`, the sentinel a server may forward for an item recorded before it tracked variants — as **unknown**, not as `0`. |
 | `requiredFraction` | number | faction restriction (0 = none) |
 | `level` | number | current upgrade level |
 | `ascendLevel` | number \| null | ascension tier (null if unascended) |

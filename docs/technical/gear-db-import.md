@@ -81,6 +81,7 @@ Importer code must translate these values before normalizing Gear Inspector entr
 - Glyph bonuses live in the corresponding `*gv` columns; decode them separately from the base values in `*lvlid`. The importer keeps glyph deltas isolated so the UI and rule logic can decide when (or if) to add them.
 - Mythical pre-roll bonuses live in the `s?mlvlid` columns; decode them just like the base values, add them to the displayed totals, and retain the deltas (`mythValue`) so the UI can flag which substat received the Mythical boost.
 - Roll counts appear in `s?lvl` (recorded as 0–3), while `REROLLCOUNT` tracks forging rerolls (0/1 in this dataset).
+- `VARIANTID` (`INT NOT NULL DEFAULT -1`, on both `Artifacts` and `InboxArtifacts`) marks the item variant: `0` = ordinary gear, `1` = **Anomalous Accessory**. It is the item's own flag and does not depend on which substats rolled — see [Anomalous Accessories](anomalous-accessories.md#variantid--the-authoritative-anomalous-flag). Newer column: the three July `examples/*.db` fixtures predate it, and the `-1` default means "not reported", so treat both absence and `-1` as unknown rather than as `0`. Not yet read by the importer (the artifact query is `SELECT *`, so no query change is needed to pick it up).
 
 ### Ascension Metadata
 

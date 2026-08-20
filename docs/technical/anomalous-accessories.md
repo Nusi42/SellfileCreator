@@ -61,7 +61,7 @@ exports.
 | All lines `fl = 0` (percent), values scale by 2³² with ×100 display conversion (±53687091 → 1.25%) | Observed |
 | Rank-5 base per line = **1.25%** at zero rolls | Observed |
 | A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
-| **`variantId = 1` on the wire artifact row flags the piece as anomalous** — it is an intrinsic item property, independent of which substats rolled | Observed (capture `session_260820_205150.539`: 32 of 8,428 rows) |
+| **`variantId = 1` flags the piece as anomalous** — an intrinsic item property, independent of which substats rolled. Present on both paths: `variantId` on the wire row, `VARIANTID` in the SQL dump | Observed (capture `session_260820_205150.539` and `examples/um109288203_RSLHelper.db`: same account, both report 32 of 8,428) |
 
 #### `variantId` — the authoritative anomalous flag
 
@@ -97,20 +97,31 @@ still infers anomalousness from substats via `hasAnomalousSubstat`. Wiring the f
 would make the marker exact and give the builder/filters a true "is anomalous" predicate
 that is independent of rolls.
 
-**The WebSocket and SQL paths are asymmetric here.** The `Artifacts` table in the RSL
-Helper SQLite dump has **no** variant column (verified against the `examples/*.db`
-fixtures: `ID, price, rank, type, lvl, mid, …, ASCLEVEL, REROLLCOUNT, ISSEEN`). So a
-`variantId`-based predicate is only satisfiable on the WebSocket path today; a DB import
-would have to fall back to the substat heuristic, and the two paths would disagree for a
-flagged piece that rolled no anomalous line. Resolve that before making the flag
-load-bearing anywhere a user can see the difference.
+**Both import paths carry the flag.** The SQL dump gained a matching column:
+`Artifacts.VARIANTID` and `InboxArtifacts.VARIANTID`, both `INT NOT NULL DEFAULT -1`
+(verified against `examples/um109288203_RSLHelper.db`, refreshed 2026-08-20). Its data
+matches the WebSocket capture of the same account exactly — 8,396 rows at `0`, 32 at `1`,
+22 inbox rows at `0` — and the two detections agree perfectly in both directions (all 32
+`VARIANTID = 1` rows carry ≥1 anomalous substat; no row with an anomalous substat has a
+different `VARIANTID`). So a `variantId`-based predicate is satisfiable on both paths and
+they will not disagree. The artifact query is `SELECT *`, so the column already flows
+through without a query change.
 
-**Inbox rows carry the flag only in the enveloped shape.** In the same capture, the
+Two sentinel/compat notes for whoever wires it:
+
+- **`-1` means "not reported", not "ordinary".** It is the column default for rows written
+  before the column existed; it does not occur in the refreshed fixture's data. Treat it
+  (and a missing field) as unknown rather than as `0`.
+- **Older DBs have no column at all.** The three July `examples/*.db` fixtures predate it,
+  so a DB import must tolerate its absence — the same "unknown" state as `-1`.
+
+**On the wire, inbox rows carry the flag only in the enveloped shape.** In the capture, the
 nested inbox-item shape includes `variantId` on all 22 rows (2 of them flagged), while the
 flat-shape `inboxArtifacts` packet omits the field on every row. Absent therefore cannot be
-read as "not anomalous" for inbox gear — it may simply be the shape that dropped it. Also
-still open: whether other `variantId` values exist for future item variants (only `0` and
-`1` observed).
+read as "not anomalous" for inbox gear — it may simply be the shape that dropped it. (The
+SQL side has no such split: `InboxArtifacts.VARIANTID` is always present.) Also still open:
+whether other `variantId` values exist for future item variants (only `0` and `1` observed
+in data, plus the `-1` default).
 
 ### From the announcement
 
