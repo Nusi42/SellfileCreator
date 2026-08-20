@@ -263,9 +263,11 @@ export function resolveAutoRarityCode(recipe: BuilderRecipe): RarityCode {
 // fixed per rank (5★ 1.25%, 6★ 1.5%), so the tier's value is simultaneously the minimum,
 // the maximum and the step. Mirrored by factory_minima_for_star in
 // wasm/rule_engine_core/src/recipe_builder.rs.
-const anomalousFactoryMinimaForStar = (star: number): Record<number, number> => Object.fromEntries(
-  ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => [variant, anomalousRollValueForRank(star)]),
-)
+const anomalousFactoryMinimaForStar = (star: number): Record<number, number> => {
+  // Rank-invariant across the eight variants — resolve once, exactly like the Rust mirror does.
+  const value = anomalousRollValueForRank(star)
+  return Object.fromEntries(ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => [variant, value]))
+}
 
 // Derive factory-default minima from roll ranges (min per roll = factory default for a fresh substat).
 // Each star tier maps stat variant → lowest natural roll for that tier, plus that tier's

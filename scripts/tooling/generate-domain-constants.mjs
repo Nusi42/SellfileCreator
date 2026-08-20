@@ -735,7 +735,7 @@ tsLines.push(
 tsLines.push('// Per-rank per-line percent. 5★=1.25 and 6★=1.5 are observed; the step is uniform')
 tsLines.push('// and FIXED, so a line is always this value × its line count — no roll variance.')
 tsLines.push(
-  `export const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: Record<number, number> = { ${anomalousRollValueEntries.map(([rank, value]) => `${rank}: ${value}`).join(', ')} }`
+  `export const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: Readonly<Record<number, number>> = Object.freeze({ ${anomalousRollValueEntries.map(([rank, value]) => `${rank}: ${value}`).join(', ')} })`
 )
 tsLines.push('// The top rank\'s single-line value — the denominator that normalizes an anomalous')
 tsLines.push('// line onto the same 0..1-per-line scale as the classic 6★ per-roll maxima.')

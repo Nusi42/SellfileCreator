@@ -196,7 +196,7 @@ export const ARTIFACT_SET_IDS = { Life: 1, Offense: 2, Defense: 3, Speed: 4, Cri
 export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { pveDmgPlus: 11, pvpDmgPlus: 12, bossDmgPlus: 13, dungeonDmgPlus: 14, pveDmgMinus: 15, pvpDmgMinus: 16, bossDmgMinus: 17, dungeonDmgMinus: 18 } as const
 // Per-rank per-line percent. 5★=1.25 and 6★=1.5 are observed; the step is uniform
 // and FIXED, so a line is always this value × its line count — no roll variance.
-export const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: Record<number, number> = { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1, 5: 1.25, 6: 1.5 }
+export const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: Readonly<Record<number, number>> = Object.freeze({ 1: 0.25, 2: 0.5, 3: 0.75, 4: 1, 5: 1.25, 6: 1.5 })
 // The top rank's single-line value — the denominator that normalizes an anomalous
 // line onto the same 0..1-per-line scale as the classic 6★ per-roll maxima.
 export const ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX = 1.5

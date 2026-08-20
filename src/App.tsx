@@ -9407,7 +9407,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Horizontal is NOT clipped here. Outside side-by-side the app is a single column that can
         // legitimately be wider than a narrow window (e.g. the builder grid at its 220px-per-column
         // floor), and the user must be able to reach that content — #root below owns that scrollbar.
-        // The clip is re-applied for side-by-side only, where the full-bleed 100vw header/canvas
+        // The clip is re-applied for side-by-side only (in the media block BELOW the #root rule —
+        // it must come last to win on equal specificity), where the full-bleed 100vw header/canvas
         // spans include the scrollbar gutter and would otherwise let a momentary vertical scrollbar
         // spawn a spurious horizontal one. ('clip' forbids scrolling without creating a scroll
         // container, which 'hidden' would not.)
@@ -9416,10 +9417,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         },
         body: {
           overflowY: 'hidden',
-        },
-        [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
-          html: { overflowX: 'clip' },
-          '#root': { overflowX: 'clip' },
         },
         // #root is the app's single vertical scroll container and carries the fixed
         // decorative edge gap. scrollbar-gutter:stable both-edges reserves symmetric
@@ -9439,6 +9436,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           overflowX: 'auto',
           scrollbarGutter: 'stable both-edges',
           padding: `${APP_EDGE_GAP_PX}px`,
+        },
+        // Side-by-side only: re-apply the horizontal clip on html and #root. MUST stay AFTER the
+        // base html/#root rules above — a media query adds no specificity, so declaring it earlier
+        // would let the later `overflow-x: auto` win and the clip would never take effect.
+        [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
+          html: { overflowX: 'clip' },
+          '#root': { overflowX: 'clip' },
         },
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',

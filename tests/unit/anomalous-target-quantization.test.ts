@@ -132,10 +132,12 @@ test('spinner step and gear-line minimum are distinct from the wire resolution',
 })
 
 test('gear line values use one resolution+floor rule for editor input and re-normalization', () => {
-  // Anomalous lines keep their decimals and never fall below one minimum roll.
+  // Anomalous lines keep their decimals and never fall below one minimum roll. With no
+  // rank in scope the floor is the LOWEST rank's line value, so it holds at every rank —
+  // same SSOT the previous test pins (ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN).
   assert.equal(clampGearLineValue(PVE_PLUS, 2.6), 2.6)
-  assert.equal(clampGearLineValue(PVE_PLUS, 0.1), 1.25)
-  assert.equal(clampGearLineValue(PVE_PLUS, 0), 1.25)
+  assert.equal(clampGearLineValue(PVE_PLUS, 0.1), ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN)
+  assert.equal(clampGearLineValue(PVE_PLUS, 0), ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN)
   // Classic lines stay integral with the historical >=1 floor.
   assert.equal(clampGearLineValue(StatVariant.SPD, 4.4), 4)
   assert.equal(clampGearLineValue(StatVariant.SPD, 0.2), 1)
