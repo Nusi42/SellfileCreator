@@ -108,6 +108,7 @@ import {
 import {
   BUILDER_LABEL_TEXT_SX,
   BUILDER_STATUS_CHIP_HEIGHT_PX,
+  BUILDER_SECTION_GRID_BADGE_PAD_PX,
   BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
   builderSectionLabelSx,
   COMPACT_HEADER_ACTION_BUTTON_SX,
@@ -2178,6 +2179,19 @@ export default function SafeguardBuilderPanel({
           gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))',
           columnGap: 1,
           rowGap: 1,
+          // Same overflowX:'clip' trick as the chip rows below — decorative overhangs
+          // (transform-scaled badges, hover glows) may paint past their layout slot but must
+          // not count toward the scroll wrapper above, where they would raise a horizontal
+          // scrollbar. Mirrors RecipeBuilderPanel's grid (see there for the full rationale).
+          // overflowY stays visible so badges above the rows are not cut.
+          overflowX: 'clip',
+          // Clip-edge headroom for badge overhangs, matching the recipe builder's grid (SSOT:
+          // BUILDER_SECTION_GRID_BADGE_PAD_PX) so the two builders keep identical geometry.
+          pr: `${BUILDER_SECTION_GRID_BADGE_PAD_PX}px`,
+          // Required companion to the clip: the grid's own box must carry the track floor,
+          // or the clip would swallow the column overflow and kill the intended
+          // splitter-too-far-left scrollbar. See RecipeBuilderPanel's grid.
+          minWidth: 'min-content',
         }}
       >
 

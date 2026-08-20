@@ -262,10 +262,23 @@ export const ROLL_BADGE_HOVER_GUTTER_PX = 6
 // circle via CSS transform so labels remain unaffected.
 export const ROLL_BADGE_SCALE = 1.35
 // Horizontal nudge of the scaled badge, as a fraction of its right-side scale
-// overflow (SIZE × (SCALE−1) / 2). 1 would shift by the full overflow half
-// (16px × 0.35 / 2 = 2.8px); 0.75 pulls it back to 2.1px so the enlarged
-// circle sits visually centered in its gutter instead of hugging the edge.
-export const ROLL_BADGE_TRANSLATE_OVERFLOW_FACTOR = 0.75
+// overflow (SIZE × (SCALE−1) / 2 = 2.8px). 1 shifts by the full overflow half; values
+// above 1 deliberately push the enlarged circle PAST the button's right border — the
+// design wants the badge to visibly overhang its chip. 1.5 shifts 4.2px, which after the
+// 4px gutter margin + 1px button border leaves the circle poking ~2px past the button.
+// That overhang is safe against the builders' scroll wrappers because the section grids
+// carry overflowX:'clip' (so transformed bounds never count as scrollable overflow) plus
+// BUILDER_SECTION_GRID_BADGE_PAD_PX of right padding (so the clip edge sits past the
+// overhang and the rightmost button's badge is not flat-cut). Grow that pad if this
+// factor ever pushes the overhang beyond it.
+export const ROLL_BADGE_TRANSLATE_OVERFLOW_FACTOR = 1.5
+
+// Right padding on the builder section grids (recipe + safeguard). The grids clip
+// horizontally (overflowX:'clip') to keep decorative overhangs out of the scroll wrapper's
+// scrollable overflow; this pad moves the clip edge right so the roll badge's intentional
+// ~2px overhang (see ROLL_BADGE_TRANSLATE_OVERFLOW_FACTOR) still paints in full on the
+// rightmost button. Must stay ≥ the badge overhang plus ~1px sub-pixel slack.
+export const BUILDER_SECTION_GRID_BADGE_PAD_PX = 4
 
 export const RECIPE_CHIP_BORDER_RADIUS_PX = 8
 export const RECIPE_CHIP_VERTICAL_PADDING_PX = 3
