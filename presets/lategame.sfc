@@ -280,6 +280,9 @@
       "appearance": {
         "name": "Anomalous"
       },
+      "Tags": [
+        "ignore_by_safeguards"
+      ],
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
