@@ -23,7 +23,49 @@ import {
   type ChampionLookup,
   type LastUsedLookup,
 } from './gearDbLookups'
-import type { GearDbRawSnapshotCommand } from '../externalCommands'
+import { mergeChampionRows } from './gearDbLookups'
+import type { GearDbPartCommand, GearDbRawSnapshotCommand } from '../externalCommands'
+
+/**
+ * Accumulator for the streamed per-type gear packets. Each packet replaces (or, for
+ * champions, merges into) exactly one slot; a snapshot is synthesized from whatever
+ * slots are populated so partial bursts are never dropped.
+ */
+export type GearDbRawParts = {
+  artifacts: GearDbArtifactRow[] | null
+  inboxArtifacts: GearDbArtifactRow[] | null
+  champions: GearDbChampionRow[] | null
+  lastUsed: GearDbLastUsedRow[] | null
+  // Inverse of the per-champion slot map (artifactId → championId) used to patch cID.
+  // Written by BOTH equip feeds — see applyGearDbPartToSlots for the precedence rule.
+  equippedByArtifact: Map<number, number> | null
+}
+
+/**
+ * SSOT for "which slot does this packet write, and how". Both the immediate handler
+ * (App's handleGearDbRawPart) and the burst-coalescing fast path in the drain loop route
+ * here, so the two can never drift on merge-vs-replace semantics.
+ */
+export const applyGearDbPartToSlots = (parts: GearDbRawParts, cmd: GearDbPartCommand): void => {
+  if (cmd.kind === 'gearDbArtifacts') {
+    parts.artifacts = cmd.artifacts
+  } else if (cmd.kind === 'gearDbChampions') {
+    // Champions merge (RSL Helper may send sparse rosters); equips come along for free.
+    parts.champions = mergeChampionRows(cmd.champions, parts.champions)
+    parts.equippedByArtifact = cmd.equippedByArtifact
+  } else if (cmd.kind === 'gearDbInboxArtifacts') {
+    parts.inboxArtifacts = cmd.inboxArtifacts
+  } else if (cmd.kind === 'gearDbEquipped') {
+    // ArtifactByHeroID is the equip feed that fires on gear moves, where no `champions`
+    // packet follows. It is a COMPLETE equip map (verified against captures: identical to
+    // the champions slot maps when both arrive), so it replaces the previous mapping
+    // outright — a stale entry would otherwise pin gear to the champion it just left.
+    parts.equippedByArtifact = cmd.equippedByArtifact
+  } else {
+    // gearDbLastUsed — the only remaining variant.
+    parts.lastUsed = cmd.lastUsed
+  }
+}
 
 /**
  * Patch equipped-champion ids (cID) onto artifact rows using the champion slot map.

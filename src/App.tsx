@@ -33,12 +33,10 @@ import {
   // Aliased so the React state setter can follow the setX naming convention without conflict.
   setRslHelperConnectEnabled as persistRslHelperConnectEnabled,
 } from './lib/externalWsProtocol'
+import { isGearDbPartCommand } from './lib/externalCommands'
 import type {
   ExternalCommand,
-  GearDbArtifactsCommand,
-  GearDbChampionsCommand,
-  GearDbInboxArtifactsCommand,
-  GearDbLastUsedCommand,
+  GearDbPartCommand,
   GearDbRawSnapshotCommand,
 } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
@@ -351,11 +349,13 @@ import { ALLOW_TEST_HOOKS } from './lib/testHooks'
 import { evaluateFirst, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromArrayBuffer, importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
+  applyGearDbPartToSlots,
   buildArtifactRevisionMap,
   buildRestoredGearDbBaselines,
   patchArtifactRowsCID,
   createDatasetFromSnapshot,
   type GearDbRawDataset,
+  type GearDbRawParts,
 } from './lib/importers/gearDbRawDataset'
 import {
   mergeChampionRows,
@@ -740,15 +740,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const gearDbBinarySnapshotCacheRef = useRef<Map<number, GearArtifactSnapshot> | null>(null)
   // Accumulator for the separate per-type messages (artifacts/champions/inboxArtifacts/lastUsed).
   // Each arrival synthesizes a snapshot immediately so partial updates are never dropped.
-  const gearDbRawPartsRef = useRef<{
-    artifacts: GearDbArtifactRow[] | null
-    inboxArtifacts: GearDbArtifactRow[] | null
-    champions: GearDbChampionRow[] | null
-    lastUsed: GearDbLastUsedRow[] | null
-    // Inverse of the per-champion artifacts slot map; populated by gearDbChampions
-    // so artifacts can have their cID field patched at snapshot-synthesis time.
-    equippedByArtifact: Map<number, number> | null
-  }>({ artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null, equippedByArtifact: null })
+  const gearDbRawPartsRef = useRef<GearDbRawParts>(
+    { artifacts: null, inboxArtifacts: null, champions: null, lastUsed: null, equippedByArtifact: null },
+  )
   const [gearInspectorItems, setGearInspectorItems] = useState<GearInspectorItem[]>(
     // eslint-disable-next-line react-hooks/refs -- mount-only initializer; the id ref is seeded above and read once here, not on re-renders
     () => {
@@ -4929,28 +4923,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
-  // Handles the four separate per-type messages (artifacts / champions / inboxArtifacts / lastUsed).
-  // Each message updates one slot of gearDbRawPartsRef and immediately synthesizes a snapshot so
-  // that partial updates are never silently dropped — the endpoint may only send one or two types.
-  // Missing slots default to empty arrays, so an "artifacts-only" message produces a valid result
-  // with no champions or lastUsed data until those messages arrive.
-  const handleGearDbRawPart = useCallback((
-    cmd: GearDbArtifactsCommand | GearDbChampionsCommand | GearDbInboxArtifactsCommand | GearDbLastUsedCommand,
-  ) => {
+  // Handles the streamed per-type messages (artifacts / champions / inboxArtifacts /
+  // lastUsed / ArtifactByHeroID equips). Each message updates one slot of gearDbRawPartsRef
+  // and immediately synthesizes a snapshot so that partial updates are never silently
+  // dropped — the endpoint may only send one or two types. Missing slots default to empty
+  // arrays, so an "artifacts-only" message produces a valid result with no champions or
+  // lastUsed data until those messages arrive.
+  const handleGearDbRawPart = useCallback((cmd: GearDbPartCommand) => {
     const parts = gearDbRawPartsRef.current
-    // Apply the incoming collection to the appropriate slot.
-    if (cmd.kind === 'gearDbArtifacts') {
-      parts.artifacts = cmd.artifacts
-    } else if (cmd.kind === 'gearDbChampions') {
-      parts.champions = mergeChampionRows(cmd.champions, parts.champions)
-      // Store the inverse slot map so artifacts can be patched with cID below.
-      parts.equippedByArtifact = cmd.equippedByArtifact
-    } else if (cmd.kind === 'gearDbInboxArtifacts') {
-      parts.inboxArtifacts = cmd.inboxArtifacts
-    } else {
-      // gearDbLastUsed — the only remaining variant.
-      parts.lastUsed = cmd.lastUsed
-    }
+    // Apply the incoming collection to the appropriate slot (shared SSOT — the
+    // burst-coalescing fast path in drainEndpointPushQueue calls the same helper).
+    applyGearDbPartToSlots(parts, cmd)
     // Patch cID on artifact rows using the champion slot map when available.
     // The endpoint reverses the relationship — champions list their artifacts
     // instead of artifacts carrying their equipped-champion id (cID).
@@ -6686,15 +6669,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ])
 
   // Endpoint pushes that mutate Gear Inspector/preview state must run in strict sequence.
-  type EndpointPushCommand = Extract<ExternalCommand, {
-    kind:
-      | 'gearDbFileBinary'
-      // Per-type messages that build up a synthetic snapshot through accumulation.
-      | 'gearDbArtifacts'
-      | 'gearDbChampions'
-      | 'gearDbInboxArtifacts'
-      | 'gearDbLastUsed'
-  }>
+  // The binary-DB transport plus every streamed per-type packet (GearDbPartCommand is
+  // the SSOT for the latter, so a new packet type joins this union automatically).
+  type EndpointPushCommand = Extract<ExternalCommand, { kind: 'gearDbFileBinary' }> | GearDbPartCommand
   // Queue stores push commands while a prior push is still settling.
   const endpointPushQueueRef = useRef<EndpointPushCommand[]>([])
   // Guard ensures only one queue-drain loop runs at a time.
@@ -6767,12 +6744,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Per-type partial messages — each one immediately synthesizes a snapshot from the
     // accumulated parts, so every arrival triggers a Gear Inspector update.
-    if (
-      cmd.kind === 'gearDbArtifacts'
-      || cmd.kind === 'gearDbChampions'
-      || cmd.kind === 'gearDbInboxArtifacts'
-      || cmd.kind === 'gearDbLastUsed'
-    ) {
+    if (isGearDbPartCommand(cmd)) {
       handleGearDbRawPart(cmd)
       // Same as the snapshot path: fresh gear is now authoritative.
       setEndpointGearDataApplied(true)
@@ -6796,30 +6768,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // queued right after this one, merge only the ref slot here and skip
           // the snapshot/settle cycle — the burst is not complete yet.
           // This avoids triggering the worker N times for a single 4-part burst.
-          const isPartCmd = (
-            next.kind === 'gearDbArtifacts'
-            || next.kind === 'gearDbChampions'
-            || next.kind === 'gearDbInboxArtifacts'
-            || next.kind === 'gearDbLastUsed'
-          )
-          if (isPartCmd) {
+          if (isGearDbPartCommand(next)) {
             const queueHead = endpointPushQueueRef.current[0]
-            const morePartsFollow = queueHead && (
-              queueHead.kind === 'gearDbArtifacts'
-              || queueHead.kind === 'gearDbChampions'
-              || queueHead.kind === 'gearDbInboxArtifacts'
-              || queueHead.kind === 'gearDbLastUsed'
-            )
+            const morePartsFollow = queueHead && isGearDbPartCommand(queueHead)
             if (morePartsFollow) {
-              // Accumulate without processing; let the final burst element trigger the snapshot.
-              const parts = gearDbRawPartsRef.current
-              if (next.kind === 'gearDbArtifacts') parts.artifacts = next.artifacts
-              else if (next.kind === 'gearDbChampions') {
-                parts.champions = mergeChampionRows(next.champions, parts.champions)
-                // Keep equippedByArtifact in sync with the champion slot maps.
-                parts.equippedByArtifact = next.equippedByArtifact
-              } else if (next.kind === 'gearDbInboxArtifacts') parts.inboxArtifacts = next.inboxArtifacts
-              else parts.lastUsed = next.lastUsed
+              // Accumulate without processing; let the final burst element trigger the
+              // snapshot. Slot assignment is the shared SSOT so this fast path and
+              // handleGearDbRawPart can never disagree about how a packet is stored.
+              applyGearDbPartToSlots(gearDbRawPartsRef.current, next)
               continue
             }
           }
@@ -6865,12 +6821,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Full-snapshot binary entries are superseded by the incoming binary.
         if (entry.kind === 'gearDbFileBinary') { coalesceTo = i; continue }
         // Per-type part commands are superseded by an incoming full binary.
-        if (
-          entry.kind === 'gearDbArtifacts'
-          || entry.kind === 'gearDbChampions'
-          || entry.kind === 'gearDbInboxArtifacts'
-          || entry.kind === 'gearDbLastUsed'
-        ) { coalesceTo = i; continue }
+        if (isGearDbPartCommand(entry)) { coalesceTo = i; continue }
         break
       }
       // Remove the superseded suffix so its Uint8Array buffers can be GC'd.
@@ -6883,12 +6834,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // matters. Drop any pending entry of the SAME kind so we retain a single live
     // copy per type instead of N. We only coalesce same-kind entries (not across
     // types), preserving the relative order of the other pending part messages.
-    else if (
-      cmd.kind === 'gearDbArtifacts'
-      || cmd.kind === 'gearDbInboxArtifacts'
-      || cmd.kind === 'gearDbChampions'
-      || cmd.kind === 'gearDbLastUsed'
-    ) {
+    else if (isGearDbPartCommand(cmd)) {
       for (let i = queue.length - 1; i >= 0; i -= 1) {
         const entry = queue[i]
         if (!entry) break
@@ -7005,6 +6951,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (cmd.kind === 'gearDbLastUsed') {
+      enqueueEndpointPush(cmd)
+      return
+    }
+    // ArtifactByHeroID — equip-only updates, the sole feed for gear moves.
+    if (cmd.kind === 'gearDbEquipped') {
       enqueueEndpointPush(cmd)
       return
     }

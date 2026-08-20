@@ -127,6 +127,9 @@ export const EXTERNAL_WS_EVENT_GEAR_DB_ARTIFACTS = 'artifacts'
 export const EXTERNAL_WS_EVENT_GEAR_DB_CHAMPIONS = 'champions'
 export const EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS = 'inboxArtifacts'
 export const EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED = 'lastUsed'
+// Equip-only feed: { championId: { slot: artifactId } }. Pushed on every gear move,
+// unlike `champions`, which RSL Helper only re-sends when a champion itself changes.
+export const EXTERNAL_WS_EVENT_GEAR_DB_EQUIPPED = 'ArtifactByHeroID'
 
 // Limit accepted event values so callers do not drift.
 export type ExternalWsEventName =
@@ -136,6 +139,7 @@ export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_CHAMPIONS
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_INBOX_ARTIFACTS
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_EQUIPPED
 
 // Only JSON-RPC is supported; keep the type alias for call-site clarity.
 export type ExternalWsProtocol = typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC

@@ -331,7 +331,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiAscendedTip: "Процент предметов хотя бы с одним уровнем вознесения.",
   gearAnalyticsKpiArtifacts: "Артефакты",
   gearAnalyticsKpiAccessories: "Аксессуары",
-  gearAnalyticsKpiItemCountsTip: "Количество артефактов (слева) и аксессуаров (справа) в текущем виде.",
+  gearAnalyticsKpiItemCountsTip: "Количество артефактов (слева) и аксессуаров (справа) в текущем виде. Приглушённое число показывает аномальные аксессуары, уже учтённые в общем количестве аксессуаров.",
   gearAnalyticsKpiEquippedVaultTip: "Процент надетых на любого чемпиона предметов (слева) и заблокированных у чемпионов в хранилище (справа).",
   gearAnalyticsCopySnapshotTip: "Сохранить текущий аналитический вид как PNG и скопировать в буфер обмена.",
   gearAnalyticsCopySnapshot: "Копировать снимок",

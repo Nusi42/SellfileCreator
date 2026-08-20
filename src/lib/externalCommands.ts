@@ -41,6 +41,7 @@ export type ExternalCommand =
   | GearDbChampionsCommand
   | GearDbInboxArtifactsCommand
   | GearDbLastUsedCommand
+  | GearDbEquippedCommand
 
 // Internal synthetic snapshot — accumulates per-type parts so downstream helpers
 // can process a complete four-table dataset from a single entry point.
@@ -88,6 +89,38 @@ export type GearDbLastUsedCommand = {
   playerId?: string | null
   playerName?: string | null
 }
+// `ArtifactByHeroID` — the authoritative equip feed. RSL Helper pushes this (with a
+// companion `artifacts` packet) on every gear move, while `champions` is only re-sent
+// when a *champion* changes. Carrying only the equip mapping, it updates cID without
+// touching champion metadata, so a gear move no longer waits for a champions packet.
+export type GearDbEquippedCommand = {
+  kind: 'gearDbEquipped'
+  // Same inverse mapping as the champions command: artifactId → championId.
+  equippedByArtifact: Map<number, number>
+  playerId?: string | null
+  playerName?: string | null
+}
+
+// The per-type gear packets RSL Helper streams individually (as opposed to the
+// combined binary-DB transport). Each carries one collection that accumulates into a
+// synthetic snapshot.
+export type GearDbPartCommand =
+  | GearDbArtifactsCommand
+  | GearDbChampionsCommand
+  | GearDbInboxArtifactsCommand
+  | GearDbLastUsedCommand
+  | GearDbEquippedCommand
+
+// SSOT for "is this one of the streamed per-type gear packets". The accumulator, the
+// queue coalescer, the drain loop and the background account-push all gate on this, so
+// adding a packet type here wires it into every path at once.
+export const isGearDbPartCommand = (cmd: ExternalCommand): cmd is GearDbPartCommand => (
+  cmd.kind === 'gearDbArtifacts'
+  || cmd.kind === 'gearDbChampions'
+  || cmd.kind === 'gearDbInboxArtifacts'
+  || cmd.kind === 'gearDbLastUsed'
+  || cmd.kind === 'gearDbEquipped'
+)
 
 const isObject = (value: unknown): value is UnknownRecord => (
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -224,11 +257,18 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     return command
   }
 
-  // `ArtifactByHeroID` is a known RSL Helper method (typeId → slotNumber → artifactId)
-  // that is intentionally ignored: the `champions` packet already carries per-instance
-  // slot maps (`artifacts: { slot: artifactId }`), making this endpoint redundant.
-  // If Helper ever drops the per-instance field in favour of this one, add a handler here
-  // that builds equippedByArtifact from the typeId-keyed map instead.
+  if (normalized === 'artifactbyheroid') {
+    // Params key matches the method name: { ArtifactByHeroID: { championId: { slot: artifactId } } }.
+    // This is the ONLY equip feed that tracks gear moves: RSL Helper re-sends `champions`
+    // just when a champion changes (vault move, level, ascension), whereas moving gear
+    // between champions pushes `ArtifactByHeroID` + `artifacts` alone. Consuming it keeps
+    // cID correct instead of showing stale equips until the next champions packet.
+    const rawMap = resolveEventCollection(payloadRecord, payload, 'ArtifactByHeroID', 'artifactByHeroID')
+    const equippedByArtifact = buildEquippedByArtifactFromHeroMap(rawMap)
+    const command: GearDbEquippedCommand = { kind: 'gearDbEquipped', equippedByArtifact, playerId, playerName }
+    return command
+  }
+
   // Unknown commands are ignored to keep the parser strict.
   return null
 }
@@ -387,6 +427,27 @@ const parseArtifactLogRow = (
   return result
 }
 
+// Invert one champion's { slot → artifactId } map into the shared artifact→champion
+// accumulator. SSOT for the inversion: both equip feeds (the `champions` slot maps and
+// the `ArtifactByHeroID` id-keyed map) carry the identical inner structure, so the
+// per-champion step is defined once here and driven by two different outer walkers.
+const addEquippedSlotMap = (
+  map: Map<number, number>,
+  championId: number,
+  slotMap: unknown,
+): void => {
+  // Guard the champion id and the slot container before walking.
+  if (!championId || championId <= 0) return
+  if (!isObject(slotMap)) return
+  // `slotMap` is { "1": artifactId, "2": artifactId, ... } — slot → artifact.
+  for (const artifactId of Object.values(slotMap)) {
+    const aid = toNumber(artifactId)
+    // Skip null/zero — those slots are empty.
+    if (!aid || aid <= 0) continue
+    map.set(aid, championId)
+  }
+}
+
 // Build the artifact→champion inverse map from raw champion array entries.
 // Each champion carries an `artifacts` object of shape { "1": artifactId, ... }
 // (slot number → artifact id). We invert it so artifact rows can look up which
@@ -399,16 +460,23 @@ const buildEquippedByArtifactMap = (value: unknown): Map<number, number> => {
     // Champion id may be `id` (endpoint) or `ID` (SQL dump) — resolve both.
     const rawId = getValueIgnoreCase(entry as UnknownRecord, 'id')
     const championId = toNumber(rawId)
-    if (!championId || championId <= 0) continue
-    // `artifacts` is { "1": artifactId, "2": artifactId, ... } — slot → artifact.
-    const slotMap = (entry as UnknownRecord).artifacts
-    if (!isObject(slotMap)) continue
-    for (const artifactId of Object.values(slotMap)) {
-      const aid = toNumber(artifactId)
-      // Skip null/zero — those slots are empty.
-      if (!aid || aid <= 0) continue
-      map.set(aid, championId)
-    }
+    // Delegate the inner inversion so both equip feeds stay in step.
+    addEquippedSlotMap(map, championId ?? 0, (entry as UnknownRecord).artifacts)
+  }
+  return map
+}
+
+// Build the same artifact→champion inverse map from the `ArtifactByHeroID` payload.
+// Shape is { championId: { slot: artifactId } } — an object keyed by champion instance
+// id (verified against captures: every key matches a `champions[].id`, never a typeId),
+// so the outer walk differs from the champions array but the inner inversion is shared.
+const buildEquippedByArtifactFromHeroMap = (value: unknown): Map<number, number> => {
+  const map = new Map<number, number>()
+  if (!isObject(value)) return map
+  for (const [rawChampionId, slotMap] of Object.entries(value as UnknownRecord)) {
+    // Keys arrive as JSON object strings; coerce to the numeric champion id.
+    const championId = toNumber(rawChampionId)
+    addEquippedSlotMap(map, championId ?? 0, slotMap)
   }
   return map
 }
@@ -440,11 +508,10 @@ const parseLastUsedArray = (value: unknown): GearDbLastUsedRow[] => {
 // Maps each SQL column to the alternate names the WebSocket payload may use.
 // Only WebSocket-canonical names are listed — `getValueIgnoreCase` already handles
 // case folding, so SQL-shaped names like `EmpLvl` don't need their own alias.
-// `Rarity` and `Name` ship under their canonical capitalisation — no alias needed.
+// `Rarity`, `Name` and `Affinity` ship under their canonical capitalisation (the latter
+// using the SQL encoding: 1=Magic, 2=Force, 3=Spirit, 4=Void) — no alias needed.
 // `BGrade` lives at the nested path `doubleAscend.grade` and is extracted by an
 // explicit fallback in `parseChampionRow`, so no flat alias is registered here.
-// `Affinity` is not yet sent by the helper; once it ships (planned, SQL encoding)
-// the canonical `Affinity` key will resolve directly.
 const CHAMPION_FIELD_ALIASES: Partial<Record<keyof GearDbChampionRow, readonly string[]>> = {
   HeroID: ['typeId'],        // WS variant/ascension ID
   Vault:  ['inStorage'],     // WS storage flag (boolean → 1/0)
@@ -517,23 +584,8 @@ const parseChampionRow = (value: unknown): GearDbChampionRow | null => {
       if (nestedGrade != null) row.BGrade = nestedGrade
     }
   }
-  // Dev-only signal: once RSL Helper starts including `Affinity` in the WebSocket
-  // payload, the per-field merge protection in `upsertChampionRow` becomes overhead.
-  // Log a one-shot warning so we notice and can simplify. The structural access
-  // through a typed alias keeps this safe under both the Vite-aware app tsconfig
-  // (where `import.meta.env` is typed) and the node-test tsconfig (where it isn't).
-  const importMetaEnv = (import.meta as { env?: { DEV?: boolean } }).env
-  if (importMetaEnv?.DEV && row.Affinity !== undefined && !affinityFromWebSocketWarned) {
-    affinityFromWebSocketWarned = true
-    console.warn(
-      '[champions] WebSocket payload now contains `Affinity` — the upsertChampionRow ' +
-      'merge protection for Affinity can be simplified or removed. See gearDbLookups.ts.'
-    )
-  }
   return row as GearDbChampionRow
 }
-// Module-scoped one-shot flag for the dev-only Affinity signal above.
-let affinityFromWebSocketWarned = false
 
 const parseLastUsedRow = (value: unknown): GearDbLastUsedRow | null => {
   if (!isObject(value)) return null

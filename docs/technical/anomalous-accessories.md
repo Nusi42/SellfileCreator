@@ -61,6 +61,56 @@ exports.
 | All lines `fl = 0` (percent), values scale by 2³² with ×100 display conversion (±53687091 → 1.25%) | Observed |
 | Rank-5 base per line = **1.25%** at zero rolls | Observed |
 | A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
+| **`variantId = 1` on the wire artifact row flags the piece as anomalous** — it is an intrinsic item property, independent of which substats rolled | Observed (capture `session_260820_205150.539`: 32 of 8,428 rows) |
+
+#### `variantId` — the authoritative anomalous flag
+
+The `artifacts` / `inboxArtifacts` wire rows carry a `variantId` field (see
+[WebSocket Protocol](websocket-jsonrpc.md#artifactlog-row-schema)). It is `0` on ordinary
+gear and `1` on anomalous accessories. **This is the item's own "is anomalous" flag, and
+the only reliable way to detect one.**
+
+Being anomalous does **not** require the piece to carry any anomalous substat — the
+mode-damage boons are what such a piece *may* roll, not what makes it one. The
+announcement already implies this ("may include one **or a combination** of new boons"),
+and the capture bears it out: among the 32 flagged pieces, the anomalous-substat count
+ranges from **1 to 4 lines** (e.g. artifacts 264538, 264893, 264980, 265017 each carry a
+single one). Nothing prevents a roll of zero; the sample simply has not produced one yet.
+
+Neither of the weaker signals identifies a piece on its own:
+
+| Candidate test | Why it fails |
+| --- | --- |
+| "carries a mode-damage substat" (`hasAnomalousSubstat`) | Misses any flagged piece whose lines all rolled classic. Sound as the *display* question ("does this show a mode-damage line"), which is what it is used for — not as an identity test. |
+| "is in one of the nine eligible sets" | Vastly over-matches: the same capture has **2,902 non-anomalous rows sharing those exact nine `setKindId`s**. The sets are ordinary sets that anomalous pieces also use. |
+| "is an accessory slot / rank 5–6" | Same problem, one order of magnitude worse. |
+
+In the capture the flag and the substat test agree perfectly in both directions (all 32
+flagged rows carry ≥1 anomalous substat; none of the 8,396 unflagged rows carry any), so
+today's substat-based marker produces correct output. That agreement is a property of
+this sample, not a guarantee — treat `variantId` as the ground truth.
+
+**Currently unwired.** The ingest path does not read `variantId` yet
+(`parseArtifactLogRow` in `externalCommands.ts` does not map it, and
+`NormalizedGearArtifact` has no field for it), so the Gear Inspector's dashed-frame marker
+still infers anomalousness from substats via `hasAnomalousSubstat`. Wiring the flag through
+would make the marker exact and give the builder/filters a true "is anomalous" predicate
+that is independent of rolls.
+
+**The WebSocket and SQL paths are asymmetric here.** The `Artifacts` table in the RSL
+Helper SQLite dump has **no** variant column (verified against the `examples/*.db`
+fixtures: `ID, price, rank, type, lvl, mid, …, ASCLEVEL, REROLLCOUNT, ISSEEN`). So a
+`variantId`-based predicate is only satisfiable on the WebSocket path today; a DB import
+would have to fall back to the substat heuristic, and the two paths would disagree for a
+flagged piece that rolled no anomalous line. Resolve that before making the flag
+load-bearing anywhere a user can see the difference.
+
+**Inbox rows carry the flag only in the enveloped shape.** In the same capture, the
+nested inbox-item shape includes `variantId` on all 22 rows (2 of them flagged), while the
+flat-shape `inboxArtifacts` packet omits the field on every row. Absent therefore cannot be
+read as "not anomalous" for inbox gear — it may simply be the shape that dropped it. Also
+still open: whether other `variantId` values exist for future item variants (only `0` and
+`1` observed).
 
 ### From the announcement
 

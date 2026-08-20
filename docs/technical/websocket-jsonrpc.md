@@ -200,7 +200,7 @@ Push the SQLite DB as a binary WebSocket frame to avoid base64 overhead.
 - The next WebSocket frame must be binary and contains the raw SQLite bytes.
 - The binary frame is associated with the most recent `gearDbFileBinary` notification.
 
-RSL Helper sends each data type as a separate notification; they may arrive in any order and are merged as received.
+Each data type is sent as a separate notification; they may arrive in any order and are merged as received.
 
 ### artifacts
 
@@ -232,8 +232,7 @@ Equipped and stored gear from the main inventory.
 
 Gear sitting in the inbox (not yet moved to inventory). Same row schema as `artifacts`.
 
-RSL Helper sends this notification in **two observed shapes**, and the importer
-accepts both:
+This notification appears in **two observed shapes**, and the importer accepts both:
 
 1. **Flat shape** — `inboxArtifacts` is a plain array of ArtifactLog rows (identical to
    `artifacts`).
@@ -308,7 +307,7 @@ Champion roster. Provides display names and equipped-slot context.
   | `typeId` | `Champs.HeroID` | variant/ascension ID (e.g. `2066`); base hero ID is derived as `Math.floor(typeId / 10) * 10` |
   | `Name` | `Champs.Name` | display name (optional; a server may include it on every message) |
   | `Rarity` | `Champs.Rarity` | rarity tier 1–6 (optional; a server may include it on every message) |
-  | `Affinity` | `Champs.Affinity` | **planned but not yet sent** — once shipped, will use the SQL encoding 1=Magic, 2=Force, 3=Spirit, 4=Void |
+  | `Affinity` | `Champs.Affinity` | affinity code, SQL encoding 1=Magic, 2=Force, 3=Spirit, 4=Void (optional; a server may include it on every message) |
   | `grade` | `Champs.Rang` | current yellow-star count (1–6) — **not** the blessing grade |
   | `level` | `Champs.Lvl` | champion XP level 1–60 |
   | `empower` | `Champs.EmpLvl` | empowerment level 0–4 |
@@ -324,13 +323,13 @@ Champion roster. Provides display names and equipped-slot context.
   {
     "id":37727,"typeId":2066,"grade":6,"level":60,"empower":0,
     "doubleAscend":{"grade":0,"blessingId":0,"freeResetUsed":false},
-    "Name":"Warpriest","Rarity":3,
+    "Name":"Warpriest","Rarity":3,"Affinity":3,
     "inStorage":true,"artifacts":{"1":71830,"2":101913,"5":123429}
   },
   {
     "id":2742,"typeId":36,"grade":6,"level":60,"empower":2,
     "doubleAscend":{"grade":4,"blessingId":102,"freeResetUsed":false},
-    "Name":"Athel","Rarity":5,
+    "Name":"Athel","Rarity":5,"Affinity":2,
     "inStorage":false,"artifacts":{"1":235431,"3":312005}
   }
 ]}}
@@ -338,17 +337,26 @@ Champion roster. Provides display names and equipped-slot context.
 
 **Repeated champion messages merge by `id`.** When a later `champions` message
 omits a field, the value from an earlier message is kept (it is not cleared).
-So `Name` and `Rarity` are optional per message — a server may include them on
-every `champions` message, or send them once and omit them afterwards; both
-work. A field introduced later (e.g. a future `Affinity`) is likewise adopted
-when it first appears and retained thereafter.
+So `Name`, `Rarity` and `Affinity` are optional per message — a server may include
+them on every `champions` message, or send them once and omit them afterwards;
+both work. A field introduced later is likewise adopted when it first appears and
+retained thereafter.
+
+> **`champions` alone does not track gear movement.** A server emits `champions`
+> when a *champion* changes (vault move, level, ascension); moving gear between
+> champions is instead announced via [`ArtifactByHeroID`](#artifactbyheroid) plus
+> `artifacts`. A client that derives equips only from `champions[].artifacts`
+> will therefore show gear on the champion it has already left until the next champion
+> change. Consume `ArtifactByHeroID` to keep the mapping current.
 
 ### ArtifactByHeroID
 
-Inverse view of the equipped-artifact mapping already carried in `champions[].artifacts`. Observed in captures from RSL Helper but **currently ignored by the importer** — the same data is consumed via `champions` and re-deriving it from this method would duplicate logic. Documented here so future captures aren't mistaken for an unknown payload.
+The authoritative equipped-artifact mapping, and the **only** message that reflects gear moves. A server sends it (alongside an `artifacts` message) whenever gear is equipped, unequipped or swapped. It carries the same mapping as `champions[].artifacts` — the two agree exactly when both arrive — but is sent far more often, so it is the feed to rely on for equip state.
+
+Treat each message as a **complete replacement** of the equip mapping: an artifact that has been unequipped is simply absent from the payload rather than being reported as removed.
 
 **Params**
-- `ArtifactByHeroID` (object) — keys are champion instance ids (string-encoded numbers); values are objects mapping slot numbers (`"1"`–`"9"`) to the equipped artifact's instance id. Empty slots are absent from the inner map.
+- `ArtifactByHeroID` (object) — keys are champion instance ids (string-encoded numbers, matching `champions[].id`); values are objects mapping slot numbers (`"1"`–`"9"`) to the equipped artifact's instance id. Empty slots are absent from the inner map.
 
 **Example**
 ```json
@@ -386,6 +394,7 @@ Fields present in every artifact row from RSL Helper:
 | `rankId` | number | star rank (1–6) |
 | `rarityId` | number | rarity (1=common … 6=legendary) |
 | `setKindId` | number | set id |
+| `variantId` | number | item variant: `0` = ordinary gear, `1` = **Anomalous Accessory**. An intrinsic property of the piece — a value of `1` does not require the item to carry any mode-damage substat. Optional: present on `artifacts` rows and on enveloped `inboxArtifacts` rows; absent from flat-shape inbox rows, so a missing field means "not reported", not `0`. |
 | `requiredFraction` | number | faction restriction (0 = none) |
 | `level` | number | current upgrade level |
 | `ascendLevel` | number \| null | ascension tier (null if unascended) |

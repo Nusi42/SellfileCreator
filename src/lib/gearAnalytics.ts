@@ -11,6 +11,7 @@ import {
   type GearInspectorSourceFilter,
 } from './rulesFilter'
 import { isAccessorySlot, isDegenerateImprovChance } from './gearInspectorDomain'
+import { hasAnomalousSubstat } from './anomalousAccessories'
 import {
   artifactTypeNames,
   artifactTypeI18nKey,
@@ -627,6 +628,13 @@ export type GearAnalyticsKpis = {
   artifactCount: number | null
   /** Raw count of accessory pieces in the current view. */
   accessoryCount: number | null
+  /**
+   * Raw count of Anomalous Accessories in the current view — a SUBSET of accessoryCount,
+   * not a third category. Detected via hasAnomalousSubstat (the piece carries at least one
+   * mode-damage substat); the wire `variantId` flag would be exact but is not yet ingested.
+   * See docs/technical/anomalous-accessories.md.
+   */
+  anomalousCount: number | null
 }
 
 /**
@@ -637,10 +645,10 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
   const total = rows.length
   if (total === 0) {
     // All null: no data loaded yet.
-    return { sixStarLegendaryPlusRate: null, maxedRate: null, vaultLockedRate: null, chaosRate: null, glyphedRate: null, ascendedRate: null, equippedRate: null, artifactCount: null, accessoryCount: null }
+    return { sixStarLegendaryPlusRate: null, maxedRate: null, vaultLockedRate: null, chaosRate: null, glyphedRate: null, ascendedRate: null, equippedRate: null, artifactCount: null, accessoryCount: null, anomalousCount: null }
   }
 
-  let sixStarLegendaryPlus = 0, maxed = 0, vaultLocked = 0, chaosed = 0, glyphed = 0, ascended = 0, equipped = 0, artifacts = 0, accessories = 0
+  let sixStarLegendaryPlus = 0, maxed = 0, vaultLocked = 0, chaosed = 0, glyphed = 0, ascended = 0, equipped = 0, artifacts = 0, accessories = 0, anomalous = 0
 
   for (const row of rows) {
     const a = row.artifact
@@ -662,8 +670,12 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
     // Loose != null catches both null and undefined (optional chaining returns undefined when champion is null).
     if (a.equippedChampion?.id != null) equipped++
     // Artifacts vs accessories: split by slot type using the single-source-of-truth utility.
-    if (isAccessorySlot(a.slot)) accessories++
-    else artifacts++
+    if (isAccessorySlot(a.slot)) {
+      accessories++
+      // Anomalous pieces are a subset of accessories — counted inside this branch so the
+      // two can never drift apart (an anomalous piece is always an accessory).
+      if (hasAnomalousSubstat(a)) anomalous++
+    } else artifacts++
   }
 
   return {
@@ -676,6 +688,7 @@ export function computeGearAnalyticsKpis(rows: readonly GearInspectorPreviewRow[
     equippedRate: equipped / total,
     artifactCount: artifacts,
     accessoryCount: accessories,
+    anomalousCount: anomalous,
   }
 }
 

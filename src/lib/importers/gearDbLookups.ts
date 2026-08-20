@@ -16,7 +16,6 @@ import {
   coerceGearInspectorRarity,
 } from '../gearInspectorDomain'
 import { coerceLastUseValue } from './gearDbTime'
-import { championStaticRecord } from '../iconMaps/championStaticMap'
 
 export type ChampionLookup = Map<number, ChampionLookupRecord>
 export type LastUsedLookup = Map<number, string>
@@ -115,11 +114,12 @@ export const mergeChampionRowFields = (
 
 /**
  * Merge a whole incoming champion burst over the previously accumulated rows.
- * RSL Helper sends champions in two bursts: the first includes full metadata; the
- * second repeats the roster without it. Merging preserves omitted fields from the
- * prior message (per-field via {@link mergeChampionRowFields} — the SSOT for the
- * protected-field set), and champions present only in `existing` are carried
- * forward so a partial roster push never drops known champions.
+ * RSL Helper repeats `champions` several times per sync. Current Helper builds send
+ * full metadata every time, but the merge stays: rosters rebuilt from restored UI
+ * items are legitimately sparse, and older Helper versions omitted Rarity/Name/Affinity
+ * on the repeats. Omitted fields are preserved per-field via {@link mergeChampionRowFields}
+ * (the SSOT for the protected-field set), and champions present only in `existing` are
+ * carried forward so a partial roster push never drops known champions.
  * Shared by App's raw-parts accumulator AND the background account-push flow.
  */
 export const mergeChampionRows = (
@@ -139,28 +139,6 @@ export const mergeChampionRows = (
   // sparse roster push cannot drop champions known from an earlier message.
   for (const leftover of byId.values()) merged.push(leftover)
   return merged
-}
-
-// Track baseHeroIds already reported so the dev-only signal logs once per champion type
-// instead of once per owned instance (a roster carries many copies of the same type).
-const unknownStaticChampionsWarned = new Set<number>()
-
-// Dev-only: note a champion whose intrinsics (rarity/affinity/name) were missing from the
-// live feed AND absent from the static table — i.e. one we could add to the hardcoded map.
-// No-op in production builds. Logs formatted primitives so the line copies cleanly to chat.
-const noteUnknownStaticChampion = (baseHeroId: number | null, heroId: number | null): void => {
-  // The structural access keeps this safe under both the Vite app tsconfig (where
-  // import.meta.env is typed) and the node-test tsconfig (where it is not).
-  const importMetaEnv = (import.meta as { env?: { DEV?: boolean } }).env
-  if (!importMetaEnv?.DEV) return
-  // Skip ids we cannot key on, and ids already reported this session.
-  if (baseHeroId == null || unknownStaticChampionsWarned.has(baseHeroId)) return
-  unknownStaticChampionsWarned.add(baseHeroId)
-  console.log(
-    `[champion-static] no rarity/affinity for baseHeroId=${baseHeroId} (heroId=${heroId ?? 'n/a'}) ` +
-    `— champion newer than the source DBs; extend src/lib/iconMaps/championStaticMap.ts ` +
-    `by regenerating it from the examples/ DBs`
-  )
 }
 
 export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLookupRecord | null => {
@@ -185,26 +163,19 @@ export const championRowToLookupRecord = (row: GearDbChampionRow): ChampionLooku
     ? 'reserveVault'
     : (Number(row.Vault ?? 0) > 0 ? 'vault' : 'collection')
   const baseHeroId = sanitizeBaseHeroId(row.BaseHeroID)
-  // Static fallback for type-intrinsic fields the live feed may omit. RSL Helper's
-  // WebSocket `champions` push dropped Rarity/Affinity/Name; on a cold start there is
-  // no prior snapshot to merge from, so resolve them from baseHeroId here. Live values
-  // always win — the static record only fills a gap (see championStaticMap.ts).
-  const needsFallback = rarity === null || affinity === null || name === null || name.length === 0
-  const fallback = needsFallback ? championStaticRecord(baseHeroId) : undefined
-  // Dev-only signal: the live row lacked intrinsics AND baseHeroId is absent from the
-  // static table — a champion newer than the source DBs. Surface it (once per id) so we
-  // know our hardcoded table can be extended with this entry. See championStaticMap.ts
-  // for the provenance/encoding and how to regenerate.
-  if (needsFallback && !fallback) noteUnknownStaticChampion(baseHeroId, row.HeroID ?? null)
+  // Rarity/Affinity/Name now ship on every WebSocket `champions` row, so a missing value
+  // means the row genuinely lacks it (e.g. a baseline rebuilt from restored UI items) and
+  // is reported as null. The per-field merge in upsertChampionRow carries the last known
+  // value forward for those sparse rows — see its "Why" note.
   return {
     id,
-    name: name && name.length > 0 ? name : (fallback?.name ?? null),
+    name: name && name.length > 0 ? name : null,
     location,
     baseHeroId,
-    rarity: rarity ?? (fallback ? coerceGearInspectorRarity(fallback.rarity, 6) : null),
+    rarity,
     ascensionLevel,
     empowermentLevel,
-    affinity: affinity ?? (fallback?.affinity ?? null),
+    affinity,
     blessingGrade,
     starGrade,
     experienceLevel,
@@ -249,10 +220,11 @@ export const createChampionLookup = (
  * existing record already had. Distinct from "the new row explicitly set it
  * to null/0" — that case lets the new value through and clears the field.
  *
- * Why: live WebSocket updates do not currently include `Affinity`, so a refresh
- * after an initial SQL/JSON-snapshot load would otherwise null out the affinity.
- * The same protection applies to every champion-intrinsic field that may be
- * absent from a given payload (rarity, blessing grade, etc).
+ * Why: not every source carries every column. Live WebSocket `champions` rows now do
+ * include `Affinity`/`Rarity`/`Name`, but baselines rebuilt from restored UI items omit
+ * `Affinity`/`EmpLvl`/`BGrade` entirely, and older Helper builds omitted the intrinsics on
+ * repeat sends — without this, such a refresh would null out already-known values. The
+ * protection applies to every champion-intrinsic field that may be absent from a payload.
  */
 export const upsertChampionRow = (map: ChampionLookup, row: GearDbChampionRow): ChampionLookupRecord | null => {
   const record = championRowToLookupRecord(row)

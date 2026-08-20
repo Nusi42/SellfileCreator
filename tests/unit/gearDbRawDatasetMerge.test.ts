@@ -10,8 +10,10 @@ import {
   mergeLastUsedRows,
 } from '../../src/lib/importers/gearDbLookups.js'
 import {
+  applyGearDbPartToSlots,
   buildRestoredGearDbBaselines,
   createDatasetFromSnapshot,
+  type GearDbRawParts,
 } from '../../src/lib/importers/gearDbRawDataset.js'
 import type {
   GearDbChampionRow,
@@ -274,37 +276,70 @@ test('buildRestoredGearDbBaselines: reconstructs champions/lastUsed/equip map fr
   assert.equal(champions[0]?.HeroID, 702, 'HeroID = baseHeroId + ascensionLevel')
 })
 
-// Static-fallback coverage: RSL Helper's WebSocket `champions` push dropped the
-// Rarity/Affinity/Name fields. championRowToLookupRecord must backfill them from the
-// type-intrinsic static map (keyed by baseHeroId) so a cold-start sparse row still
-// resolves a rarity colour. baseHeroId 2060 = Warpriest, Rare(3), Spirit(3).
-test('championRowToLookupRecord backfills rarity/affinity/name from the static map', () => {
-  // Sparse row mirroring the live WS payload: id + ids only, no Rarity/Affinity/Name.
-  const sparse: GearDbChampionRow = { ID: 5, HeroID: 2066, BaseHeroID: 2060 } as GearDbChampionRow
-  const record = championRowToLookupRecord(sparse)
-  assert.ok(record, 'record built from sparse row')
-  assert.equal(record?.rarity, 3, 'rarity backfilled from static map (Warpriest = Rare)')
-  assert.equal(record?.affinity, 3, 'affinity backfilled from static map (Warpriest = Spirit)')
-  assert.equal(record?.name, 'Warpriest', 'name backfilled from static map')
-})
-
-test('championRowToLookupRecord keeps live values over the static fallback', () => {
-  // Live row that DOES carry Rarity/Affinity/Name — those must win over the static map.
+// Intrinsics now ship on every live `champions` row, so championRowToLookupRecord
+// reports them verbatim: no static backfill, and a sparse row (e.g. a baseline rebuilt
+// from restored UI items) honestly reads null rather than guessing from baseHeroId.
+// Carrying the last known value forward for those rows is upsertChampionRow's job.
+test('championRowToLookupRecord reads live rarity/affinity/name verbatim', () => {
   const live: GearDbChampionRow = {
     ID: 5, HeroID: 2066, BaseHeroID: 2060, Rarity: 5, Affinity: 4, Name: 'Custom Name',
   } as GearDbChampionRow
   const record = championRowToLookupRecord(live)
-  assert.equal(record?.rarity, 5, 'live rarity wins over static fallback')
-  assert.equal(record?.affinity, 4, 'live affinity wins over static fallback')
-  assert.equal(record?.name, 'Custom Name', 'live name wins over static fallback')
+  assert.equal(record?.rarity, 5, 'live rarity is used as-is')
+  assert.equal(record?.affinity, 4, 'live affinity is used as-is')
+  assert.equal(record?.name, 'Custom Name', 'live name is used as-is')
 })
 
-test('championRowToLookupRecord leaves unknown baseHeroId fields null (graceful)', () => {
-  // baseHeroId absent from the static table (champion newer than the source DBs):
-  // fields stay null so the UI degrades to no colour rather than guessing.
-  const unknown: GearDbChampionRow = { ID: 5, HeroID: 9999992, BaseHeroID: 9999990 } as GearDbChampionRow
-  const record = championRowToLookupRecord(unknown)
-  assert.equal(record?.rarity, null, 'unknown champion rarity stays null')
-  assert.equal(record?.affinity, null, 'unknown champion affinity stays null')
-  assert.equal(record?.name, null, 'unknown champion name stays null')
+test('championRowToLookupRecord leaves absent intrinsics null (graceful)', () => {
+  // Sparse row with no Rarity/Affinity/Name: fields stay null so the UI degrades to
+  // no colour rather than inventing a value from the base template id.
+  const sparse: GearDbChampionRow = { ID: 5, HeroID: 2066, BaseHeroID: 2060 } as GearDbChampionRow
+  const record = championRowToLookupRecord(sparse)
+  assert.ok(record, 'record built from sparse row')
+  assert.equal(record?.rarity, null, 'absent rarity stays null')
+  assert.equal(record?.affinity, null, 'absent affinity stays null')
+  assert.equal(record?.name, null, 'absent name stays null')
 })
+
+// ─── Equip-feed slot semantics (applyGearDbPartToSlots) ────────────────────────
+// Regression for stale equips: RSL Helper only re-sends `champions` when a CHAMPION
+// changes. Moving gear between champions pushes `ArtifactByHeroID` + `artifacts` only,
+// so before the equip feed was consumed the cID map stayed frozen at the last champions
+// packet and gear kept rendering on the champion it had already left.
+
+test('gearDbEquipped replaces the equip map without touching champion rows', () => {
+  const parts: GearDbRawParts = {
+    artifacts: null, inboxArtifacts: null, lastUsed: null,
+    champions: [{ ID: 501, HeroID: 5010, BaseHeroID: 5010, Name: 'Keeper' } as GearDbChampionRow],
+    // Prior equips as a champions packet would have left them.
+    equippedByArtifact: new Map([[9001, 501], [9002, 501]]),
+  }
+  // Gear move: artifact 9002 leaves champion 501; the new map simply omits it.
+  applyGearDbPartToSlots(parts, {
+    kind: 'gearDbEquipped',
+    equippedByArtifact: new Map([[9001, 501]]),
+  })
+  assert.equal(parts.equippedByArtifact?.size, 1, 'equip map replaced, not merged')
+  assert.equal(parts.equippedByArtifact?.get(9001), 501, 'retained equip survives')
+  assert.equal(parts.equippedByArtifact?.has(9002), false, 'unequipped artifact is dropped')
+  // Champion metadata must be untouched — the equip feed carries none.
+  assert.equal(parts.champions?.length, 1, 'champion rows untouched')
+  assert.equal(parts.champions?.[0]?.Name, 'Keeper', 'champion metadata preserved')
+})
+
+test('a champions packet after an equip push still wins on equips', () => {
+  const parts: GearDbRawParts = {
+    artifacts: null, inboxArtifacts: null, lastUsed: null, champions: null,
+    equippedByArtifact: new Map([[9001, 501]]),
+  }
+  // Champions packets carry their own authoritative slot maps; both feeds agree in
+  // captures, so last-writer-wins is safe and keeps the newest view.
+  applyGearDbPartToSlots(parts, {
+    kind: 'gearDbChampions',
+    champions: [{ ID: 502, HeroID: 5020, BaseHeroID: 5020 } as GearDbChampionRow],
+    equippedByArtifact: new Map([[9001, 502]]),
+  })
+  assert.equal(parts.equippedByArtifact?.get(9001), 502, 'champions packet updates the equip map')
+})
+
+export {}

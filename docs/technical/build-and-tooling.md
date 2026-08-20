@@ -291,8 +291,12 @@ in without running the app's TypeScript:
 
 The raw→compact normalization (ports of `parseArtifactLogRow`,
 `buildEquippedByArtifactMap`, and the `accset→faction` resolve) lives in
-`wasm/rule_engine_native/src/artifact_log.rs`. `ArtifactByHeroID` is ignored exactly as
-the app ignores it (the `champions` slot-map is authoritative).
+`wasm/rule_engine_native/src/artifact_log.rs`. `ArtifactByHeroID` has no equivalent here
+and is not accepted: each `sfc_generate` call is a stateless one-shot over a complete
+`NativeInput`, so the caller supplies current equips in the `champions` slot-map and
+there is no live stream to go stale. (The app does consume `ArtifactByHeroID`, because
+its equips must stay fresh between `champions` pushes — see
+[WebSocket Protocol](websocket-jsonrpc.md#artifactbyheroid).)
 
 **Internal pipeline** (per call to `sfc_generate`)
 

@@ -331,7 +331,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiAscendedTip: "Anteil der Gegenstände mit mindestens einer angewandten Aufstiegsstufe.",
   gearAnalyticsKpiArtifacts: "Artefakte",
   gearAnalyticsKpiAccessories: "Schmuckstücke",
-  gearAnalyticsKpiItemCountsTip: "Anzahl der Artefakte (links) und Schmuckstücke (rechts) in der aktuellen Ansicht.",
+  gearAnalyticsKpiItemCountsTip: "Anzahl der Artefakte (links) und Schmuckstücke (rechts) in der aktuellen Ansicht. Die gedimmte Zahl zählt anomale Schmuckstücke, die bereits in der Schmuckanzahl enthalten sind.",
   gearAnalyticsKpiEquippedVaultTip: "Anteil der bei einem Champion ausgerüsteten Gegenstände (links) und der in der Höhle gesperrten (rechts).",
   gearAnalyticsCopySnapshotTip: "Aktuelle Analyseansicht als PNG rendern und in die Zwischenablage kopieren.",
   gearAnalyticsCopySnapshot: "Snapshot kopieren",

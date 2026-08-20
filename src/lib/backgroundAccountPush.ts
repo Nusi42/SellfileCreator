@@ -18,8 +18,8 @@
  *  - HSF serialization         → lib/hsfIO.buildHsfFileFromMerged
  *  - key scoping               → lib/accounts.resolveAccountScopedKeyFor
  */
+import { isGearDbPartCommand } from './externalCommands'
 import type { ExternalCommand, GearDbRawSnapshotCommand } from './externalCommands'
-import type { GearDbArtifactRow, GearDbChampionRow, GearDbLastUsedRow } from './importers/gearDbNormalizer'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   type ExternalWsRequestMethod,
@@ -40,8 +40,12 @@ import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
 import { buildDocumentOverridesView } from './documentOverrides'
-import { createDatasetFromSnapshot, patchArtifactRowsCID } from './importers/gearDbRawDataset'
-import { mergeChampionRows } from './importers/gearDbLookups'
+import {
+  applyGearDbPartToSlots,
+  createDatasetFromSnapshot,
+  patchArtifactRowsCID,
+  type GearDbRawParts,
+} from './importers/gearDbRawDataset'
 import { buildPreviewArtifactsFromGearInspectorItems } from './gearInspectorPreviewArtifacts'
 import { buildGearInspectorAutosavePayload, type GearInspectorItem } from './gearInspectorSession'
 import { GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED, nextGearInspectorCustomItemId } from './itemIdentity'
@@ -103,15 +107,11 @@ export type BackgroundAccountPushService = {
   dispose: () => void
 }
 
-// Accumulated per-type parts for one account's burst (latest packet per type wins;
-// champions merge across the double-send like the live accumulator does).
-type PendingBurst = {
+// Accumulated per-type parts for one account's burst. The slots are exactly the live
+// accumulator's (GearDbRawParts) so both paths share applyGearDbPartToSlots and cannot
+// drift on merge-vs-replace semantics; only the routing fields are added here.
+type PendingBurst = GearDbRawParts & {
   account: SfcAccount
-  artifacts: GearDbArtifactRow[] | null
-  inboxArtifacts: GearDbArtifactRow[] | null
-  champions: GearDbChampionRow[] | null
-  lastUsed: GearDbLastUsedRow[] | null
-  equippedByArtifact: Map<number, number> | null
   timer: ReturnType<typeof setTimeout> | null
 }
 
@@ -245,14 +245,9 @@ export const createBackgroundAccountPushService = (
 
   const noteInboundGearCommand = (cmd: ExternalCommand, forAccount?: SfcAccount): boolean => {
     if (disposed) return false
-    // Only the four streamed per-type packets are serviced; the binary-DB transport is
+    // Only the streamed per-type packets are serviced; the binary-DB transport is
     // a secondary path RSL Helper does not use for pushes and stays drop+toast.
-    if (
-      cmd.kind !== 'gearDbArtifacts'
-      && cmd.kind !== 'gearDbChampions'
-      && cmd.kind !== 'gearDbInboxArtifacts'
-      && cmd.kind !== 'gearDbLastUsed'
-    ) return false
+    if (!isGearDbPartCommand(cmd)) return false
     // Explicit target (unstamped-default routing) wins; otherwise resolve the stamp —
     // the Player ID decides when present, else the player name (displayName IS the
     // in-game name — same lookup the launch resolution uses, via the shared finder).
@@ -286,17 +281,9 @@ export const createBackgroundAccountPushService = (
       timer: null,
     }
     pending.set(account.id, burst)
-    // Latest packet per type wins; champions merge across RSL Helper's double-send.
-    if (cmd.kind === 'gearDbArtifacts') {
-      burst.artifacts = cmd.artifacts
-    } else if (cmd.kind === 'gearDbChampions') {
-      burst.champions = mergeChampionRows(cmd.champions, burst.champions)
-      burst.equippedByArtifact = cmd.equippedByArtifact
-    } else if (cmd.kind === 'gearDbInboxArtifacts') {
-      burst.inboxArtifacts = cmd.inboxArtifacts
-    } else {
-      burst.lastUsed = cmd.lastUsed
-    }
+    // Latest packet per type wins; champions merge across RSL Helper's sparse rosters.
+    // Shared SSOT with the live accumulator (see applyGearDbPartToSlots).
+    applyGearDbPartToSlots(burst, cmd)
     scheduleFlush(burst)
     return true
   }

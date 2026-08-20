@@ -331,7 +331,7 @@ const catalog: Catalog = {
   gearAnalyticsKpiAscendedTip: "Porcentagem de itens com pelo menos um nível de ascensão aplicado.",
   gearAnalyticsKpiArtifacts: "Artefatos",
   gearAnalyticsKpiAccessories: "Acessórios",
-  gearAnalyticsKpiItemCountsTip: "Número de peças de artefato (esquerda) e peças de acessório (direita) na visualização atual.",
+  gearAnalyticsKpiItemCountsTip: "Número de peças de artefato (esquerda) e peças de acessório (direita) na visualização atual. O número esmaecido conta os acessórios anômalos, já incluídos no total de acessórios.",
   gearAnalyticsKpiEquippedVaultTip: "Porcentagem equipada a qualquer campeão (esquerda) e bloqueada em campeões no cofre (direita).",
   gearAnalyticsCopySnapshotTip: "Renderizar a visualização analítica atual como PNG e copiá-la para a área de transferência.",
   gearAnalyticsCopySnapshot: "Copiar instantâneo",

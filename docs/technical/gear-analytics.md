@@ -247,7 +247,7 @@ Three grouped controls sit above the tables, persisted to `localStorage`:
 
 **Sort modes.** `'rank'` is the default and uses `champProfileRankComparator` (in `champAnalytics.ts`) to reproduce the in-game roster order. Hierarchy (highest priority first): rarity desc → empowerment desc → blessing grade desc → affinity (Void > Force > Magic > Spirit) → ascension desc → star grade desc → XP level desc → baseHeroId desc → championId desc. The per-field source-column decoding (`EmpLvl`/`BGrade`/`Affinity` encodings etc.) is in [Gear DB Import](gear-db-import.md#champion-metadata).
 
-`BaseHeroID` is intentionally not promoted to a primary key — no in-game-visible meaning on its own; step 8 is an empirical tail tiebreaker. Gear-level / average-gear-rank / ascentionCount are excluded — in-game order does not depend on equipped gear. `Affinity` is not yet sent over WebSocket (planned, SQL encoding); WS-only imports lose that sub-sort until then.
+`BaseHeroID` is intentionally not promoted to a primary key — no in-game-visible meaning on its own; step 8 is an empirical tail tiebreaker. Gear-level / average-gear-rank / ascentionCount are excluded — in-game order does not depend on equipped gear. `Affinity` now ships on every WebSocket `champions` row (SQL encoding), so WS-only imports sort identically to SQL imports; rows that genuinely lack it still sort after every champion with a known value.
 
 The remaining three modes (`'all'`, `'artifacts'`, `'accessories'`) sort by missing-count descending within their slot group (`SORT_SLOTS`: all 9 slots / 6 main artifact / 3 accessory), with `champProfileRankComparator` as the tail tiebreaker. Legacy `'off'` values in `localStorage` migrate to `'rank'`.
 

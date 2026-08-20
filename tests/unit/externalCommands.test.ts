@@ -148,4 +148,66 @@ test('artifacts event with empty array yields empty command', () => {
   assert.equal(command.artifacts.length, 0)
 })
 
+// ─── ArtifactByHeroID (equip-only feed) ────────────────────────────────────────
+// RSL Helper pushes this on every gear move; `champions` is only re-sent when a
+// champion itself changes, so this is the sole feed that keeps cID fresh mid-session.
+// Shape is { championId: { slot: artifactId } } — keyed by champion INSTANCE id
+// (verified against captures: every key matches a champions[].id, never a typeId).
+
+test('ArtifactByHeroID event inverts the hero-keyed slot map into equippedByArtifact', () => {
+  const command = normalizeExternalEvent('ArtifactByHeroID', {
+    ArtifactByHeroID: {
+      // Two champions, each with a partial slot map; empty slots are simply absent.
+      '501': { '1': 9001, '2': 9002 },
+      '502': { '6': 9003 },
+    },
+  })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbEquipped')
+  if (command.kind !== 'gearDbEquipped') return
+  // Inversion is artifactId → championId, matching the champions-derived map.
+  assert.equal(command.equippedByArtifact.size, 3)
+  assert.equal(command.equippedByArtifact.get(9001), 501)
+  assert.equal(command.equippedByArtifact.get(9002), 501)
+  assert.equal(command.equippedByArtifact.get(9003), 502)
+})
+
+test('ArtifactByHeroID agrees with the champions slot map for the same equips', () => {
+  // Both feeds carry the identical inner structure, so the two inverse maps must match.
+  const viaHero = normalizeExternalEvent('ArtifactByHeroID', {
+    ArtifactByHeroID: { '77': { '1': 4242, '3': 4243 } },
+  })
+  const viaChampions = normalizeExternalEvent('champions', {
+    champions: [{ id: 77, typeId: 770, artifacts: { '1': 4242, '3': 4243 } }],
+  })
+  assert(viaHero && viaChampions, 'expected both commands')
+  if (viaHero.kind !== 'gearDbEquipped' || viaChampions.kind !== 'gearDbChampions') return
+  assert.deepEqual(
+    [...viaHero.equippedByArtifact.entries()].sort(),
+    [...viaChampions.equippedByArtifact.entries()].sort(),
+  )
+})
+
+test('ArtifactByHeroID skips empty/zero slots and unusable champion ids', () => {
+  const command = normalizeExternalEvent('ArtifactByHeroID', {
+    ArtifactByHeroID: {
+      '601': { '1': 0, '2': null, '3': 8001 },  // zero/null slots are empty
+      'not-a-number': { '1': 8002 },            // unusable champion key
+      '0': { '1': 8003 },                       // zero champion id
+    },
+  })
+  assert(command, 'expected command')
+  if (command.kind !== 'gearDbEquipped') return
+  assert.equal(command.equippedByArtifact.size, 1, 'only the one real equip survives')
+  assert.equal(command.equippedByArtifact.get(8001), 601)
+})
+
+test('ArtifactByHeroID event with null param yields empty equip map', () => {
+  const command = normalizeExternalEvent('ArtifactByHeroID', { ArtifactByHeroID: null })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'gearDbEquipped')
+  if (command.kind !== 'gearDbEquipped') return
+  assert.equal(command.equippedByArtifact.size, 0, 'null param must produce empty map')
+})
+
 export {}

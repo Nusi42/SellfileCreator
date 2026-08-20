@@ -331,7 +331,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiAscendedTip: "En az bir yükseliş seviyesi uygulanmış eşyaların yüzdesi.",
   gearAnalyticsKpiArtifacts: "Eserler",
   gearAnalyticsKpiAccessories: "Aksesuarlar",
-  gearAnalyticsKpiItemCountsTip: "Geçerli görünümdeki eser parça sayısı (sol) ve aksesuar parça sayısı (sağ).",
+  gearAnalyticsKpiItemCountsTip: "Geçerli görünümdeki eser parça sayısı (sol) ve aksesuar parça sayısı (sağ). Soluk sayı, aksesuar sayısına zaten dahil olan anormal aksesuarları gösterir.",
   gearAnalyticsKpiEquippedVaultTip: "Herhangi bir kahramana donanımlı eşyaların yüzdesi (sol) ve kasadaki kahramanlara kilitli olanların yüzdesi (sağ).",
   gearAnalyticsCopySnapshotTip: "Geçerli analiz görünümünü PNG olarak render edip panoya kopyalayın.",
   gearAnalyticsCopySnapshot: "Anlık görüntü kopyala",

@@ -331,7 +331,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiAscendedTip: "Percentuale di oggetti con almeno un livello di ascensione applicato.",
   gearAnalyticsKpiArtifacts: "Artefatti",
   gearAnalyticsKpiAccessories: "Accessori",
-  gearAnalyticsKpiItemCountsTip: "Numero di pezzi artefatto (sinistra) e pezzi accessorio (destra) nella vista corrente.",
+  gearAnalyticsKpiItemCountsTip: "Numero di pezzi artefatto (sinistra) e pezzi accessorio (destra) nella vista corrente. Il numero attenuato conta gli accessori anomali, già inclusi nel totale degli accessori.",
   gearAnalyticsKpiEquippedVaultTip: "Percentuale equipaggiata su qualsiasi campione (sinistra) e bloccata su campioni nel Deposito (destra).",
   gearAnalyticsCopySnapshotTip: "Esegui il rendering della vista analitica attuale come PNG e copiala negli appunti.",
   gearAnalyticsCopySnapshot: "Copia snapshot",

@@ -331,7 +331,7 @@ const overrides: Catalog = {
   gearAnalyticsKpiAscendedTip: "Pourcentage d'objets avec au moins un niveau d'ascension appliqué.",
   gearAnalyticsKpiArtifacts: "Artefacts",
   gearAnalyticsKpiAccessories: "Accessoires",
-  gearAnalyticsKpiItemCountsTip: "Nombre de pièces d'artefact (gauche) et de pièces d'accessoire (droite) dans la vue actuelle.",
+  gearAnalyticsKpiItemCountsTip: "Nombre de pièces d'artefact (gauche) et de pièces d'accessoire (droite) dans la vue actuelle. Le nombre atténué compte les accessoires anormaux, déjà inclus dans le total des accessoires.",
   gearAnalyticsKpiEquippedVaultTip: "Pourcentage équipé à n'importe quel champion (gauche) et bloqué sur des champions en coffre (droite).",
   gearAnalyticsCopySnapshotTip: "Rendre la vue analytique actuelle en PNG et la copier dans le presse-papiers.",
   gearAnalyticsCopySnapshot: "Copier le snapshot",

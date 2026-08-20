@@ -331,7 +331,7 @@ const enUS: Catalog = {
   gearAnalyticsKpiAscendedTip: "Percentage of items with at least one ascension level applied.",
   gearAnalyticsKpiArtifacts: "Artifacts",
   gearAnalyticsKpiAccessories: "Accessories",
-  gearAnalyticsKpiItemCountsTip: "Number of artifact pieces (left) and accessory pieces (right) in the current view.",
+  gearAnalyticsKpiItemCountsTip: "Number of artifact pieces (left) and accessory pieces (right) in the current view. The dimmed number counts Anomalous Accessories, already included in the accessory count.",
   gearAnalyticsKpiEquippedVaultTip: "Percentage equipped to any champion (left) and percentage locked to vault-benched champions (right).",
   gearAnalyticsCopySnapshotTip: "Render the current analytics view as a PNG and copy it to your clipboard.",
   gearAnalyticsCopySnapshot: "Copy Snapshot",

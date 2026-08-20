@@ -31,6 +31,12 @@ type KpiDoubleCardProps = {
   primaryValue: string
   /** Right value string (already formatted). */
   secondaryValue: string
+  /**
+   * Optional trailing annotation rendered smaller and dimmed after the secondary value.
+   * For a count that is a SUBSET of the secondary one (not a third addend), so it is
+   * deliberately set apart from the "+"-joined pair rather than joined to it.
+   */
+  secondarySuffix?: string | undefined
 }
 
 /** Format a 0-1 rate as a percentage string with the given decimal places (default 1). */
@@ -60,7 +66,7 @@ function KpiCard({ label, rate, tooltip, decimals = 1, wide }: KpiCardProps) {
 }
 
 /** Wider card that shows two values separated by "+". Used for merged KPI pairs. */
-function KpiDoubleCard({ label, tooltip, primaryValue, secondaryValue }: KpiDoubleCardProps) {
+function KpiDoubleCard({ label, tooltip, primaryValue, secondaryValue, secondarySuffix }: KpiDoubleCardProps) {
   return (
     <Tooltip title={tooltip} arrow placement="top">
       {/* flex: '2 1 0' makes this card twice as wide as a regular card in the same nowrap row. */}
@@ -71,6 +77,13 @@ function KpiDoubleCard({ label, tooltip, primaryValue, secondaryValue }: KpiDoub
           {/* Dimmed "+" separates the two values without implying they sum to anything. */}
           <Typography variant="body1" color="text.disabled" sx={{ fontWeight: 400, lineHeight: 1.2 }}>+</Typography>
           <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 700 }}>{secondaryValue}</Typography>
+          {/* Subset annotation: smaller + dimmed so it reads as a breakdown of the value
+              before it, never as another addend. Rendered only when there are any. */}
+          {secondarySuffix != null && (
+            <Typography variant="caption" color="text.disabled" sx={{ lineHeight: 1.2, fontWeight: 500 }}>
+              {secondarySuffix}
+            </Typography>
+          )}
         </Box>
       </Paper>
     </Tooltip>
@@ -88,6 +101,10 @@ export function GearAnalyticsKpiCards({ kpis }: Props) {
         tooltip={t('gearAnalyticsKpiItemCountsTip')}
         primaryValue={fmtCount(kpis.artifactCount)}
         secondaryValue={fmtCount(kpis.accessoryCount)}
+        // Anomalous accessories are a subset of the accessory count, so they trail it as a
+        // dimmed annotation. Omitted entirely at zero (and when there is no data at all) —
+        // an always-on "0" would imply a category the account does not participate in.
+        secondarySuffix={kpis.anomalousCount ? fmtCount(kpis.anomalousCount) : undefined}
       />
       <KpiDoubleCard
         label={`${t('gearAnalyticsKpiEquipped')} + ${t('gearInspectorSourceEquippedVault')}`}
