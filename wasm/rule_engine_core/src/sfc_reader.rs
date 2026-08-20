@@ -448,8 +448,46 @@ pub struct ReadableRecipeParsed {
     pub artifact_type_ids:  Vec<i64>,
     pub artifact_set_ids:   Vec<i64>,         // included set IDs
     pub artifact_meta_set_names: Vec<String>,
+    // Rework gate resolved from the recipe tags (ORE_ANY when untagged).
+    pub ore:                i64,
     pub early_keep_mode:    String,           // "early" | "late"
     pub auto_rarity_supplements_threshold: Option<String>,
+}
+
+/// Resolve a recipe tag list into the HSF `Ore` sentinel.
+///
+/// Mirror of `resolveChaosOreTagValue` in src/lib/tagHelpers.ts — the tag spellings and
+/// the sentinels both come from shared/domain-constants.json, so only this precedence
+/// logic is duplicated, and the shared test vectors below pin the two implementations
+/// to identical behaviour.
+///
+/// The two tags are mutually exclusive per recipe (the editors drop one when the other is
+/// added), so "both set" should not occur. A hand-edited or legacy file can still carry both;
+/// in that case ORE_TAG_ONLY (if_reworked) wins.
+pub fn resolve_chaos_ore_tag_value(tags: Option<&[String]>) -> i64 {
+    // No tags at all leaves the rule unconstrained.
+    let Some(tags) = tags else { return ORE_ANY };
+    // Track each side so a contradictory pair can be detected.
+    let mut wants_ored = false;
+    let mut wants_not_ored = false;
+    for raw in tags {
+        // Match the TS tag grammar: trim padding, compare case-insensitively.
+        let normalized = raw.trim().to_lowercase();
+        // Record which of the two rework tags this entry is. The *_LEGACY spellings are
+        // the pre-rename names; recipes saved before the rename must keep gating the same
+        // way instead of silently losing the constraint.
+        if normalized == ORE_TAG_ONLY || normalized == ORE_TAG_ONLY_LEGACY {
+            wants_ored = true;
+        } else if normalized == ORE_TAG_IGNORE || normalized == ORE_TAG_IGNORE_LEGACY {
+            wants_not_ored = true;
+        }
+    }
+    // if_reworked wins when a file carries both tags.
+    match (wants_ored, wants_not_ored) {
+        (true, _) => ORE_ORED,
+        (false, true) => ORE_NOT_ORED,
+        (false, false) => ORE_ANY,
+    }
 }
 
 /// Minimal substat target table parsed from SFC Minima section.
@@ -776,6 +814,8 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
         artifact_type_ids,
         artifact_set_ids,
         artifact_meta_set_names,
+        // Resolve the chaos-ore tags once here so every downstream builder call agrees.
+        ore: resolve_chaos_ore_tag_value(rec.tags.as_deref()),
         early_keep_mode,
         auto_rarity_supplements_threshold,
     })

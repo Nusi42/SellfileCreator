@@ -124,7 +124,7 @@ import {
   applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
 } from '../lib/recipeMultiEditDraft'
-import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
+import { applyReworkTagExclusivity, isReworkTag, mergeTagList, normalizeTagValue, oppositeReworkTag, summarizeTagPresence } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
@@ -2031,6 +2031,14 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       // Use the current base state so toggles reflect the mixed/common baseline.
       const baseState = getTagBaseState(tag)
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
+      // The two rework tags are mutually exclusive: adding one clears the other on every
+      // selected recipe, matching the single-edit behavior in commitTags.
+      if (target === 'all' && isReworkTag(tag)) {
+        const opposite = oppositeReworkTag(tag)
+        if (opposite) {
+          nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
+        }
+      }
     })
     // Persist the patch without clobbering the underlying tag values.
     multiEdit.updateField('tags', {
@@ -2050,13 +2058,18 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       seen.add(normalizedTag)
       normalized.push(normalizedTag)
     })
+    // Enforce rework-tag mutual exclusivity: rebuilding the list left-to-right means a
+    // later rework tag evicts an earlier opposite, mirroring "adding one removes the other".
+    const deduped = normalized.reduce<string[]>((acc, tag) => (
+      [...applyReworkTagExclusivity(acc, tag), tag]
+    ), [])
     // Route updates through multi-edit patches when active.
     if (multiEditActive) {
-      stageTagPatch(normalized, 'all')
+      stageTagPatch(deduped, 'all')
       return
     }
     // Persist tags onto the single builder recipe.
-    onChange({ ...recipe, tags: normalized })
+    onChange({ ...recipe, tags: deduped })
   }, [recipe, multiEditActive, onChange, stageTagPatch])
   const commitTagsFromDraft = useCallback(() => {
     // Split comma-separated input and normalize each tag.

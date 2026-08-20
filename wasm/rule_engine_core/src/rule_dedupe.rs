@@ -42,6 +42,7 @@ struct ObsoleteCoarseKey {
     faction: i64,
     main_id: i64,
     main_f: String,
+    ore: i64,
     sets: Option<Vec<i64>>,
     types: Option<Vec<i64>>,
 }
@@ -75,6 +76,7 @@ pub struct CollapseCanonicalKey {
     faction: i64,
     main_stat_id: i64,
     main_stat_f: i64,
+    ore: i64,
     artifact_types: Vec<i64>,
     artifact_sets: Vec<i64>,
     substats: Vec<CollapseCanonicalSubstatKey>,
@@ -245,6 +247,8 @@ fn obsolete_coarse_key(rule: &RuleRaw) -> ObsoleteCoarseKey {
         main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
         // MainStatF is now Option<i64>; stringify to match template-literal key format.
         main_f: rule.MainStatF.map_or(MAIN_STAT_F_DEFAULT_STR.to_string(), |v| v.to_string()),
+        // Absent Ore means unconstrained, matching an explicit ORE_ANY.
+        ore: rule.Ore.unwrap_or(ORE_ANY),
         sets: canon_array_key(rule.ArtifactSet.as_ref()),
         types: canon_array_key(rule.ArtifactType.as_ref()),
     }
@@ -330,6 +334,8 @@ pub(crate) fn collapse_canonical_key(rule: &RuleRaw) -> CollapseCanonicalKey {
         main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
         // MainStatF is now Option<i64>; non-zero → flat flag.
         main_stat_f: rule.MainStatF.map_or(0_i64, |v| i64::from(v != 0)),
+        // Chaos-ore gate is part of the canonical identity, never collapsed away.
+        ore: rule.Ore.unwrap_or(ORE_ANY),
         artifact_types,
         artifact_sets,
         substats: substats_key,
@@ -484,6 +490,8 @@ struct ExportDedupeBaseKey {
     rank: i64,
     rarity: i64,
     level: i64,
+    // Rules with different chaos-ore gates never dedupe against each other.
+    ore: i64,
     artifact_types: Vec<i64>,
 }
 
@@ -594,6 +602,7 @@ fn normalize_keep_rule_for_export_dedupe(rule: &RuleRaw) -> Option<ExportDedupeN
         rank: rule.Rank.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
         rarity: rule.Rarity.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
         level: rule.LVLForCheck.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
+        ore: rule.Ore.unwrap_or(ORE_ANY),
         artifact_types: normalize_types_for_export_dedupe(rule),
     };
     Some(ExportDedupeNormalizedRule {

@@ -1006,6 +1006,8 @@ mod improvement_watch_tests {
                 level,
                 faction: None,
                 main: Some(STAT_VARIANT_HP_PERCENT),
+                // Fixture gear is never reworked; these tests do not exercise the Ore gate.
+                reroll_count: None,
                 sub_values: None,
                 item_id: Some(id),
                 preview_extras: None,

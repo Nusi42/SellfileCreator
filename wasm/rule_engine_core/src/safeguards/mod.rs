@@ -2379,6 +2379,8 @@ fn safeguard_build_placeholder_base_rules(
                         Rarity: Some(rarity_code),
                         MainStatID: Some(main_id),
                         MainStatF: Some(main_f),
+                        // Safeguard keep-rules protect gear regardless of rework state.
+                        Ore: None,
                         LVLForCheck: Some(LEVEL_ANY_SENTINEL),
                         Faction: Some(*faction),
                         Substats: Some(safeguard_clone_any_substats()),
@@ -2785,6 +2787,8 @@ pub fn build_safeguard_rules_core(
                         Rarity: Some(safeguard_rarity_value_to_code(artifact.rarity)),
                         MainStatID: Some(main_id),
                         MainStatF: Some(main_f),
+                        // Safeguard keep-rules protect gear regardless of rework state.
+                        Ore: None,
                         LVLForCheck: Some(level),
                         Faction: Some(artifact.faction),
                         Substats: Some(safeguard_build_substats_for_artifact(&artifact.substats)),

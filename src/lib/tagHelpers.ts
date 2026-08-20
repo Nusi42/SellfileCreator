@@ -5,6 +5,9 @@
  * recipe overrides parsing so matching stays consistent across the app.
  */
 
+// Ore sentinels come from the cross-language SSOT so TS and Rust cannot drift.
+import { ORE_ANY, ORE_NOT_ORED, ORE_ORED, ORE_TAG_IGNORE, ORE_TAG_IGNORE_LEGACY, ORE_TAG_ONLY, ORE_TAG_ONLY_LEGACY } from './generated/domainConstants'
+
 // Tag tokens stay compact so they travel well in filenames and SFC notes.
 // Reserve punctuation for future syntax; allow unicode letters/numbers plus underscores.
 // Tags must start with a letter, combining mark, or underscore.
@@ -44,11 +47,166 @@ const SAFEGUARD_IGNORE_TAG_LEGACY_TOKEN_SET = new Set<string>(
     .filter((token): token is string => Boolean(token)),
 )
 
-// Canonicalize special safeguard-ignore aliases into the new tag token.
-const canonicalizeKnownTagAlias = (normalizedTag: string): string => (
-  SAFEGUARD_IGNORE_TAG_LEGACY_TOKEN_SET.has(normalizedTag)
-    ? SAFEGUARD_IGNORE_TAG_TOKEN
-    : normalizedTag
+// Canonicalize every known legacy tag alias into its current token. Covers the
+// safeguard-ignore aliases and the pre-rename rework spellings, so a saved payload is
+// always written with the current names while old files still load correctly.
+const canonicalizeKnownTagAlias = (normalizedTag: string): string => {
+  // Safeguard-ignore aliases fold onto the canonical safeguard tag.
+  if (SAFEGUARD_IGNORE_TAG_LEGACY_TOKEN_SET.has(normalizedTag)) return SAFEGUARD_IGNORE_TAG_TOKEN
+  // Rework aliases fold onto if_reworked / if_not_reworked (defined below; hoisted const
+  // arrow functions are only called at runtime, well after module init).
+  return canonicalizeReworkTagToken(normalizedTag)
+}
+
+// Canonical recipe tags that gate generated HSF rules on an item's rework state
+// ("rework" = a Chaos Ore was applied to the piece).
+// These drive the `Ore` rule property: rules from a recipe tagged `if_reworked` match only
+// gear that has been reworked, `if_not_reworked` matches only gear that was never reworked,
+// and an untagged recipe stays unconstrained.
+export const REWORK_ONLY_TAG = ORE_TAG_ONLY
+export const REWORK_EXCLUDE_TAG = ORE_TAG_IGNORE
+// Normalize once so token comparisons match the shared recipe-tag grammar.
+const REWORK_ONLY_TAG_TOKEN = normalizeTagValue(REWORK_ONLY_TAG) ?? REWORK_ONLY_TAG
+const REWORK_EXCLUDE_TAG_TOKEN = normalizeTagValue(REWORK_EXCLUDE_TAG) ?? REWORK_EXCLUDE_TAG
+
+// Pre-rename spellings of the two rework tags, accepted on read so recipes saved before
+// the rename keep gating exactly as their author intended. Kept as read-only aliases:
+// normalizeTagList rewrites them to the canonical spelling whenever a payload is written.
+export const REWORK_ONLY_TAG_LEGACY_ALIASES = Object.freeze([ORE_TAG_ONLY_LEGACY] as const)
+export const REWORK_EXCLUDE_TAG_LEGACY_ALIASES = Object.freeze([ORE_TAG_IGNORE_LEGACY] as const)
+// Normalize the alias lists once so hot-path lookups stay allocation-free.
+const REWORK_ONLY_LEGACY_TOKEN_SET = new Set<string>(
+  REWORK_ONLY_TAG_LEGACY_ALIASES
+    .map((token) => normalizeTagValue(token))
+    .filter((token): token is string => Boolean(token)),
+)
+const REWORK_EXCLUDE_LEGACY_TOKEN_SET = new Set<string>(
+  REWORK_EXCLUDE_TAG_LEGACY_ALIASES
+    .map((token) => normalizeTagValue(token))
+    .filter((token): token is string => Boolean(token)),
+)
+
+/**
+ * Fold a legacy rework-tag spelling onto its canonical token.
+ *
+ * Every rework helper routes through this, so the aliases are understood uniformly by
+ * resolution, membership checks, and mutual exclusivity — instead of each one carrying
+ * its own alias branch.
+ */
+const canonicalizeReworkTagToken = (normalizedTag: string): string => {
+  // Fold the pre-rename "only" spelling onto if_reworked.
+  if (REWORK_ONLY_LEGACY_TOKEN_SET.has(normalizedTag)) return REWORK_ONLY_TAG_TOKEN
+  // Fold the pre-rename "ignore" spelling onto if_not_reworked.
+  if (REWORK_EXCLUDE_LEGACY_TOKEN_SET.has(normalizedTag)) return REWORK_EXCLUDE_TAG_TOKEN
+  // Everything else (including the canonical tokens) passes through untouched.
+  return normalizedTag
+}
+
+/**
+ * The two rework tags are mutually exclusive on a recipe: a piece cannot be both reworked
+ * and never-reworked, so holding both is meaningless. The editors enforce this by dropping
+ * the opposite tag whenever one is added (see `applyReworkTagExclusivity`).
+ *
+ * Ordered so index 0 is the winner when a legacy/hand-edited file carries both.
+ */
+export const REWORK_TAGS = Object.freeze([REWORK_ONLY_TAG, REWORK_EXCLUDE_TAG] as const)
+// Same list as normalized tokens, for grammar-safe membership checks.
+const REWORK_TAG_TOKENS = Object.freeze([REWORK_ONLY_TAG_TOKEN, REWORK_EXCLUDE_TAG_TOKEN] as const)
+
+/** True when the tag is one of the two mutually exclusive rework tags. */
+export const isReworkTag = (tag: string): boolean => {
+  // Normalize first so loose spellings are recognized like everywhere else.
+  const normalized = normalizeTagValue(String(tag))
+  // Non-conforming tokens can never be a rework tag.
+  if (!normalized) return false
+  // Fold legacy spellings so pre-rename tags count as rework tags as well.
+  const canonical = canonicalizeReworkTagToken(normalized)
+  return REWORK_TAG_TOKENS.includes(canonical as (typeof REWORK_TAG_TOKENS)[number])
+}
+
+/** The other tag of the mutually exclusive rework pair, or null for any other tag. */
+export const oppositeReworkTag = (tag: string): string | null => {
+  // Normalize first so loose spellings resolve to a canonical token.
+  const normalized = normalizeTagValue(String(tag))
+  // Non-conforming tokens have no opposite.
+  if (!normalized) return null
+  // Fold legacy spellings so a pre-rename tag still evicts its counterpart.
+  const canonical = canonicalizeReworkTagToken(normalized)
+  // Only the two rework tags have an opposite.
+  if (canonical === REWORK_ONLY_TAG_TOKEN) return REWORK_EXCLUDE_TAG
+  if (canonical === REWORK_EXCLUDE_TAG_TOKEN) return REWORK_ONLY_TAG
+  return null
+}
+
+/**
+ * Return `tags` with the rework tag *opposite* to `addedTag` removed.
+ *
+ * This is the single definition of rework-tag mutual exclusivity — single-edit, multi-edit,
+ * and paste flows all route through it so a recipe can never end up holding both. Passing a
+ * non-rework tag is a no-op, which keeps call sites free of "is this special?" branching.
+ */
+export const applyReworkTagExclusivity = (
+  tags: readonly string[],
+  addedTag: string,
+): string[] => {
+  // Only the two rework tags evict anything; every other tag passes straight through.
+  if (!isReworkTag(addedTag)) return [...tags]
+  // Normalize the added tag so we can identify its counterpart.
+  const addedToken = normalizeTagValue(String(addedTag))
+  // Defensive: a tag that fails the grammar cannot evict anything.
+  if (!addedToken) return [...tags]
+  // Fold the added tag so a legacy spelling evicts the same counterpart as the new one.
+  const addedCanonical = canonicalizeReworkTagToken(addedToken)
+  // The opposite tag is simply the other entry in the pair.
+  const opposite = addedCanonical === REWORK_ONLY_TAG_TOKEN ? REWORK_EXCLUDE_TAG_TOKEN : REWORK_ONLY_TAG_TOKEN
+  // Drop EVERY spelling of the opposite tag (canonical and legacy), preserving the rest.
+  return tags.filter((tag) => {
+    const normalized = normalizeTagValue(String(tag))
+    // Keep malformed tokens untouched; they are not rework tags.
+    if (!normalized) return true
+    return canonicalizeReworkTagToken(normalized) !== opposite
+  })
+}
+
+/**
+ * Resolve a recipe's tag list into the HSF `Ore` sentinel.
+ *
+ * Mirrors the `MainStatID` convention: ORE_ANY (-1) means "this rule does not care",
+ * so an untagged recipe keeps today's behavior exactly. Tagging is the only way to
+ * narrow a rule to one rework state.
+ *
+ * The editors keep the two tags mutually exclusive, so "both set" should not occur in
+ * practice. A hand-edited or legacy file can still carry both; in that case `if_reworked`
+ * wins. This is the single definition of that precedence; callers must not re-derive it.
+ */
+export const resolveChaosOreTagValue = (tags: readonly string[] | null | undefined): number => {
+  // Missing or empty tag lists leave the rule unconstrained.
+  if (!Array.isArray(tags) || tags.length === 0) return ORE_ANY
+  // Track each side separately so the both-set case can be resolved by precedence.
+  let wantsReworked = false
+  let wantsNotReworked = false
+  for (const rawTag of tags) {
+    // Normalize to the shared tag grammar before comparing tokens.
+    const normalized = normalizeTagValue(String(rawTag))
+    // Skip malformed tokens that collapse outside the grammar.
+    if (!normalized) continue
+    // Fold legacy spellings onto the canonical tokens before comparing.
+    const canonical = canonicalizeReworkTagToken(normalized)
+    // Record which of the two rework tags is present.
+    if (canonical === REWORK_ONLY_TAG_TOKEN) wantsReworked = true
+    else if (canonical === REWORK_EXCLUDE_TAG_TOKEN) wantsNotReworked = true
+  }
+  // if_reworked wins when a file carries both (checked first, so no explicit tie-break).
+  if (wantsReworked) return ORE_ORED
+  if (wantsNotReworked) return ORE_NOT_ORED
+  // No rework tag present leaves the rule unconstrained.
+  return ORE_ANY
+}
+
+/** True when the resolved Ore sentinel actually narrows a rule. */
+export const isChaosOreConstrained = (ore: number | null | undefined): boolean => (
+  // Only the two concrete states constrain; ORE_ANY and nullish do not.
+  ore === ORE_ORED || ore === ORE_NOT_ORED
 )
 
 export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined): boolean => {
@@ -65,6 +223,61 @@ export const hasIgnoreSafeguardTag = (tags: readonly string[] | null | undefined
   }
   // No matching tag found in this list.
   return false
+}
+
+/**
+ * SSOT for "which tags carry app-driven meaning".
+ *
+ * Most tags are free-form labels for the user's own organization and are deliberately
+ * excluded from rule-generation fingerprints (see IGNORED_KEYS in recipeSnapshot.ts), so
+ * renaming a label never rebuilds every rule. A handful of tags DO change behavior, and
+ * those must take part in any cache key that decides whether generated rules can be
+ * reused — otherwise toggling one silently serves stale rules until a reload.
+ *
+ * Every semantic tag is registered here exactly once, together with the value it
+ * contributes to a fingerprint. Adding a new behavior-carrying tag means adding one entry
+ * here; the cache key then picks it up automatically instead of each call site having to
+ * remember to re-add it.
+ *
+ * The contribution is a DERIVED value, not the raw tag: equivalent spellings (canonical vs
+ * pre-rename aliases) must collapse to the same fingerprint so loading an older file does
+ * not needlessly invalidate its cached rules.
+ */
+export const SEMANTIC_TAG_CONTRIBUTIONS = Object.freeze({
+  // Excludes a recipe's keeps from safeguard coverage; changes match ordering.
+  ignoreSafeguardTag: (tags: readonly string[] | null | undefined) => hasIgnoreSafeguardTag(tags),
+  // Selects the emitted HSF `Ore` gate (rework state); changes the generated rules.
+  oreTagGate: (tags: readonly string[] | null | undefined) => resolveChaosOreTagValue(tags),
+} as const)
+
+/**
+ * Fingerprint contributions for every behavior-carrying tag on a recipe.
+ *
+ * Callers building a rule-generation cache key should spread this in rather than pushing
+ * individual tag-derived values, so a newly registered semantic tag cannot be forgotten.
+ */
+export const describeSemanticTags = (
+  tags: readonly string[] | null | undefined,
+): Record<string, unknown> => {
+  // Evaluate each registered contribution against this recipe's tag list.
+  const described: Record<string, unknown> = {}
+  for (const [key, contribute] of Object.entries(SEMANTIC_TAG_CONTRIBUTIONS)) {
+    described[key] = contribute(tags)
+  }
+  return described
+}
+
+/**
+ * True when a tag carries app-driven meaning (as opposed to being a plain user label).
+ *
+ * Useful for UI affordances that want to treat behavior-carrying tags differently from
+ * cosmetic ones. Derived from the same registry, so it cannot drift from the cache key.
+ */
+export const isSemanticTag = (tag: string): boolean => {
+  // A tag is semantic when adding it to an empty list changes any contribution.
+  const baseline = describeSemanticTags([])
+  const withTag = describeSemanticTags([tag])
+  return Object.keys(baseline).some((key) => baseline[key] !== withTag[key])
 }
 
 // Normalize an unknown list into a stable, de-duped tag array.

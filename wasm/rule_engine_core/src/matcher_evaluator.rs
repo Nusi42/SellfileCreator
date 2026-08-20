@@ -162,6 +162,10 @@ pub struct RuleGate {
     pub level_for_check: i64,
     pub main_stat_id: i64,
     pub main_stat_f: i64,
+    // Rework gate: ORE_ANY ignores rework state, ORE_NOT_ORED requires an item that was
+    // never reworked, ORE_ORED requires a reworked one. Normalized at prepare time so the
+    // hot loop compares plain integers.
+    pub ore: i64,
     pub artifact_types: Vec<i64>,
     pub artifact_sets: Vec<i64>,
 }
@@ -462,6 +466,8 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let faction = raw.Faction.unwrap_or(0);
     let level_for_check = raw.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
     let main_stat_id = raw.MainStatID.unwrap_or(STAT_ID_ANY);
+    // Missing Ore means the rule does not care about the rework state.
+    let ore = raw.Ore.unwrap_or(ORE_ANY);
     // MainStatF is now Option<i64>; 0 = percent, non-zero = flat.
     let main_stat_f = raw.MainStatF.map_or(0_i64, |v| i64::from(v != 0));
     let source_raw = raw.source;
@@ -515,6 +521,7 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
             level_for_check,
             main_stat_id,
             main_stat_f,
+            ore,
             artifact_types,
             artifact_sets,
         },
@@ -563,7 +570,8 @@ fn read_sub_value(sub_values: &Option<Vec<(i64, f64)>>, variant: i64) -> Option<
 // Helper's semantics, and the TS side (src/lib/ruleEval.ts matchRule/evaluateFirst/
 // evaluateMatchesByRecipe) is a thin adapter that DELEGATES here via the WASM engine;
 // there is no JS reimplementation to keep in sync.
-// Keep the field set in lockstep with gates_equal (see its comment for why).
+// The field set needs no manual lockstep: RuleGate IS the grouping key (see its doc
+// comment), so any field added there joins grouping and checking at the same time.
 // item_rank_bit / item_rarity_bit are hoisted per item by the caller — they do not vary
 // across rules, so recomputing them per gate check would be pure waste.
 fn match_rule_gate(
@@ -610,6 +618,18 @@ fn match_rule_gate(
 
     if gate.level_for_check != LEVEL_ANY_SENTINEL && gate.level_for_check != item.level {
         return false;
+    }
+
+    // Rework gate. ORE_ANY short-circuits so untagged rules pay only one compare.
+    if gate.ore != ORE_ANY {
+        // Items that never reported a rework count are treated as never reworked (0),
+        // which matches how the Gear Inspector chaos-ore filter reads missing data.
+        let has_been_ored = item.reroll_count.unwrap_or(0) > 0;
+        // ORE_ORED demands a reworked item; any other constrained value demands a pristine one.
+        let wants_ored = gate.ore == ORE_ORED;
+        if has_been_ored != wants_ored {
+            return false;
+        }
     }
 
     if gate.main_stat_id != STAT_ID_ANY {
@@ -1003,6 +1023,8 @@ mod tests {
                 // STAT_ID_ANY bypasses the main-stat check in the gate.
                 main_stat_id: STAT_ID_ANY,
                 main_stat_f: 0,
+                // ORE_ANY bypasses the chaos-ore check in the gate.
+                ore: ORE_ANY,
                 artifact_types,
                 artifact_sets: vec![],
             },
@@ -1026,6 +1048,8 @@ mod tests {
             level: LEVEL_ANY_SENTINEL,
             faction: None,
             main: None,
+            // Never-reworked fixture item; the Ore gate is exercised by its own tests.
+            reroll_count: None,
             sub_values: None,
             item_id: None,
             preview_extras: None,
@@ -1097,6 +1121,110 @@ mod tests {
         // Slot 99 has no slot-specific rules — fall back to shared.
         let (shared, slot_rules) = bucketed.rules_for_slot(99);
         assert_eq!(shared.len() + slot_rules.len(), 1, "shared-only slot must return the single shared rule");
+    }
+
+    // ---- Rework (Ore) gate ----
+
+    // Build a gate that matches anything except for the rework constraint under test.
+    fn make_ore_gate(ore: i64) -> RuleGate {
+        RuleGate {
+            use_flag: true,
+            faction: 0,
+            rank_mask: 0xFF,
+            rarity_mask: 0xFF,
+            level_for_check: LEVEL_ANY_SENTINEL,
+            main_stat_id: STAT_ID_ANY,
+            main_stat_f: 0,
+            ore,
+            artifact_types: vec![],
+            artifact_sets: vec![],
+        }
+    }
+
+    // Item whose only interesting property is how many times it was reworked.
+    fn make_item_with_reworks(reroll_count: Option<i64>) -> TestItemRaw {
+        let mut item = make_weapon_item();
+        item.reroll_count = reroll_count;
+        item
+    }
+
+    // Helper: run just the gate half of the predicate with wide-open rank/rarity bits.
+    fn gate_matches(ore: i64, reroll_count: Option<i64>) -> bool {
+        match_rule_gate(&make_ore_gate(ore), &make_item_with_reworks(reroll_count), 0xFF, 0xFF)
+    }
+
+    // ORE_ANY is the untagged default and must never filter anything out.
+    #[test]
+    fn ore_any_matches_regardless_of_rework_state() {
+        assert!(gate_matches(ORE_ANY, None), "missing rework data must still match");
+        assert!(gate_matches(ORE_ANY, Some(0)), "never-reworked must match");
+        assert!(gate_matches(ORE_ANY, Some(3)), "reworked must match");
+    }
+
+    // ORE_ORED narrows to gear that has actually been reworked.
+    #[test]
+    fn ore_ored_matches_only_reworked_items() {
+        assert!(gate_matches(ORE_ORED, Some(1)), "one rework counts as reworked");
+        assert!(gate_matches(ORE_ORED, Some(9)), "many reworks count as reworked");
+        assert!(!gate_matches(ORE_ORED, Some(0)), "never-reworked must be rejected");
+        assert!(!gate_matches(ORE_ORED, None), "missing data is treated as never-reworked");
+    }
+
+    // ORE_NOT_ORED narrows to pristine gear.
+    #[test]
+    fn ore_not_ored_matches_only_pristine_items() {
+        assert!(gate_matches(ORE_NOT_ORED, Some(0)), "never-reworked must match");
+        assert!(gate_matches(ORE_NOT_ORED, None), "missing data is treated as never-reworked");
+        assert!(!gate_matches(ORE_NOT_ORED, Some(1)), "reworked must be rejected");
+    }
+
+    // prepare_rule must normalize an absent Ore to the unconstrained sentinel so that
+    // every rule written before this feature keeps matching exactly as it did.
+    #[test]
+    fn prepare_rule_defaults_missing_ore_to_any() {
+        let raw = RuleRaw {
+            RecipeID: None, RecipeName: None, Keep: Some(true), IsRuleTypeAND: None,
+            Use: Some(true), ArtifactSet: None, ArtifactType: None, Rank: None, Rarity: None,
+            MainStatID: None, MainStatF: None, Ore: None, LVLForCheck: None, Faction: None,
+            Substats: None, source: None, line_idx: None, all_known_sets: None,
+            rank_mask: None, rarity_mask: None, safeguard_rule_id: None,
+            safeguard_rule_ordinal: None, safeguard_hash: None, safeguard_required: None,
+            safeguard_scan_ms: None, safeguard_projected: None, safeguard_deficit: None,
+            safeguard_item_key: None, safeguard_placeholder: None,
+            safeguard_placeholder_missing: None,
+        };
+        assert_eq!(prepare_rule(raw).gate.ore, ORE_ANY);
+    }
+
+    // ---- Tag → Ore resolution (mirror of resolveChaosOreTagValue in tagHelpers.ts) ----
+
+    // Convenience wrapper so each case reads as a list of tag spellings.
+    fn resolve_tags(tags: &[&str]) -> i64 {
+        let owned: Vec<String> = tags.iter().map(|s| (*s).to_string()).collect();
+        crate::sfc_reader::resolve_chaos_ore_tag_value(Some(&owned))
+    }
+
+    #[test]
+    fn chaos_ore_tags_resolve_to_expected_sentinels() {
+        // No tags, and unrelated tags, leave the rule unconstrained.
+        assert_eq!(crate::sfc_reader::resolve_chaos_ore_tag_value(None), ORE_ANY);
+        assert_eq!(resolve_tags(&[]), ORE_ANY);
+        assert_eq!(resolve_tags(&["ignore_by_safeguards"]), ORE_ANY);
+        // Each tag selects its own sentinel.
+        assert_eq!(resolve_tags(&[ORE_TAG_ONLY]), ORE_ORED);
+        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE]), ORE_NOT_ORED);
+        // Normalization mirrors the TS tag grammar (trim + case-insensitive).
+        assert_eq!(resolve_tags(&["  IF_Reworked  "]), ORE_ORED);
+        // Pre-rename spellings must keep resolving; a recipe saved before the rename
+        // otherwise loses its rework constraint without any warning.
+        assert_eq!(resolve_tags(&[ORE_TAG_ONLY_LEGACY]), ORE_ORED);
+        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE_LEGACY]), ORE_NOT_ORED);
+        assert_eq!(resolve_tags(&["ignore_by_safeguards", ORE_TAG_IGNORE_LEGACY, "ore5epic"]), ORE_NOT_ORED);
+        // Coexisting with other tags does not change the outcome.
+        assert_eq!(resolve_tags(&["ignore_by_safeguards", ORE_TAG_ONLY]), ORE_ORED);
+        // Both tags at once: if_reworked wins, regardless of order in the list.
+        assert_eq!(resolve_tags(&[ORE_TAG_ONLY, ORE_TAG_IGNORE]), ORE_ORED);
+        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE, ORE_TAG_ONLY]), ORE_ORED);
     }
 }
 

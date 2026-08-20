@@ -28,6 +28,14 @@ export interface HsfRule {
   Rarity?: number
   MainStatID?: number
   MainStatF?: number
+  /**
+   * Chaos-ore gate for this rule (see ORE_* in generated/domainConstants).
+   * -1 (ORE_ANY) or omitted = the rule ignores rework state, 0 = matches only gear that
+   * was never reworked, 1 = matches only reworked gear (a Chaos Ore was applied to it).
+   * Driven by the if_reworked / if_not_reworked recipe tags via
+   * resolveChaosOreTagValue.
+   */
+  Ore?: number
   LVLForCheck?: number
   Faction?: number
   Substats: HsfSubstat[]

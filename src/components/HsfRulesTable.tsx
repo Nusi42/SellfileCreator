@@ -37,6 +37,8 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
+import { isChaosOreConstrained } from '../lib/tagHelpers'
+import { ORE_ORED } from '../lib/generated/domainConstants'
 import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { renderColoredStatText } from '../lib/renderColoredStatText'
@@ -377,6 +379,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
         rule.__rankMask ?? rule.Rank ?? '',
         rule.__rarityMask ?? rule.Rarity ?? '',
         rule.MainStatID ?? '',
+        rule.Ore ?? '',
         rule.Faction ?? '',
         substats,
       ].join('|')
@@ -1293,6 +1296,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     key === 'MainStatName' ? t('colMain') :
     key === 'LevelLabel' ? t('colLevel') :
     key === 'Faction' ? t('colFaction') :
+    key === 'Ore' ? t('colOre') :
     key === 'SubstatsSummary' ? t('colSub') : String(key)
   )
   const colMenuLabel = (key: ColKey): string => (
@@ -1316,6 +1320,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     { key: 'LevelLabel', label: 'Level', width: 78, visible: true },
     // Default to hidden; users can opt-in via the header menu or auto mode.
     { key: 'Faction', label: 'Faction', width: 50, visible: false, mode: 'auto' },
+    // Chaos-ore gate column: auto-shows only when some rule actually narrows it.
+    { key: 'Ore', label: 'Ore', width: 56, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]), [])
   const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
@@ -1378,7 +1384,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     })
   }, [columnsEqual, restoreColumns, setStoredCols, toStoredColumns])
 
-  const updateFactionColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
+  // Cycle one auto-capable column through Auto -> Shown -> Hidden -> Auto. Shared by every
+  // column that declares a `mode` (Faction, Ore); plain columns use the show/hide toggle.
+  const updateAutoColumnMode = React.useCallback((columnIndex: number, currentMode: ColMode) => {
     const nextMode: ColMode = currentMode === 'auto' ? 'show' : (currentMode === 'show' ? 'hide' : 'auto')
     updateColumns(prev => prev.map((col, i) => (i === columnIndex ? { ...col, mode: nextMode } : col)))
   }, [updateColumns])
@@ -1386,7 +1394,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   // has a non-zero faction filter. Previously this only reacted to SFC-built rows
   // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
+  // Show the Ore column automatically when any rule actually gates on chaos-ore state.
+  // isChaosOreConstrained is the SSOT for "this value narrows something" (ORE_ANY does not).
+  const anyWithOre = useMemo(() => rules.some((r) => r && isChaosOreConstrained(r.Ore)), [rules])
   const isColVisible = React.useCallback((c: ColConfig) => {
+    if (c.key === 'Ore') {
+      const m = c.mode ?? 'auto'
+      if (m === 'show') return true
+      if (m === 'hide') return false
+      return anyWithOre
+    }
     if (c.key === 'Faction') {
       const m = c.mode ?? 'auto'
       if (m === 'show') return true
@@ -1394,7 +1411,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
       return anyWithFaction
     }
     return c.visible
-  }, [anyWithFaction])
+  }, [anyWithFaction, anyWithOre])
 
   
 
@@ -1695,6 +1712,12 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                 // This matches the intended preview behavior post‑i18n.
                 const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
                 value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
+              }
+              else if (c.key === 'Ore') {
+                // Unconstrained rules render blank, mirroring how an Any main stat shows nothing.
+                value = isChaosOreConstrained(rule.Ore)
+                  ? (Number(rule.Ore) === ORE_ORED ? t('oreOred') : t('oreNotOred'))
+                  : ''
               }
               else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
               else if (c.key === 'Idx') value = String(lineIdx + 1)
@@ -2247,15 +2270,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
           <Box sx={{ flex: 1 }} />
         </Box>
         {cols.map((c, idx) => {
-          const isFaction = c.key === 'Faction'
-          const val = isFaction ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
+          // Auto-capable columns are the ones whose config declares a `mode`.
+          const isAutoColumn = c.mode !== undefined
+          const val = isAutoColumn ? (c.mode ?? 'auto') : (c.visible ? 'show' : 'hide')
           return (
             <MenuItem
               key={String(c.key)}
               onClick={(e) => {
                 e.stopPropagation()
-                if (isFaction) {
-                  updateFactionColumnMode(idx, val as ColMode)
+                if (isAutoColumn) {
+                  updateAutoColumnMode(idx, val as ColMode)
                 } else {
                   const next = val === 'show' ? 'hide' : 'show'
                   updateColumns(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x)))
@@ -2264,7 +2288,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               sx={{ gap: 1 }}
             >
               <Typography variant="body2" sx={HEADER_MENU_LABEL_SX}>{colMenuLabel(c.key)}</Typography>
-              {isFaction ? (
+              {isAutoColumn ? (
                 <CycleButton
                   options={[
                     { value: 'auto', label: t('headerMenuAuto')   },

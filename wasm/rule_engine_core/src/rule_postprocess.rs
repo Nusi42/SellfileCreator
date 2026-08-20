@@ -146,6 +146,8 @@ pub fn build_final_sell_rules_core(
                 Rarity: Some(0),
                 MainStatID: Some(STAT_ID_ANY),
                 MainStatF: Some(MAIN_STAT_F_DEFAULT_FLAG),
+                // Final Sell is the unconditional catch-all; never gate it on rework state.
+                Ore: None,
                 LVLForCheck: Some(level),
                 Faction: Some(0),
                 Substats: Some(safeguard_clone_any_substats()),

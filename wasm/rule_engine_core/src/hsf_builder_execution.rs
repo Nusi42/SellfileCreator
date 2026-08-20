@@ -11,7 +11,7 @@ use ts_rs::TS;
 // Per-variant target quantization + the display -> HSF wire conversion, both of
 // which key off the stat's wire scale (1 classic, 100 anomalous).
 use crate::generated_domain_constants::{
-    hsf_value_scale_for_variant, is_anomalous_substat_variant, ANOMALOUS_MIN_TARGET_VALUE,
+    hsf_value_scale_for_variant, is_anomalous_substat_variant, ANOMALOUS_MIN_TARGET_VALUE, ORE_ANY,
 };
 use crate::hsf_builder_core::{scale_to_wire_units, to_hsf_wire_value};
 use crate::build_hsf_preflight_flags_core;
@@ -428,6 +428,10 @@ pub struct BuildHsfRulesRuntimeIn {
     pub rank_code: i64,
     pub rarity_code: i64,
     pub faction_code: i64,
+    // Rework gate resolved from the recipe tags (ORE_ANY when untagged). Defaults so
+    // payloads written before the Ore feature still deserialize as unconstrained.
+    #[serde(default)]
+    pub ore: Option<i64>,
     #[serde(default)]
     pub main_choices: Vec<EmitHsfMainChoiceIn>,
     pub emit_any_main_when_no_choices: bool,
@@ -502,6 +506,9 @@ fn build_hsf_rules_base_rule(input: &BuildHsfRulesRuntimeIn) -> RuleRaw {
         Rarity: Some(input.rarity_code),
         MainStatID: None,
         MainStatF: None,
+        // Only emit Ore when the recipe actually narrows it — ORE_ANY is the no-op default,
+        // so untagged recipes keep byte-identical output to before this feature.
+        Ore: input.ore.filter(|value| *value != ORE_ANY),
         LVLForCheck: None,
         Faction: Some(input.faction_code),
         Substats: Some(Vec::new()),
@@ -540,6 +547,7 @@ struct BuilderEmissionSignatureKey {
     faction: i64,
     main_id: i64,
     main_f_bits: u64,
+    ore: i64,
     level: i64,
     sets: Vec<i64>,
     types: Vec<i64>,
@@ -614,6 +622,8 @@ fn builder_emission_signature(rule: &RuleRaw) -> BuilderEmissionSignatureKey {
         main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
         // MainStatF is now Option<i64>; cast to f64 for bit-stable signature comparison.
         main_f_bits: normalize_f64_bits(rule.MainStatF.map_or(1.0, |v| v as f64)),
+        // Absent Ore is the unconstrained sentinel, so it hashes identically to an explicit -1.
+        ore: rule.Ore.unwrap_or(ORE_ANY),
         level: rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL),
         sets: canonical_sorted_numeric(rule.ArtifactSet.as_ref()),
         types: canonical_sorted_numeric(rule.ArtifactType.as_ref()),

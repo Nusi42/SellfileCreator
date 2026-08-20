@@ -30,6 +30,15 @@ pub const STAT_ID_CDMG: i64 = 8;
 pub const STAT_ID_HP_ATK_DEF: i64 = 9;
 pub const STAT_ID_ROLL_COUNT: i64 = 99;
 
+// HSF rule Ore gating: -1 ignores rework state, 0 requires never-reworked gear, 1 requires reworked gear.
+pub const ORE_ANY: i64 = -1;
+pub const ORE_NOT_ORED: i64 = 0;
+pub const ORE_ORED: i64 = 1;
+pub const ORE_TAG_ONLY: &str = "if_reworked";
+pub const ORE_TAG_IGNORE: &str = "if_not_reworked";
+pub const ORE_TAG_ONLY_LEGACY: &str = "only_for_chaos_ored";
+pub const ORE_TAG_IGNORE_LEGACY: &str = "ignore_for_chaos_ored";
+
 // Rarity code domain used by builder/rules generation.
 pub const RARITY_CODE_ANY: i64 = 0;
 pub const RARITY_CODE_COMMON: i64 = 1;

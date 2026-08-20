@@ -23,6 +23,19 @@
     "hpAtkDef": 9,
     "rollCount": 99
   },
+  "_comment_ore": "HSF rule Ore property (Update: chaos-ore gating). -1 = rule does not care, 0 = rule matches only gear that was never reworked, 1 = rule matches only reworked (Chaos Ore applied) gear. Mirrors the MainStatID -1 sentinel convention.",
+  "ore": {
+    "any": -1,
+    "notOred": 0,
+    "ored": 1
+  },
+  "_comment_oreTags": "Canonical recipe tags that select the Ore gate, plus the pre-rename spellings kept as read-only aliases so recipes saved before the rename keep working. They are mutually exclusive per recipe: the editors drop one when the other is set. If a loaded file somehow carries both, if_reworked wins.",
+  "oreTags": {
+    "only": "if_reworked",
+    "ignore": "if_not_reworked",
+    "legacyOnly": "only_for_chaos_ored",
+    "legacyIgnore": "ignore_for_chaos_ored"
+  },
   "rarityCode": {
     "any": 0,
     "common": 1,

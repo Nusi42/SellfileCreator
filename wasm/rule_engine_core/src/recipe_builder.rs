@@ -539,6 +539,8 @@ pub fn build_hsf_rules_for_recipe(
         rank_code:                     recipe.rank_code,
         rarity_code:                   actual_rarity_code,
         faction_code:                  recipe.faction_code,
+        // Rework gate stamped onto every rule this recipe emits.
+        ore:                           Some(recipe.ore),
         main_choices,
         emit_any_main_when_no_choices,
         baseline:                      Some(baseline),

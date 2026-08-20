@@ -204,6 +204,10 @@ pub struct RuleRaw {
     pub MainStatID: Option<i64>,
     // TS type is `number` (0 = percent, 1 = flat); concrete i64 avoids serde_json::Value AST.
     pub MainStatF: Option<i64>,
+    // Rework gate: ORE_ANY (-1) / None ignores rework state, ORE_NOT_ORED (0) requires
+    // never-reworked gear, ORE_ORED (1) requires reworked gear (a Chaos Ore was applied).
+    // Set from the recipe tags.
+    pub Ore: Option<i64>,
     pub LVLForCheck: Option<i64>,
     pub Faction: Option<i64>,
     pub Substats: Option<Vec<RuleSubRaw>>,
@@ -306,6 +310,11 @@ pub struct TestItemRaw {
     pub level: i64,
     pub faction: Option<i64>,
     pub main: Option<i64>,
+    // Number of Chaos Ore reworks applied to this item (0 = never reworked). Feeds the
+    // rule Ore gate; optional so callers that never set Ore rules can omit it. The field
+    // name mirrors the pre-existing DB column spelling (REROLLCOUNT).
+    #[serde(default)]
+    pub reroll_count: Option<i64>,
     // Keys are parsed to i64 once at deserialize-time to avoid hot-loop coercion.
     // Vec instead of BTreeMap: items have ≤4 substats so linear scan beats hashing.
     // Wire shape is `Record<string, number>` (object keyed by stringified variant id);

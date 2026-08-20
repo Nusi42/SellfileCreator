@@ -29,6 +29,15 @@ export const STAT_ID_CDMG = 8
 export const STAT_ID_HP_ATK_DEF = 9
 export const STAT_ID_ROLL_COUNT = 99
 
+// HSF rule Ore gating: -1 ignores rework state, 0 requires never-reworked gear, 1 requires reworked gear.
+export const ORE_ANY = -1
+export const ORE_NOT_ORED = 0
+export const ORE_ORED = 1
+export const ORE_TAG_ONLY = "if_reworked"
+export const ORE_TAG_IGNORE = "if_not_reworked"
+export const ORE_TAG_ONLY_LEGACY = "only_for_chaos_ored"
+export const ORE_TAG_IGNORE_LEGACY = "ignore_for_chaos_ored"
+
 // Rarity code domain used by builder/rules generation.
 export const RARITY_CODE_ANY = 0
 export const RARITY_CODE_COMMON = 1

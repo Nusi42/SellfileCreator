@@ -68,6 +68,7 @@ const RuleRaw_LONG_TO_SHORT = {
   "Rarity": "ra",
   "MainStatID": "ms",
   "MainStatF": "mf",
+  "Ore": "o",
   "LVLForCheck": "lvl",
   "Faction": "f",
   "Substats": "ss",

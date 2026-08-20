@@ -6,7 +6,7 @@ import {
   compareVariants,
 } from './types'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
-import { hasIgnoreSafeguardTag } from './tagHelpers'
+import { describeSemanticTags } from './tagHelpers'
 
 const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
@@ -172,8 +172,14 @@ export function buildCanonicalRecipeSnapshot(recipe: BuilderRecipe): BuilderReci
   push('artifactSets', sortedSetEntries)
   push('artifactMetaSets', sortStrings(recipe.artifactMetaSets))
   push('earlyKeepMode', recipe.earlyKeepMode === 'late' ? 'late' : 'early')
-  // Safeguard ignore tags affect match ordering, so include them in fingerprints.
-  push('ignoreSafeguardTag', hasIgnoreSafeguardTag(recipe.tags))
+  // Tags are excluded wholesale via IGNORED_KEYS because most are free-form user labels.
+  // The few that carry app-driven meaning must still affect the fingerprint, or toggling
+  // one serves stale cached rules. describeSemanticTags is the SSOT registry of those
+  // tags, so a newly added behavior-carrying tag joins the cache key automatically
+  // instead of relying on someone remembering to push it here.
+  for (const [key, value] of Object.entries(describeSemanticTags(recipe.tags))) {
+    push(key, value)
+  }
 
   const knownKeys = new Set(entries.map(([key]) => key))
 

@@ -170,6 +170,10 @@ export const toWasmTestItem = (item: TestItem): TestItemRaw => ({
   // Non-accessories cannot carry faction; null signals Rust to skip the faction check.
   faction: isAccessorySlot(item.slot) ? (item.faction ?? null) : null,
   main: item.main ?? null,
+  // Rework count (times a Chaos Ore was applied) feeds the rule Ore gate. Lives in
+  // previewExtras on the TS side; missing data means never reworked, matching the
+  // Gear Inspector chaos-ore filter. The field name is the pre-existing DB spelling.
+  rerollCount: item.previewExtras?.rerollCount ?? null,
   subValues: item.subValues ?? null,
   itemId: null,
   // Forward only previewExtras.id — every other extras field is not in PreviewExtrasRaw.
@@ -1687,6 +1691,8 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
   rankCode: number
   rarityCode: number
   factionCode: number
+  // Chaos-ore gate (ORE_* sentinel) stamped onto every rule the recipe emits.
+  ore?: number
   mainChoices: Array<{ id: number; f?: number }>
   emitAnyMainWhenNoChoices: boolean
   baseline?: string
@@ -1730,6 +1736,8 @@ export const buildHsfRulesRuntimeWithLoadedWasm = (params: {
       rankCode: Math.floor(params.rankCode),
       rarityCode: Math.floor(params.rarityCode),
       factionCode: Math.floor(params.factionCode),
+      // Forward the chaos-ore gate; omitted means unconstrained on the Rust side.
+      ...(typeof params.ore === 'number' ? { ore: Math.floor(params.ore) } : {}),
       mainChoices: params.mainChoices ?? [],
       emitAnyMainWhenNoChoices: params.emitAnyMainWhenNoChoices === true,
       baseline: params.baseline,

@@ -108,6 +108,8 @@ pub struct RuleRawWire {
     pub main_stat_id: Option<i64>,
     #[serde(rename = "mf", alias = "MainStatF", skip_serializing_if = "Option::is_none")]
     pub main_stat_f: Option<i64>,
+    #[serde(rename = "o", alias = "Ore", skip_serializing_if = "Option::is_none")]
+    pub ore: Option<i64>,
     #[serde(rename = "lvl", alias = "LVLForCheck", skip_serializing_if = "Option::is_none")]
     pub lvl_for_check: Option<i64>,
     #[serde(rename = "f", alias = "Faction", skip_serializing_if = "Option::is_none")]
@@ -162,6 +164,7 @@ impl From<RuleRaw> for RuleRawWire {
             rarity: rule.Rarity,
             main_stat_id: rule.MainStatID,
             main_stat_f: rule.MainStatF,
+            ore: rule.Ore,
             lvl_for_check: rule.LVLForCheck,
             faction: rule.Faction,
             substats: rule
@@ -202,6 +205,7 @@ impl From<RuleRawWire> for RuleRaw {
             Rarity: wire.rarity,
             MainStatID: wire.main_stat_id,
             MainStatF: wire.main_stat_f,
+            Ore: wire.ore,
             LVLForCheck: wire.lvl_for_check,
             Faction: wire.faction,
             Substats: wire

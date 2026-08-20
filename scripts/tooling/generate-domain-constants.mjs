@@ -22,6 +22,8 @@ const spec = JSON.parse(rawSpec)
 // Keep value access centralized so TS and Rust emitters share one derivation.
 const artifactType = spec.artifactType
 const statId = spec.statId
+const ore = spec.ore
+const oreTags = spec.oreTags
 const rarityCode = spec.rarityCode
 const rankCode = spec.rankCode
 const rankValue = spec.rankValue
@@ -195,6 +197,15 @@ const tsLines = [
   `export const STAT_ID_HP_ATK_DEF = ${Number(statId.hpAtkDef)}`,
   `export const STAT_ID_ROLL_COUNT = ${Number(statId.rollCount)}`,
   '',
+  '// HSF rule Ore gating: -1 ignores rework state, 0 requires never-reworked gear, 1 requires reworked gear.',
+  `export const ORE_ANY = ${Number(ore.any)}`,
+  `export const ORE_NOT_ORED = ${Number(ore.notOred)}`,
+  `export const ORE_ORED = ${Number(ore.ored)}`,
+  `export const ORE_TAG_ONLY = ${asTsStringLiteral(oreTags.only)}`,
+  `export const ORE_TAG_IGNORE = ${asTsStringLiteral(oreTags.ignore)}`,
+  `export const ORE_TAG_ONLY_LEGACY = ${asTsStringLiteral(oreTags.legacyOnly)}`,
+  `export const ORE_TAG_IGNORE_LEGACY = ${asTsStringLiteral(oreTags.legacyIgnore)}`,
+  '',
   '// Rarity code domain used by builder/rules generation.',
   `export const RARITY_CODE_ANY = ${Number(rarityCode.any)}`,
   `export const RARITY_CODE_COMMON = ${Number(rarityCode.common)}`,
@@ -342,6 +353,15 @@ const rustLines = [
   `pub const STAT_ID_CDMG: i64 = ${Number(statId.cdmg)};`,
   `pub const STAT_ID_HP_ATK_DEF: i64 = ${Number(statId.hpAtkDef)};`,
   `pub const STAT_ID_ROLL_COUNT: i64 = ${Number(statId.rollCount)};`,
+  '',
+  '// HSF rule Ore gating: -1 ignores rework state, 0 requires never-reworked gear, 1 requires reworked gear.',
+  `pub const ORE_ANY: i64 = ${Number(ore.any)};`,
+  `pub const ORE_NOT_ORED: i64 = ${Number(ore.notOred)};`,
+  `pub const ORE_ORED: i64 = ${Number(ore.ored)};`,
+  `pub const ORE_TAG_ONLY: &str = ${asRustStringLiteral(oreTags.only)};`,
+  `pub const ORE_TAG_IGNORE: &str = ${asRustStringLiteral(oreTags.ignore)};`,
+  `pub const ORE_TAG_ONLY_LEGACY: &str = ${asRustStringLiteral(oreTags.legacyOnly)};`,
+  `pub const ORE_TAG_IGNORE_LEGACY: &str = ${asRustStringLiteral(oreTags.legacyIgnore)};`,
   '',
   '// Rarity code domain used by builder/rules generation.',
   `pub const RARITY_CODE_ANY: i64 = ${Number(rarityCode.any)};`,

@@ -6,6 +6,7 @@
  * rarity schedules, substatTargets application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
+import { resolveChaosOreTagValue } from './tagHelpers'
 import type {
   BuilderRecipe,
   LegacyVisibilityFields,
@@ -522,6 +523,8 @@ export function buildHsfRules(
     rankCode: rankCode,
     rarityCode,
     factionCode: Number(factionCode ?? 0),
+    // Rework gate from the recipe tags; ORE_ANY leaves every emitted rule unconstrained.
+    ore: resolveChaosOreTagValue(recipe.tags),
     mainChoices: mainChoicesForWasm,
     emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
     baseline,
