@@ -223,8 +223,8 @@ import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
 import { resolveSafeguardActivationTextColor } from './safeguardSummaryParts'
-import { normalizeTagValue, mergeTagList, summarizeTagPresence } from '../lib/tagHelpers'
-import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
+import { normalizeTagValue, mergeTagList, summarizeTagPresence, applyReworkTagExclusivity, isReworkTag, oppositeReworkTag, type TagVocabulary } from '../lib/tagHelpers'
+import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -285,6 +285,8 @@ const MIXED_TOGGLE_GROUP_OVERRIDES = (mixedBorderColor: string, mixedTextColor: 
 // ── component ────────────────────────────────────────────────────────────────
 
 export type SafeguardBuilderPanelProps = {
+  /** Tags already used across recipes AND safeguards, plus the app-known ones. */
+  tagVocabulary: TagVocabulary
   rule: SafeguardRule
   onChange: (next: SafeguardRule | ((prev: SafeguardRule) => SafeguardRule)) => void
   editingRuleIdx: number | null
@@ -395,6 +397,7 @@ export default function SafeguardBuilderPanel({
   candidateFocusBucketKey,
   onCandidateFocusBucketKeyChange,
   improvementChanceByItemKey,
+  tagVocabulary,
 }: SafeguardBuilderPanelProps) {
   const { t, lang } = useI18n()
   // ── multi-edit mode derived state ─────────────────────────────────────────
@@ -1679,6 +1682,14 @@ export default function SafeguardBuilderPanel({
     tokens.forEach((tag) => {
       const baseState = getTagBaseState(tag)
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
+      // The two rework tags are mutually exclusive: adding one clears the other across
+      // the whole selection, mirroring the single-edit path above.
+      if (target === 'all' && isReworkTag(tag)) {
+        const opposite = oppositeReworkTag(tag)
+        if (opposite) {
+          nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
+        }
+      }
     })
     multiEdit.updateField('tags', {
       value: (multiTagsField?.value as string[]) ?? [],
@@ -1699,11 +1710,38 @@ export default function SafeguardBuilderPanel({
     if (multiEditActive) {
       stageTagPatch(normalizedAdds, 'all')
     } else {
-      // Merge into the current tag list (order-preserving, deduped).
-      updateRule((prev) => ({ ...prev, tags: mergeTagList(prev.tags ?? [], normalizedAdds) }))
+      // Merge into the current tag list (order-preserving, deduped), then enforce
+      // rework-tag mutual exclusivity so adding one drops the other — same rule as the
+      // recipe panel, via the shared helper rather than a second implementation.
+      updateRule((prev) => ({
+        ...prev,
+        // Rebuild left-to-right: each tag first evicts its rework opposite, then appends.
+        // A later rework tag therefore wins over an earlier one, matching "adding one
+        // removes the other" and the identical reduce in the recipe panel.
+        tags: mergeTagList(prev.tags ?? [], normalizedAdds).reduce<string[]>(
+          (acc, tag) => (acc.includes(tag) ? acc : [...applyReworkTagExclusivity(acc, tag), tag]),
+          [],
+        ),
+      }))
     }
     setTagsDraft('')
   }, [multiEditActive, stageTagPatch, tagsDraft, updateRule])
+  // Tags currently applied, for the picker's toggle state (the union in multi-edit).
+  const selectedTagSet = useMemo(() => new Set(tagDisplay), [tagDisplay])
+  // Adding from the picker reuses the same write paths as typed input, so exclusivity and
+  // multi-edit patching behave identically either way.
+  const addTagFromPicker = useCallback((tag: string) => {
+    if (multiEditActive) {
+      stageTagPatch([tag], 'all')
+      return
+    }
+    updateRule((prev) => ({
+      ...prev,
+      tags: [...applyReworkTagExclusivity(prev.tags ?? [], tag), ...(
+        (prev.tags ?? []).some((existing) => existing === tag) ? [] : [tag]
+      )],
+    }))
+  }, [multiEditActive, stageTagPatch, updateRule])
   // Remove a single tag from the rule or from all selected rules via patch.
   const removeTag = useCallback((tag: string) => {
     if (multiEditActive) {
@@ -2626,7 +2664,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                 contextMenuGuard: tagsMenuGuard,
                 onRequestClose: closeTagsPopover,
                 closeLabel: t('close'),
-                sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
+                sx: { width: TAG_FLYOUT_WIDTH_PX, minWidth: TAG_FLYOUT_WIDTH_PX, maxWidth: 'calc(100vw - 32px)' },
               }), ref: tagsMenuPaperRef },
             }}
           >
@@ -2674,6 +2712,17 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                     }
                     commitTagsFromDraft()
                   }}
+                />
+                {/* Pick from tags already used anywhere in the document (recipes included),
+                    so the exact spelling never has to be recalled. */}
+                <BuilderTagPicker
+                  vocabulary={tagVocabulary.tags}
+                  appKnown={tagVocabulary.appKnown}
+                  selected={selectedTagSet}
+                  onAdd={addTagFromPicker}
+                  label={t('builderTagsPickerLabel')}
+                  emptyLabel={t('builderTagsPickerEmpty')}
+                  appKnownHint={t('builderTagsPickerAppKnownHint')}
                 />
               </Stack>
             </Box>

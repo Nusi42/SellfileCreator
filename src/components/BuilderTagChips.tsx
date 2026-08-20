@@ -2,7 +2,7 @@
 // lists. Double-click-to-copy and the per-tag colour are defined once here and applied to
 // every tag chip.
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Chip, Box, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 import type { SystemStyleObject } from '@mui/system'
@@ -205,6 +205,35 @@ export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEd
   )
 }
 
+// Shared sizing for BOTH tag lists in the tags flyout (applied chips + picker). Each list
+// is bounded in BOTH dimensions so neither a long tag nor a large tag count can stretch the
+// popover: it wraps, then scrolls. The menu keeps its own viewport clamp on top of this, so
+// small screens still shrink normally.
+//
+// The width is DERIVED from the content rather than picked by eye: the flyout should fit
+// exactly three `ignore_by_safeguards` chips on one row — that is the longest app-known tag,
+// so three of them is a good worst-case row. Measured in-browser at the small chip size:
+// a chip renders 131.5px, the flex gap is 4px (gap: 0.5 => 4px), and the popover contributes
+// 26px of horizontal chrome (12px padding per side + 1px border per side).
+const TAG_CHIP_REFERENCE_WIDTH_PX = 131.5
+const TAG_LIST_GAP_PX = 4
+const TAG_FLYOUT_HORIZONTAL_CHROME_PX = 26
+const TAG_FLYOUT_REFERENCE_CHIPS = 3
+export const TAG_FLYOUT_WIDTH_PX = Math.ceil(
+  TAG_FLYOUT_REFERENCE_CHIPS * TAG_CHIP_REFERENCE_WIDTH_PX
+  + (TAG_FLYOUT_REFERENCE_CHIPS - 1) * TAG_LIST_GAP_PX
+  + TAG_FLYOUT_HORIZONTAL_CHROME_PX,
+)
+// The lists fill the flyout minus its chrome, so they never widen it.
+const TAG_LIST_MAX_WIDTH_PX = TAG_FLYOUT_WIDTH_PX - TAG_FLYOUT_HORIZONTAL_CHROME_PX
+// The APPLIED list is capped shorter than the picker (about two rows): it sits above the
+// picker, so letting it grow tall would push the picker out of view. It scrolls instead.
+const TAG_APPLIED_MAX_HEIGHT_PX = 64
+// The picker owns the remaining space and may run a little taller (about five rows).
+const TAG_PICKER_MAX_HEIGHT_PX = 168
+// A single tag must not blow out the row; longer labels ellipsize and keep their tooltip.
+const TAG_PICKER_CHIP_MAX_WIDTH_PX = TAG_LIST_MAX_WIDTH_PX
+
 export interface BuilderTagChipListProps {
   tags: string[]
   mixedTagSet?: ReadonlySet<string>
@@ -223,7 +252,21 @@ export interface BuilderTagChipListProps {
 export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEditActive, onRemove, emptyLabel }: BuilderTagChipListProps) {
   const tagChipSx = useTagChipSx()
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+    // Bounded like the picker below it: without a cap, a recipe carrying many tags (or one
+    // long tag) grew the flyout until it hit the viewport. Wrapping plus a scroll cap keeps
+    // the popover a predictable size no matter how many tags are applied.
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 0.5,
+        maxWidth: TAG_LIST_MAX_WIDTH_PX,
+        width: '100%',
+        maxHeight: TAG_APPLIED_MAX_HEIGHT_PX,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+      }}
+    >
       {tags.length > 0 ? (
         tags.map((tag) => (
           // Same ellipsis→OS-tooltip affordance as the strip; inert while the label fits.
@@ -236,11 +279,107 @@ export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEdi
               onDoubleClick={(e) => { e.stopPropagation(); copyTagToClipboard(tag) }}
               sx={[
                 tagChipSx(tag),
+                // Long tags ellipsize rather than widening the popover.
+                { maxWidth: TAG_PICKER_CHIP_MAX_WIDTH_PX } as SystemStyleObject<Theme>,
                 ...(multiEditActive && mixedTagSet?.has(tag) && mixedTagChipSx ? [mixedTagChipSx as SystemStyleObject<Theme>] : []),
               ]}
             />
           </EllipsisTooltip>
         ))
+      ) : (
+        <Typography variant="caption" color="text.secondary">
+          {emptyLabel}
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+export interface BuilderTagPickerProps {
+  /** Candidate tags in display order: app-known tags first, then the user's own. */
+  vocabulary: readonly string[]
+  /** Tags the app itself gives meaning to; rendered with a hint so they stand out. */
+  appKnown: ReadonlySet<string>
+  /** Tags already on the current selection — filtered out, since adding them is a no-op. */
+  selected: ReadonlySet<string>
+  /** Add a tag to the current recipe/safeguard (or the whole multi-edit selection). */
+  onAdd: (tag: string) => void
+  /** Section heading, e.g. "Unused tags". */
+  label: string
+  /** Shown when every candidate tag is already applied. */
+  emptyLabel: string
+  /** Tooltip text explaining that these tags change behavior. */
+  appKnownHint: string
+}
+
+/**
+ * Offer the tags NOT yet on the current selection — drawn from every tag used anywhere in
+ * the document (recipes AND safeguards) plus the app-known ones — so a tag can be reused
+ * without recalling its exact spelling.
+ *
+ * Only unapplied tags appear: clicking one adds it, and it leaves the list. Tags already
+ * applied live in the chip list directly above, which is where they are removed, so the
+ * picker stays purely additive rather than duplicating that state as a toggle.
+ */
+export function BuilderTagPicker({
+  vocabulary, appKnown, selected, onAdd, label, emptyLabel, appKnownHint,
+}: BuilderTagPickerProps) {
+  const tagChipSx = useTagChipSx()
+  // Applied tags are shown (and removed) in the chip list above, so offering them here
+  // would be a no-op click and duplicate state.
+  const unusedTags = useMemo(
+    () => vocabulary.filter((tag) => !selected.has(tag)),
+    [vocabulary, selected],
+  )
+  return (
+    <Box>
+      {/* Section heading keeps the picker visually separate from the current tag chips. */}
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+        {label}
+      </Typography>
+      {unusedTags.length > 0 ? (
+        // Bounded in both axes: many tags scroll vertically rather than growing the menu,
+        // and the width is pinned so a long tag cannot widen the flyout. maxWidth uses
+        // 100% as well so a narrower menu (small viewport) still wins.
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 0.5,
+            maxWidth: TAG_LIST_MAX_WIDTH_PX,
+            width: '100%',
+            maxHeight: TAG_PICKER_MAX_HEIGHT_PX,
+            overflowY: 'auto',
+            // Horizontal growth is handled by wrapping + per-chip ellipsis, never a scrollbar.
+            overflowX: 'hidden',
+          }}
+        >
+          {unusedTags.map((tag) => {
+            // App-known tags carry behavior, so flag them in the tooltip.
+            const isAppKnown = appKnown.has(tag)
+            const title = isAppKnown ? `${tag} — ${appKnownHint}` : tag
+            return (
+              <EllipsisTooltip key={tag} title={title}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={tag}
+                  // Purely additive: the tag joins the selection and leaves this list.
+                  onClick={() => onAdd(tag)}
+                  sx={[
+                    tagChipSx(tag),
+                    // Long tags ellipsize rather than widening the row; the EllipsisTooltip
+                    // wrapper already surfaces the full text on hover.
+                    { maxWidth: TAG_PICKER_CHIP_MAX_WIDTH_PX } as SystemStyleObject<Theme>,
+                    // App-known tags get a dashed border to mark them as behavioral.
+                    ...(isAppKnown ? [{ borderStyle: 'dashed' } as SystemStyleObject<Theme>] : []),
+                    { cursor: 'pointer' } as SystemStyleObject<Theme>,
+                  ]}
+                />
+              </EllipsisTooltip>
+            )
+          })}
+        </Box>
       ) : (
         <Typography variant="caption" color="text.secondary">
           {emptyLabel}

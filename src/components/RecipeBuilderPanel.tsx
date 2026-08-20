@@ -124,8 +124,8 @@ import {
   applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
 } from '../lib/recipeMultiEditDraft'
-import { applyReworkTagExclusivity, isReworkTag, mergeTagList, normalizeTagValue, oppositeReworkTag, summarizeTagPresence } from '../lib/tagHelpers'
-import { BuilderTagChipStrip, BuilderTagChipList } from './BuilderTagChips'
+import { applyReworkTagExclusivity, isReworkTag, mergeTagList, normalizeTagValue, oppositeReworkTag, summarizeTagPresence, type TagVocabulary } from '../lib/tagHelpers'
+import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useShowTagsChipsPreference, useBuilderRecipeCollapsedPreference, isAnySubstatSectionExpanded } from '../state/builderPreferences'
@@ -206,7 +206,9 @@ import { TINT } from '../lib/colorTints'
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onMetasetRenamed, onResetMetasets, substatTargets, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, onSelectSafeguardsByMetaset, recipeOverridesInstructions, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose, onRegisterOpenMetasetsDialog }: {
+export default function BuilderPanel({ tagVocabulary, recipe, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onMetasetRenamed, onResetMetasets, substatTargets, setUsageCounts, metasetUsageCounts, safeguardMetasetUsageCounts, substatColors: _substatColors, recipeCount: _recipeCount, recipeRuleCounts, recipesExcludedByTotalLimit, countRulesForRecipes, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectRecipesByMetaset, onSelectSafeguardsByMetaset, recipeOverridesInstructions, multiEdit: _multiEdit = null, multiSelectedRecipes = null, onBeforeMetasetsDialogClose, onRegisterOpenMetasetsDialog }: {
+  /** Tags already used across recipes AND safeguards, plus the app-known ones. */
+  tagVocabulary: TagVocabulary
   recipe: BuilderRecipe,
   onChange: (c: BuilderRecipe) => void
   onAddToCustom: () => void
@@ -2094,6 +2096,18 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     }
     setTagsDraft('')
   }, [commitTags, multiEditActive, stageTagPatch, tagsDraft, tagsValue])
+  // Tags currently applied to the selection, for the picker's toggle state. In multi-edit
+  // this is the union shown as chips, matching what the chip list renders.
+  const selectedTagSet = useMemo(() => new Set(tagDisplay), [tagDisplay])
+  // Adding from the picker goes through the same paths as typing a tag, so rework-tag
+  // exclusivity and multi-edit patching behave identically either way.
+  const addTagFromPicker = useCallback((tag: string) => {
+    if (multiEditActive) {
+      stageTagPatch([tag], 'all')
+      return
+    }
+    commitTags(mergeTagList(tagsValue, [tag]))
+  }, [commitTags, multiEditActive, stageTagPatch, tagsValue])
   const removeTag = useCallback((tag: string) => {
     // Multi-edit removes tags via patch so it does not overwrite other tags.
     if (multiEditActive) {
@@ -6412,7 +6426,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     contextMenuGuard: tagsMenuGuard,
                     onRequestClose: closeTagsPopover,
                     closeLabel: t('close'),
-                    sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
+                    sx: { width: TAG_FLYOUT_WIDTH_PX, minWidth: TAG_FLYOUT_WIDTH_PX, maxWidth: 'calc(100vw - 32px)' },
                   }), ref: tagsMenuPaperRef },
                 }}
               >
@@ -6461,6 +6475,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         }
                         commitTagsFromDraft()
                       }}
+                    />
+                    {/* Pick from tags already used anywhere in the document so the exact
+                        spelling never has to be recalled; app-known tags are always offered. */}
+                    <BuilderTagPicker
+                      vocabulary={tagVocabulary.tags}
+                      appKnown={tagVocabulary.appKnown}
+                      selected={selectedTagSet}
+                      onAdd={addTagFromPicker}
+                      label={t('builderTagsPickerLabel')}
+                      emptyLabel={t('builderTagsPickerEmpty')}
+                      appKnownHint={t('builderTagsPickerAppKnownHint')}
                     />
                   </Stack>
                 </Box>

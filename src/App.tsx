@@ -229,6 +229,7 @@ import {
 } from './hooks/useAutosaveRestore'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 import { TINT } from './lib/colorTints'
+import { buildTagVocabulary } from './lib/tagHelpers'
 import { playAttentionPulse, attentionPulseIterationsForMs } from './lib/attentionPulse'
 const GEAR_INSPECTOR_MATCH_RESET_TIMEOUT_MS = 1500
 // Endpoint push processing polls until worker + preview pipelines settle.
@@ -1137,6 +1138,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return counts
   }, [customRecipes])
+  // Tag vocabulary offered by both builder panels' tags flyout. Sourced from recipes AND
+  // safeguards together so a tag coined on one side can be reused on the other without the
+  // user recalling its exact spelling; buildTagVocabulary folds in the app-known tags.
+  const tagVocabulary = useMemo(
+    () => buildTagVocabulary([
+      ...customRecipes.map((recipe) => recipe.tags),
+      ...safeguardRules.map((rule) => rule.tags),
+    ]),
+    [customRecipes, safeguardRules],
+  )
   // Track metaset references across Safeguard rules (counting each rule once) so
   // the UI can surface Safeguard dependencies separately from recipe usage.
   const safeguardMetasetUsageCounts = useMemo(() => {
@@ -7234,6 +7245,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [safeguardBuilder, selectedSafeguardRuleIdx, safeguardRules])
   const safeguardBuilderPanelElement = (
     <SafeguardBuilderPanel
+      tagVocabulary={tagVocabulary}
       rule={safeguardBuilder}
       onChange={setSafeguardBuilder}
       editingRuleIdx={selectedSafeguardRuleIndex >= 0 ? selectedSafeguardRuleIndex : null}
@@ -7279,6 +7291,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const builderPanelElement = (
     <BuilderPanel
+      tagVocabulary={tagVocabulary}
       recipe={builder}
       onChange={setBuilder}
       onAddToCustom={() => {

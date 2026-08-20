@@ -280,6 +280,65 @@ export const isSemanticTag = (tag: string): boolean => {
   return Object.keys(baseline).some((key) => baseline[key] !== withTag[key])
 }
 
+/**
+ * Every tag the app itself gives meaning to, in a stable display order.
+ *
+ * Derived from the semantic-tag registry's own vocabulary rather than re-listing tokens,
+ * so a newly registered semantic tag shows up in the tag picker automatically. Only the
+ * CURRENT spellings appear — legacy aliases still load, but should never be offered for
+ * new use.
+ */
+export const APP_KNOWN_TAGS: readonly string[] = Object.freeze([
+  SAFEGUARD_IGNORE_TAG,
+  REWORK_ONLY_TAG,
+  REWORK_EXCLUDE_TAG,
+])
+
+/** Vocabulary payload consumed by the tags picker in both builder panels. */
+export interface TagVocabulary {
+  /** Display order: app-known tags first, then the user's own tags alphabetically. */
+  tags: string[]
+  /** How many recipes/safeguards carry each tag (0 for unused app-known tags). */
+  counts: Record<string, number>
+  /** Subset of the tags list that the app itself gives meaning to. */
+  appKnown: ReadonlySet<string>
+}
+
+/**
+ * Build the tag vocabulary offered by the tags picker: every tag already used anywhere in
+ * the document (recipes and safeguards alike) plus the app-known tags, so a tag can be
+ * reused without remembering its exact spelling.
+ *
+ * Tags are normalized and de-duped (legacy spellings fold onto their current token), with
+ * app-known ones first so they stay discoverable, then the user's own alphabetically.
+ * `counts` reports how many entries carry each tag: the picker only needs the list, but the
+ * counts let other callers tell "app-known but never used" apart from "in use".
+ */
+export function buildTagVocabulary(
+  tagLists: readonly (readonly string[] | null | undefined)[],
+): TagVocabulary {
+  // Count occurrences across every supplied list so the picker can show usage.
+  const counts: Record<string, number> = Object.create(null) as Record<string, number>
+  for (const list of tagLists) {
+    // De-dupe within one entry so a repeated tag counts once per recipe/safeguard.
+    const unique = new Set<string>()
+    for (const rawTag of list ?? []) {
+      // Normalize + canonicalize so legacy spellings merge into their current token.
+      const normalized = normalizeTagValue(String(rawTag))
+      if (!normalized) continue
+      unique.add(canonicalizeKnownTagAlias(normalized))
+    }
+    for (const tag of unique) counts[tag] = (counts[tag] ?? 0) + 1
+  }
+  // App-known tags lead the list so the meaningful ones are always discoverable.
+  const appKnown = new Set<string>(APP_KNOWN_TAGS)
+  // The rest are the user's own tags, sorted for predictable scanning.
+  const userTags = Object.keys(counts)
+    .filter((tag) => !appKnown.has(tag))
+    .sort((a, b) => a.localeCompare(b))
+  return { tags: [...APP_KNOWN_TAGS, ...userTags], counts, appKnown }
+}
+
 // Normalize an unknown list into a stable, de-duped tag array.
 export function normalizeTagList(source: unknown): string[] | undefined {
   // Only arrays are considered valid inputs.

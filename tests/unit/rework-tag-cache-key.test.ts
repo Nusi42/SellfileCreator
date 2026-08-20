@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 // Symptom when this regresses: adding/removing if_reworked / if_not_reworked has no
 // visible effect until a reload, because the cache serves the pre-change rules.
 import { buildCanonicalRecipeSnapshot } from '../../src/lib/recipeSnapshot.js'
-import { REWORK_EXCLUDE_TAG, REWORK_ONLY_TAG, SAFEGUARD_IGNORE_TAG, describeSemanticTags, isSemanticTag } from '../../src/lib/tagHelpers.js'
+import { REWORK_EXCLUDE_TAG, REWORK_ONLY_TAG, SAFEGUARD_IGNORE_TAG, describeSemanticTags, isSemanticTag, buildTagVocabulary, APP_KNOWN_TAGS } from '../../src/lib/tagHelpers.js'
 import type { BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 
 // Minimal recipe; only the tag list varies across the cases below.
@@ -107,3 +107,51 @@ test('isSemanticTag separates behavior-carrying tags from plain labels', () => {
   assert.equal(isSemanticTag('speed'), false)
 })
 
+
+// --- Tag vocabulary (the tags-flyout picker) ---
+//
+// The picker offers tags already used anywhere in the document — recipes AND safeguards —
+// plus the app-known tags, so a tag coined on one side can be reused on the other without
+// recalling its spelling.
+
+test('buildTagVocabulary always offers the app-known tags first', () => {
+  // Even with nothing tagged anywhere, the behavior-carrying tags must be selectable.
+  const { tags, appKnown } = buildTagVocabulary([])
+  assert.deepEqual(tags, [...APP_KNOWN_TAGS])
+  // Only current spellings are offered; legacy aliases still load but are never suggested.
+  assert.equal(tags.includes('ignore_for_chaos_ored'), false)
+  // The app-known set marks exactly those tags.
+  assert.deepEqual([...appKnown].sort(), [...APP_KNOWN_TAGS].sort())
+})
+
+test('buildTagVocabulary merges tags from every source and counts usage', () => {
+  // Two "recipes" and one "safeguard" — the builder does not care which is which.
+  const { tags, counts } = buildTagVocabulary([
+    ['speed', 'ore5epic'],
+    ['speed'],
+    ['safeguard_only'],
+  ])
+  // App-known tags lead; the user's own follow alphabetically.
+  assert.deepEqual(tags.slice(0, APP_KNOWN_TAGS.length), [...APP_KNOWN_TAGS])
+  assert.deepEqual(tags.slice(APP_KNOWN_TAGS.length), ['ore5epic', 'safeguard_only', 'speed'])
+  // Counts reflect how many entries carry each tag.
+  assert.equal(counts['speed'], 2)
+  assert.equal(counts['safeguard_only'], 1)
+  // Unused app-known tags report no usage rather than being absent.
+  assert.equal(counts[REWORK_ONLY_TAG] ?? 0, 0)
+})
+
+test('buildTagVocabulary folds legacy spellings into their current tag', () => {
+  // A file still carrying the pre-rename tag must not offer BOTH spellings.
+  const { tags, counts } = buildTagVocabulary([['ignore_for_chaos_ored'], [REWORK_EXCLUDE_TAG]])
+  assert.equal(tags.filter((tag) => tag === REWORK_EXCLUDE_TAG).length, 1)
+  assert.equal(tags.includes('ignore_for_chaos_ored'), false)
+  // Both entries count toward the canonical tag.
+  assert.equal(counts[REWORK_EXCLUDE_TAG], 2)
+})
+
+test('buildTagVocabulary counts a repeated tag once per entry', () => {
+  // A malformed list repeating a tag must not inflate its usage count.
+  const { counts } = buildTagVocabulary([['speed', 'speed', 'SPEED']])
+  assert.equal(counts['speed'], 1)
+})
