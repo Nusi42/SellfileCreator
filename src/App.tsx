@@ -9382,10 +9382,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <RarityPaletteProvider scope={rarityColorScope} colors={rarityColors}>
     <StatColorProvider scope={statColorScope} substatColors={substatColors}>
     <Container maxWidth={false} disableGutters sx={{
-      pt: 1.5,
+      // No top padding of its own: #root already supplies APP_EDGE_GAP_PX on every edge, and
+      // any extra here would make the top gap larger than the left/right/bottom ones.
+      pt: 0,
       // In SBS the papers fill to the viewport bottom — no bottom padding so the
-      // Container doesn't push content off-screen or leave a dark strip.
-      pb: (isSideBySide || forceSideBySideLayout) ? 0 : 1.5,
+      // Container doesn't push content off-screen or leave a dark strip. Outside SBS the
+      // bottom edge is likewise owned by #root's gap, so this stays 0 in both modes.
+      pb: 0,
       // Flash-guard: mirror the SBS pb=0 before React state fires.
       [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: { pb: 0 },
     }}>
@@ -9393,23 +9396,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           We keep pointerEvents: 'none' so drops still reach the window handler. */}
       <FileDragOverlay active={dragOverlayVisible} />
       <GlobalStyles styles={(theme) => ({
-        // Root-viewport hardening against transient scrollbar flashes on mouse move:
-        // the full-bleed 100vw header/canvas elements include the scrollbar gutter,
-        // so any momentary vertical scrollbar used to spawn a horizontal one too.
-        // Unlike 'hidden', 'clip' forbids ALL horizontal scrolling without creating
-        // a scroll container. Deliberately NO scrollbar-gutter:stable on html: the
-        // forced-SBS canvas and the 100vw spans size against the FULL viewport
-        // width, so a permanently reserved gutter shrinks clientWidth under them
-        // and this clip then cuts off their right edge once the zoom applies.
+        // Deliberately NO scrollbar-gutter:stable on html: the forced-SBS canvas and the 100vw
+        // spans size against the FULL viewport width, so a permanently reserved gutter shrinks
+        // clientWidth under them and the side-by-side clip below would then cut off their right
+        // edge once the zoom applies.
         // Vertical scroll is OWNED BY #root (see below), so html/body never scroll —
         // pinning them keeps the app scrollbar off the true viewport edge and inside
         // the decorative gap instead.
+        //
+        // Horizontal is NOT clipped here. Outside side-by-side the app is a single column that can
+        // legitimately be wider than a narrow window (e.g. the builder grid at its 220px-per-column
+        // floor), and the user must be able to reach that content — #root below owns that scrollbar.
+        // The clip is re-applied for side-by-side only, where the full-bleed 100vw header/canvas
+        // spans include the scrollbar gutter and would otherwise let a momentary vertical scrollbar
+        // spawn a spurious horizontal one. ('clip' forbids scrolling without creating a scroll
+        // container, which 'hidden' would not.)
         html: {
-          overflowX: 'clip',
           overflowY: 'hidden',
         },
         body: {
           overflowY: 'hidden',
+        },
+        [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
+          html: { overflowX: 'clip' },
+          '#root': { overflowX: 'clip' },
         },
         // #root is the app's single vertical scroll container and carries the fixed
         // decorative edge gap. scrollbar-gutter:stable both-edges reserves symmetric
@@ -9423,7 +9433,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         '#root': {
           height: '100%',
           overflowY: 'auto',
-          overflowX: 'clip',
+          // 'auto' (not 'clip') outside side-by-side so content wider than a narrow window stays
+          // reachable; the side-by-side block below restores the clip, where the full-bleed 100vw
+          // spans would otherwise raise a spurious bar. See the html rules above.
+          overflowX: 'auto',
           scrollbarGutter: 'stable both-edges',
           padding: `${APP_EDGE_GAP_PX}px`,
         },

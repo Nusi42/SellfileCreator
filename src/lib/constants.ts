@@ -279,14 +279,22 @@ export const SAFEGUARD_GROUP_JOIN_OFFSET_PX = 24
 export const SAFEGUARD_GROUP_EDGE_PX = 3
 // Layout widths (see docs/TECHNICAL.md)
 export const PANEL_WIDTH_PX = 1152
-export const GRID_COLUMN_GAP_PX = 16
+// Gap between the two side-by-side panels. In side-by-side mode this gap is what the
+// SideBySideSplitter handle occupies, so it is also the splitter's rendered width — the two are
+// deliberately the same value (see SideBySideSplitter) and match APP_EDGE_GAP_PX below, so the
+// spacing between the panels reads identically to the spacing around the app.
+export const GRID_COLUMN_GAP_PX = 8
 // Fixed decorative inset around the whole app, on every edge (px). #root owns the vertical scroll
 // and reserves a stable gutter on BOTH sides (scrollbar-gutter: stable both-edges), so the app's own
 // scrollbar — which should virtually never appear — renders inside this gap and never reflows content
-// or shifts the symmetric layout. Sized to comfortably hold even Firefox's non-thin scrollbar (it
-// matches FIREFOX_SCROLLBAR_GUTTER_PX in lib/scrollbar.ts). Scales with the #root CSS zoom in forced
-// side-by-side mode, so the gap stays visually proportional to the shrunken canvas.
-export const APP_EDGE_GAP_PX = 16
+// or shifts the symmetric layout. Scales with the #root CSS zoom in forced side-by-side mode, so the
+// gap stays visually proportional to the shrunken canvas.
+//
+// Kept equal to GRID_COLUMN_GAP_PX so all four app edges and the inter-panel splitter share one
+// spacing rhythm. NOTE: this is now narrower than FIREFOX_SCROLLBAR_GUTTER_PX (16, lib/scrollbar.ts),
+// so on Firefox the app's own vertical scrollbar would overlap content by the difference — accepted
+// because #root is sized to the viewport and that scrollbar should virtually never appear.
+export const APP_EDGE_GAP_PX = 8
 // Comfortable width of a single builder/preview panel in side-by-side. The two-panel canvas width
 // below is derived from this so the relationship stays explicit — change this and the canvas follows.
 export const SIDE_BY_SIDE_PANEL_WIDTH_PX = 1116
