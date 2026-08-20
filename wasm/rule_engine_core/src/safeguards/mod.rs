@@ -1144,6 +1144,7 @@ fn safeguard_normalize_weight(raw: f64) -> f64 {
 pub(super) fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
     // Use the canonical 6-star per-roll maxima for normalized scoring.
     // Unknown variants return 0 to disable normalized contribution.
+    // Mirrors SUBSTAT_ROLL_MAX_6_BY_VARIANT in src/lib/substatRollNormalization.ts.
     match variant {
         STAT_VARIANT_HP_FLAT => 565.0,
         STAT_VARIANT_HP_PERCENT => 7.0,
@@ -1156,6 +1157,10 @@ pub(super) fn safeguard_substat_max6_by_variant(variant: i64) -> f64 {
         STAT_VARIANT_ACC => 12.0,
         STAT_VARIANT_CR => 7.0,
         STAT_VARIANT_CDMG => 7.0,
+        // Anomalous lines have no roll variance, so their 6-star per-line value is an
+        // exact cap. All eight share it — the damage-taken family arrives folded to
+        // magnitude, so it normalizes identically to the dealt family.
+        v if ANOMALOUS_SUBSTAT_VARIANTS.contains(&v) => ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
         _ => 0.0,
     }
 }

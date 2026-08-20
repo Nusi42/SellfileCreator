@@ -1,7 +1,7 @@
 import { SUBSTAT_TARGET_MAX_ROLLS } from '../constants'
 import {
   ANOMALOUS_MIN_TARGET_VALUE,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN,
   hsfValueScaleForVariant,
   isAnomalousSubstatVariant,
 } from '../anomalousAccessories'
@@ -30,12 +30,12 @@ export const minTargetValueForVariant = (variant: number): number => (
 export const targetValueStepForVariant = (variant: number): number => minTargetValueForVariant(variant)
 
 // The smallest value a PRESENT gear substat line can carry — a line that exists
-// is never worth less than one minimum roll. 1 for classic stats; the observed
-// rank-5 base for anomalous ones (no real gear has shown a smaller line). This
-// is deliberately NOT the spinner step or the wire resolution: a user may want a
-// 0.25 THRESHOLD, but no piece of gear carries a 0.25 line.
+// is never worth less than one minimum roll. 1 for classic stats; for anomalous
+// ones the LOWEST rank's per-line value, because callers here (custom-gear entry)
+// have no rank in scope and this must floor every rank, not just the one in front
+// of the user. Rank-aware callers should use anomalousRollValueForRank instead.
 export const minGearLineValueForVariant = (variant: number): number => (
-  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE : 1
+  isAnomalousSubstatVariant(Number(variant)) ? ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN : 1
 )
 
 // Multiplying into the wire unit is not exact in binary floating point — 0.29 *

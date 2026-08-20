@@ -3,9 +3,11 @@
  *
  * Shared normalization helpers for substat-focused UI features (ex: Gear Inspector sorting).
  * These values intentionally reflect the 6★ in-game roll caps so mixed-star gear can be compared
- * on a consistent 0..1 scale without inventing additional tier-specific heuristics.
+ * on one consistent scale without inventing additional tier-specific heuristics: one 6★ roll's
+ * worth scores 1.0, and totals exceed 1 with further rolls so "more/better rolls" stays ordered.
  */
 import { StatVariant, statSupportsGlyphs, flatToPercentSubstatVariant, slotSupportsAnyPercentSubstat } from './types'
+import { ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, ANOMALOUS_SUBSTAT_VARIANTS } from './anomalousAccessories'
 import {
   GLYPH_RANGES_BY_RANK,
   MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT,
@@ -16,6 +18,10 @@ import {
 
 // 6★ per-roll maximums for substats (same units as `totalValue` / `glyphValue` from gearDbNormalizer).
 // Why: these caps are the most stable reference point across the app (builder + Gear Inspector) and match samples.
+// The anomalous entries are appended from the shared rank table: their 6★ per-line value (1.5%) is an
+// EXACT cap rather than a sampled maximum, because these stats have no roll variance — every line is worth
+// exactly its rank value. All eight share it, damage-taken included: those fold to magnitude at ingest, and
+// taking less damage is as desirable as dealing more, so they normalize on the same scale as the dealt family.
 export const SUBSTAT_ROLL_MAX_6_BY_VARIANT: Readonly<Record<number, number>> = Object.freeze({
   [StatVariant.HP_FLAT]: 565,
   [StatVariant.HP]: 7,
@@ -28,6 +34,7 @@ export const SUBSTAT_ROLL_MAX_6_BY_VARIANT: Readonly<Record<number, number>> = O
   [StatVariant.ACC]: 12,
   [StatVariant.CR]: 7,
   [StatVariant.CDMG]: 7,
+  ...Object.fromEntries(ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => [variant, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX])),
 })
 
 // Average glyph enchantment value for a given gear rank and substat variant.

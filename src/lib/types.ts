@@ -843,9 +843,9 @@ export function statSupportsGlyphs(variant: StatVariantLike): boolean {
   const numeric = Number(variant)
   if (!Number.isFinite(numeric)) return true
   if (numeric === StatVariant.Any) return true
-  // JUDGED(anomalous glyphability): whether the mode-damage substats can carry a
-  // glyph is still unobserved — answer "no" conservatively so no glyph affordance
-  // is offered for something that may not exist.
+  // The mode-damage substats are not glyphable — confirmed, not conservative: the
+  // game offers no glyph for them. This also keeps them out of the glyph-potential
+  // term in substatContribution, so their normalized score is purely their lines.
   if (localIsAnomalousSubstatVariant(numeric)) return false
   return !NON_GLYPHABLE_VARIANTS.has(numeric)
 }

@@ -12,11 +12,14 @@ import assert from 'node:assert/strict'
 import {
   ANOMALOUS_ELIGIBLE_SET_IDS,
   ANOMALOUS_ELIGIBLE_SLOT_IDS,
+  ANOMALOUS_MIN_TARGET_VALUE,
   ANOMALOUS_SUBSTAT_IDS,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN,
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
+  anomalousRollValueForRank,
   anomalousSubstatLabel,
   isAnomalousEligibleSetId,
   isAnomalousEligibleSlotId,
@@ -77,14 +80,31 @@ test('derived variants use the standard encoding and collide with nothing real',
   assert.equal(isAnomalousSubstatVariant(StatVariant.SPD), false)
 })
 
-test('every variant has a unique announcement-derived label and the rank-5 base is observed', () => {
+test('every variant has a unique announcement-derived label', () => {
   const labels = ANOMALOUS_SUBSTAT_VARIANTS.map((variant) => anomalousSubstatLabel(variant))
   // Labels exist for all variants and are unique; real variants resolve to nothing.
   assert.ok(labels.every((label) => typeof label === 'string' && label.length > 0))
   assert.equal(new Set(labels).size, labels.length)
   assert.equal(anomalousSubstatLabel(StatVariant.SPD), undefined)
-  // Rank-5 base per line observed at 1.25% (zero rolls) in the example DB.
-  assert.equal(ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE, 1.25)
+})
+
+test('per-rank line values follow the observed 5★/6★ anchors on a uniform step', () => {
+  // The two observed anchors — everything else in the table hangs off these.
+  assert.equal(anomalousRollValueForRank(5), 1.25)
+  assert.equal(anomalousRollValueForRank(6), 1.5)
+  // Uniform 0.25 progression, bottoming out exactly on the minimum expressible target.
+  assert.deepEqual(
+    [1, 2, 3, 4, 5, 6].map((rank) => anomalousRollValueForRank(rank)),
+    [0.25, 0.5, 0.75, 1, 1.25, 1.5],
+  )
+  assert.equal(anomalousRollValueForRank(1), ANOMALOUS_MIN_TARGET_VALUE)
+  // The exported max/min are the table's ends, not independent literals.
+  assert.equal(ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, anomalousRollValueForRank(6))
+  assert.equal(ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN, anomalousRollValueForRank(1))
+  // Out-of-range ranks clamp to the nearest end rather than returning 0 ("no target").
+  assert.equal(anomalousRollValueForRank(0), 0.25)
+  assert.equal(anomalousRollValueForRank(7), 1.5)
+  assert.equal(anomalousRollValueForRank(Number.NaN), 0.25)
 })
 
 test('eligible sets resolve to exactly the nine announced sets', () => {

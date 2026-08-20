@@ -12,7 +12,7 @@
     "Substats": [
       {
         "ID": 11,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -54,7 +54,7 @@
     "Substats": [
       {
         "ID": 12,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -96,7 +96,7 @@
     "Substats": [
       {
         "ID": 11,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -138,7 +138,7 @@
     "Substats": [
       {
         "ID": 12,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -180,7 +180,7 @@
     "Substats": [
       {
         "ID": 11,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -222,7 +222,7 @@
     "Substats": [
       {
         "ID": 12,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -264,7 +264,7 @@
     "Substats": [
       {
         "ID": 11,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -306,7 +306,7 @@
     "Substats": [
       {
         "ID": 12,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -348,7 +348,7 @@
     "Substats": [
       {
         "ID": 11,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="
@@ -390,7 +390,7 @@
     "Substats": [
       {
         "ID": 12,
-        "Value": 125,
+        "Value": 150,
         "IsFlat": false,
         "NotAvailable": false,
         "Condition": ">="

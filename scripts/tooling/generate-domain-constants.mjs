@@ -557,11 +557,44 @@ const artifactSetEntries = Object.entries(artifactSetSpec)
 // also fixes the wire format, so these DO reach HSF payloads — scaled by
 // hsfValueScale at the one display→wire boundary.
 const anomalousSpec = spec.anomalousAccessories
-// Observed rank-5 per-line base value (percent); judged to equal the per-roll step.
-const anomalousStar5RollValue = Number(anomalousSpec.star5RollValue)
-if (!(Number.isFinite(anomalousStar5RollValue) && anomalousStar5RollValue > 0)) {
-  throw new Error('anomalousAccessories.star5RollValue must be a positive number.')
+// Per-rank per-line value (percent). 5★ = 1.25 and 6★ = 1.5 are OBSERVED; the series
+// steps uniformly, so the lower ranks follow the same progression. This one number per
+// rank fully describes an anomalous line: the step never varies, so a line's value is
+// always rank value × line count.
+const anomalousRollValueByRank = new Map()
+for (const [rankKey, rawValue] of Object.entries(anomalousSpec.rollValueByRank ?? {})) {
+  const rank = Number(rankKey)
+  // Ranks are the shared 1..6 domain; anything outside it would never be looked up.
+  if (!Number.isInteger(rank) || rank < rankValueMin || rank > rankValueMax) {
+    throw new Error(`anomalousAccessories.rollValueByRank key ${rankKey} must be an integer rank in [${rankValueMin}, ${rankValueMax}].`)
+  }
+  const value = Number(rawValue)
+  if (!(Number.isFinite(value) && value > 0)) {
+    throw new Error(`anomalousAccessories.rollValueByRank.${rankKey} must be a positive number.`)
+  }
+  anomalousRollValueByRank.set(rank, value)
 }
+// Every rank needs an entry: a missing one would silently seed a factory target of 0.
+for (let rank = rankValueMin; rank <= rankValueMax; rank += 1) {
+  if (!anomalousRollValueByRank.has(rank)) {
+    throw new Error(`anomalousAccessories.rollValueByRank is missing rank ${rank}.`)
+  }
+}
+// Emit ascending so the generated tables read in rank order.
+const anomalousRollValueEntries = [...anomalousRollValueByRank.entries()].sort((a, b) => a[0] - b[0])
+// The progression is uniform by observation (0.25 per rank). Pin it: a typo'd or
+// half-updated table is the realistic failure here, and it would quietly shift every
+// factory target and the normalization denominator at once.
+const anomalousRollValueStep = anomalousRollValueEntries[0][1]
+for (const [rank, value] of anomalousRollValueEntries) {
+  const expected = Math.round(anomalousRollValueStep * rank * 1e6) / 1e6
+  if (Math.round(value * 1e6) / 1e6 !== expected) {
+    throw new Error(`anomalousAccessories.rollValueByRank.${rank} must be ${expected} to keep the uniform per-rank step (${anomalousRollValueStep}).`)
+  }
+}
+// The top rank doubles as the normalization denominator (6★ single-line maximum),
+// so name it once here rather than re-deriving "the last entry" at each use site.
+const anomalousRollValueMaxRank = anomalousRollValueByRank.get(rankValueMax)
 // HSF stores these values in hundredths of a percent (0.25% -> 25). Must be a
 // positive integer: the scale multiplies a display value into the integer wire
 // unit, so a fractional scale could not round-trip.
@@ -569,10 +602,12 @@ const anomalousHsfValueScale = Number(anomalousSpec.hsfValueScale)
 if (!(Number.isInteger(anomalousHsfValueScale) && anomalousHsfValueScale > 0)) {
   throw new Error('anomalousAccessories.hsfValueScale must be a positive integer.')
 }
-// The star-5 base must land exactly on the wire grid, or the value we seed every
-// factory target with could not be emitted losslessly.
-if (!Number.isInteger(Math.round(anomalousStar5RollValue * anomalousHsfValueScale * 1e6) / 1e6)) {
-  throw new Error('anomalousAccessories.star5RollValue must be representable at hsfValueScale.')
+// Every rank value must land exactly on the wire grid, or the value we seed that
+// rank's factory targets with could not be emitted losslessly.
+for (const [rank, value] of anomalousRollValueEntries) {
+  if (!Number.isInteger(Math.round(value * anomalousHsfValueScale * 1e6) / 1e6)) {
+    throw new Error(`anomalousAccessories.rollValueByRank.${rank} must be representable at hsfValueScale.`)
+  }
 }
 // Smallest supported target value for these stats (zero is not a target). Must be
 // positive and, like the base, exactly representable in the integer wire unit.
@@ -697,8 +732,14 @@ tsLines.push('// and HSF payloads alike — the latter scaled by ANOMALOUS_HSF_V
 tsLines.push(
   `export const ANOMALOUS_SUBSTAT_IDS_BY_KEY = { ${anomalousSubstatEntries.map(({ key, id }) => `${key}: ${id}`).join(', ')} } as const`
 )
-tsLines.push('// Observed rank-5 per-line base percent (zero rolls); judged to equal the per-roll step.')
-tsLines.push(`export const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE = ${anomalousStar5RollValue}`)
+tsLines.push('// Per-rank per-line percent. 5★=1.25 and 6★=1.5 are observed; the step is uniform')
+tsLines.push('// and FIXED, so a line is always this value × its line count — no roll variance.')
+tsLines.push(
+  `export const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: Record<number, number> = { ${anomalousRollValueEntries.map(([rank, value]) => `${rank}: ${value}`).join(', ')} }`
+)
+tsLines.push('// The top rank\'s single-line value — the denominator that normalizes an anomalous')
+tsLines.push('// line onto the same 0..1-per-line scale as the classic 6★ per-roll maxima.')
+tsLines.push(`export const ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX = ${anomalousRollValueMaxRank}`)
 tsLines.push('// HSF wire unit: displayed percent x this = the integer stored in a rule\'s')
 tsLines.push('// substat Value (0.25% -> 25). Classic percent stats store the plain number.')
 tsLines.push(`export const ANOMALOUS_HSF_VALUE_SCALE = ${anomalousHsfValueScale}`)
@@ -778,8 +819,13 @@ rustLines.push('// Accessory slots that can carry anomalous substats (Banner obs
 rustLines.push(
   `pub const ANOMALOUS_ELIGIBLE_SLOT_IDS: &[i64] = &[${anomalousEligibleSlotIds.join(', ')}];`
 )
-rustLines.push('// Observed rank-5 per-line base percent (zero rolls); judged per-roll step.')
-rustLines.push(`pub const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE: f64 = ${asRustF64Literal(anomalousStar5RollValue)};`)
+rustLines.push('// Per-rank per-line percent as (rank, value), ascending (mirrors the TS record).')
+rustLines.push('// 5★=1.25 and 6★=1.5 observed; the step is uniform and fixed (no roll variance).')
+rustLines.push(
+  `pub const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: &[(i64, f64)] = &[${anomalousRollValueEntries.map(([rank, value]) => `(${rank}, ${asRustF64Literal(value)})`).join(', ')}];`
+)
+rustLines.push('// Top-rank single-line value — the anomalous normalization denominator.')
+rustLines.push(`pub const ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX: f64 = ${asRustF64Literal(anomalousRollValueMaxRank)};`)
 
 // ── TS: artifactTypeNames display map ────────────────────────────────────
 // Resolve token → numeric ID from artifactType then build ID → name map.

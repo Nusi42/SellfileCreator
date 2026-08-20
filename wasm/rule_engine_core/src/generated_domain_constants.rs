@@ -193,8 +193,11 @@ pub fn wire_value_to_display(variant: i64, wire_value: f64) -> f64 {
 pub const ANOMALOUS_SUBSTAT_VARIANTS: &[i64] = &[2816, 3072, 3328, 3584, 3840, 4096, 4352, 4608];
 // Accessory slots that can carry anomalous substats (Banner observed in the DB).
 pub const ANOMALOUS_ELIGIBLE_SLOT_IDS: &[i64] = &[7, 8, 9];
-// Observed rank-5 per-line base percent (zero rolls); judged per-roll step.
-pub const ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE: f64 = 1.25;
+// Per-rank per-line percent as (rank, value), ascending (mirrors the TS record).
+// 5★=1.25 and 6★=1.5 observed; the step is uniform and fixed (no roll variance).
+pub const ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK: &[(i64, f64)] = &[(1, 0.25), (2, 0.5), (3, 0.75), (4, 1.0), (5, 1.25), (6, 1.5)];
+// Top-rank single-line value — the anomalous normalization denominator.
+pub const ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX: f64 = 1.5;
 
 // Faction IDs — one constant per faction.
 pub const FACTION_ID_BANNER_LORDS: i64 = 1;

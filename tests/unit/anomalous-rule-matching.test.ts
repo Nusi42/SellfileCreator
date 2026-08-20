@@ -18,7 +18,7 @@ import { normalizeGearDbArtifact, type GearDbArtifactRow } from '../../src/lib/i
 import { evaluateFirst } from '../../src/lib/ruleEval.js'
 import {
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
 } from '../../src/lib/anomalousAccessories.js'
@@ -46,10 +46,11 @@ const anomalousAnyRecipe = (): BuilderRecipe => {
 // hand-writing the huge integers.
 const fixedPoint = (percent: number): number => Math.round((percent / 100) * STAT_SCALE)
 
-// An Amulet (slot 8) whose s1 carries one anomalous line at the rank-5 base
-// value. Mirrors ID 264536 in examples/um109288203_RSLHelper.db.
+// An Amulet (slot 8) whose s1 carries one anomalous line at its rank's line value.
+// Rank 6 to match the any-rank recipe's target tier (anyRankDefaultsTo). Shaped after
+// ID 264536 in examples/um109288203_RSLHelper.db (a rank-5 piece at 1.25%).
 const rowWithAnomalousSubstat = (statId: number, percent: number): GearDbArtifactRow => ({
-  ID: 1, rank: 5, type: 8, rarity: 5, lvl: 0, aset: 58, accset: 15,
+  ID: 1, rank: 6, type: 8, rarity: 5, lvl: 0, aset: 58, accset: 15,
   mid: 3, mfl: 1, mlvlid: fixedPoint(2500),
   s1id: statId, s1lvlid: fixedPoint(percent),
 })
@@ -62,7 +63,7 @@ test('an item carrying an anomalous substat matches the rule built for it', asyn
   // Every one of the eight stats, so a scale applied to only part of the family
   // (or keyed off the wrong id range) still fails here.
   for (const [key, statId] of Object.entries(ANOMALOUS_SUBSTAT_IDS_BY_KEY)) {
-    const row = rowWithAnomalousSubstat(statId, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE)
+    const row = rowWithAnomalousSubstat(statId, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX)
     const item = normalizeGearDbArtifact(row).gearInspectorItem
 
     // The importer must hand the matcher DISPLAY units; if this drifts to wire
@@ -70,12 +71,12 @@ test('an item carrying an anomalous substat matches the rule built for it', asyn
     const variant = ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY[key as keyof typeof ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY]
     assert.equal(
       item.subValues?.[variant],
-      ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+      ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
       `${key}: importer emits display units`,
     )
 
     const match = evaluateFirst(rules, item)
-    assert.ok(match, `${key}: an item at the rank-5 base value must match its own rule`)
+    assert.ok(match, `${key}: an item at the rank-6 line value must match its own rule`)
     assert.equal(match.keep, true, `${key}: the recipe keeps it`)
   }
 })

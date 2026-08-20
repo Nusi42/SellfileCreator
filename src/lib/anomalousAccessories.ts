@@ -24,7 +24,8 @@ import {
   ANOMALOUS_MIN_TARGET_VALUE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
 } from './generated/domainConstants'
 
@@ -36,7 +37,8 @@ export {
   ANOMALOUS_MIN_TARGET_VALUE,
   ANOMALOUS_SUBSTAT_DISPLAY_LABELS_BY_VARIANT,
   ANOMALOUS_SUBSTAT_IDS_BY_KEY,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
 }
 
@@ -130,6 +132,32 @@ export const hsfValueToDisplay = (variant: number, wireValue: number): number =>
   // Round at the wire resolution so the division cannot reintroduce float noise.
   return Math.round(wireValue) / scale
 }
+
+// Lowest rank the value table covers — the floor for a present anomalous line at ANY
+// rank, used where a rank is not in scope (custom-gear entry). Derived, never a literal,
+// so extending the table downward cannot leave a stale floor behind.
+const anomalousRankKeys = Object.keys(ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK).map(Number)
+const anomalousMinRank = Math.min(...anomalousRankKeys)
+const anomalousMaxRank = Math.max(...anomalousRankKeys)
+
+/**
+ * The per-line value for one anomalous substat at a given gear rank (5★ → 1.25,
+ * 6★ → 1.5). Unlike classic substats there is no min..max roll range: the step is
+ * FIXED, so a line carrying N rolls is worth exactly this × N regardless of the
+ * substat target the user set. Ranks outside the table clamp into it rather than
+ * returning 0 — a missing entry would read as "no target at all", which is a worse
+ * answer than the nearest real one.
+ */
+export const anomalousRollValueForRank = (rank: number): number => {
+  const numeric = Math.floor(Number(rank))
+  // Non-finite input (undefined rank, corrupted persistence) falls back to the floor.
+  if (!Number.isFinite(numeric)) return ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK[anomalousMinRank]!
+  const clamped = Math.max(anomalousMinRank, Math.min(anomalousMaxRank, numeric))
+  return ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK[clamped]!
+}
+
+// The smallest value any anomalous line can carry, across every rank.
+export const ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN = ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK[anomalousMinRank]!
 
 // True when a set can appear on anomalous accessories (announced 9-set list).
 export const isAnomalousEligibleSetId = (setId: number): boolean => eligibleSetIdSet.has(setId)

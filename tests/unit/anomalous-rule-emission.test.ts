@@ -5,19 +5,23 @@ import assert from 'node:assert/strict'
 // shape a user actually builds ("keep anything with any mode-damage line"). Pins
 // what the earlier PROVISIONAL layer could not: that these reach the emitted
 // rules at all, that every selected substat gets its own OR-rule, and that the
-// value arrives in HSF wire units (125 = 1.25%) rather than floored to 1.
+// value arrives in HSF wire units (150 = 1.5%) rather than floored to 1.
 import { buildHsfRules, defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import {
   ANOMALOUS_HSF_VALUE_SCALE,
   ANOMALOUS_SUBSTAT_IDS,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  anomalousRollValueForRank,
   ANOMALOUS_SUBSTAT_VARIANTS,
 } from '../../src/lib/anomalousAccessories.js'
 import type { SubstatTargetTable } from '../../src/lib/hsfBuilder.js'
 import { findObsoleteRules } from '../../src/lib/hsfObsolete.js'
 import { countRulesForRecipeEntry } from '../../src/lib/ruleCacheHelpers.js'
 import { StatVariant } from '../../src/lib/types.js'
+
+// These recipes carry rankCode 0 (any rank), which resolves through the target
+// table's anyRankDefaultsTo — so the factory target they emit is the rank-6 value.
+const ANY_RANK_DEFAULT = defaultSubstatTargets().anyRankDefaultsTo ?? 6
 
 // "Any rolls" on every anomalous substat, min 1 of them, across the full level
 // window — the recipe form that exercises one rule per substat per milestone.
@@ -81,10 +85,10 @@ test('every selected anomalous substat reaches the emitted rules', async () => {
 test('emitted anomalous values are in HSF wire units, not floored display units', async () => {
   await warmupWasmRuleEngine()
   const rules = buildHsfRules(anomalousAnyRecipe(), defaultSubstatTargets())
-  const expected = Math.round(ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE * ANOMALOUS_HSF_VALUE_SCALE)
+  const expected = Math.round(anomalousRollValueForRank(ANY_RANK_DEFAULT) * ANOMALOUS_HSF_VALUE_SCALE)
   for (const line of anomalousLinesOf(rules)) {
-    // 125, i.e. 1.25% — the pre-scale code emitted floor(1.25) = 1, which RSL
-    // Helper would read as a 0.01% threshold.
+    // 150, i.e. 1.5% at rank 6 — the pre-scale code emitted floor(1.5) = 1, which
+    // RSL Helper would read as a 0.01% threshold.
     assert.equal(Number(line.Value), expected)
     assert.equal(line.IsFlat, false)
     assert.equal(line.Condition, '>=')
@@ -104,7 +108,7 @@ test('an SFC saved before these stats existed falls back to the factory minimum'
     }
   }
   const rules = buildHsfRules(anomalousAnyRecipe(), targets)
-  const expected = Math.round(ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE * ANOMALOUS_HSF_VALUE_SCALE)
+  const expected = Math.round(anomalousRollValueForRank(ANY_RANK_DEFAULT) * ANOMALOUS_HSF_VALUE_SCALE)
   const values = new Set(anomalousLinesOf(rules).map((s) => Number(s.Value)))
   assert.deepEqual([...values], [expected])
 })

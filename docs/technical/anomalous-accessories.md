@@ -8,10 +8,14 @@ eight rules matching a screenshot one-for-one — confirmed all eight stat ids
 (including the four that had been inferred) and fixed the wire format, which
 retired the export scrub.
 
-What remains judged is the **value model beyond rank 5**: one observed base
-(1.25% per line at zero rolls) and no data on per-roll increments or the other
-five ranks. Those sites carry the greppable marker `JUDGED(anomalous …)` —
-search for it to find every assumption still standing.
+The **value model is now closed too.** Two observed anchors — 1.25% per line at
+rank 5 and 1.5% at rank 6 — plus the fact that the step never deviates give a
+complete description: an anomalous line is worth exactly its rank's value times
+its line count, with no roll variance and no dependence on the substat target
+the user set. The rank-6 value doubles as the normalization denominator, so
+these stats finally carry a real normalized rating instead of scoring 0. The
+`JUDGED(anomalous …)` ledger is empty; what is left is listed under
+[Open unknowns](#open-unknowns) and none of it blocks correctness.
 
 ## Confirmed facts
 
@@ -59,7 +63,8 @@ exports.
 | Stat ids `11` PvE, `12` PvP, `13` Boss, `14` DNG — damage **dealt** ("+"), positive values | Observed (artifacts 264537–264539) + sample sellfile |
 | Stat ids `15..18` — damage **taken** ("−"), stored as **negative** percents (−1.25% renders "PvP DMG-") | Observed (`16`) + sample sellfile |
 | All lines `fl = 0` (percent), values scale by 2³² with ×100 display conversion (±53687091 → 1.25%) | Observed |
-| Rank-5 base per line = **1.25%** at zero rolls | Observed |
+| Per-line value = **1.25%** at rank 5, **1.5%** at rank 6 | Observed. The step is uniform (0.25 per rank) and FIXED — no roll variance — so the full table extrapolates: 1★ 0.25 … 6★ 1.5, bottoming out exactly on `minTargetValue`. The game does not currently offer anomalous accessories below rank 5, so ranks 1–4 are forward-looking. SSOT: `anomalousAccessories.rollValueByRank` |
+| Not glyphable | Observed. `statSupportsGlyphs` answers no, which also keeps them out of the glyph-potential half of `substatNormalizedContribution` |
 | A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
 | **`variantId = 1` flags the piece as anomalous** — an intrinsic item property, independent of which substats rolled. Present on both paths: `variantId` on the wire row, `VARIANTID` in the SQL dump | Observed (capture `session_260820_205150.539` and `examples/um109288203_RSLHelper.db`: same account, both report 32 of 8,428) |
 
@@ -297,12 +302,35 @@ migration, and future churn wouldn't either.
 **Deliberately NOT wired** (revisit as the roll model firms up): the shared
 `allowedSubsBySlot` / `STAT_VARIANTS_PRIORITY` tables (they feed the Rust
 engine's substat-gap anticipation — anticipation must not invent anomalous lines
-while the roll/addition model is unknown; a selected anomalous substat is
-conservatively treated as never-appearing-later), roll ranges beyond the rank-5
-base / glyph data, safeguard score normalization (anomalous values normalize to
-0 and stay inert in ranking), set-eligibility as a combination constraint (all
+while the line-COUNT model is unknown, even though the per-line VALUE is now
+settled; a selected anomalous substat is conservatively treated as
+never-appearing-later), and set-eligibility as a combination constraint (all
 observed pieces carry one of the 9 sets, but setless anomalous accessories are
 unconfirmed — no false "impossible" verdicts).
+
+### Normalized scoring
+
+Anomalous lines are no longer inert in normalized scoring. They normalize
+against the **rank-6 per-line value (1.5%)**, added to
+`SUBSTAT_ROLL_MAX_6_BY_VARIANT` (`substatRollNormalization.ts`) and mirrored by
+`safeguard_substat_max6_by_variant` (`safeguards/mod.rs`), so the Gear Inspector
+normalized sort, the grid score overlay and safeguard candidate ranking all
+value them. Four properties are worth stating because each was a decision:
+
+- **The denominator is exact, not sampled.** Classic entries are per-roll
+  maxima observed across real gear; the anomalous one is the definition of a
+  line, since these stats have no roll variance.
+- **Scores are per-line and unbounded**, exactly like classic multi-roll stats:
+  one 6★ line scores 1.0, four score 4.0. A 5★ line scores 1.25/1.5 of a 6★
+  one, so rank ordering falls out of the value rather than needing a multiplier.
+- **The damage-TAKEN family scores identically to the dealt family.** Values
+  arrive folded to magnitude at ingest, and taking less damage is as desirable
+  as dealing more. Users who disagree can down-weight them per preset.
+- **No glyph term.** `statSupportsGlyphs` answers no, so
+  `substatNormalizedContribution` credits only the current value — which is why
+  two equal-value anomalous lines score the same at any rank.
+
+Pinned by `tests/unit/substat-normalized-contribution.test.ts`.
 
 ## The DSL spelling
 
@@ -337,13 +365,10 @@ Option-info tooltip text (`formatRecipeOverridesOpValue` /
 because those are the fragments a user lifts back into a marker. Byte-exact
 reconstruction is a different job with a different owner (`overridesSerializer`).
 
-## Judged values (the `JUDGED(anomalous …)` ledger)
+## Remaining judgment calls
 
 | Judged value | Current choice | Why / replacement source |
 | --- | --- | --- |
-| Per-rank base values (`JUDGED(anomalous per-rank values)`) | 1.25 floors **every** rank, not just rank 5 | Rank 5 is the only observed base. A missing entry reads as "no target at all" — a weaker default than the one number we know. Replace with a per-rank table from richer DB dumps. Sites: `ANOMALOUS_FACTORY_MINIMA` (`hsfBuilder.ts`), `factory_minima_for_star` (`recipe_builder.rs`). |
-| Per-roll step (`JUDGED(anomalous per-roll step)`) | Each further line assumed to add another 1.25 | Base observed at zero rolls; the increment is unconfirmed. Only used to size a display column (`substatDisplay.ts`), so an error costs alignment, not correctness. |
-| Glyphability (`JUDGED(anomalous glyphability)`) | `statSupportsGlyphs` answers **no** | Unobserved in-game; conservative so no glyph affordance is offered for something that may not exist. Flip from observation. |
 | Spinner step | 0.25 | The granularity RSL Helper displays in the sample. Typing keeps the full 0.01 resolution, so this only affects arrow keys. |
 | Substat internal keys | `pveDmgPlus` … `dungeonDmgMinus` | Our naming; stable app-internal tokens (and the SFC label anchor). |
 | Display labels | Two layers: canonical spec labels keep the announcement wording verbatim (`"PvE DMG +"`, …) and are what SFC files serialize; the i18n catalogs display compact glyph tokens (`"PvE ⚔"` damage dealt, `"PvE 🛡"` damage taken), identical in every locale, so the chips size like classic ones (`SPD`, `CDMG%`). Every surface showing the glyph tokens carries a `MarkdownTooltip` composed by `anomalousSubstatTooltipMarkdown` (`substatDisplay.ts`): per-variant description + shared context note, translated in all 10 catalogs (`stat*Tooltip` keys + `statAnomalousTooltipNote`) | Final in-game strings (and their localizations) may differ; replace from game UI once live. SFC files anchor on the canonical labels, so changing those later needs a read-side alias (`anomalousVariantFromLabel` already accepts space-free and `DMG`-less aliases). |
@@ -351,24 +376,33 @@ reconstruction is a different job with a different owner (`overridesSerializer`)
 
 ## Open unknowns
 
-- Rank-6 (and 1–4) base values, per-roll increments, and roll milestones — the
-  one remaining data gap that matters.
-- Glyphability and rarity distribution.
-- Whether "anomalous" is a piece-level flag anywhere in the DB or purely
-  inferred from the substat lines; whether setless anomalous accessories exist.
-- WebSocket `gearDbRaw*` payload parity for these rows (same normalizer runs,
-  so expected to Just Work — unverified against a live push).
+None of these block correctness; each would only sharpen behavior that is
+already sound.
 
-## Replacement checklist (as the rest firms up)
+- **Ranks 1–4 are extrapolated, not observed.** The 0.25-per-rank step is
+  confirmed only between ranks 5 and 6. The game does not currently offer
+  anomalous accessories at those ranks, so nothing reads those entries today.
+- **Roll milestones and rarity distribution** — how many lines a piece can carry
+  at each rarity. The value *per* line is settled; how many you get is not. This
+  is what still keeps gap anticipation unwired (see below).
+- **Whether setless anomalous accessories exist.** All observed pieces carry one
+  of the 9 eligible sets, which is why set-eligibility is not used as a
+  combination constraint — a setless piece would otherwise get a false
+  "impossible" verdict.
+- **WebSocket `gearDbRaw*` payload parity** for these rows (same normalizer
+  runs, so expected to Just Work — unverified against a live push).
 
-1. Grep `JUDGED(anomalous` — every hit is an assumption to revisit.
-2. Confirm non-rank-5 base values and the per-roll increment from richer DB
-   dumps; update `shared/domain-constants.json` (`star5RollValue` grows into a
-   per-rank table) plus the two mirrored factory-minima tables and their tests.
-3. Once the roll model is known, extend the shared roll-range tables + Rust
-   scoring normalization so safeguard ranking values anomalous lines, and
-   revisit the deliberately-unwired list above (gap anticipation).
-4. Localize the i18n catalog values (`statPveDmgPlus` …) once official
+## Follow-ups
+
+1. **Wire `variantId` as the anomalous predicate** (see the section above). Both
+   import paths carry it and agree; the ingest path just does not read it yet,
+   so the Gear Inspector marker still infers anomalousness from substats.
+2. **Revisit the deliberately-unwired list** once roll milestones are known —
+   specifically `allowedSubsBySlot` / `STAT_VARIANTS_PRIORITY` for the Rust
+   engine's substat-gap anticipation, which must not invent anomalous lines
+   while the *addition* model is unknown. The per-line value alone is not
+   enough to unblock it.
+3. **Localize the i18n catalog values** (`statPveDmgPlus` …) once official
    translations exist; update the SFC label tables/read-side aliases if the
    final display strings differ from the announcement wording.
-5. Update this document and [Artifact Rules](artifact-rules.md).
+4. Update this document and [Artifact Rules](artifact-rules.md).

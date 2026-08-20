@@ -193,21 +193,44 @@ pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
 // Factory minima tables (mirrors FACTORY_MINIMA_BY_STAR / BASE_MIN_n in hsfBuilder.ts)
 // ---------------------------------------------------------------------------
 
+/// Per-line value for an anomalous substat at the given rank (5★ 1.25%, 6★ 1.5%).
+/// These stats have no roll variance — the value is fixed per rank — so this single
+/// number is the tier's minimum, maximum and step at once. Ranks outside the table
+/// clamp into it: the nearest real value beats a 0 that would read as "no target".
+/// Mirrors anomalousRollValueForRank in src/lib/anomalousAccessories.ts.
+pub(crate) fn anomalous_roll_value_for_rank(rank: i64) -> f64 {
+    // Table is small (6 entries) and ascending; scan for an exact rank first.
+    for &(r, value) in ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK {
+        if r == rank {
+            return value;
+        }
+    }
+    // Below/above the covered range, clamp to the nearest end.
+    let first = ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK.first();
+    let last = ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK.last();
+    match (first, last) {
+        (Some(&(lo_rank, lo_value)), Some(&(_, hi_value))) => {
+            if rank < lo_rank { lo_value } else { hi_value }
+        }
+        _ => 0.0,
+    }
+}
+
 /// Return the factory-default substat minimum map for the given star (1..6).
 /// Derived from SUBSTAT_ROLL_RANGES_BY_STAR — the min per-roll value is the factory default.
-/// Values are f64: the anomalous substats carry a fractional base (1.25).
+/// Values are f64: the anomalous substats carry fractional per-rank values (0.25..1.5).
 pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, f64> {
     // SUBSTAT_ROLL_RANGES_BY_STAR is sorted by star ascending; linear scan over 6 tiers.
     for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
             // Each triple is (variant, min, max); extract (variant, min) pairs.
             let mut minima: BTreeMap<i64, f64> = triples.iter().map(|&(variant, min, _max)| (variant, min as f64)).collect();
-            // JUDGED(anomalous per-rank values): 1.25 is the OBSERVED rank-5 base and
-            // the only value we have, so it floors EVERY rank rather than leaving the
-            // other tiers without a target at all. Mirrors ANOMALOUS_FACTORY_MINIMA in
-            // src/lib/hsfBuilder.ts — replace both when per-rank data lands.
+            // Anomalous stats carry no generated roll range (no variance to describe), so
+            // their tier value comes from the rank table instead. Mirrors
+            // anomalousFactoryMinimaForStar in src/lib/hsfBuilder.ts.
+            let anomalous_value = anomalous_roll_value_for_rank(star);
             for &variant in ANOMALOUS_SUBSTAT_VARIANTS {
-                minima.insert(variant, ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE);
+                minima.insert(variant, anomalous_value);
             }
             return minima;
         }
@@ -627,5 +650,25 @@ mod tests {
         // Artifact-only scopes never include them.
         let boots_only = resolve_allowed_substats_for_slots_and_mains(&[ARTIFACT_TYPE_BOOTS], &[]);
         assert!(boots_only.iter().all(|v| !ANOMALOUS_SUBSTAT_VARIANTS.contains(v)));
+    }
+
+    #[test]
+    fn anomalous_rank_values_mirror_the_ts_table() {
+        // The two observed anchors — everything else hangs off these.
+        assert_eq!(anomalous_roll_value_for_rank(5), 1.25);
+        assert_eq!(anomalous_roll_value_for_rank(6), 1.5);
+        // Uniform 0.25 step across the covered range.
+        let expected = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5];
+        for (idx, want) in expected.iter().enumerate() {
+            assert_eq!(anomalous_roll_value_for_rank(idx as i64 + 1), *want);
+        }
+        // Out-of-range ranks clamp to the nearest end, never to 0 ("no target").
+        assert_eq!(anomalous_roll_value_for_rank(0), 0.25);
+        assert_eq!(anomalous_roll_value_for_rank(7), 1.5);
+        // Factory minima pick up the tier value, so each rank seeds a different target.
+        for &variant in ANOMALOUS_SUBSTAT_VARIANTS {
+            assert_eq!(factory_minima_for_star(6).get(&variant), Some(&1.5));
+            assert_eq!(factory_minima_for_star(5).get(&variant), Some(&1.25));
+        }
     }
 }

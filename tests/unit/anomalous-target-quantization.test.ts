@@ -26,7 +26,7 @@ import type { BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { resolveAllowedSubstatsForSlotsAndMains } from '../../src/lib/statCompatibility.js'
 import {
   ANOMALOUS_HSF_VALUE_SCALE,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN,
   ANOMALOUS_SUBSTAT_VARIANTS,
   ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
   hsfValueScaleForVariant,
@@ -125,9 +125,9 @@ test('spinner step and gear-line minimum are distinct from the wire resolution',
   assert.equal(targetValueStepForVariant(StatVariant.SPD), 1)
   assert.equal(minTargetValueForVariant(PVE_PLUS), 0.25)
   assert.equal(minTargetValueForVariant(StatVariant.SPD), 1)
-  // A PRESENT gear line is never worth less than one minimum roll — a 0.25
-  // threshold is meaningful, but no real piece carries a 0.25 line.
-  assert.equal(minGearLineValueForVariant(PVE_PLUS), ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE)
+  // A PRESENT gear line is never worth less than one minimum roll. With no rank in
+  // scope this floors at the LOWEST rank's line value, so it holds for every rank.
+  assert.equal(minGearLineValueForVariant(PVE_PLUS), ANOMALOUS_SUBSTAT_ROLL_VALUE_MIN)
   assert.equal(minGearLineValueForVariant(StatVariant.SPD), 1)
 })
 

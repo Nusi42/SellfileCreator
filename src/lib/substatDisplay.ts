@@ -1,7 +1,7 @@
 import type { HsfRule } from './hsfTypes'
 import {
   ANOMALOUS_SUBSTAT_IDS,
-  ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE,
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
   ANOMALOUS_SUBSTAT_VARIANTS,
   hsfValueScaleForVariant,
   hsfValueToDisplay,
@@ -142,13 +142,13 @@ const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
   // Fractional values need decimal-aware widths ("6.25" is four CHARACTERS, not
   // four digits) — measured through the same formatter that renders them, so the
   // reserved lane can never disagree with the text placed in it.
-  // JUDGED(anomalous per-roll step): probes six multiples of the observed rank-5
-  // base, assuming each further line adds another 1.25 — unconfirmed, but it only
-  // sizes a column, so an over- or under-estimate costs alignment, not correctness.
+  // Anomalous values are exactly (rank per-line value × line count) — the step is fixed
+  // and never varies — so probing multiples of the TOP rank's value covers the widest
+  // string these stats can ever render, with no estimation involved.
   for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) {
     let width = 1
     for (let lines = 1; lines <= 6; lines += 1) {
-      const value = Math.round(lines * ANOMALOUS_SUBSTAT_STAR5_ROLL_VALUE * 100) / 100
+      const value = Math.round(lines * ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX * 100) / 100
       width = Math.max(width, formatSubstatValueForDisplay(variant, value).length)
     }
     result[variant] = width

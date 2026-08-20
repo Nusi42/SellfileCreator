@@ -11,8 +11,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { substatNormalizedContribution, getGlyphAverageForVariant, unselectedSubstatEpsilonBonus } from '../../src/lib/substatRollNormalization.js'
+import {
+  substatNormalizedContribution,
+  getGlyphAverageForVariant,
+  normalizeSubstatByMax6,
+  unselectedSubstatEpsilonBonus,
+  SUBSTAT_ROLL_MAX_6_BY_VARIANT,
+} from '../../src/lib/substatRollNormalization.js'
 import { StatVariant, ArtifactType } from '../../src/lib/types.js'
+import {
+  ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX,
+  ANOMALOUS_SUBSTAT_VARIANTS,
+  ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY,
+  anomalousRollValueForRank,
+} from '../../src/lib/anomalousAccessories.js'
 import {
   SAFEGUARD_SCORE_NON_FLAT_EPSILON_WEIGHT,
   SAFEGUARD_SCORE_SELECTED_ALIGNED_FLAT_EPSILON_WEIGHT,
@@ -21,6 +33,9 @@ import {
 
 // SPD per-roll 6★ cap is 6; glyph average is 3 at 5★ and 5.5 at 6★ (see domain-constants.json).
 const SPD_MAX6 = 6
+
+// One representative anomalous variant; the family-wide test below covers all eight.
+const PVE_PLUS = ANOMALOUS_SUBSTAT_VARIANTS_BY_KEY.pveDmgPlus
 
 test('glyphable substat: a 6★ scores higher than an equal-substat 5★', () => {
   const five = substatNormalizedContribution(5, StatVariant.SPD, 5, 1)
@@ -164,4 +179,54 @@ test('epsilon bonus: the ladder is inert on amulets (percent-free substat pool)'
     0,
     'unknown slot keeps the armor-like padding treatment',
   )
+})
+
+// ── Anomalous substats ────────────────────────────────────────────────────
+// These normalize against their 6★ per-line value (1.5%). Unlike the classic caps
+// that is an EXACT maximum, not a sampled one: anomalous lines have no roll
+// variance, so a line is always its rank value × its line count.
+
+test('anomalous substat: one 6★ line normalizes to exactly 1.0', () => {
+  // The denominator is the 6★ per-line value, so a single top-rank line is the unit.
+  const one = substatNormalizedContribution(6, PVE_PLUS, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, 1)
+  assert.ok(Math.abs(one - 1) < 1e-9, 'a single 6★ anomalous line scores exactly 1.0')
+})
+
+test('anomalous substat: score scales per line, matching the classic per-roll convention', () => {
+  // Four lines at the 6★ value score 4.0 — the same unbounded shape classic multi-roll
+  // stats use, so anomalous and classic lines stay comparable inside one preset total.
+  const four = substatNormalizedContribution(6, PVE_PLUS, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX * 4, 1)
+  assert.ok(Math.abs(four - 4) < 1e-9, 'four 6★ lines score 4.0')
+  // A 5★ line is worth proportionally less than a 6★ one (1.25 / 1.5).
+  const five = substatNormalizedContribution(5, PVE_PLUS, anomalousRollValueForRank(5), 1)
+  assert.ok(Math.abs(five - 1.25 / 1.5) < 1e-9, 'a 5★ line scores its share of the 6★ unit')
+  assert.ok(five < 1, 'and therefore ranks below a 6★ line')
+})
+
+test('anomalous substat: rank adds no glyph term (they are not glyphable)', () => {
+  // statSupportsGlyphs answers no, so the glyph half of the contribution is absent and
+  // an equal-VALUE line scores the same at any rank — rank enters only via the value.
+  const five = substatNormalizedContribution(5, PVE_PLUS, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, 1)
+  const six = substatNormalizedContribution(6, PVE_PLUS, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, 1)
+  assert.equal(five, six, 'no glyph potential means rank cannot separate equal values')
+  assert.equal(getGlyphAverageForVariant(6, PVE_PLUS), 0, 'and no glyph average exists at all')
+})
+
+test('anomalous substat: the damage-taken family normalizes like the dealt family', () => {
+  // Values arrive folded to magnitude at ingest, and taking less damage is as desirable
+  // as dealing more — so both halves of the family share one scale.
+  for (const variant of ANOMALOUS_SUBSTAT_VARIANTS) {
+    const score = substatNormalizedContribution(6, variant, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX, 1)
+    assert.ok(Math.abs(score - 1) < 1e-9, `variant ${variant} scores 1.0 for one 6★ line`)
+  }
+})
+
+test('anomalous substats are no longer inert in normalized scoring', () => {
+  // The regression this guards: before the 6★ value was known these normalized to 0,
+  // so an anomalous piece sorted identically to one without the substat.
+  assert.ok(
+    normalizeSubstatByMax6(PVE_PLUS, ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX) > 0,
+    'an anomalous line must contribute a non-zero normalized value',
+  )
+  assert.equal(SUBSTAT_ROLL_MAX_6_BY_VARIANT[PVE_PLUS], ANOMALOUS_SUBSTAT_ROLL_VALUE_MAX)
 })

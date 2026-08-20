@@ -141,10 +141,11 @@ Glyphs add a bonus to an existing substat (never `CR%`/`CDMG%` — those are non
 - Sellfile rules carry them like any other substat (`IsFlat` false, `>=`), with
   one twist: the **value is stored in hundredths of a percent** (`0.25%` → `25`),
   where classic percent stats store the plain number.
-- The stat tables in this document still exclude them: non-rank-5 base values and
-  roll behavior remain unknown. The data layer and the full known/judged ledger
-  live in [Anomalous Accessories](anomalous-accessories.md) (grep marker for the
-  remaining assumptions: `JUDGED(anomalous`).
+- The stat tables in this document still exclude them, because they do not fit the
+  shape: these stats have no min..max roll range: a line is worth exactly its
+  rank's value (5★ 1.25%, 6★ 1.5%) times its line count. That per-rank table and
+  the full data layer live in
+  [Anomalous Accessories](anomalous-accessories.md).
 
 ## Gear and its sources
 
