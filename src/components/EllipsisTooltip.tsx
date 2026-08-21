@@ -18,7 +18,13 @@ export function EllipsisTooltip({
   children: React.ReactNode
   selector?: string
   disabled?: boolean
-  wrap?: 'inline' | 'block'
+  // 'block' fills its container (width:100%) — right for table cells / select displays.
+  // 'fit' is block-level but intrinsically sized: in a flex row of SIBLING ellipsis labels
+  // (paired section headers), 'block' would give every wrapper a 100% flex-basis and the row
+  // resolves them to an equal split — clipping the longer label even when both would fit.
+  // 'fit' keeps flex-basis at content size, so shrink lands proportionally and only under
+  // real deficit.
+  wrap?: 'inline' | 'block' | 'fit'
 }) {
   // Track the last element we touched so we can restore any pre-existing title attribute.
   // Why: We should never permanently stomp an explicit title on nested children.
@@ -65,9 +71,15 @@ export function EllipsisTooltip({
 
   return (
     <Box
-      component={wrap === 'block' ? 'div' : 'span'}
+      component={wrap === 'inline' ? 'span' : 'div'}
       // Wrapper mimics the child’s display mode so we can attach hover listeners without layout shifts.
-      sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
+      sx={{
+        display: wrap === 'inline' ? 'inline-flex' : 'block',
+        minWidth: 0,
+        width: wrap === 'block' ? '100%' : undefined,
+        // 'fit': cap at the container without claiming it (see the wrap prop comment).
+        maxWidth: wrap === 'fit' ? '100%' : undefined,
+      }}
       onPointerDownCapture={restoreTitle}
       onKeyDownCapture={restoreTitle}
       onMouseEnter={(e: React.MouseEvent<HTMLElement>) => syncTitleForOverflow(e.currentTarget)}

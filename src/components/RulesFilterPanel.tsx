@@ -381,7 +381,10 @@ const SectionHeaderLabel = ({
   onClick?: () => void
   onContextMenu?: (event: React.MouseEvent) => void
 }) => (
-  <EllipsisTooltip title={label} wrap="block">
+  // wrap="fit" (not "block"): paired headers put TWO of these in one flex row; "block"'s
+  // width:100% basis made the pair split the row 50/50, clipping the longer label
+  // ("Anomalous") while the shorter one held slack. "fit" sizes each to its content.
+  <EllipsisTooltip title={label} wrap="fit">
     {/* onClick/onContextMenu: clicking the label mirrors the toggle icon — left-click toggles one, right-click toggles all. */}
     <FormLabel sx={onClick ? [sectionHeaderLabelSx, { cursor: 'pointer' }] : sectionHeaderLabelSx} onClick={onClick} onContextMenu={onContextMenu}>
       {/* highlight: primary color signals the section has an active selection while collapsed. */}
