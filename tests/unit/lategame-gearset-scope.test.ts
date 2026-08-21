@@ -151,8 +151,8 @@ test('the limited-sets scope narrows the catch-all to the three scarce metasets'
 
 // ── Chaos Ore per-rank set cards (recipe domain) ──────────────────────────────
 //
-// q_ore6sets / q_ore5sets replaced the old scope radio + fine-tune pair. Each card is
-// eight set checkboxes plus an "Any set" escape, and the DEFAULT ticks must reproduce the
+// q_ore5sets / q_ore6sets replaced the old scope radio + fine-tune pair. Each card is
+// exactly eight set checkboxes, and the DEFAULT ticks must reproduce the
 // pre-change recipes exactly — that parity is the point of the whole card, so it is
 // asserted on the RESOLVED set list (metasets expanded, exclusions applied), not on the
 // raw fields, which can differ while meaning the same thing.
@@ -283,14 +283,27 @@ test('the Chaos Ore section names the metaset pool and points at the table', () 
   assert.ok(/metaset table/i.test(intro), 'the intro points at the metaset table')
 })
 
-test('the catch-all prompt names its own (wider) metaset pool', () => {
-  // The safety net covers a different, broader pool than the ore rules, so it states its
-  // own list rather than sharing the Chaos Ore one.
+test('the catch-all prompt spells out what its default scope leaves out', () => {
+  // Measured against the shipped preset: the eight curated metasets cover 41 of the 64
+  // artifact-capable sets. The other 23 are not a random remainder — they fall into exactly
+  // three buckets, and a user deciding whether to widen the net needs to know which:
+  //   *Useless*  — Life, Offense, Defense, Resistance, Divine Offense
+  //   *Utility*  — Stun, Provoke, Toxic, Daze, Cursed, Frost, Destroy, Retaliation, …
+  //   no metaset — Critical Rate, Fury, Frenzy, Avenging, Stalwart, Curing, Fatal, …
+  // The third bucket is the one that is impossible to discover from the metaset table alone,
+  // so the prompt naming it is the whole point of this assertion.
   const q = resolveNoteSafeguardOverridesTags(note).questions
     .find((x) => x.options.some((o) => o.token === 'catchsets_useful'))
   assert.ok(q, 'the catch-all question is present')
-  for (const pool of ['Damage', 'Debuffer', 'Extra Turn', 'Need 4 Speed', 'Survivability']) {
-    assert.ok(q.prompt.includes(pool), `the catch-all prompt names ${pool}`)
-  }
-  assert.ok(/metaset table/i.test(q.prompt), 'the catch-all prompt points at the metaset table')
+  assert.ok(/Useless/.test(q.prompt), 'the prompt names the Useless metaset as excluded')
+  assert.ok(/Utility/.test(q.prompt), 'the prompt names the Utility metaset as excluded')
+  assert.ok(/no metaset/i.test(q.prompt), 'the prompt mentions sets in no metaset at all')
+  assert.ok(/metaset table/i.test(q.prompt), 'the prompt points at the metaset table')
+
+  // And the widening option promises exactly those three buckets back.
+  const all = q.options.find((o) => o.token === 'catchsets_all')
+  assert.ok(all, 'the every-gear-set option is present')
+  const detail = `${all.label} ${all.detail ?? ''}`
+  assert.ok(/Useless/.test(detail) && /Utility/.test(detail) && /no metaset/i.test(detail),
+    'the every-gear-set option says which groups it adds')
 })
