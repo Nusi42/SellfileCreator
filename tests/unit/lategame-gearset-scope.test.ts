@@ -276,8 +276,10 @@ test('the Chaos Ore section names the metaset pool and points at the table', () 
   const intro = note.split('\n').find((l) => l.startsWith('This applies to the scarce sets'))
   assert.ok(intro, 'the Chaos Ore section carries the pool statement')
   for (const pool of POOLS) assert.ok(intro.includes(pool), `the intro names ${pool}`)
-  // The 6★ rules add one metaset the 5★ rules lack; the prose must say so.
-  assert.ok(intro.includes('Need 4 Speed'), 'the intro notes the 6★-only metaset')
+  // Deliberately NOT naming the 6★-only metaset here: the one-metaset rank difference is
+  // noise in a sentence nobody reads to make a decision, and the metaset table carries the
+  // exact membership anyway.
+  assert.ok(!intro.includes('Need 4 Speed'), 'the intro does not spell out the rank difference')
   assert.ok(/metaset table/i.test(intro), 'the intro points at the metaset table')
 })
 

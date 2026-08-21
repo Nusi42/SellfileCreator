@@ -177,8 +177,7 @@ then the catch-all safeguards.
   - **The metaset pool is stated once, in the Optional 2 (Chaos Ore) section prose**, not on each
     card: the two pools differ by a single metaset, so a per-card list was noise. That prose names
     *Damage - Limited Sets*, *Support - Limited Sets*, *Accessory Specific* and *Debuffer - Limited
-    Sets* (noting that 6★ adds *Need 4 Speed*), folds in the scarce-set examples that used to sit
-    on the two rarity questions, and points at the live `<!-- metasets -->` table for membership.
+    Sets*, folds in the scarce-set examples that used to sit on the two rarity questions, and points at the live `<!-- metasets -->` table for membership.
     The cards themselves only frame their eight checkboxes as the **debatable** sets — the pool is
     much larger and is not individually addressable there.
   - The **catch-all** card states its own pool inline, because the safety net covers a different,
