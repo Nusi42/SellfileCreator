@@ -132,6 +132,8 @@ import { CONDITIONAL_BLOCK_CLOSE_REGEX, CONDITIONAL_BLOCK_OPEN_REGEX, formatNote
 import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
+import { FLOATING_LAYER_SHADOW } from '../lib/themeCustomTokens'
+import { GoldCornerOrnaments } from './GoldCornerOrnament'
 import {
   NOTE_COLOR_HEX,
   NOTE_COLOR_SX_SELECTORS,
@@ -5583,12 +5585,13 @@ export default function NoteDialog({
         // aria-modal is intentionally omitted because the panel is non-modal (no focus trap, no backdrop).
         <Paper
           ref={panelRef}
-          elevation={24}
           role="dialog"
           aria-labelledby={NOTE_DIALOG_TITLE_ID}
           onPointerMove={handlePanelPointerMove}
           onPointerUp={handlePanelPointerUp}
           sx={{
+            // Floating window: the skin's one drop shadow (replaces the former elevation={24}).
+            boxShadow: FLOATING_LAYER_SHADOW,
             position: 'fixed',
             top: drawerTopPx ?? 0,
             // Reserve the app edge gap at the bottom so the panel stops inside the gap, matching the
@@ -5619,6 +5622,8 @@ export default function NoteDialog({
             overscrollBehavior: 'contain',
           }}
         >
+          {/* Gold corner ornaments — the floating note panel is a work panel and wears the mark. */}
+          <GoldCornerOrnaments />
           {/* Left resize handle — only active when right-snapped (left edge is the free edge) */}
           <Box
             component="div"

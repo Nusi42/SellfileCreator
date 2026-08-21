@@ -5,6 +5,49 @@ All color-scheme-aware styling must follow the patterns in this document to avoi
 
 ---
 
+## The Gold Skin (visual language)
+
+The app wears the "gold molding" skin adapted from the host application: deep desaturated navy surfaces
+(dark) / parchment (light) framed by a thin gold molding with a lit inner glow, gold titles
+opened by a ◆ diamond, cyan reserved for the selected/focused thing, and gold corner brackets
+on major panels and dialogs. Key mechanics:
+
+- **`palette.gold`** — custom per-scheme palette slot: `gold.main` = FRAME gold (hairlines,
+  molding, ornament bracket, scrollbars), `gold.light` = TITLE gold (section/dialog titles,
+  ornament gem). Built in `buildSchemePalette` from `custom.frameGoldColor`/`titleGoldColor`
+  (nullable → scheme defaults: dark `#c9a24b`/`#e9d8a6`, light `#8a6a2a`/`#6d5620`; the RSLH
+  preset supplies warmer values). Channel triplets (`mainChannel`/`lightChannel`) are attached
+  explicitly via `hexToChannelTriplet`; `TINT` may reference `gold-main`/`gold-light`.
+  CSS-var consumers use `GOLD_FRAME_CSS`/`GOLD_TITLE_CSS` from **`src/lib/goldSkin.ts`**.
+- **The molding** — `MuiPaper.root` = 1px `divider` hairline (divider defaults to a *dimmed
+  gold*: dark `#5f5029`, light `#a08036`) + `GOLD_INSET_SHADOW` (the lit inner line,
+  `theme.custom.goldInsetLine` at per-scheme `goldInsetAlpha`) + `backgroundImage: 'none'`
+  (kills MUI's dark-mode elevation overlay that washed dialogs/menus grey). Depth = the
+  frame, not elevation: stationary surfaces cast no shadow; floating layers (dialog, popover,
+  menu, autocomplete, tooltip papers + the floating note panel and easter-egg flyouts) wear
+  `FLOATING_LAYER_SHADOW` (both in `themeCustomTokens.ts`) — do not reach for
+  `theme.shadows[N]` on floating surfaces.
+- **A resting hairline is always the molding** — borders read `divider` (or the
+  divider-channel tokens `theme.custom.neutralBorder`/`weakBorder`/`ghostBorder` and
+  `TINT.neutralBorder*`); `MuiOutlinedInput` is overridden accordingly (MUI hardcodes a grey
+  there). Colour on a frame means STATE (focus = primary, error = error, selected = tint) —
+  never class.
+- **Corner brackets** — `GoldCornerOrnaments` (`src/components/GoldCornerOrnament.tsx`):
+  absolutely-positioned SVG inside the border (top two corners), `pointer-events: none`, no
+  layout impact; geometry SSOT `GOLD_ORNAMENT` in `goldSkin.ts`. Worn by: all dialogs (via
+  `GoldDialogPaper`, wired as the theme-level `MuiDialog` `slots.paper`), the builder and
+  preview panels, and the floating note panel. NOT on menus/popovers/tooltips/grid cards.
+- **Gold title voice** — `GOLD_SECTION_TITLE_SX` (`goldSkin.ts`): title-gold text with a
+  frame-gold ◆ `::before`. Applied by `MuiDialogTitle`, `ContextMenuTitle`, and
+  `GearAnalyticsChartHeader`; reuse it for any new section-title surface.
+- **Tooltips are small panels** — theme-level `MuiTooltip` paints the plate as
+  `background.paper` + divider hairline + lit line + the floating drop shadow, with a
+  matching bordered arrow. Tooltip content therefore sits on the SAME surface as cards:
+  stat/rarity colors inside tooltips go through the normal contrast adapters (the old
+  "inverted dark tooltip surface" exception is gone).
+
+---
+
 ## Architecture Overview
 
 ### Theme construction — `src/theme.ts`
@@ -24,7 +67,7 @@ createTheme({
 
 `colorSchemeSelector: 'data-mui-color-scheme'` tells MUI to look for `data-mui-color-scheme="dark"` on an ancestor element (MUI puts it on `<html>`) instead of following the OS `prefers-color-scheme` media query directly, so the user's manual toggle always wins.
 
-`custom: ThemeCustomization` carries optional overrides for primary, toggle, selection, background, paper, divider, success, warning, error, **info, the three text colours (primary/secondary/disabled), the UI and code font families, the scrollbar thumb colour**, border-radius, and selection opacity — all piped through by `ThemeEditorMenu`. `EMPTY_THEME_CUSTOMIZATION` (in `constants.ts`) is the SSOT all-null object shared by the store fallback, the theme default, and the popout reset.
+`custom: ThemeCustomization` carries optional overrides for primary, toggle, selection, background, paper, divider, **the two gold-skin accents (frameGoldColor/titleGoldColor)**, success, warning, error, **info, the three text colours (primary/secondary/disabled), the UI and code font families, the scrollbar thumb colour**, border-radius, and selection opacity — all piped through by `ThemeEditorMenu`. `EMPTY_THEME_CUSTOMIZATION` (in `constants.ts`) is the SSOT all-null object shared by the store fallback, the theme default, and the popout reset.
 
 **Disabled controls drain color via `DISABLED_CONTROL_FILTER`** (`filter: grayscale(1)`, module-scope SSOT in `theme.ts`): the stat/rarity color scopes paint label spans directly (`StatLabel`/`RarityLabel`/`SubstatToggleDisplay`), which overrides the `action.disabled` color MUI sets on the control *root* — so without this filter a disabled toggle would keep its full-strength stat color and look enabled. The grayscale filter on `&.Mui-disabled` (applied in the `MuiButton`, `MuiIconButton`, and `MuiToggleButton` styleOverrides) desaturates every descendant regardless of how or where content color was applied; default near-gray labels are visually unchanged. New button-like control overrides should reuse the constant.
 
@@ -104,7 +147,6 @@ The surface comes from the **runtime** scheme, never the frozen palette — `res
 ### Valid exceptions — where a RAW colour is correct (do NOT adapt/consolidate)
 
 - **Colour pickers / swatches** (`ManageColorsDialog`, the NoteDialog colour-picker swatches via raw `NOTE_COLOR_HEX`) — the swatch shows the literal value being chosen, not how the text will render.
-- **Tooltips with an inverted dark surface** (`renderColoredStatText` via `BuilderTooltipContent`, gear-inspector grid tooltips) — colours read on the dark tooltip bg, not paper.
 - **Chart DATA fills** (donut slices, bars, rarity/stat series in Gear Analytics) — the colour *is* the datum; adapting would break legend↔slice correspondence.
 - **Data sources / defaults** (`useSubstatColors`, `DEFAULT_SUBSTAT_COLORS_*`).
 - **`src/theme.ts` build-time palette derivations** — per-scheme `darken`/`lighten` building the two palettes (this is the one place `darken`/`lighten` and per-scheme `isDark` branching belong).
@@ -145,8 +187,8 @@ border: `1px solid ${theme.palette.divider}`
 When the alpha itself differs per scheme (light 0.18 vs dark 0.28 below), that is an
 `APP_SCHEME_ALPHAS`/`CUSTOM_TOKENS` case — define one `theme.custom.*` token whose `--app-*`
 alpha var resolves differently per scheme, rather than hand-writing two rgba literals. Reserve
-`applyStyles('dark', …)` for genuinely non-token, scheme-specific CSS (e.g. swapping to a fixed
-grey, as `ContextMenuPaper` does). The two-rgba form is shown only to illustrate the mechanism:
+`applyStyles('dark', …)` for genuinely non-token, scheme-specific CSS (e.g. the fixed warm
+amber-grey fills of `ContextMenuPaper`'s close button — its borders ride the gold TINTs). The two-rgba form is shown only to illustrate the mechanism:
 ```ts
 // Mechanism illustration only — prefer theme.custom.<token> for per-scheme alphas.
 sx={(theme) => ({
@@ -210,7 +252,7 @@ Also use `colorScheme ?? 'dark'` (not `theme.palette.mode`) for the WMDE markdow
 
 ### `src/components/ThemeEditorMenu.tsx`
 
-The colour editor flyout: PaletteIcon button + Menu with the scheme toggle (**Dark / Light / RSLH**), colour pickers (accent, toggle, selection, background, paper, dividers, success, warning, error, **info, three text colours, scrollbar thumb**), **UI/code font-family text fields**, border-radius and selection-opacity sliders, colour-blind mode, psychedelic toggle, and stat-button border preference. Switching scheme resets manual customizations so each scheme starts from its own defaults. `hasCustomization` is computed generically (`Object.values(draft).some(v => v != null)`) and reset uses the shared `EMPTY_THEME_CUSTOMIZATION` SSOT, so new fields need no per-field bookkeeping.
+The colour editor flyout: PaletteIcon button + Menu with the scheme toggle (**Dark / Light / RSLH**), colour pickers (accent, toggle, selection, background, paper, dividers, **frame gold, title gold**, success, warning, error, **info, three text colours, scrollbar thumb**), **UI/code font-family text fields**, border-radius and selection-opacity sliders, colour-blind mode, psychedelic toggle, and stat-button border preference. Switching scheme resets manual customizations so each scheme starts from its own defaults. `hasCustomization` is computed generically (`Object.values(draft).some(v => v != null)`) and reset uses the shared `EMPTY_THEME_CUSTOMIZATION` SSOT, so new fields need no per-field bookkeeping.
 
 - Reads/writes `ThemeCustomization` via `useThemeCustomization()` (Zustand-backed, persisted to localStorage).
 - Reads/writes `psychedelic` via the display preferences context (`useDisplayPreferences` / `useDisplayPreferenceActions`).
@@ -300,7 +342,7 @@ Add these inside the markdown container's `sx` in both `NoteDialog.tsx` and `Hel
 ## Checklist — Adding a Theme-Aware Component
 
 1. **Colour values** — Use `theme.custom.*` / `TINT.*` for tints, `theme.vars?.palette.*` for MUI semantic tokens. **No inline `rgba(...)` or `alpha(x, 0.n)` magic numbers** — fixed-alpha tints come from `TINT`, JS alphas from `ALPHA`, per-scheme alphas from `theme.custom.*`. No bare `theme.palette.*` except inside `alpha()`/`darken()` JS math — and even there prefer `theme.colorSchemes.dark?.palette.*`.
-2. **User/preset colours as text** — Contrast-adapt them (`useSubstatFgAdapter()` / `adaptSubstatFgForScheme` / `resolveRarityTextColor`) against the **runtime** scheme surface (`resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))`). Raw colours are only correct for the valid exceptions (pickers, tooltips, chart fills, data sources, easter eggs).
+2. **User/preset colours as text** — Contrast-adapt them (`useSubstatFgAdapter()` / `adaptSubstatFgForScheme` / `resolveRarityTextColor`) against the **runtime** scheme surface (`resolveSchemePaper(theme, schemeModeFromColorScheme(colorScheme))`). This includes tooltip content — the gold-skin tooltip plate IS `background.paper`. Raw colours are only correct for the valid exceptions (pickers, chart fills, data sources, easter eggs).
 3. **Scheme branching** — Use `theme.applyStyles('dark', {...})` for non-token CSS overrides; use `useColorScheme()` for runtime scheme checks in component logic.
 4. **Third-party markdown** — Always set `data-color-mode={colorScheme ?? 'dark'}` on the WMDE container; add table overrides (see above).
 5. **CSS variable properties** — If a MUI component uses an internal CSS variable (like `--Alert-color`), override that variable rather than the derived `color` property, so the override wins regardless of MUI's injection order.

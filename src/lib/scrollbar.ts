@@ -26,7 +26,8 @@ export interface ScrollbarGutterOptions {
  */
 export const visibleScrollbarTrack = (): SystemStyleObject<Theme> => ({
   // Webkit: explicit track + thumb colours with a slim width.
-  // Default (light mode): black-alpha via common.blackChannel; dark mode: white-alpha via common.whiteChannel.
+  // Gold skin: thumb/track ride the frame-gold channel (TINT.scroll*) in both schemes; the
+  // per-scheme split below only tunes the hover alpha.
   '&::-webkit-scrollbar': { width: 9 },
   '&::-webkit-scrollbar-track': { background: TINT.scrollTrackLight, borderRadius: 5 },
   '&::-webkit-scrollbar-thumb': { background: TINT.scrollThumbLight, borderRadius: 5 },

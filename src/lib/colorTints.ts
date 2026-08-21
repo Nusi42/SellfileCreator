@@ -39,6 +39,8 @@ export const ALPHA = {
 } as const
 
 // Palette channels a tint may reference (MUI `--mui-palette-<channel>Channel` CSS vars).
+// gold-main/gold-light are the gold-skin accents (frame molding / title voice) — custom
+// palette slots whose channel vars theme.ts attaches by hand (see buildSchemePalette).
 type Channel =
   | 'text-primary' | 'text-secondary'
   | 'success-main' | 'error-main'
@@ -46,6 +48,7 @@ type Channel =
   | 'primary-main' | 'info-main'
   | 'background-paper' | 'divider'
   | 'common-black' | 'common-white'
+  | 'gold-main' | 'gold-light'
 
 // Build a CHANNEL-var rgba string at one ladder step (or a raw 0 for fully-transparent).
 const tint = (channel: Channel, a: number): string => `rgba(var(--mui-palette-${channel}Channel) / ${a})`
@@ -57,15 +60,17 @@ export const TINT = {
   neutralHeaderBg:       tint('text-primary', ALPHA.a06), // markdown table <th> bg (NoteDialog, HelpDialog); empty heatmap cell (GearAnalyticsHeatmap)
   neutralDisabledChipBg: tint('text-primary', ALPHA.a08), // disabled/neutral chip + icon-less fallback (builderStatusChipStyles, RecipeChip, RulesFilterPanel, BuilderTooltipContent)
   neutralActiveBg:       tint('text-primary', ALPHA.a12), // neutral active surface (RecipeBuilderPanel)
-  neutralBorderFaint:    tint('text-primary', ALPHA.a15), // faint dashed tooltip border (BuilderTooltipContent)
-  neutralBorderDashed:   tint('text-primary', ALPHA.a20), // dashed tooltip border (BuilderTooltipContent)
-  neutralHoverGlow:      tint('text-primary', ALPHA.a20), // neutral hover glow/ring (RulesFilterPanel, RecipeBuilderPanel) — shares the a20 step with neutralBorderDashed
-  neutralOutlineStrong:  tint('text-primary', ALPHA.a40), // 2px focus outline (SubstatTargetsTabContent)
-  neutralBorderStrong:   tint('text-primary', ALPHA.a45), // base border (RulesFilterPanel)
-  // Neutral borders keyed off text.secondary (slightly softer than text.primary).
-  neutralIconBgFallback: tint('text-secondary', ALPHA.a10), // champion-icon bg when rarity unknown (GearInspectorGridCard)
-  neutralBorderLight:    tint('text-secondary', ALPHA.a15), // preset-editor border, light scheme (GearInspectorNormalizedPresetEditorMenu)
-  neutralBorderDark:     tint('text-secondary', ALPHA.a20), // preset-editor border, dark scheme (GearInspectorNormalizedPresetEditorMenu)
+  // Resting hairlines are the molding (gold skin): border-role tints reference the divider
+  // channel (a dimmed gold per scheme) so every frame in the app is gold-tinted; text-primary
+  // stays for STATE cues (hover glow, focus outline), which spend colour/contrast on meaning.
+  neutralBorderFaint:    tint('divider', ALPHA.a40), // faint dashed tooltip border (BuilderTooltipContent)
+  neutralBorderDashed:   tint('divider', ALPHA.a60), // dashed tooltip border (BuilderTooltipContent)
+  neutralHoverGlow:      tint('text-primary', ALPHA.a20), // neutral hover glow/ring (RulesFilterPanel, RecipeBuilderPanel) — state cue, stays neutral
+  neutralOutlineStrong:  tint('text-primary', ALPHA.a40), // 2px focus outline (SubstatTargetsTabContent) — state cue, stays neutral
+  neutralBorderStrong:   tint('divider', ALPHA.a90), // base border (RulesFilterPanel)
+  neutralIconBgFallback: tint('text-secondary', ALPHA.a10), // champion-icon bg when rarity unknown (GearInspectorGridCard) — surface, not a frame
+  neutralBorderLight:    tint('divider', ALPHA.a55), // preset-editor border, light scheme (GearInspectorNormalizedPresetEditorMenu)
+  neutralBorderDark:     tint('divider', ALPHA.a70), // preset-editor border, dark scheme (GearInspectorNormalizedPresetEditorMenu)
 
   // ── Success / keep / "added" state ───────────────────────────────────────────
   // success* and error* below pair up: the HUE encodes keep vs sell, the ALPHA step is shared.
@@ -118,15 +123,20 @@ export const TINT = {
   chartChipBg:       tint('background-paper', ALPHA.a82), // chip bg on a chart slice/tile (GearAnalyticsDonut, GearAnalyticsTreemap)
   nearOpaquePaperBg: tint('background-paper', ALPHA.a90), // near-opaque paper surface — overlay scrim, context-hint panel, sticky header (GridIconBox, GearInspectorItemsGrid, ContextMenuHintOverlay, HeaderActions)
 
-  // ── Scrollbar (black/white so it reads on any custom paper) ──────────────────
-  scrollTrackLight:      tint('common-black', ALPHA.a04), // light-scheme scrollbar track (scrollbar.ts)
-  scrollThumbLight:      tint('common-black', ALPHA.a15), // light-scheme scrollbar thumb (scrollbar.ts)
-  scrollThumbHoverLight: tint('common-black', ALPHA.a25), // light-scheme scrollbar thumb hover (scrollbar.ts)
-  scrollTrackDark:       tint('common-white', ALPHA.a06), // dark-scheme scrollbar track (scrollbar.ts)
-  scrollThumbDark:       tint('common-white', ALPHA.a20), // dark-scheme scrollbar thumb (scrollbar.ts)
-  scrollThumbHoverDark:  tint('common-white', ALPHA.a40), // dark-scheme scrollbar thumb hover (scrollbar.ts)
-  onDarkSecondaryText:   tint('common-white', ALPHA.a70), // secondary text/arrow on a dark tooltip surface (BuilderTooltipContent)
+  // ── Scrollbar (frame-gold thumbs — the bar rides the molding's accent) ───────
+  scrollTrackLight:      tint('gold-main', ALPHA.a06), // light-scheme scrollbar track (scrollbar.ts)
+  scrollThumbLight:      tint('gold-main', ALPHA.a40), // light-scheme scrollbar thumb (scrollbar.ts)
+  scrollThumbHoverLight: tint('gold-main', ALPHA.a65), // light-scheme scrollbar thumb hover (scrollbar.ts)
+  scrollTrackDark:       tint('gold-main', ALPHA.a06), // dark-scheme scrollbar track (scrollbar.ts)
+  scrollThumbDark:       tint('gold-main', ALPHA.a40), // dark-scheme scrollbar thumb (scrollbar.ts)
+  scrollThumbHoverDark:  tint('gold-main', ALPHA.a60), // dark-scheme scrollbar thumb hover (scrollbar.ts)
 
   // ── Divider ──────────────────────────────────────────────────────────────────
   legendSwatchBorder: tint('divider', ALPHA.a50), // treemap legend swatch border (GearAnalyticsTreemap)
+
+  // ── Floating close button (ContextMenuPaper) ─────────────────────────────────
+  // The popout/context-menu close ✕ frames in the molding gold; the fills stay the
+  // button's own scheme-invariant warm greys (see ContextMenuPaper's exception note).
+  floatingCloseBorder:      tint('gold-main', ALPHA.a60), // resting border, dark scheme (ContextMenuPaper)
+  floatingCloseBorderHover: tint('gold-main', ALPHA.a82), // hover border, dark scheme (ContextMenuPaper)
 } as const

@@ -32,7 +32,11 @@ export const RSLH_PRESET: ThemeCustomization = {
   selectionColor: '#cc9064',      // warm tan selection tint (was inheriting dark's blue #4e94e5)
   bgColor: '#151515',             // flat window background
   paperColor: '#2C2C2C',          // flat surface (skin's lighter card paper)
-  dividerColor: '#3C3C3C',
+  // Gold-skin era: RSLH hairlines join the app-wide gold molding, but in a warmer, slightly
+  // muted gold so the frames sit with the orange #FF8800 accent instead of competing with it.
+  dividerColor: '#5a4a26',
+  frameGoldColor: '#b8933f',
+  titleGoldColor: '#e9d8a6',
   successColor: '#81C784',
   warningColor: '#FFC107',        // adapted from skin's #F1960E (collision with orange primary)
   errorColor: '#ff7474',
@@ -42,11 +46,10 @@ export const RSLH_PRESET: ThemeCustomization = {
   textDisabledColor: '#666666',
   uiFontFamily: RSLH_UI_FONT,
   codeFontFamily: RSLH_CODE_FONT,
-  // Skin's resting thumb (#383838) sits on our paper-colored track (#2C2C2C) at only ΔL≈12 —
-  // it reads as "no scrollbar". The skin masked this with a transparent track; our app paints the
-  // track with background.paper, so we raise the thumb to the skin's hover grey (#454545, ΔL≈25)
-  // to match dark's thumb/track contrast (ΔL≈27). Scrollbars then look like dark, just RSLH-colored.
-  scrollbarThumbColor: '#454545',
+  // Gold-skin era: the thumb follows the molding. The preset's divider gold (#5a4a26) on the
+  // #2C2C2C paper track is only ΔL≈14 — it reads as "no scrollbar" — so the preset pins a
+  // brighter gold (#7a6535, ΔL≈26) to match dark's thumb/track contrast while staying golden.
+  scrollbarThumbColor: '#7a6535',
   borderRadius: 8,                // skin: cards 8px (controls were 6px; single knob → 8)
   selectionOpacity: null,         // inherit dark default
 }

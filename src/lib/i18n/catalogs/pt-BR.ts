@@ -1478,6 +1478,8 @@ const catalog: Catalog = {
   themeColorBackground: "Fundo",
   themeColorPaper: "Superfície",
   themeColorDividers: "Divisores",
+  themeColorFrameGold: "Dourado das molduras",
+  themeColorTitleGold: "Dourado dos títulos",
   themeColorSuccess: "Sucesso",
   themeColorWarning: "Aviso",
   themeColorError: "Erro",

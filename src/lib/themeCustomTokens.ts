@@ -62,6 +62,10 @@ export const APP_CSS_VAR = {
   overlayBackdropAlpha:        '--app-overlay-backdrop-alpha',
   overlayPanelBgAlpha:         '--app-overlay-panel-bg-alpha',
   overlayPanelBorderAlpha:     '--app-overlay-panel-border-alpha',
+  // Gold molding — the faint lit inner line every Paper wears inside its gold hairline.
+  goldInsetAlpha:              '--app-gold-inset-alpha',
+  // The single drop shadow floating layers (menus, popovers, dialogs, tooltips) cast.
+  floatingShadowAlpha:         '--app-floating-shadow-alpha',
 } as const
 
 // ─── Per-scheme alpha values ───────────────────────────────────────────────────
@@ -85,8 +89,10 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     successBgAlpha:         0.16,
     successHoverBgAlpha:    0.20,
     successActiveBgAlpha:   0.12,
-    neutralBorderAlpha:     0.22,
-    weakBorderAlpha:        0.28,
+    // Border alphas ride the divider channel (dimmed gold, a mid-tone) since the gold skin,
+    // so they sit far higher than the old text-secondary values (0.22/0.28/0.18 grey).
+    neutralBorderAlpha:     0.75,
+    weakBorderAlpha:        0.90,
     paperOverlayAlpha:      0.90,
     keepOverrideHoverAlpha: 0.24,
     matchBorderDimAlpha:    0.65,
@@ -111,10 +117,12 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     statusChipDisabledColorAlpha:0.35,
     infoBorderAlpha:             0.65,
     infoBgAlpha:                 0.12,
-    ghostBorderAlpha:            0.18,
+    ghostBorderAlpha:            0.50,
     overlayBackdropAlpha:        0.60,
     overlayPanelBgAlpha:         0.90,
     overlayPanelBorderAlpha:     0.20,
+    goldInsetAlpha:              0.18,
+    floatingShadowAlpha:         0.45,
   },
   light: {
     hoverBgAlpha:           0.10,
@@ -127,8 +135,10 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     successBgAlpha:         0.10,
     successHoverBgAlpha:    0.12,
     successActiveBgAlpha:   0.08,
-    neutralBorderAlpha:     0.14,
-    weakBorderAlpha:        0.18,
+    // Divider-channel border alphas (see dark-scheme note); parchment's darker gold reads a
+    // touch stronger per unit alpha, so light sits slightly above dark for the same role.
+    neutralBorderAlpha:     0.80,
+    weakBorderAlpha:        0.95,
     paperOverlayAlpha:      0.92,
     keepOverrideHoverAlpha: 0.12,
     matchBorderDimAlpha:    0.60,
@@ -153,10 +163,12 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     statusChipDisabledColorAlpha:0.35,
     infoBorderAlpha:             0.50,
     infoBgAlpha:                 0.08,
-    ghostBorderAlpha:            0.12,
+    ghostBorderAlpha:            0.55,
     overlayBackdropAlpha:        0.50,
     overlayPanelBgAlpha:         0.95,
     overlayPanelBorderAlpha:     0.14,
+    goldInsetAlpha:              0.14,
+    floatingShadowAlpha:         0.25,
   },
 }
 
@@ -218,9 +230,10 @@ export const CUSTOM_TOKENS = {
   successBg:            `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.successBgAlpha}))`,
   successHoverBg:       `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.successHoverBgAlpha}))`,
   successActiveBg:      `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.successActiveBgAlpha}))`,
-  // Neutral surface borders (inactive substats, secondary controls)
-  neutralBorder:        `rgba(var(--mui-palette-text-secondaryChannel) / var(${APP_CSS_VAR.neutralBorderAlpha}))`,
-  weakBorder:           `rgba(var(--mui-palette-text-secondaryChannel) / var(${APP_CSS_VAR.weakBorderAlpha}))`,
+  // Neutral surface borders (inactive substats, secondary controls) — divider channel: a
+  // resting hairline is always the gold molding (was text-secondary grey pre-gold-skin).
+  neutralBorder:        `rgba(var(--mui-palette-dividerChannel) / var(${APP_CSS_VAR.neutralBorderAlpha}))`,
+  weakBorder:           `rgba(var(--mui-palette-dividerChannel) / var(${APP_CSS_VAR.weakBorderAlpha}))`,
   // Semi-transparent overlay on paper background (sticky headers, table overlays)
   paperOverlayBg:       `rgba(var(--mui-palette-background-paperChannel) / var(${APP_CSS_VAR.paperOverlayAlpha}))`,
   // Keep-override scope chip hover
@@ -253,8 +266,8 @@ export const CUSTOM_TOKENS = {
   // Info-tinted priority badge (sort-direction indicator).
   infoBorder:                  `rgba(var(--mui-palette-info-mainChannel) / var(${APP_CSS_VAR.infoBorderAlpha}))`,
   infoBg:                      `rgba(var(--mui-palette-info-mainChannel) / var(${APP_CSS_VAR.infoBgAlpha}))`,
-  // Ghost/placeholder border — neutral lighter outline for inactive controls.
-  ghostBorder:                 `rgba(var(--mui-palette-text-secondaryChannel) / var(${APP_CSS_VAR.ghostBorderAlpha}))`,
+  // Ghost/placeholder border — faintest gold outline for inactive controls (divider channel).
+  ghostBorder:                 `rgba(var(--mui-palette-dividerChannel) / var(${APP_CSS_VAR.ghostBorderAlpha}))`,
   // File drag overlay — full-screen backdrop dimmer. Uses black so it tints content in both schemes.
   overlayBackdropBg:           `rgba(0 0 0 / var(${APP_CSS_VAR.overlayBackdropAlpha}))`,
   overlayPanelBg:              `rgba(var(--mui-palette-background-paperChannel) / var(${APP_CSS_VAR.overlayPanelBgAlpha}))`,
@@ -263,7 +276,19 @@ export const CUSTOM_TOKENS = {
   statusChipSuccessEnabledBg:  `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.statusChipEnabledBgAlpha}))`,
   statusChipSuccessHoverBg:    `rgba(var(--mui-palette-success-mainChannel) / var(${APP_CSS_VAR.statusChipHoverBgAlpha}))`,
   statusChipDisabledBg:        `rgba(var(--mui-palette-text-disabledChannel) / var(${APP_CSS_VAR.statusChipDisabledBgAlpha}))`,
+  // Gold molding: the lit inner line color (frame gold at the per-scheme inset alpha).
+  goldInsetLine:               `rgba(var(--mui-palette-gold-mainChannel) / var(${APP_CSS_VAR.goldInsetAlpha}))`,
+  // Floating-layer drop shadow color (black at per-scheme alpha).
+  floatingShadowColor:         `rgba(var(--mui-palette-common-blackChannel) / var(${APP_CSS_VAR.floatingShadowAlpha}))`,
 } as const
+
+// ─── Composed shadow strings (the skin's complete shadow vocabulary) ─────────
+// Stationary Papers wear only the lit inner line (depth = the gold frame, not elevation);
+// floating layers (menus, popovers, dialogs, tooltips) add the ONE soft drop shadow.
+// theme.ts applies these globally; component sx that must restate a boxShadow (e.g. to beat
+// an elevation class) imports the same strings instead of reaching for theme.shadows[N].
+export const GOLD_INSET_SHADOW = `inset 0 0 0 1px ${CUSTOM_TOKENS.goldInsetLine}`
+export const FLOATING_LAYER_SHADOW = `0 4px 14px ${CUSTOM_TOKENS.floatingShadowColor}, ${GOLD_INSET_SHADOW}`
 
 export type ThemeCustomTokens = typeof CUSTOM_TOKENS
 

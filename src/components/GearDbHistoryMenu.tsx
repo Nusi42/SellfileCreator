@@ -137,7 +137,7 @@ export function GearDbHistoryMenu({
               maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
               px: 0,
               py: 0,
-              boxShadow: theme.shadows[8],
+              // No pinned elevation shadow — the theme's floating-layer shadow (gold skin) applies.
             }),
           }), ref: paperRef },
           list: {
@@ -215,9 +215,11 @@ export function GearDbHistoryMenu({
                 tooltip: {
                   sx: {
                     maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
-                    // Strip the default dark MUI tooltip surface so the GearDiffPreview paper
-                    // card shows through unframed (no dark ring around the card).
+                    // Strip the tooltip plate (paper bg + gold frame + drop shadow under the
+                    // gold skin) so the GearDiffPreview paper card IS the visible surface.
                     bgcolor: 'transparent',
+                    border: 0,
+                    boxShadow: 'none',
                     p: 0,
                     // Let the preview card own scrolling so nested scrollbars cannot appear.
                     overflow: 'visible',
@@ -332,7 +334,7 @@ export function GearDbHistoryMenu({
               maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX,
               px: 0,
               py: 0,
-              boxShadow: theme.shadows[10],
+              // No pinned elevation shadow — the theme's floating-layer shadow (gold skin) applies.
             }),
           }), ref: previewPaperRef },
           list: {

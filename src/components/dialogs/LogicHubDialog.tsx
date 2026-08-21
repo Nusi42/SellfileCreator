@@ -1,6 +1,7 @@
 import { useCallback, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
 import { useDialogMinimizeAnimation } from '../../hooks/useDialogMinimizeAnimation'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { GOLD_SECTION_TITLE_SX, GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../../lib/goldSkin'
 import { useI18n } from '../../lib/i18n'
 import {
   MENU_CONTROL_HEIGHT_PX,
@@ -256,10 +257,12 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       transitionDuration={{ exit: 0 }}
       slotProps={{ paper: { sx: paperSx, ref: logicHubDialogProps.PaperProps.ref } }}
     >
-      <DialogTitle sx={{ p: 0 }}>
+      {/* Composite title block (title + tabs): suppress the theme's root-level ◆ (it would
+          float at the p:0 corner) and speak the gold title voice on the inner Typography. */}
+      <DialogTitle sx={{ p: 0, ...GOLD_TITLE_COMPOSITE_OPT_OUT_SX }}>
         <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>
           <Stack spacing={1}>
-            <Typography variant="h6">{t('titleLogicHub')}</Typography>
+            <Typography variant="h6" sx={GOLD_SECTION_TITLE_SX}>{t('titleLogicHub')}</Typography>
             <Tabs
               value={normalizedTab}
               onChange={handleTabChange}

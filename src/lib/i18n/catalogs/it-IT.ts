@@ -1478,6 +1478,8 @@ const overrides: Catalog = {
   themeColorBackground: "Sfondo",
   themeColorPaper: "Superficie",
   themeColorDividers: "Divisori",
+  themeColorFrameGold: "Oro delle cornici",
+  themeColorTitleGold: "Oro dei titoli",
   themeColorSuccess: "Successo",
   themeColorWarning: "Avviso",
   themeColorError: "Errore",

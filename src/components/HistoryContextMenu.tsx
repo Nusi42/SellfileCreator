@@ -77,7 +77,7 @@ export function HistoryContextMenu({
             maxHeight: HISTORY_MENU_MAX_HEIGHT_PX,
             px: 0,
             py: 0,
-            boxShadow: theme.shadows[8],
+            // No pinned elevation shadow — the theme's floating-layer shadow (gold skin) applies.
           }),
         }), ref: paperRef },
         list: {

@@ -4,6 +4,8 @@ import IconButton from '@mui/material/IconButton'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { darken } from '@mui/material/styles'
+import { TINT } from '../lib/colorTints'
+import { GOLD_FRAME_CSS } from '../lib/goldSkin'
 import {
   CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,
   CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX,
@@ -33,12 +35,13 @@ const basePaperSx: SxProps<Theme> = {
 }
 
 const closeButtonSx: SxProps<Theme> = (theme) => {
-  // Light-mode: derive from paper/divider tokens so the button adapts to custom colors.
+  // Light-mode: derive from paper/divider tokens so the button adapts to custom colors —
+  // parchment paper and the gold divider make the button warm by construction.
   // darken() receives light-scheme hex (theme.palette.* = light in CSS vars mode) — safe.
-  // Dark-mode: hardcoded MUI grey[800]/grey[900]/grey[700] values via applyStyles so the
-  // button matches the original origin/master appearance on the default dark paper (#161b22).
-  // Grey values are scheme-invariant, and darkP (#161b22) is already near grey[900] lightness
-  // so lighten() deltas cannot reach the contrast that grey[800]=#424242 provides.
+  // Dark-mode: hardcoded fills via applyStyles. The dark paper sits near grey[900]
+  // lightness, so lighten() deltas cannot reach the contrast the fixed fills provide;
+  // the fills keep the original grey ladder's LIGHTNESS but are amber-tinted so the
+  // button speaks the gold skin, and the borders ride the frame-gold channel (TINT).
   const p = theme.palette.background.paper
   const d = theme.palette.divider
   const textColor = theme.vars?.palette.text.primary ?? theme.palette.text.primary
@@ -74,24 +77,25 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
       boxShadow: theme.shadows[6],
       borderColor: darken(d, 0.15),
     },
-    // Dark mode: use MUI grey scale values (same as origin/master's grey[800]/grey[900]/grey[700])
-    // since darkP (#161b22) is already near grey[900] lightness — lighten() deltas are
-    // too small to reach the contrast that grey[800]=#424242 provides.
-    // Grey values are scheme-invariant (same in dark and light), so hardcoding is safe here.
+    // Dark mode: amber-tinted fills at the ORIGINAL grey ladder's lightness steps
+    // (grey[800]/[900]/[700] equivalents) — the dark paper (#101a26) is already near
+    // grey[900] lightness, so lighten() deltas are too small; fixed fills stay the
+    // exception, now warmed so the ✕ speaks the gold skin. Borders ride the frame-gold
+    // channel via TINT so they follow a custom gold like every other hairline.
     ...theme.applyStyles('dark', {
-      backgroundColor: '#424242',  // grey[800]
-      borderColor: '#616161',      // grey[700]
+      backgroundColor: '#494130',  // warm grey[800]
+      borderColor: TINT.floatingCloseBorder,
       '&:hover': {
-        backgroundColor: '#212121',  // grey[900]
-        borderColor: '#757575',      // grey[600]
+        backgroundColor: '#262013',  // warm grey[900]
+        borderColor: TINT.floatingCloseBorderHover,
         color: textColor,
         boxShadow: theme.shadows[4],
       },
       '&.Mui-focusVisible': {
-        backgroundColor: '#616161',  // grey[700]
+        backgroundColor: '#665935',  // warm grey[700]
         color: textColor,
         boxShadow: theme.shadows[6],
-        borderColor: '#9e9e9e',      // grey[500]
+        borderColor: GOLD_FRAME_CSS,
       },
     }),
   }

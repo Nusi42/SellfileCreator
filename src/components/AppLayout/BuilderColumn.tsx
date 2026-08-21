@@ -2,6 +2,7 @@ import { Box, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
 import { SIDE_BY_SIDE_NATIVE_MEDIA_QUERY } from '../../lib/constants'
+import { GoldCornerOrnaments, GOLD_CORNER_HOST_SX } from '../GoldCornerOrnament'
 
 /**
  * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, recipe chips,
@@ -47,6 +48,8 @@ export function BuilderColumn({
         p: 2,
         display: 'flex',
         flexDirection: 'column',
+        // Anchor for the gold corner ornaments (a major work panel wears the mark).
+        ...GOLD_CORNER_HOST_SX,
         // During drag the splitter writes --splitter-left-width directly to the DOM, so the
         // panel width updates without any React re-render. widthPx (the committed value) serves
         // as the fallback for the initial render and the single re-render after mouseup.
@@ -88,6 +91,7 @@ export function BuilderColumn({
       }}
       data-tour-id="builder.panel"
     >
+      <GoldCornerOrnaments />
       <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="builder.core">
         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 2 }}>
           {typeof title === 'string' ? (

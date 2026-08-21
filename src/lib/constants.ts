@@ -186,7 +186,10 @@ export type ThemeCustomization = {
   selectionColor: string | null   // null = primaryColor in light, #ffffff in dark (ships rgba(255,255,255,0.08))
   bgColor: string | null       // null = use mode default; paper is derived unless paperColor is set
   paperColor: string | null    // null = derive from bgColor (or use mode default)
-  dividerColor: string | null  // null = use mode default (#30363d dark / #d0d7de light)
+  dividerColor: string | null  // null = use mode default (dimmed gold: #5f5029 dark / #a08036 light)
+  // Gold-skin accents (frame molding + title voice) — null = per-scheme defaults (see theme.ts).
+  frameGoldColor: string | null  // null = #c9a24b dark / #8a6a2a light; RSLH preset supplies its own
+  titleGoldColor: string | null  // null = #e9d8a6 dark / #6d5620 light
   successColor: string | null  // null = use palette default; overrides color-blind mode when set
   warningColor: string | null  // null = use palette default; overrides color-blind mode when set
   errorColor: string | null    // null = use palette default; overrides color-blind mode when set
@@ -208,7 +211,8 @@ export type ThemeCustomization = {
 // the theme builder default, and the popout reset so the three never drift out of sync.
 export const EMPTY_THEME_CUSTOMIZATION: ThemeCustomization = {
   primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null,
-  dividerColor: null, successColor: null, warningColor: null, errorColor: null, infoColor: null,
+  dividerColor: null, frameGoldColor: null, titleGoldColor: null,
+  successColor: null, warningColor: null, errorColor: null, infoColor: null,
   textPrimaryColor: null, textSecondaryColor: null, textDisabledColor: null,
   uiFontFamily: null, codeFontFamily: null, scrollbarThumbColor: null,
   borderRadius: null, selectionOpacity: null,

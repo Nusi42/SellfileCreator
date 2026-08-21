@@ -9,6 +9,7 @@
  * by MUI's ThemeProvider (reads/writes modeStorageKey in localStorage).
  */
 import { alpha, createTheme, darken, lighten } from '@mui/material/styles'
+import { outlinedInputClasses } from '@mui/material/OutlinedInput'
 import type { ColorBlindMode, ThemeCustomization } from './lib/constants'
 import {
   SAFE_TEXT_LINE_HEIGHT,
@@ -19,9 +20,24 @@ import {
   FONT_SIZE_SECONDARY_REM,
   FONT_SIZE_TITLE_REM,
 } from './lib/constants'
-import { CUSTOM_TOKENS } from './lib/themeCustomTokens'
+import { CUSTOM_TOKENS, FLOATING_LAYER_SHADOW, GOLD_INSET_SHADOW } from './lib/themeCustomTokens'
+import { hexToChannelTriplet } from './lib/colorUtils'
+import { GOLD_SECTION_TITLE_SX } from './lib/goldSkin'
+import GoldDialogPaper from './components/GoldDialogPaper'
 
 const EMPTY_CUSTOM: ThemeCustomization = EMPTY_THEME_CUSTOMIZATION
+
+// palette.gold carries the skin's two accents per scheme (see goldSkin.ts for the CSS-var
+// consumers). MUI only auto-generates channel vars for its own known slots, so the channels
+// (used by rgba(var(--mui-palette-gold-mainChannel) / …) tokens) are attached explicitly.
+declare module '@mui/material/styles' {
+  interface Palette {
+    gold: { main: string; light: string }
+  }
+  interface PaletteOptions {
+    gold?: { main: string; light: string; mainChannel?: string; lightChannel?: string }
+  }
+}
 
 // Disabled controls: the stat/rarity color scopes paint label spans directly
 // (StatLabel / RarityLabel / SubstatToggleDisplay), which overrides the
@@ -49,34 +65,53 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     ? { success: { main: TR.success, contrastText: '#fff' }, warning: { main: TR.warning, contrastText: '#000' }, error: { main: TR.error, contrastText: '#000' } }
     : {}
 
-  const primaryMain = custom.primaryColor ?? (isDark ? '#58a6ff' : '#0969da')
-  const defaultBg    = isDark ? '#0f1216' : '#cecece'
-  const defaultPaper = isDark ? '#161b22' : '#fafafa'
+  // Gold-skin bases: deep desaturated navy framed by gold molding in dark; the same molding
+  // on parchment in light. Cyan primary is spent on the selected/focused thing only.
+  const primaryMain = custom.primaryColor ?? (isDark ? '#46c8f0' : '#0e7fa8')
+  const defaultBg    = isDark ? '#0b1017' : '#ddd5c2'
+  const defaultPaper = isDark ? '#101a26' : '#efe9d9'
   const bgDefault    = custom.bgColor ?? defaultBg
   const bgPaperDerived = custom.bgColor != null
     ? (isDark ? lighten(bgDefault, 0.06) : darken(bgDefault, 0.03))
     : defaultPaper
   const bgPaper = custom.paperColor ?? bgPaperDerived
 
-  const selColor   = custom.selectionColor ?? (isDark ? '#4e94e5' : primaryMain)
+  // Selection tint defaults to the primary accent in both schemes (the skin's "cyan is the
+  // selected thing" rule); dark's former separate #4e94e5 blue died with the GitHub palette.
+  const selColor   = custom.selectionColor ?? primaryMain
   const selOpacity = custom.selectionOpacity ?? (isDark ? 0.16 : 0.12)
 
-  // Text colors: a custom override (incl. the RSLH preset's greys) wins; otherwise dark/light
-  // defer to MUI's contrast-derived defaults, except light's raised disabled opacity.
-  const textOverrides: Record<string, string> = {}
-  if (custom.textPrimaryColor   != null) textOverrides.primary   = custom.textPrimaryColor
-  if (custom.textSecondaryColor != null) textOverrides.secondary = custom.textSecondaryColor
-  if (custom.textDisabledColor  != null) textOverrides.disabled  = custom.textDisabledColor
-  // Light mode: raise disabled text opacity from MUI's default 0.38 to 0.50 so it
-  // reads clearly against the off-white bg without looking like active secondary text.
-  else if (!isDark)                      textOverrides.disabled  = 'rgba(0,0,0,0.50)'
+  // The two gold accents (frame molding / title voice) — customization-aware like every other
+  // slot; the RSLH preset routes its warmer golds through the same fields. Channel triplets are
+  // attached by hand because MUI only auto-generates them for its own palette slots.
+  const goldFrame = custom.frameGoldColor ?? (isDark ? '#c9a24b' : '#8a6a2a')
+  const goldTitle = custom.titleGoldColor ?? (isDark ? '#e9d8a6' : '#6d5620')
+
+  // Text colors: a custom override (incl. the RSLH preset's greys) wins; otherwise the skin's
+  // three greys — navy-tinted on dark, warm ink on parchment. Exactly three levels: content /
+  // supporting / deliberately-inactive; everything else is told apart by size and weight.
+  const textOverrides: Record<string, string> = {
+    primary:   custom.textPrimaryColor   ?? (isDark ? '#ccd6e0' : '#2a2416'),
+    secondary: custom.textSecondaryColor ?? (isDark ? '#a6b3c2' : '#5a5342'),
+    // Light disabled stays raised above MUI's 0.38 default (see pre-gold history) so it reads
+    // clearly on parchment without looking like active secondary text.
+    disabled:  custom.textDisabledColor  ?? (isDark ? '#5d6b7a' : 'rgba(42,36,22,0.50)'),
+  }
 
   return {
     primary: { main: primaryMain },
     background: { default: bgDefault, paper: bgPaper },
-    divider: custom.dividerColor ?? (isDark ? '#30363d' : '#d0d7de'),
+    // Every hairline in the app is a dimmed gold — the resting frame IS the molding; grey
+    // dividers died with the gold skin. Colour on a frame always means state, never class.
+    divider: custom.dividerColor ?? (isDark ? '#5f5029' : '#a08036'),
+    gold: {
+      main: goldFrame,
+      light: goldTitle,
+      mainChannel: hexToChannelTriplet(goldFrame),
+      lightChannel: hexToChannelTriplet(goldTitle),
+    },
     action: { selected: alpha(selColor, selOpacity), selectedOpacity: selOpacity },
-    ...(Object.keys(textOverrides).length > 0 ? { text: textOverrides } : {}),
+    text: textOverrides,
     // Pre-set Alert.successFilledColor before MUI's setColor() runs.
     // MUI computes this from getContrastText(success.dark) — dark green → white — but
     // v1.0.13 used getContrastText(success.main) = rgba(0,0,0,0.87).  setColor() only
@@ -148,7 +183,19 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
         // Tabs inherit typography.button; give their label the same descender-safe line-height.
         styleOverrides: { root: { lineHeight: SAFE_TEXT_LINE_HEIGHT } },
       },
-      MuiPaper: { styleOverrides: { root: ({ theme }) => ({ border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}` }) } },
+      MuiPaper: {
+        styleOverrides: {
+          // The molding: dim-gold hairline + faint lit inner line — the double-frame every
+          // surface wears. backgroundImage:'none' kills MUI's dark-mode elevation overlay
+          // (rgba(255,255,255,…) painted over paper), which washed dialogs (elevation 24)
+          // and menus (8) into grey; with it gone the gold frame is the only depth cue.
+          root: ({ theme }) => ({
+            border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+            backgroundImage: 'none',
+            boxShadow: GOLD_INSET_SHADOW,
+          }),
+        },
+      },
       MuiAlert: {
         styleOverrides: {
           // Darken filled success alerts so toast surfaces are less neon/bright.
@@ -185,29 +232,66 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
           },
         },
         styleOverrides: {
-          tooltip: {
+          // The hover plate is a small gold-framed panel, not MUI's stock grey pill: paper
+          // surface, gold hairline, lit inner line, and the one floating drop shadow. Content
+          // therefore reads on background.paper — the same surface as every card — so
+          // stat/rarity colors inside tooltips go through the normal contrast adapters.
+          tooltip: ({ theme }) => ({
             fontSize: `${FONT_SIZE_SECONDARY_PX}px`,
             maxWidth: 640,
             whiteSpace: 'pre-line',
             wordBreak: 'break-word',
+            backgroundColor: theme.vars?.palette.background.paper ?? theme.palette.background.paper,
+            color: theme.vars?.palette.text.primary ?? theme.palette.text.primary,
+            border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+            boxShadow: FLOATING_LAYER_SHADOW,
+            // Slightly tighter radius than panels (0.75×) so the plate reads as a badge-scale
+            // surface; tracks the user's radius knob instead of pinning a literal.
+            borderRadius: `calc(${theme.vars?.shape.borderRadius ?? theme.shape.borderRadius}px * 0.75)`,
+            padding: '6px 10px',
             // Scale tooltip content to match #root zoom in forced-SBS mode.
             zoom: 'var(--app-zoom, 1)',
-          },
+          }),
+          // The arrow wears the same paper + gold hairline as the plate it belongs to.
+          arrow: ({ theme }) => ({
+            color: theme.vars?.palette.background.paper ?? theme.palette.background.paper,
+            '&::before': {
+              border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
+            },
+          }),
         },
       },
       MuiDialogTitle: {
-        styleOverrides: { root: { fontSize: `${FONT_SIZE_TITLE_REM}rem`, fontWeight: 600 } },
+        // Dialog titles speak the gold title voice: title-gold text opened by a small
+        // frame-gold ◆ (same mark as section titles / the corner ornament gem). Size and
+        // weight are unchanged — the voice is color, not geometry.
+        styleOverrides: {
+          root: {
+            fontSize: `${FONT_SIZE_TITLE_REM}rem`,
+            fontWeight: 600,
+            ...GOLD_SECTION_TITLE_SX,
+          },
+        },
       },
       MuiDialog: {
         defaultProps: {
           closeAfterTransition: false,
+          // Every dialog renders into the ornamented paper (gold corner brackets) — the mark
+          // is part of what a dialog IS, not a per-dialog opt-in. PaperComponent (not
+          // slots.paper!) rides the styled DialogPaper's `as`, so MUI's dialog-paper layout
+          // styles (margins, maxHeight, scroll) are preserved; slots.paper would replace the
+          // styled wrapper and drop them (tall dialogs then overflow the viewport).
+          // slotProps.paper stays free for per-dialog sizing.
+          PaperComponent: GoldDialogPaper,
           slotProps: {
             transition: { timeout: { appear: 0, enter: 0, exit: 150 }, unmountOnExit: true },
           },
         },
         styleOverrides: {
           // Scale dialog paper to match #root zoom in forced-SBS mode.
-          paper: { zoom: 'var(--app-zoom, 1)', outline: 0 },
+          // Floating layer: the one soft drop shadow + the molding's lit line (replaces the
+          // elevation-24 shadow, whose grey overlay died with backgroundImage:'none' above).
+          paper: { zoom: 'var(--app-zoom, 1)', outline: 0, boxShadow: FLOATING_LAYER_SHADOW },
         },
       },
       MuiMenu: {
@@ -219,12 +303,29 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
           // scale (not zoom) avoids shrinking offsetWidth so MUI's overflow-clamp is unaffected.
           // No transformOrigin override — MUI sets it via inline style per-menu based on anchor
           // position. Forcing 'top left !important' would break right-anchored menus in SBS zoom.
-          paper: { scale: 'var(--app-zoom, 1)' },
+          // Floating layer (also covers Menu, which renders through Popover): drop + lit line.
+          paper: { scale: 'var(--app-zoom, 1)', boxShadow: FLOATING_LAYER_SHADOW },
         },
       },
       MuiAutocomplete: {
         styleOverrides: {
-          paper: { scale: 'var(--app-zoom, 1)' },
+          paper: { scale: 'var(--app-zoom, 1)', boxShadow: FLOATING_LAYER_SHADOW },
+        },
+      },
+      MuiOutlinedInput: {
+        // A resting hairline is always the molding: MUI hardcodes the outlined input's border
+        // to a grey alpha — the ONE control class that does not read `divider` — so every text
+        // field wore a grey frame while every panel beside it wore gold. Hover does not change
+        // the frame (colour is spent on STATE alone); focus keeps MUI's primary, error its red.
+        styleOverrides: {
+          root: ({ theme }) => ({
+            [`& .${outlinedInputClasses.notchedOutline}`]: {
+              borderColor: theme.vars?.palette.divider ?? theme.palette.divider,
+            },
+            [`&:hover:not(.${outlinedInputClasses.focused}):not(.${outlinedInputClasses.error}):not(.${outlinedInputClasses.disabled}) .${outlinedInputClasses.notchedOutline}`]: {
+              borderColor: theme.vars?.palette.divider ?? theme.palette.divider,
+            },
+          }),
         },
       },
       MuiSlider: {

@@ -1478,6 +1478,8 @@ const overrides: Catalog = {
   themeColorBackground: "Фон",
   themeColorPaper: "Поверхня",
   themeColorDividers: "Розділювачі",
+  themeColorFrameGold: "Золото рамок",
+  themeColorTitleGold: "Золото заголовків",
   themeColorSuccess: "Успіх",
   themeColorWarning: "Попередження",
   themeColorError: "Помилка",

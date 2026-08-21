@@ -16,6 +16,7 @@ const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: 
 import { APP_VERSION } from '../version'
 import { useI18n, useLanguageOptions } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX, NOTE_DIALOG_LG_WIDTH_PX } from '../lib/constants'
+import { GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../lib/goldSkin'
 import { appZoomCompensatedLength } from '../lib/sideBySideZoom'
 import { AppTitle } from './AppTitle'
 import RslHelperConnectButton from './RslHelperConnectButton'
@@ -232,7 +233,10 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       onMouseMove={onDialogMouseMove}
       onMouseLeave={onDialogMouseLeave}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+      {/* Composite title block: the app wordmark IS the title, so the theme's root-level ◆
+          (which would float detached before this flex row) is suppressed; AppTitle keeps its
+          own branding colors instead of the gold title voice. */}
+      <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, ...GOLD_TITLE_COMPOSITE_OPT_OUT_SX }}>
         <Box>
           <AppTitle />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.6 }}>

@@ -19,6 +19,7 @@ import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports'
 import { canWriteImageToClipboard } from '../lib/clipboard'
+import { FLOATING_LAYER_SHADOW } from '../lib/themeCustomTokens'
 import { captureEasterEggSnapshot } from '../lib/easterEggSnapshot'
 
 const HEADER_H = 40  // title-bar height in px (CSS pixels, not game-logical)
@@ -102,7 +103,6 @@ export default function EasterEggFlyoutShell({
 
   return (
     <Paper
-      elevation={24}
       sx={{
         position: 'fixed',
         top: pos.y,
@@ -113,6 +113,9 @@ export default function EasterEggFlyoutShell({
         flexDirection: 'column',
         overflow: 'hidden',
         borderRadius: 2,
+        // Floating window: the skin's one drop shadow (replaces the former elevation={24},
+        // whose overlay/shadow vocabulary died with the gold molding).
+        boxShadow: FLOATING_LAYER_SHADOW,
         // Prevent text selection during drag.
         userSelect: 'none',
       }}

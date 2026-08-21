@@ -1,4 +1,5 @@
 import { scopeColorsText } from '../lib/colorScope'
+import React from 'react'
 import type { JSX } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
@@ -14,6 +15,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import { SetIcon, gearSetIconSrc } from './SetIcon'
 import { compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
 import { TINT } from '../lib/colorTints'
+import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 
 export interface BuilderTooltipContentProps {
   text: string
@@ -44,7 +46,18 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
   const { statColorScope, showSetIcons } = useDisplayPreferences()
   const colorStatTexts = scopeColorsText(statColorScope)
   const shouldColorize = colorizeStats && colorStatTexts
-  const colors = substatColors ?? {}
+  // Gold skin: the tooltip plate is background.paper (not the old inverted dark pill), so
+  // stat fg colors go through the same contrast adapter as any text on paper. bg values are
+  // chip surfaces, not text — they stay as authored.
+  const adaptFg = useSubstatFgAdapter()
+  const colors = React.useMemo(() => {
+    const src = substatColors ?? {}
+    const out: SubstatColorMap = {}
+    for (const [variant, entry] of Object.entries(src)) {
+      out[Number(variant)] = { ...entry, fg: adaptFg(entry.fg) ?? entry.fg }
+    }
+    return out
+  }, [substatColors, adaptFg])
   const theme = useTheme<Theme>()
   // Rarity word → adapted colour, so the inline colorizer tints rarity labels in history lines the
   // same way it tints stat labels. Empty when the master flag is off.
@@ -1151,7 +1164,7 @@ function renderDiffGrid(params: {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {left}
         </Box>
-        <Typography variant="body2" sx={{ color: TINT.onDarkSecondaryText }}>→</Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>→</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {right}
         </Box>

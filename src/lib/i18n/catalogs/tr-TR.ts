@@ -1478,6 +1478,8 @@ const overrides: Catalog = {
   themeColorBackground: "Arka plan",
   themeColorPaper: "Yüzey",
   themeColorDividers: "Bölücüler",
+  themeColorFrameGold: "Çerçeve altını",
+  themeColorTitleGold: "Başlık altını",
   themeColorSuccess: "Başarı",
   themeColorWarning: "Uyarı",
   themeColorError: "Hata",

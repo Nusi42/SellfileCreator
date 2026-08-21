@@ -1557,8 +1557,8 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
           const previewRuleName = resolvePreviewRuleName(rule, isKeepOverrideSource)
           // Color comes from the recipe's appearance.fgColor; empty string when absent.
           const previewRuleColor = resolvePreviewRuleFgColor(rule, isKeepOverrideSource)
-          // Table-cell color is contrast-adjusted for the surface bg; tooltip color stays raw
-          // (tooltip has an inverted dark bg in light theme where contrast is not the same concern).
+          // Contrast-adjust the recipe color for the paper surface. Since the gold skin the
+          // tooltip plate is background.paper too, so table cell and tooltip share one color.
           const tablePreviewRuleColor = previewRuleColor
             ? ensureContrastOnBg(previewRuleColor, previewSurfacePaper)
             : ''
@@ -1916,9 +1916,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               } else if (showRecipeIdxNameTooltip) {
                 cellInner = (
                   <MarkdownTooltip
-                    // Apply the [rrggbb] directive color inside the tooltip when present.
-                    {...(previewRuleColor
-                      ? { render: <Typography variant="body2" component="span" sx={{ color: previewRuleColor }}>{previewRuleName}</Typography> }
+                    // Apply the [rrggbb] directive color inside the tooltip when present —
+                    // contrast-adapted: the gold-skin tooltip plate is the same paper surface.
+                    {...(tablePreviewRuleColor
+                      ? { render: <Typography variant="body2" component="span" sx={{ color: tablePreviewRuleColor }}>{previewRuleName}</Typography> }
                       : { markdown: previewRuleName }
                     )}
                   >

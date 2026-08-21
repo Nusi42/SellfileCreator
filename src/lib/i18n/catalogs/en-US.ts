@@ -1478,6 +1478,8 @@ const enUS: Catalog = {
   themeColorBackground: "Background",
   themeColorPaper: "Paper",
   themeColorDividers: "Dividers",
+  themeColorFrameGold: "Frame gold",
+  themeColorTitleGold: "Title gold",
   themeColorSuccess: "Success",
   themeColorWarning: "Warning",
   themeColorError: "Error",

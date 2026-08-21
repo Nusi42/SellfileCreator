@@ -29,6 +29,8 @@ const parseThemeCustomization = (raw: string | null): ThemeCustomization => {
         bgColor:       isHexColor(p.bgColor)       ? p.bgColor       : null,
         paperColor:    isHexColor(p.paperColor)    ? p.paperColor    : null,
         dividerColor:  isHexColor(p.dividerColor)  ? p.dividerColor  : null,
+        frameGoldColor: isHexColor(p.frameGoldColor) ? p.frameGoldColor : null,
+        titleGoldColor: isHexColor(p.titleGoldColor) ? p.titleGoldColor : null,
         successColor:  isHexColor(p.successColor)  ? p.successColor  : null,
         warningColor:  isHexColor(p.warningColor)  ? p.warningColor  : null,
         errorColor:    isHexColor(p.errorColor)    ? p.errorColor    : null,
@@ -58,6 +60,7 @@ export const themeCustomStore = createLocalStorageStore<ThemeCustomization>({
     a.selectionColor === b.selectionColor &&
     a.bgColor        === b.bgColor        && a.paperColor     === b.paperColor     &&
     a.dividerColor   === b.dividerColor   &&
+    a.frameGoldColor === b.frameGoldColor && a.titleGoldColor === b.titleGoldColor &&
     a.successColor   === b.successColor   && a.warningColor   === b.warningColor   && a.errorColor === b.errorColor &&
     a.infoColor      === b.infoColor      &&
     a.textPrimaryColor   === b.textPrimaryColor   && a.textSecondaryColor === b.textSecondaryColor &&

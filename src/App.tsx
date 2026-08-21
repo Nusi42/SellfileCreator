@@ -18,6 +18,7 @@ import { buildDocumentOverridesView } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
 import AccountSwitcher from './components/AccountSwitcher'
+import { GoldCornerOrnaments } from './components/GoldCornerOrnament'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   EXTERNAL_WS_METHOD_SELECT_ARTIFACTS,
@@ -9718,6 +9719,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             borderBottom: 'none',
           }
         }} data-tour-id="preview.paper" data-gear-results-version={gearInspectorResultsVersion}>
+          {/* Gold corner ornaments — the preview panel is a major work panel and wears the mark. */}
+          <GoldCornerOrnaments />
           {/* Transparent top-75% overlay — tutorial can spotlight the mode toggle + gear grid
               without covering the full paper height. */}
           <Box

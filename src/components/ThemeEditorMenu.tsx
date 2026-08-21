@@ -93,7 +93,7 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
   // (see rslhPreset.ts), but the popout edits the user's own `themeCustom` — which is null for any
   // field the user hasn't touched. So when RSLH is active, the effective default for an un-edited
   // field is the RSLH preset value, not the dark base. Surface that here so the swatch/placeholder
-  // shows what is actually in effect (e.g. selection = #cc9064, not dark's #4e94e5). Where the RSLH
+  // shows what is actually in effect (e.g. selection = #cc9064, not dark's cyan primary). Where the RSLH
   // preset leaves a field null, it inherits the dark base, so we fall through to `base`.
   const fieldFallback = React.useCallback(<K extends keyof typeof RSLH_PRESET>(field: K, base: string): string => {
     if (rslhEnabled) {
@@ -219,13 +219,15 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           { label: t('themeColorToggles'),    field: 'toggleColor'   as const, fallback: fieldFallback('toggleColor', isDark
               ? '#ffffff'
               : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main)) },
-          // Selection fallback: dark uses #4e94e5 (matches theme.ts default); light uses primary.
-          { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: fieldFallback('selectionColor', isDark
-              ? '#4e94e5'
-              : (schemePalette?.primary?.main ?? muiTheme.palette.primary.main)) },
+          // Selection fallback: both schemes default to primary (theme.ts gold-skin default).
+          { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: fieldFallback('selectionColor', schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
           { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: fieldFallback('bgColor', schemePalette?.background?.default ?? muiTheme.palette.background.default) },
           { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: fieldFallback('paperColor', schemePalette?.background?.paper ?? muiTheme.palette.background.paper) },
           { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: fieldFallback('dividerColor', schemePalette?.divider ?? muiTheme.palette.divider) },
+          // Gold-skin accents: frame molding (hairlines, ornament bracket, scrollbars) and
+          // title voice (section/dialog titles, ornament gem). Fallbacks read palette.gold.
+          { label: t('themeColorFrameGold'),  field: 'frameGoldColor' as const, fallback: fieldFallback('frameGoldColor', schemePalette?.gold?.main ?? muiTheme.palette.gold.main) },
+          { label: t('themeColorTitleGold'),  field: 'titleGoldColor' as const, fallback: fieldFallback('titleGoldColor', schemePalette?.gold?.light ?? muiTheme.palette.gold.light) },
           { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: fieldFallback('successColor', schemePalette?.success?.main ?? muiTheme.palette.success.main) },
           { label: t('themeColorWarning'),    field: 'warningColor'  as const, fallback: fieldFallback('warningColor', schemePalette?.warning?.main ?? muiTheme.palette.warning.main) },
           { label: t('themeColorError'),      field: 'errorColor'    as const, fallback: fieldFallback('errorColor', schemePalette?.error?.main ?? muiTheme.palette.error.main) },
