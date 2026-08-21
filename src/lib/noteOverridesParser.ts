@@ -426,6 +426,13 @@ export const localizeDslDisplay = (raw: string, lang: string): string => {
  * spelling pass, one mutate-list shape, shared by both formatters.
  */
 
+/** Spell a REPLACE list for the clearable gear-set/metaset fields. An empty list is
+ *  the legal "any gear set" state, so it reads as the clear keyword rather than as
+ *  an empty string (which would render the override tooltip blank).
+ *  Keyword SSOT: NOTE_OVERRIDES_CLEAR_LIST_KEYWORD, defined further down. */
+export const formatOverridesClearableList = (names: readonly string[]): string =>
+  names.length === 0 ? NOTE_OVERRIDES_CLEAR_LIST_KEYWORD : names.join(',')
+
 /** Render a mutate add/remove pair as `+a +b -c` note list-mutation syntax. */
 export const formatOverridesMutateList = (add: string[], remove: string[]): string =>
   [...add.map((x) => `+${x}`), ...remove.map((x) => `-${x}`)].join(' ')
@@ -1216,6 +1223,31 @@ export function classifyListMode(tokens: PrefixedToken[]): 'replace' | 'mutate' 
   if (hasNone && hasPrefixed) return 'ignore'
   return hasNone ? 'replace' : 'mutate'
 }
+
+/**
+ * Clear-to-any keyword for the gear-set / metaset list fields.
+ *
+ * A rule listing no explicit set AND no metaset means "any gear set" (HSF expresses
+ * that by listing nothing), so an override needs a way to *reach* that state.
+ * Enumerating `-Name` removals works but couples the block to every current member
+ * name; `gearsets=any` / `metasets=any` says it directly and survives renames.
+ *
+ * Spelled `any` to match the DSL's existing `tag any` / `tag none` selector vocabulary
+ * and the UI's "Any" label for an empty selection. A metaset literally named "any"
+ * would be shadowed by the keyword — renaming that metaset is the fix.
+ */
+export const NOTE_OVERRIDES_CLEAR_LIST_KEYWORD = 'any'
+
+/**
+ * True when a parsed list is the single bare `any` token, i.e. a clear request.
+ * Only the gear-set/metaset fields consult this; every other list field keeps
+ * treating `any` as an unresolvable name (a silent no-op, exactly as before).
+ */
+export const isClearListTokens = (tokens: readonly PrefixedToken[]): boolean => (
+  tokens.length === 1
+  && tokens[0]!.prefix === 'none'
+  && tokens[0]!.value.trim().toLowerCase() === NOTE_OVERRIDES_CLEAR_LIST_KEYWORD
+)
 
 // After the first value token of a list field has been consumed, collect any
 // remaining comma-separated word/string tokens that continue the list.

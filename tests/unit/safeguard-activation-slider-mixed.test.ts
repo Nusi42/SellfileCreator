@@ -40,8 +40,11 @@ test('safeguard-overrides markers parse with no diagnostics', () => {
 })
 
 test('each mode card is a mixed radio+slider question with a Reserve-gaps default', () => {
-  // Every card with an activation radio must also carry the count slider (the mixed shape).
-  const mixed = resolveQ().filter((q) => q.groups.some((g) => g.type === 'single'))
+  // Every card with an ACTIVATION radio must also carry the count slider (the mixed shape).
+  // Selecting on the activation write, not merely "has a radio group": the note also carries
+  // radio-only cards that pick a gear-set scope (q_catchsets) and legitimately have no count.
+  const mixed = resolveQ().filter((q) => q.groups.some((g) => g.type === 'single'
+    && g.options.some((o) => o.blocks.some((b) => b.operations.some((op) => op.kind === 'activation')))))
   assert.ok(mixed.length >= 5, 'all five mode cards should carry an activation radio')
   for (const q of mixed) {
     assert.ok(q.groups.some((g) => g.type === 'slider'), `${q.id} must also have a count slider`)

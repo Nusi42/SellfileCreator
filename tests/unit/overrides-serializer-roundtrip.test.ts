@@ -54,8 +54,11 @@ test('listOverrideBlocks finds every marker with exact spans', () => {
   // utility and accessory activation cards were added and the catch-all card replaced
   // the former empty layout-spacer marker; the Mercurial-accessory card followed, plus
   // an empty layout spacer that evens out the artifact section's 2-column grid).
-  assert.equal(refs.filter((r) => r.domain === 'recipe').length, 14)
-  assert.equal(refs.filter((r) => r.domain === 'safeguard').length, 12)
+  // "Optional 5 — which gear sets the wide-net rules use" then added two recipe markers
+  // (Chaos Ore any-set scope + its per-set fine-tune boxes) and one safeguard marker
+  // (the catch-all gear-set scope).
+  assert.equal(refs.filter((r) => r.domain === 'recipe').length, 16)
+  assert.equal(refs.filter((r) => r.domain === 'safeguard').length, 13)
   for (const ref of refs) {
     assert.equal(note.slice(ref.from, ref.to), ref.raw, 'span must reproduce the raw slice')
   }
@@ -187,6 +190,31 @@ test('recipe operation table: every kind emits parse-exact DSL', () => {
     assert.ok(back.body.kind === 'structured')
     const reOps = (back.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
     assert.deepEqual(reOps, [op], `op '${emitted}' must round-trip`)
+  }
+})
+
+// The clear-to-any keyword is the one list value that parses to an EMPTY replace, which the
+// plain list emitter rejects as an authoring error. Both domains must parse it and both must
+// emit it back verbatim, or a visual-editor save would silently drop the widening.
+test('gearsets=any / metasets=any round-trip as an empty replace in both domains', () => {
+  for (const domain of ['recipe', 'safeguard'] as const) {
+    const option = roundTripBody(domain, '{ @all { gearsets=any metasets=any } }')
+    assert.ok(option.body.kind === 'structured', `${domain} clear body stays structured`)
+    const ops = (option.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations
+    assert.equal(ops.length, 2, `${domain} emits one op per cleared field`)
+    for (const op of ops as Array<{ mode?: string }>) {
+      assert.equal(op.mode, 'replace', 'a clear is a replace with nothing in it')
+    }
+    // Re-emit and re-parse: the emission must be the keyword again, not an empty list.
+    const emitted = (ops as Array<Parameters<typeof serializeRecipeOperation>[0]>).map((op) => (
+      domain === 'recipe'
+        ? serializeRecipeOperation(op)
+        : serializeSafeguardOperation(op as unknown as Parameters<typeof serializeSafeguardOperation>[0])
+    ))
+    assert.deepEqual(emitted, ['gearsets=any', 'metasets=any'], `${domain} re-emits the clear keyword`)
+    const back = roundTripBody(domain, `{ @all { ${emitted.join(' ')} } }`)
+    assert.ok(back.body.kind === 'structured')
+    assert.deepEqual((back.body as { blocks: Array<{ operations: unknown[] }> }).blocks[0]!.operations, ops)
   }
 })
 

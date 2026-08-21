@@ -38,6 +38,13 @@ export const loadLategameNote = (): string => {
   return Array.isArray(note) ? note.join('\n') : note ?? ''
 }
 
+/** The lategame preset's metasets in their persisted shape (display name + member set names). */
+export const loadLategameMetasets = (): Array<{ name: string; setNames: string[]; show?: boolean }> => {
+  const metasets = (loadLategameSfc() as { Metasets?: unknown }).Metasets
+  assert.ok(Array.isArray(metasets), 'presets/lategame.sfc must carry a Metasets array')
+  return metasets as Array<{ name: string; setNames: string[]; show?: boolean }>
+}
+
 /**
  * The lategame preset's safeguard entries, normalized exactly as a load does: per-entry
  * `normalizeSafeguardRule` (dropping anything unreadable), then the group pass. Every suite that

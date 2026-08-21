@@ -31,8 +31,12 @@ export const cloneMetasets = (list: readonly Metaset[]): Metaset[] => (
 )
 
 // Default metasets (curated).
-// Note: These defaults mirror the current state of `presets/lategame.sfc` so a
-// fresh run starts with the same metaset list/order as that reference file.
+// Note: These defaults mirror `presets/beginner.sfc` — same names, same order — so a
+// fresh run starts on the beginner setup. `tests/unit/restore-metaset-refs.test.ts`
+// pins that mirror, so adding an entry here means adding it to beginner.sfc too.
+// The lategame preset carries its OWN (larger, partly renamed: Damage vs Nuker)
+// metaset list in the file, including override-only helpers such as `Not Farmable`;
+// it is not mirrored here and must not be.
 // Tutorial note: `useTutorialCoachState` adds a small subset of these by *name*;
 // update the tutorial's "wanted" list if you rename any metasets here.
 

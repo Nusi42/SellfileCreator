@@ -52,6 +52,8 @@ import {
   localizeDslDisplay,
   parsePrefixedToken,
   classifyListMode,
+  isClearListTokens,
+  formatOverridesClearableList,
   consumeCommaSeparatedRemainder,
   // Option-info display helpers — the shared contract both domains render through.
   overridesStatKey,
@@ -342,10 +344,10 @@ export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): stri
       ? formatOverridesStatKeyList(op.variants)
       : formatOverridesStatKeyMutateList(op.add, op.remove)
     case 'artifactSets': return op.mode === 'replace'
-      ? op.ids.map((id) => artifactSetNames[id] ?? String(id)).join(',')
+      ? formatOverridesClearableList(op.ids.map((id) => artifactSetNames[id] ?? String(id)))
       : formatOverridesMutateList(op.add.map((e) => artifactSetNames[e.id] ?? String(e.id)), op.remove.map((id) => artifactSetNames[id] ?? String(id)))
     case 'artifactMetaSets': return op.mode === 'replace'
-      ? op.names.join(',')
+      ? formatOverridesClearableList(op.names)
       : formatOverridesMutateList(op.add, op.remove)
   }
 }
@@ -1849,6 +1851,8 @@ const parseOperations = (
       const parsed = raw.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
+      // `gearsets=any` clears the explicit set list back to "any gear set".
+      if (isClearListTokens(parsed)) { operations.push({ kind: 'artifactSets', mode: 'replace', ids: [] }); continue }
       const resolveId = (name: string): ArtifactSetId | undefined =>
         artifactSetIdByName.get(name.trim().toLowerCase())
       if (listMode === 'replace') {
@@ -1876,6 +1880,8 @@ const parseOperations = (
       const parsed = raw.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
+      // `metasets=any` clears the metaset filter back to "any gear set".
+      if (isClearListTokens(parsed)) { operations.push({ kind: 'artifactMetaSets', mode: 'replace', names: [] }); continue }
       if (listMode === 'replace') {
         const names = parsed.map((t) => t.value).filter((n) => n.length > 0)
         if (names.length > 0) operations.push({ kind: 'artifactMetaSets', mode: 'replace', names })
@@ -3118,12 +3124,16 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedSubstatMin = false
   const rollTargetsByVariant = new Map<StatVariant, SubstatRollTargetEntry>()
   let appliedRollTargets = false
-  // List-op fields: undefined = not overridden; set to the parsed operation when matched.
-  let nextArtifactTypesOp:    Extract<RecipeOverridesOperation, { kind: 'artifactTypes' }>    | undefined
-  let nextSubstatsOp:         Extract<RecipeOverridesOperation, { kind: 'substats' }>         | undefined
-  let nextMainStatsOp:        Extract<RecipeOverridesOperation, { kind: 'mainStats' }>         | undefined
-  let nextArtifactSetsOp:     Extract<RecipeOverridesOperation, { kind: 'artifactSets' }>     | undefined
-  let nextArtifactMetaSetsOp: Extract<RecipeOverridesOperation, { kind: 'artifactMetaSets' }> | undefined
+  // List-op fields: every matching operation is kept IN NOTE ORDER and folded below, so two
+  // options writing the same list on one recipe compose (a later `replace` still resets the
+  // value; a later `mutate` builds on what the earlier one produced). Last-writer-wins used to
+  // apply here and silently dropped all but the final write — the safeguard domain has always
+  // folded in order, and the two domains must not answer differently. Empty = not overridden.
+  const artifactTypesOps:    Array<Extract<RecipeOverridesOperation, { kind: 'artifactTypes' }>>    = []
+  const substatsOps:         Array<Extract<RecipeOverridesOperation, { kind: 'substats' }>>         = []
+  const mainStatsOps:        Array<Extract<RecipeOverridesOperation, { kind: 'mainStats' }>>        = []
+  const artifactSetsOps:     Array<Extract<RecipeOverridesOperation, { kind: 'artifactSets' }>>     = []
+  const artifactMetaSetsOps: Array<Extract<RecipeOverridesOperation, { kind: 'artifactMetaSets' }>> = []
   let hasInstruction = false
   for (const instruction of instructions) {
     if (!matchesSelector(instruction.selector, recipe, targets)) continue
@@ -3213,12 +3223,12 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         appliedRollTargets = true
         return
       }
-      // List operations: last writer wins within the instruction set.
-      if (op.kind === 'artifactTypes')    { nextArtifactTypesOp    = op; return }
-      if (op.kind === 'substats')         { nextSubstatsOp         = op; return }
-      if (op.kind === 'mainStats')        { nextMainStatsOp        = op; return }
-      if (op.kind === 'artifactSets')     { nextArtifactSetsOp     = op; return }
-      if (op.kind === 'artifactMetaSets') { nextArtifactMetaSetsOp = op; return }
+      // List operations: collected in note order and folded after the scalar normalizers.
+      if (op.kind === 'artifactTypes')    { artifactTypesOps.push(op);    return }
+      if (op.kind === 'substats')         { substatsOps.push(op);         return }
+      if (op.kind === 'mainStats')        { mainStatsOps.push(op);        return }
+      if (op.kind === 'artifactSets')     { artifactSetsOps.push(op);     return }
+      if (op.kind === 'artifactMetaSets') { artifactMetaSetsOps.push(op); return }
     })
   }
   if (!hasInstruction) return recipe
@@ -3238,11 +3248,11 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   const minCountChanged = appliedMinCount && nextMinCount !== recipe.minCount
   const flexChanged = appliedFlex && nextFlex !== recipe.autoSubstatFlex
   // Detect whether any list operation was applied.
-  const artifactTypesChanged    = nextArtifactTypesOp    !== undefined
-  const substatsChanged         = nextSubstatsOp         !== undefined
-  const mainStatsChanged        = nextMainStatsOp        !== undefined
-  const artifactSetsChanged     = nextArtifactSetsOp     !== undefined
-  const artifactMetaSetsChanged = nextArtifactMetaSetsOp !== undefined
+  const artifactTypesChanged    = artifactTypesOps.length    > 0
+  const substatsChanged         = substatsOps.length         > 0
+  const mainStatsChanged        = mainStatsOps.length        > 0
+  const artifactSetsChanged     = artifactSetsOps.length     > 0
+  const artifactMetaSetsChanged = artifactMetaSetsOps.length > 0
   if (!exportModeChanged
     && !rankChanged
     && !rarityChanged
@@ -3322,15 +3332,16 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   }
   // Apply list operations last so they do not interact with normalizers above.
   if (artifactTypesChanged) {
-    const op = nextArtifactTypesOp!
-    if (op.mode === 'replace') {
-      next.artifactTypes = op.values
-    } else {
-      // Remove first, then append new entries that are not already present.
-      const removeSet = new Set(op.remove)
-      const base = (next.artifactTypes ?? []).filter((id) => !removeSet.has(id))
-      const existing = new Set(base)
-      next.artifactTypes = [...base, ...op.add.filter((id) => !existing.has(id))]
+    for (const op of artifactTypesOps) {
+      if (op.mode === 'replace') {
+        next.artifactTypes = op.values
+      } else {
+        // Remove first, then append new entries that are not already present.
+        const removeSet = new Set(op.remove)
+        const base = (next.artifactTypes ?? []).filter((id) => !removeSet.has(id))
+        const existing = new Set(base)
+        next.artifactTypes = [...base, ...op.add.filter((id) => !existing.has(id))]
+      }
     }
     // Mirror the builder's cascade when slots change:
     // 1. Clear faction when the new slot set includes artifact (artifact + faction is invalid).
@@ -3353,53 +3364,57 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     }
   }
   if (substatsChanged) {
-    const op = nextSubstatsOp!
-    if (op.mode === 'replace') {
-      next.substatsV = op.variants
-    } else {
-      const removeSet = new Set(op.remove)
-      const base = (next.substatsV ?? []).filter((v) => !removeSet.has(v))
-      const existing = new Set(base)
-      next.substatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
+    for (const op of substatsOps) {
+      if (op.mode === 'replace') {
+        next.substatsV = op.variants
+      } else {
+        const removeSet = new Set(op.remove)
+        const base = (next.substatsV ?? []).filter((v) => !removeSet.has(v))
+        const existing = new Set(base)
+        next.substatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
+      }
     }
     // Cascade: fixedSubstatsV, substatRollBoundsV, and minCount depend on substatsV.
     Object.assign(next, pruneSubstatDependents(next, next.substatsV ?? []))
   }
   if (mainStatsChanged) {
-    const op = nextMainStatsOp!
-    if (op.mode === 'replace') {
-      next.mainStatsV = op.variants
-    } else {
-      const removeSet = new Set(op.remove)
-      const base = (next.mainStatsV ?? []).filter((v) => !removeSet.has(v))
-      const existing = new Set(base)
-      next.mainStatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
+    for (const op of mainStatsOps) {
+      if (op.mode === 'replace') {
+        next.mainStatsV = op.variants
+      } else {
+        const removeSet = new Set(op.remove)
+        const base = (next.mainStatsV ?? []).filter((v) => !removeSet.has(v))
+        const existing = new Set(base)
+        next.mainStatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
+      }
     }
   }
   if (artifactSetsChanged) {
-    const op = nextArtifactSetsOp!
-    if (op.mode === 'replace') {
-      // No-prefix tokens → plain includes only (no excluded flag in replace mode).
-      next.artifactSets = op.ids.map((id) => ({ id }))
-    } else {
-      // Build a map keyed by set ID so add entries can overwrite excluded flags.
-      const removeSet = new Set(op.remove)
-      const entryMap = new Map((next.artifactSets ?? [])
-        .filter((e) => !removeSet.has(e.id as ArtifactSetId))
-        .map((e) => [e.id as ArtifactSetId, e] as [ArtifactSetId, ArtifactSetSelectionEntry]))
-      for (const entry of op.add) entryMap.set(entry.id as ArtifactSetId, entry)
-      next.artifactSets = [...entryMap.values()]
+    for (const op of artifactSetsOps) {
+      if (op.mode === 'replace') {
+        // No-prefix tokens → plain includes only (no excluded flag in replace mode).
+        next.artifactSets = op.ids.map((id) => ({ id }))
+      } else {
+        // Build a map keyed by set ID so add entries can overwrite excluded flags.
+        const removeSet = new Set(op.remove)
+        const entryMap = new Map((next.artifactSets ?? [])
+          .filter((e) => !removeSet.has(e.id as ArtifactSetId))
+          .map((e) => [e.id as ArtifactSetId, e] as [ArtifactSetId, ArtifactSetSelectionEntry]))
+        for (const entry of op.add) entryMap.set(entry.id as ArtifactSetId, entry)
+        next.artifactSets = [...entryMap.values()]
+      }
     }
   }
   if (artifactMetaSetsChanged) {
-    const op = nextArtifactMetaSetsOp!
-    if (op.mode === 'replace') {
-      next.artifactMetaSets = op.names
-    } else {
-      const removeSet = new Set(op.remove)
-      const base = (next.artifactMetaSets ?? []).filter((n) => !removeSet.has(n))
-      const existing = new Set(base)
-      next.artifactMetaSets = [...base, ...op.add.filter((n) => !existing.has(n))]
+    for (const op of artifactMetaSetsOps) {
+      if (op.mode === 'replace') {
+        next.artifactMetaSets = op.names
+      } else {
+        const removeSet = new Set(op.remove)
+        const base = (next.artifactMetaSets ?? []).filter((n) => !removeSet.has(n))
+        const existing = new Set(base)
+        next.artifactMetaSets = [...base, ...op.add.filter((n) => !existing.has(n))]
+      }
     }
   }
   return next

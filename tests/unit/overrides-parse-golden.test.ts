@@ -102,10 +102,10 @@ const note: string = (sfc.Note as string[]).join('\n')
 // Captured from the current parser. Regenerate ONLY for an intentional behaviour change.
 const EXPECTED = `== RECIPE ==
 Q "Which account level do you think you hav" cols=4
-  midgame m +[keep_general,keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_22,acc_rolls_22,marius_open,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] -[ore6as_epic] ![lategame,endgame,endgameplus] setval[min_spdbanner_pieces=8,min_spd_pieces=8,min_debuffer_pieces=16,min_dmgsurv_pieces=16,impr_art=25,impr_acc=50]
-  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap] ![midgame,endgame,endgameplus] setval[min_spdbanner_pieces=12,min_spd_pieces=12,min_debuffer_pieces=24,min_dmgsurv_pieces=24,impr_art=33,impr_acc=50]
-  endgame m +[keep_limited,keep_acc,keep_spd,rolls_43,acc_rolls_33,marius_finished,fwh_yes16,la_yes16,eg_early,acc_early_yesspider,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] -[keep_general,keep_safeguards,ore5_nbr,ore6as_epic,ore6as_legendary] ![midgame,lategame,endgameplus] setval[min_spdbanner_pieces=16,min_spd_pieces=16,min_debuffer_pieces=32,min_dmgsurv_pieces=32,impr_art=50,impr_acc=50]
-  endgameplus m +[marius_finished,rolls_43,acc_rolls_43,fwh_yes,la_yes,eg_yes,acc_early_yes] -[keep_safeguards,keep_general,keep_limited,keep_acc,keep_spd,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_epic,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr] ![midgame,lategame,endgame] setval[min_spdbanner_pieces=4,min_spd_pieces=4,min_debuffer_pieces=4,min_dmgsurv_pieces=4,impr_art=60,impr_acc=60]
+  midgame m +[keep_general,keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_22,acc_rolls_22,marius_open,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,orescope_all] -[ore6as_epic] ![lategame,endgame,endgameplus] setval[min_spdbanner_pieces=8,min_spd_pieces=8,min_debuffer_pieces=16,min_dmgsurv_pieces=16,impr_art=25,impr_acc=50]
+  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr,orescope_all] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap] ![midgame,endgame,endgameplus] setval[min_spdbanner_pieces=12,min_spd_pieces=12,min_debuffer_pieces=24,min_dmgsurv_pieces=24,impr_art=33,impr_acc=50]
+  endgame m +[keep_limited,keep_acc,keep_spd,rolls_43,acc_rolls_33,marius_finished,fwh_yes16,la_yes16,eg_early,acc_early_yesspider,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,orescope_notfarm,orescope_pinpoint,orescope_chrono] -[keep_general,keep_safeguards,ore5_nbr,ore6as_epic,ore6as_legendary,orescope_speed,orescope_savage] ![midgame,lategame,endgameplus] setval[min_spdbanner_pieces=16,min_spd_pieces=16,min_debuffer_pieces=32,min_dmgsurv_pieces=32,impr_art=50,impr_acc=50]
+  endgameplus m +[marius_finished,rolls_43,acc_rolls_43,fwh_yes,la_yes,eg_yes,acc_early_yes,orescope_notfarm] -[keep_safeguards,keep_general,keep_limited,keep_acc,keep_spd,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_epic,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,orescope_speed,orescope_savage,orescope_pinpoint,orescope_chrono] ![midgame,lategame,endgame] setval[min_spdbanner_pieces=4,min_spd_pieces=4,min_debuffer_pieces=4,min_dmgsurv_pieces=4,impr_art=60,impr_acc=60]
 Q "" cols=1 SPACER
 Q "How strict should keeping \`5★\` gear be? " cols=1
   keep_general m blk:exportMode+minimaAnyRank+rank +[keep_limited,keep_acc,keep_spd,keep_safeguards]
@@ -165,6 +165,14 @@ Q "Keep weak \`6★\` pieces from any gear set " cols=0
 Q "Actually, just **sell** all weak \`Chaos " cols=1
   ore_chaos_master_keep s * needs[ore5_epic,ore5_legendary,ore5_mythical,ore6_epic,ore6_legendary,ore6_mythical,ore6as_epic,ore6as_legendary,ore6as_mythical]
   ore_chaos_master_sell s blk:keepAction
+Q "Which gear sets can supply \`Chaos Ore\` c" cols=2
+  orescope_all s * -[orescope_speed,orescope_savage,orescope_pinpoint,orescope_chrono]
+  orescope_notfarm s blk:artifactMetaSets
+Q "Exceptions — ticked sets can always supp" cols=2
+  orescope_speed m blk:artifactSets else:artifactSets needs[orescope_notfarm]
+  orescope_savage m blk:artifactSets else:artifactSets needs[orescope_notfarm]
+  orescope_pinpoint m * blk:artifactSets else:artifactSets needs[orescope_notfarm]
+  orescope_chrono m * blk:artifactSets else:artifactSets needs[orescope_notfarm]
 == SAFEGUARD ==
 Q "How many speed pieces **per slot** shoul" cols=2
   #1 s blk:activation
@@ -224,7 +232,11 @@ Q "Protect the best **Mercurial** accessori" cols=2
   #4 s blk:activation
   min_mercacc_pieces s blk:count+groupCount sld:1-9/3 unit: pieces
 Q "Do you want to protect **accessories** (" cols=2
-  impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%`
+  impr_acc s blk:improvementChance else:improvementChance sld:0-90/25 tgl:left/on marks:4 unit:%
+Q "Which gear sets should the **catch-all**" cols=2
+  catchsets_useful s *
+  catchsets_all s blk:metaSetNames
+  catchsets_limited s blk:metaSetNames`
 
 test('lategame.sfc overrides parse to the golden behavioural digest', () => {
   const recipe = resolveRecipeOverridesTags(note)

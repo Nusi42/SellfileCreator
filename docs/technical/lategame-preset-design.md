@@ -155,6 +155,55 @@ and substats — names only add role + tier.
   family catch-alls — each is the only rule for its slot/main region, so there is no pool to
   share and `div1` (the full slider value) is correct.
 
+## Gear-set scope (Optional 5)
+
+"Optional 5 — which gear sets the wide-net rules use" is the one section that edits set/metaset
+*filters* rather than counts, ranks, or activation. It covers the two rules that deliberately cast
+a wide net, one per domain.
+
+- **Catch-all scope** (`q_catchsets`, safeguard domain). The four `catchrest` rules ship with a
+  curated eight-metaset filter — a union of 41 of the 64 artifact-capable sets, leaving out the
+  whole `Utility` metaset and the `Useless` five. Three radios: `catchsets_useful` (default, writes
+  nothing), `catchsets_all` (`metasets=any` — the clear keyword, so the filter empties to "any gear
+  set"), `catchsets_limited` (replaces with the three `- Limited Sets` metasets).
+  **Cost note:** catchrest is `perSet + perSlot + perMainStat` on `anticipate_gaps`, so widening
+  41 → 64 sets grows its placeholder buckets by roughly 56% — the most expensive family in the
+  file. That is why the option's help text calls it slower, and why it is wired to Midgame (small
+  collections) rather than to the late tiers.
+- **Chaos Ore any-set scope** (`q_orescope` + `q_orefine`, recipe domain). Only the
+  `ore6legendary_allsets` pair is genuinely any-set; the 5★/6★ questions are already limited-set
+  scoped and are untouched. `orescope_notfarm` writes `metasets="Not Farmable"`.
+  **Why a positive metaset and not exclusions:** the rule has no explicit set and no metaset, so it
+  is *implicit-any*, and a bare `+-Name` on an implicit-any selection resolves to "any set" (the
+  exclusion deletes out of an empty union). HSF cannot express "all sets except X", so narrowing
+  requires listing what stays.
+- **`Not Farmable`** is a shipped, `show: false` metaset: every set that does not drop in Ice
+  Golem's Peak / Dragon's Lair / Fire Knight's Castle (37 artifact sets + the 5 accessory-only
+  ones). Membership mirrors the source table in [Artifact Rules](artifact-rules.md#gear-and-its-sources).
+  It lives in the preset file only — `defaultMetasets()` mirrors **beginner.sfc**, not this preset, and
+  a test pins that — so the name resolves wherever the lategame note is loaded. A newly-shipped gear
+  set simply falls outside the filter until it is added.
+- **The four fine-tune checkboxes** (`orescope_speed` / `_savage` / `_pinpoint` / `_chrono`) each
+  write `gearsets=+<Set>` when ticked and `gearsets=+-<Set>` (an EXCLUDED entry) via `else` when
+  not. That asymmetry is deliberate and both halves are load-bearing: Speed and Savage are farmable
+  so they are *absent* from `Not Farmable` and need an include to come back, while Pinpoint and
+  Chronophage are *inside* it and can only be taken out by an exclusion — a bare `-Name` removal
+  cannot reach an entry the metaset supplies. Defaults follow that split (Speed/Savage off,
+  Pinpoint/Chronophage on), so every box is a live toggle in both directions.
+- **Two traps this section depends on**, both worth re-checking before adding a similar block:
+  1. `gearsets=+X` on an *implicit-any* rule silently NARROWS it to X. The fine-tune boxes are safe
+     only because `orescope_all` carries `unset orescope_speed orescope_savage orescope_pinpoint
+     orescope_chrono`, which genuinely deselects them. `needs=off orescope_notfarm` only greys the
+     control — `needs` is a UI gate and does **not** suppress the block.
+  2. Two options writing `gearsets=` on the same recipe only compose because recipe list ops fold in
+     note order (see [Application Behavior → SFC Global Note](app-behavior.md#sfc-global-note)); this used to be
+     last-writer-wins, which dropped all but the final checkbox.
+- **Account-level wiring** (the four tier buttons pre-answer both questions):
+  Midgame `catchsets_all` + `orescope_all`; Lategame `catchsets_useful` + `orescope_all`;
+  Endgame `catchsets_useful` + `orescope_notfarm` (−Speed −Savage, +Pinpoint +Chronophage);
+  Endgame+ `catchsets_limited` + `orescope_notfarm` with all four boxes off. Picking a scope radio
+  by hand releases the tier button, as with every other tier-forced answer.
+
 ## Override wiring notes
 
 - The FW-Hard question carries **no option-write coupling** — safeguard

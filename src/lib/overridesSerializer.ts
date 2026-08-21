@@ -28,6 +28,7 @@ import {
   type NoteCountAstNode,
   type NoteQuestionGroupType,
   type NoteTagSelector,
+  NOTE_OVERRIDES_CLEAR_LIST_KEYWORD,
   NOTE_OVERRIDES_CROSS_KEYWORDS,
   NOTE_OVERRIDES_MARKER_COLUMNS_KEY,
   NOTE_OVERRIDES_MARKER_OPTION_COLUMNS_KEY,
@@ -208,6 +209,13 @@ const emitList = (field: string, entries: Array<{ prefix: '' | '+' | '-' | '+-';
   return `${field}=${entries.map((e) => emitListValue(e.prefix, e.name)).join(',')}`
 }
 
+/** Same as emitList for the gear-set / metaset fields, where an empty REPLACE is a
+ *  legal state ("any gear set") rather than an authoring error: it round-trips as the
+ *  clear keyword instead of throwing. Mutate lists stay non-empty by construction. */
+const emitClearableList = (field: string, entries: Array<{ prefix: '' | '+' | '-' | '+-'; name: string }>): string => (
+  entries.length === 0 ? `${field}=${NOTE_OVERRIDES_CLEAR_LIST_KEYWORD}` : emitList(field, entries)
+)
+
 // ── Recipe selector emission ──────────────────────────────────────────────────
 
 // Grammar levels for parenthesization decisions: or < and < not < term.
@@ -349,14 +357,14 @@ export function serializeRecipeOperation(op: RecipeOverridesOperation): string {
         ...op.remove.map((v) => ({ prefix: '-' as const, name: statVariantToKey(v) })),
       ])
     case 'artifactSets': return op.mode === 'replace'
-      ? emitList(field, op.ids.map((id) => ({ prefix: '' as const, name: artifactSetNames[id] ?? String(id) })))
+      ? emitClearableList(field, op.ids.map((id) => ({ prefix: '' as const, name: artifactSetNames[id] ?? String(id) })))
       : emitList(field, [
         // `+-Name` marks an excluded-set add (kept distinct from plain '+').
         ...op.add.map((e) => ({ prefix: (e.excluded ? '+-' : '+') as '+' | '+-', name: artifactSetNames[e.id] ?? String(e.id) })),
         ...op.remove.map((id) => ({ prefix: '-' as const, name: artifactSetNames[id] ?? String(id) })),
       ])
     case 'artifactMetaSets': return op.mode === 'replace'
-      ? emitList(field, op.names.map((name) => ({ prefix: '' as const, name })))
+      ? emitClearableList(field, op.names.map((name) => ({ prefix: '' as const, name })))
       : emitList(field, [
         ...op.add.map((name) => ({ prefix: '+' as const, name })),
         ...op.remove.map((name) => ({ prefix: '-' as const, name })),
@@ -425,14 +433,14 @@ export function serializeSafeguardOperation(op: SafeguardOverridesOperation): st
       ])
     // Gear-set / metaset lists mirror the recipe emitters exactly (same +/-/+- prefixes).
     case 'sets': return op.mode === 'replace'
-      ? emitList(field, op.values.map((e) => ({ prefix: '' as const, name: artifactSetNames[e.id] ?? String(e.id) })))
+      ? emitClearableList(field, op.values.map((e) => ({ prefix: '' as const, name: artifactSetNames[e.id] ?? String(e.id) })))
       : emitList(field, [
         // `+-Name` marks an excluded-set add (kept distinct from plain '+').
         ...op.add.map((e) => ({ prefix: (e.excluded ? '+-' : '+') as '+' | '+-', name: artifactSetNames[e.id] ?? String(e.id) })),
         ...op.remove.map((id) => ({ prefix: '-' as const, name: artifactSetNames[id] ?? String(id) })),
       ])
     case 'metaSetNames': return op.mode === 'replace'
-      ? emitList(field, op.values.map((name) => ({ prefix: '' as const, name })))
+      ? emitClearableList(field, op.values.map((name) => ({ prefix: '' as const, name })))
       : emitList(field, [
         ...op.add.map((name) => ({ prefix: '+' as const, name })),
         ...op.remove.map((name) => ({ prefix: '-' as const, name })),

@@ -157,13 +157,15 @@ targetNum     := number, decimals allowed (e.g. 1.25)
                  // stat TARGET values only (rolltarget., minima.STAR.STAT); every other
                  // number is a count and truncates. Values snap to the stat's value grid.
 prefixToken   := ["+" | "-"] token   (all prefixed XOR all bare; mixed is ignored)
-gearToken     := ["+" | "+-" | "-"] token`
+gearToken     := ["+" | "+-" | "-"] token
+clearAll      := "any"   // clears the gear-set / metaset filter back to "any gear set"`
 
 // Recipe assignment/value documentation shared verbatim by the recipe grammar and
 // the safeguard grammar's cross-domain (`recipe @…`) section.
 const RECIPE_ASSIGNMENT_LINES = `recipeAssign  := ("rank" | "rarity") ("=" | ">=" | "<=") value
-             | ("slots" | "substats" | "mainstats" | "metasets") "=" prefixToken ("," prefixToken)*
-             | "gearsets" "=" gearToken ("," gearToken)* | field "=" value
+             | ("slots" | "substats" | "mainstats") "=" prefixToken ("," prefixToken)*
+             | "metasets" "=" (clearAll | prefixToken ("," prefixToken)*)
+             | "gearsets" "=" (clearAll | gearToken ("," gearToken)*) | field "=" value
              | "rolltarget." statKey "=" targetNum ("," [targetNum])*
 ${wrapAltRule('field', [
   ...NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS.map(quoteTok),
@@ -239,8 +241,8 @@ sgAssignment  := "activation" "=" activationVal
              | "rank" "=" prefixNum ("," prefixNum)*     // replace or mutate rank filter
              | "rarity" "=" prefixRarity ("," prefixRarity)*   // replace or mutate rarity filter
              | "faction" "=" prefixToken ("," prefixToken)*    // replace or mutate faction filter
-             | "gearsets" "=" gearToken ("," gearToken)*       // +-Name adds an excluded set (as in recipes)
-             | "metasets" "=" prefixToken ("," prefixToken)*   // replace or mutate metaset-name filter
+             | "gearsets" "=" (clearAll | gearToken ("," gearToken)*)   // +-Name adds an excluded set (as in recipes)
+             | "metasets" "=" (clearAll | prefixToken ("," prefixToken)*) // replace or mutate metaset-name filter
              | groupField "=" (countExpr | flexVal)
 ${wrapAltRule('groupField', NOTE_SAFEGUARD_OVERRIDES_GROUP_FIELDS.map(quoteTok))}
                  // Retunes the GROUP a matched rule belongs to, never the rule itself; ignored

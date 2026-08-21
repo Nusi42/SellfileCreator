@@ -90,6 +90,8 @@ import {
   localizeDslDisplay,
   parsePrefixedToken,
   classifyListMode,
+  isClearListTokens,
+  formatOverridesClearableList,
   consumeCommaSeparatedRemainder,
   // Option-info display helpers — the shared contract both domains render through.
   overridesStatKey,
@@ -353,14 +355,14 @@ export function formatSafeguardOverridesOpValue(op: SafeguardOverridesOperation)
       // Excluded adds surface as `+-Name` (the extra `-` sits inside the add prefix).
       const setName = (id: ArtifactSetId): string => artifactSetNames[id] ?? String(id)
       return op.mode === 'replace'
-        ? op.values.map((e) => setName(e.id)).join(',')
+        ? formatOverridesClearableList(op.values.map((e) => setName(e.id)))
         : [
           ...op.add.map((e) => `+${e.excluded ? '-' : ''}${setName(e.id)}`),
           ...op.remove.map((id) => `-${setName(id)}`),
         ].join(' ')
     }
     case 'metaSetNames': return op.mode === 'replace'
-      ? op.values.join(',')
+      ? formatOverridesClearableList(op.values)
       : formatOverridesMutateList(op.add, op.remove)
     // group.* mirrors the DISPLAY spelling of its ungrouped twin above: a count shows as its
     // number or `$count`, a chip as `true`/`false` exactly like the rule's own `per*` ops. (The
@@ -701,6 +703,8 @@ const parseOperations = (
       const parsed = rawTokens.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
+      // `gearsets=any` clears the explicit set list back to "any gear set".
+      if (isClearListTokens(parsed)) { operations.push({ kind: 'sets', mode: 'replace', values: [] }); continue }
       const resolveId = (name: string): ArtifactSetId | undefined =>
         artifactSetIdByName.get(name.trim().toLowerCase())
       if (listMode === 'replace') {
@@ -732,6 +736,8 @@ const parseOperations = (
       const parsed = rawTokens.map(parsePrefixedToken)
       const listMode = classifyListMode(parsed)
       if (listMode === 'ignore') continue
+      // `metasets=any` clears the metaset filter back to "any gear set".
+      if (isClearListTokens(parsed)) { operations.push({ kind: 'metaSetNames', mode: 'replace', values: [] }); continue }
       if (listMode === 'replace') {
         const values = parsed.map((t) => t.value).filter((n) => n.length > 0)
         if (values.length > 0) operations.push({ kind: 'metaSetNames', mode: 'replace', values })
