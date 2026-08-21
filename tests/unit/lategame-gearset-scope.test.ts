@@ -96,11 +96,9 @@ const answerWithout = (questionId: string, token: string): string[] => {
   return q.answer.filter((id) => id !== drop)
 }
 
-/** Included (non-excluded) / excluded set ids of a resolved recipe. */
+/** Included (non-excluded) set ids of a resolved recipe. */
 const includedSets = (recipe: BuilderRecipe): number[] =>
   (recipe.artifactSets ?? []).filter((e: { excluded?: boolean }) => !e.excluded).map((e: { id: number }) => Number(e.id))
-const excludedSets = (recipe: BuilderRecipe): number[] =>
-  (recipe.artifactSets ?? []).filter((e: { excluded?: boolean }) => e.excluded).map((e: { id: number }) => Number(e.id))
 
 // ── Catch-all scope (safeguard domain, `metasets=any`) ────────────────────────
 
@@ -203,12 +201,22 @@ const resolvedSetIds = (recipe: BuilderRecipe): Set<number> => new Set(
   }).resolved.map(Number),
 )
 
-test('each rank card ships nine options: eight sets plus the any-set escape', () => {
+test('each rank card ships exactly the eight set checkboxes', () => {
   for (const rank of [5, 6] as const) {
     const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === `q_ore${rank}sets`)
     assert.ok(q, `q_ore${rank}sets is present`)
-    assert.equal(q.options.length, 9, `${rank}★ card has 8 sets + the escape option`)
+    // No "any set" escape: unticking everything falls back to the recipe's stored metaset
+    // pool minus the unticked sets, so there is no all-sets state for an option to express.
+    assert.equal(q.options.length, 8, `${rank}★ card is eight sets, nothing else`)
+    assert.ok(!q.options.some((o) => o.token.endsWith('_any')), 'the any-set escape is gone')
   }
+})
+
+test('the ore cards come before the catch-all card, 5★ first', () => {
+  // Authored order is the display order, and it runs cheapest-decision-first: the two
+  // per-rank Chaos Ore cards (5★ then 6★), then the catch-all safety net.
+  const ids = resolveRecipeOverridesTags(note).questions.map((q) => q.id).filter((id) => /^q_ore\dsets$/.test(id))
+  assert.deepEqual(ids, ['q_ore5sets', 'q_ore6sets'], '5★ card precedes the 6★ card')
 })
 
 test('default ticks reproduce the pre-change ore scope exactly (both ranks)', () => {
@@ -259,14 +267,18 @@ test('ticking a set the pool lacks adds it (5★ Speed)', () => {
   assert.ok(after.has(ArtifactSet.Speed), 'ticked Speed joins the 5★ pool')
 })
 
-test('the any-set escape opens the scope to every gear set', () => {
-  // "None ticked = really all" is spelled by one escape option writing both clear keywords,
-  // so the rule ends up with no metaset AND no set — genuinely unfiltered, including sets
-  // that belong to no metaset at all.
-  const recipe = oreRecipeFor(6, [
-    { token: 'ore6set_any', answer: [recipeOptionId('ore6set_any')] },
-  ])
-  assert.deepEqual(recipe.artifactMetaSets ?? [], [], 'metasets=any empties the pool')
-  assert.deepEqual(includedSets(recipe), [], 'gearsets=any leaves no explicit include')
-  assert.deepEqual(excludedSets(recipe), [], 'and no leftover exclusions narrow it')
+
+test('each ore prompt names its metaset pool and points at the table', () => {
+  // The prompt is the only place the user learns WHICH groups feed the rule; the live
+  // `<!-- metasets -->` table below carries the members, so the prompt must point at it.
+  const POOLS: Record<string, string[]> = {
+    q_ore5sets: ['Damage - Limited Sets', 'Support - Limited Sets', 'Accessory Specific', 'Debuffer - Limited Sets'],
+    q_ore6sets: ['Damage - Limited Sets', 'Support - Limited Sets', 'Need 4 Speed', 'Accessory Specific', 'Debuffer - Limited Sets'],
+  }
+  for (const [id, pools] of Object.entries(POOLS)) {
+    const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === id)
+    assert.ok(q, `${id} is present`)
+    for (const pool of pools) assert.ok(q.prompt.includes(pool), `${id} names ${pool}`)
+    assert.ok(/metaset table/i.test(q.prompt), `${id} points at the metaset table`)
+  }
 })

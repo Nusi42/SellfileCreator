@@ -158,8 +158,8 @@ and substats — names only add role + tier.
 ## Gear-set scope (Optional 5)
 
 "Optional 5 — Gear-set scope" is the one section that edits set/metaset *filters* rather than
-counts, ranks, or activation. Three cards: the catch-all safeguards, and one Chaos Ore set card
-per rank.
+counts, ranks, or activation. Three cards, in this order: the 5★ Chaos Ore set card, the 6★ one,
+then the catch-all safeguards.
 
 - **Catch-all scope** (`q_catchsets`, safeguard domain). The four `catchrest` rules ship with a
   curated eight-metaset filter — a union of 41 of the 64 artifact-capable sets, leaving out the
@@ -171,14 +171,22 @@ per rank.
   file. That is why the option's help text calls it slower, and why it is wired to Midgame (small
   collections) rather than to the late tiers.
 
-- **Chaos Ore set cards** (`q_ore6sets` / `q_ore5sets`, recipe domain). One card per rank, each
-  eight gear-set checkboxes plus an `Any set` escape. A card drives only its rank's three rarity
-  rules (`ore<N>epic` / `ore<N>legendary` / `ore<N>mythical`).
+- **Chaos Ore set cards** (`q_ore5sets` / `q_ore6sets`, recipe domain). One card per rank, each
+  exactly eight gear-set checkboxes. A card drives only its rank's three rarity rules
+  (`ore<N>epic` / `ore<N>legendary` / `ore<N>mythical`).
+  - **The prompt names the rule's metaset pool** and points at the live `<!-- metasets -->` table
+    for the members — 5★ reads *Damage - Limited Sets*, *Support - Limited Sets*, *Accessory
+    Specific*, *Debuffer - Limited Sets*; 6★ adds *Need 4 Speed*. The eight checkboxes are framed
+    as the **debatable** sets, not as the whole scope: the pool is much larger and is not
+    individually addressable here.
   - **Ticked adds, unticked excludes.** Each box writes `gearsets=+<Set>` when ticked and
     `gearsets=+-<Set>` (an EXCLUDED entry) through a per-option `else` when not. Both halves are
     load-bearing: a set the stored metaset pool lacks (Speed on the 5★ card) needs the include to
     join, while a set the pool supplies (Cruel) can only leave via an exclusion — a bare `-Name`
-    cannot reach an entry a metaset contributed.
+    cannot reach an entry a metaset contributed. The exclusion is **not** undone by the metaset:
+    `mergeRecipeArtifactSets` (`ruleCache.ts`) runs `resolveArtifactSetSelections` — which expands
+    metasets first and subtracts exclusions last — into one flat list before any rule is generated,
+    so an unticked set is genuinely absent from the exported HSF rules.
   - **The stored metaset pool survives.** Ticks compose *on top of* the recipe's shipped metasets
     rather than replacing them, so the ~29 (6★) and ~25 (5★) set pools stay intact and the eight
     boxes are the individually-addressable subset.
@@ -187,10 +195,10 @@ per rank.
     difference between the two ranks. `lategame-gearset-scope.test.ts` pins this on the RESOLVED
     set list (metasets expanded, exclusions applied), because that is the only comparison that
     proves users keep and sell the same gear as before.
-  - **`Any set` is the "none ticked = everything" escape.** It writes `metasets=any gearsets=any`
-    and carries `excl` against all eight boxes, so it and they are mutually exclusive. It opens the
-    scope wider than any pool — including sets belonging to no metaset at all — which is why the
-    prompt calls it out as not recommended.
+  - **There is no all-sets escape.** Unticking every box does NOT open the rule up; each unticked
+    box only excludes its own set, so the rule falls back to its stored metaset pool minus those
+    eight. An earlier revision shipped an `Any set` option writing `metasets=any gearsets=any`;
+    it was removed because "keep everything" is not a state this card should offer.
   - **`ore6legendary_allsets` is deliberately NOT in the 6★ card's selector.** That rule is the
     separate "6★ from any gear set" keep with its own question; writing set includes onto an
     intentionally unfiltered rule would narrow it to the eight listed sets.

@@ -106,10 +106,10 @@ const note: string = (sfc.Note as string[]).join('\n')
 // Captured from the current parser. Regenerate ONLY for an intentional behaviour change.
 const EXPECTED = `== RECIPE ==
 Q "Which account level do you think you hav" cols=4
-  midgame m +[keep_general,keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_22,acc_rolls_22,marius_open,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[ore6as_epic,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore6set_any,ore5set_any] ![lategame,endgame,endgameplus] setval[min_spdbanner_pieces=8,min_spd_pieces=8,min_debuffer_pieces=16,min_dmgsurv_pieces=16,impr_art=25,impr_acc=50]
-  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore6set_any,ore5set_any] ![midgame,endgame,endgameplus] setval[min_spdbanner_pieces=12,min_spd_pieces=12,min_debuffer_pieces=24,min_dmgsurv_pieces=24,impr_art=33,impr_acc=50]
-  endgame m +[keep_limited,keep_acc,keep_spd,rolls_43,acc_rolls_33,marius_finished,fwh_yes16,la_yes16,eg_early,acc_early_yesspider,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[keep_general,keep_safeguards,ore5_nbr,ore6as_epic,ore6as_legendary,ore6set_speed,ore6set_savage,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore6set_any,ore5set_any] ![midgame,lategame,endgameplus] setval[min_spdbanner_pieces=16,min_spd_pieces=16,min_debuffer_pieces=32,min_dmgsurv_pieces=32,impr_art=50,impr_acc=50]
-  endgameplus m +[marius_finished,rolls_43,acc_rolls_43,fwh_yes,la_yes,eg_yes,acc_early_yes,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_pinpoint,ore5set_chrono] -[keep_safeguards,keep_general,keep_limited,keep_acc,keep_spd,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_epic,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore5set_cruel,ore5set_lethal,ore6set_any,ore5set_any] ![midgame,lategame,endgame] setval[min_spdbanner_pieces=4,min_spd_pieces=4,min_debuffer_pieces=4,min_dmgsurv_pieces=4,impr_art=60,impr_acc=60]
+  midgame m +[keep_general,keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_22,acc_rolls_22,marius_open,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[ore6as_epic,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed] ![lategame,endgame,endgameplus] setval[min_spdbanner_pieces=8,min_spd_pieces=8,min_debuffer_pieces=16,min_dmgsurv_pieces=16,impr_art=25,impr_acc=50]
+  lategame m * +[keep_limited,keep_acc,keep_spd,keep_safeguards,rolls_33,acc_rolls_32,marius_finished,fwh_no,la_no,eg_no,acc_early_no,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_nbr,ore6as_legendary,ore6as_mythical,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[keep_general,ore6_lvlcap,ore6as_epic,ore6as_lvlcap,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed] ![midgame,endgame,endgameplus] setval[min_spdbanner_pieces=12,min_spd_pieces=12,min_debuffer_pieces=24,min_dmgsurv_pieces=24,impr_art=33,impr_acc=50]
+  endgame m +[keep_limited,keep_acc,keep_spd,rolls_43,acc_rolls_33,marius_finished,fwh_yes16,la_yes16,eg_early,acc_early_yesspider,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono] -[keep_general,keep_safeguards,ore5_nbr,ore6as_epic,ore6as_legendary,ore6set_speed,ore6set_savage,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed] ![midgame,lategame,endgameplus] setval[min_spdbanner_pieces=16,min_spd_pieces=16,min_debuffer_pieces=32,min_dmgsurv_pieces=32,impr_art=50,impr_acc=50]
+  endgameplus m +[marius_finished,rolls_43,acc_rolls_43,fwh_yes,la_yes,eg_yes,acc_early_yes,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono,ore5set_pinpoint,ore5set_chrono] -[keep_safeguards,keep_general,keep_limited,keep_acc,keep_spd,ore5_epic,ore5_legendary,ore5_mythical,ore5_lvlcap,ore5_nbr,ore6_epic,ore6_legendary,ore6_mythical,ore6_lvlcap,ore6_nbr,ore6as_epic,ore6as_legendary,ore6as_mythical,ore6as_lvlcap,ore6as_nbr,ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore5set_cruel,ore5set_lethal] ![midgame,lategame,endgame] setval[min_spdbanner_pieces=4,min_spd_pieces=4,min_debuffer_pieces=4,min_dmgsurv_pieces=4,impr_art=60,impr_acc=60]
 Q "" cols=1 SPACER
 Q "How strict should keeping \`5★\` gear be? " cols=1
   keep_general m blk:exportMode+minimaAnyRank+rank +[keep_limited,keep_acc,keep_spd,keep_safeguards]
@@ -169,16 +169,6 @@ Q "Keep weak \`6★\` pieces from any gear set " cols=0
 Q "Actually, just **sell** all weak \`Chaos " cols=1
   ore_chaos_master_keep s * needs[ore5_epic,ore5_legendary,ore5_mythical,ore6_epic,ore6_legendary,ore6_mythical,ore6as_epic,ore6as_legendary,ore6as_mythical]
   ore_chaos_master_sell s blk:keepAction
-Q "Which gear sets may supply \`6★\` \`Chaos O" cols=2
-  ore6set_speed m * blk:artifactSets else:artifactSets
-  ore6set_savage m * blk:artifactSets else:artifactSets
-  ore6set_perception m * blk:artifactSets else:artifactSets
-  ore6set_divspeed m * blk:artifactSets else:artifactSets
-  ore6set_cruel m * blk:artifactSets else:artifactSets
-  ore6set_lethal m * blk:artifactSets else:artifactSets
-  ore6set_pinpoint m * blk:artifactSets else:artifactSets
-  ore6set_chrono m * blk:artifactSets else:artifactSets
-  ore6set_any m blk:artifactMetaSets+artifactSets ![ore6set_speed,ore6set_savage,ore6set_perception,ore6set_divspeed,ore6set_cruel,ore6set_lethal,ore6set_pinpoint,ore6set_chrono]
 Q "Which gear sets may supply \`5★\` \`Chaos O" cols=2
   ore5set_speed m blk:artifactSets else:artifactSets
   ore5set_savage m blk:artifactSets else:artifactSets
@@ -188,7 +178,15 @@ Q "Which gear sets may supply \`5★\` \`Chaos O" cols=2
   ore5set_lethal m * blk:artifactSets else:artifactSets
   ore5set_pinpoint m * blk:artifactSets else:artifactSets
   ore5set_chrono m * blk:artifactSets else:artifactSets
-  ore5set_any m blk:artifactMetaSets+artifactSets ![ore5set_speed,ore5set_savage,ore5set_perception,ore5set_divspeed,ore5set_cruel,ore5set_lethal,ore5set_pinpoint,ore5set_chrono]
+Q "Which gear sets may supply \`6★\` \`Chaos O" cols=2
+  ore6set_speed m * blk:artifactSets else:artifactSets
+  ore6set_savage m * blk:artifactSets else:artifactSets
+  ore6set_perception m * blk:artifactSets else:artifactSets
+  ore6set_divspeed m * blk:artifactSets else:artifactSets
+  ore6set_cruel m * blk:artifactSets else:artifactSets
+  ore6set_lethal m * blk:artifactSets else:artifactSets
+  ore6set_pinpoint m * blk:artifactSets else:artifactSets
+  ore6set_chrono m * blk:artifactSets else:artifactSets
 == SAFEGUARD ==
 Q "How many speed pieces **per slot** shoul" cols=2
   #1 s blk:activation
