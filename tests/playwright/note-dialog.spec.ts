@@ -66,3 +66,48 @@ test('{set:Name} tokens render as icons in the note prose, not as raw braces', a
   // No unexpanded token may survive anywhere in the dialog.
   await expect(dialog).not.toContainText('{set:')
 })
+
+test('{set:Name} runs sit on the surrounding text baseline', async ({ page }) => {
+  // Regression: the icon+name run was wrapped in an inline-flex box using
+  // `alignItems: center` + `verticalAlign: middle`, which centres the box on the line
+  // instead of seating it on the baseline. Every set name rendered a fraction of a pixel
+  // to two pixels off the text around it — subtle per word, obvious across a paragraph.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+
+  const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
+  await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+  await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await sfcInput.setInputFiles(PRESET_LATEGAME_SFC_PATH)
+
+  const dialog = page.getByRole('dialog').first()
+  await expect(dialog.getByRole('img', { name: 'Stoneskin' }).first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // Compare the bottom edge (= baseline for a single-line run) of each set name against the
+  // plain text immediately preceding it. Only pairs sharing a line box are comparable — a
+  // run that wrapped sits a full line-height below its predecessor, which is not a defect.
+  const measured = await dialog.evaluate((root) => {
+    const range = document.createRange()
+    const deltas: number[] = []
+    for (const img of [...root.querySelectorAll('img[alt]')]) {
+      const run = img.parentElement
+      const prev = run?.previousSibling
+      if (!run || !prev || prev.nodeType !== Node.TEXT_NODE || !(prev.textContent ?? '').trim()) continue
+      range.selectNodeContents(prev)
+      const plain = range.getBoundingClientRect()
+      const nameNode = [...run.childNodes].reverse()
+        .find((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim())
+      if (!nameNode) continue
+      range.selectNodeContents(nameNode)
+      const name = range.getBoundingClientRect()
+      if (Math.abs(name.top - plain.top) > 6) continue
+      deltas.push(Math.abs(name.bottom - plain.bottom))
+    }
+    return { count: deltas.length, worst: Math.max(0, ...deltas) }
+  })
+
+  // The shipped note names sets in prose often enough that a few pairs always qualify.
+  expect(measured.count).toBeGreaterThan(4)
+  // Sub-pixel tolerance: identical baselines measure exactly 0, and the pre-fix code
+  // measured 0.09–2.03px off, so this cleanly separates correct from regressed.
+  expect(measured.worst).toBeLessThan(0.05)
+})

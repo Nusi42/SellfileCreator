@@ -561,6 +561,43 @@ type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 
 // prompts/labels render at, not SET_ICON_PX (18), which is tuned for menu rows.
 const NOTE_SET_ICON_PX = 14 as const
 
+/**
+ * Wrapper for one rendered `{set:Name}` run (icon + name) sitting inside running text.
+ *
+ * The run must read as ordinary words: its NAME sits on the surrounding baseline and the
+ * icon centers against that same line. Two details do that, and both are easy to get wrong:
+ *
+ * - `alignItems: 'baseline'` (not `center`) so the flex line is laid out against the text
+ *   baseline. With `center`, the box centers its own content box on the line box, which
+ *   pushes the name a pixel or two off the baseline of the text around it.
+ * - `verticalAlign: 'baseline'` (the initial value, restated for intent) on the inline-flex
+ *   box itself. `middle` aligns the box's center to the parent's mid-x-height instead,
+ *   which shifts the whole run — the visible symptom being a set name that rides slightly
+ *   high or low against its sentence.
+ *
+ * SetIcon's own `verticalAlign: 'middle'` does NOT participate here — it becomes a flex
+ * item, where vertical-align is inert — so its placement is set by NOTE_SET_ICON_IMAGE_SX.
+ */
+/**
+ * The icon inside a set run. As a flex item its own `verticalAlign` is inert, so the optical
+ * centering is done here: a small negative baseline offset drops the square glyph from the
+ * text baseline onto the x-height, which is where the eye expects it next to lowercase text.
+ */
+const NOTE_SET_ICON_IMAGE_SX = {
+  mr: 0.375,
+  // ~x-height/2 for the 14px icon against caption text; keeps the glyph optically centered.
+  alignSelf: 'center',
+  position: 'relative',
+  top: '0.09em',
+} as const
+
+const NOTE_SET_ICON_RUN_SX = {
+  display: 'inline-flex',
+  alignItems: 'baseline',
+  verticalAlign: 'baseline',
+  whiteSpace: 'nowrap',
+} as const
+
 // Backticks mark chip-style emphasis within prompts.
 const QUESTION_PROMPT_CHIP_MARKER = '`'
 // Double-asterisks mark label-style emphasis within prompts.
@@ -782,10 +819,10 @@ function NoteSetIconRuns({ text, keyPrefix }: { text: string; keyPrefix: string 
         <Box
           key={`${keyPrefix}-s${at}-${seg.setId}`}
           component="span"
-          sx={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
+          sx={NOTE_SET_ICON_RUN_SX}
         >
           {/* Sized to the surrounding caption text rather than the menu default. */}
-          <SetIcon setId={seg.setId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />
+          <SetIcon setId={seg.setId} size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />
           {getLocalizedGearSetName(seg.setId, t)}
         </Box>
       )
@@ -1416,8 +1453,8 @@ function NoteSetIconInline(props: Record<string, unknown>): JSX.Element {
   const name = String(props['data-set-name'] ?? props['dataSetName'] ?? '')
   const setId = Number(rawId)
   return (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-      {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />}
+    <Box component="span" sx={NOTE_SET_ICON_RUN_SX}>
+      {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />}
       {Number.isFinite(setId) ? getLocalizedGearSetName(setId as ArtifactSetId, t) : name}
     </Box>
   )
