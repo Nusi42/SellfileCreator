@@ -307,3 +307,23 @@ test('the catch-all prompt spells out what its default scope leaves out', () => 
   assert.ok(/Useless/.test(detail) && /Utility/.test(detail) && /no metaset/i.test(detail),
     'the every-gear-set option says which groups it adds')
 })
+
+test('override card text uses only markup the card tokenizer renders', () => {
+  // Card prompts and option labels are NOT markdown: buildQuestionPromptTokens scans for
+  // exactly two markers — a backtick (chip styling) and a double asterisk (label styling).
+  // A single `*word*` run matches neither, so the asterisks render literally on screen.
+  // Note PROSE outside the markers does go through the real markdown pipeline, where
+  // italics are correct — hence this check is scoped to marker bodies only.
+  const lines = note.split('\n')
+  const offenders: string[] = []
+  let inMarker = false
+  for (const line of lines) {
+    if (/^<!--\s*(recipe|safeguard)-overrides/.test(line)) { inMarker = true; continue }
+    if (line.trim() === '-->' || line.trim() === '--><br>') { inMarker = false; continue }
+    if (!inMarker) continue
+    // Single asterisks only: ** pairs are the supported label marker.
+    const italics = [...line.matchAll(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g)].map((m) => m[1])
+    if (italics.length) offenders.push(`${italics.map((i) => `*${i}*`).join(', ')} — in: ${line.trim().slice(0, 80)}`)
+  }
+  assert.deepEqual(offenders, [], 'card text must use `chips` or **labels**, never *italics*')
+})
