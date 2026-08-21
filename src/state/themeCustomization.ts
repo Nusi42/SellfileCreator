@@ -3,7 +3,7 @@
  *
  * Persists per-element theme color overrides (accent, background) in localStorage.
  */
-import { EMPTY_THEME_CUSTOMIZATION, THEME_CUSTOM_KEY, type ThemeCustomization } from '../lib/constants'
+import { EMPTY_THEME_CUSTOMIZATION, THEME_CUSTOM_KEY, isBorderStyleMode, type ThemeCustomization } from '../lib/constants'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 const FALLBACK: ThemeCustomization = EMPTY_THEME_CUSTOMIZATION
@@ -28,6 +28,9 @@ const parseThemeCustomization = (raw: string | null): ThemeCustomization => {
         selectionColor:  isHexColor(p.selectionColor)  ? p.selectionColor  : null,
         bgColor:       isHexColor(p.bgColor)       ? p.bgColor       : null,
         paperColor:    isHexColor(p.paperColor)    ? p.paperColor    : null,
+        // Frame language ('gold' | 'neutral'); anything else (incl. absent) falls back to
+        // null = gold, so payloads written before this option keep the gold molding.
+        borderStyleMode: isBorderStyleMode(p.borderStyleMode) ? p.borderStyleMode : null,
         dividerColor:  isHexColor(p.dividerColor)  ? p.dividerColor  : null,
         frameGoldColor: isHexColor(p.frameGoldColor) ? p.frameGoldColor : null,
         titleGoldColor: isHexColor(p.titleGoldColor) ? p.titleGoldColor : null,
@@ -59,6 +62,7 @@ export const themeCustomStore = createLocalStorageStore<ThemeCustomization>({
     a.primaryColor   === b.primaryColor   && a.toggleColor    === b.toggleColor    &&
     a.selectionColor === b.selectionColor &&
     a.bgColor        === b.bgColor        && a.paperColor     === b.paperColor     &&
+    a.borderStyleMode === b.borderStyleMode &&
     a.dividerColor   === b.dividerColor   &&
     a.frameGoldColor === b.frameGoldColor && a.titleGoldColor === b.titleGoldColor &&
     a.successColor   === b.successColor   && a.warningColor   === b.warningColor   && a.errorColor === b.errorColor &&

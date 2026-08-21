@@ -199,7 +199,7 @@ import { GearDiffPreview } from './components/GearDiffPreview'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import LogicHubDialog from './components/dialogs/LogicHubDialog'
 import HelpDialog from './components/HelpDialog'
-import { PsychedelicEffect } from './components/ThemeEditorMenu'
+import ThemeEditorMenu, { PsychedelicEffect } from './components/ThemeEditorMenu'
 import MarkdownTooltip from './components/MarkdownTooltip'
 import EllipsisTooltip from './components/EllipsisTooltip'
 import { TutorialCoach } from './components/tutorial/TutorialCoach'
@@ -8838,6 +8838,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} />
   const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} compact />
 
+  // The theme popout, built here and handed to the simple Note dialog's title bar (same
+  // node-prop pattern as the account switcher above). Simple mode hides the app header, so the
+  // Note dialog title is that session's only route to theme settings — it mirrors Help/README,
+  // where the very same component sits left of the language picker.
+  const themeMenuElement = (
+    <ThemeEditorMenu
+      colorBlindMode={colorBlindMode}
+      setColorBlindMode={setColorBlindMode}
+      onOpenManageColors={openColors}
+    />
+  )
+
   // One-shot account-merge carry (shift-switch): taken from storage on mount — clearing it
   // immediately makes the flow crash-safe (a failed import never replays on the next launch).
   const [accountMergeCarry] = useState(takeAccountMergeCarry)
@@ -10020,6 +10032,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushEndpointReachable={pushEndpointReachable}
           onToggleRslHelperConnect={handleToggleRslHelperConnect}
           accountSwitcherNode={accountSwitcherCompactElement}
+          themeMenuNode={themeMenuElement}
           onLoadSimplePreset={handleLoadSimplePreset}
           simplePresetMatch={simplePresetMatch}
           simpleCustomAvailable={customAvailable}

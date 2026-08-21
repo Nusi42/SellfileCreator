@@ -16,11 +16,13 @@ import LightModeIcon from '@mui/icons-material/LightMode'
 import PaletteIcon from '@mui/icons-material/Palette'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import { useColorScheme, useTheme } from '@mui/material/styles'
-import type { ColorBlindMode, ThemeMode } from '../lib/constants'
+import type { BorderStyleMode, ColorBlindMode, ThemeMode } from '../lib/constants'
 import {
   AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MAX,
   AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_MIN,
   AUTO_SIDE_BY_SIDE_MIN_ZOOM_SLIDER_STEP,
+  BORDER_STYLE_MODES,
+  DEFAULT_BORDER_STYLE_MODE,
   EMPTY_THEME_CUSTOMIZATION,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
@@ -38,6 +40,7 @@ import { MenuCycleRow } from './MenuCycleRow'
 import { MenuToggleRow } from './MenuToggleRow'
 import { makeColorBlindCycleOptions, colorBlindCycleVariant } from '../lib/colorBlindCycleOptions'
 import { hslDegToHex, hexToHSL, hexToChannelTriplet } from '../lib/colorUtils'
+import { resolveBorderStyleMode } from '../lib/goldSkin'
 import { makeManageColorsIcon } from '../lib/icons'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
@@ -124,6 +127,14 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
     setPrevMenuOpen(themeMenuOpen)
     if (themeMenuOpen) setDraft(themeCustom)
   }
+
+  // Border style ('gold' | 'neutral'). Read from the draft so the row reflects a switch made
+  // while the menu is open; the handler writes both draft and store (see the row below).
+  const borderStyle = resolveBorderStyleMode(draft)
+  const borderStyleOptions = React.useMemo(
+    () => BORDER_STYLE_MODES.map(m => ({ value: m, label: t(`themeBorderStyle_${m}`) })),
+    [t],
+  )
 
   const { psychedelic } = useDisplayPreferences()
   const { setPsychedelic } = useDisplayPreferenceActions()
@@ -223,9 +234,15 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           { label: t('themeColorSelection'),  field: 'selectionColor' as const, fallback: fieldFallback('selectionColor', schemePalette?.primary?.main ?? muiTheme.palette.primary.main) },
           { label: t('themeColorBackground'), field: 'bgColor'       as const, fallback: fieldFallback('bgColor', schemePalette?.background?.default ?? muiTheme.palette.background.default) },
           { label: t('themeColorPaper'),      field: 'paperColor'    as const, fallback: fieldFallback('paperColor', schemePalette?.background?.paper ?? muiTheme.palette.background.paper) },
-          { label: t('themeColorDividers'),   field: 'dividerColor'  as const, fallback: fieldFallback('dividerColor', schemePalette?.divider ?? muiTheme.palette.divider) },
+          // `borderStyleAfter` hangs the Border style row directly under Dividers (design
+          // decision) — the two govern the same hairlines, so they read as one pair. Rendered
+          // inside the map rather than by splitting it, so the ColorField row stays one markup.
+          { label: t('themeColorDividers'),   field: 'dividerColor'  as const, borderStyleAfter: true, fallback: fieldFallback('dividerColor', schemePalette?.divider ?? muiTheme.palette.divider) },
           // Gold-skin accents: frame molding (hairlines, ornament bracket, scrollbars) and
           // title voice (section/dialog titles, ornament gem). Fallbacks read palette.gold.
+          // Both stay visible under the 'neutral' border style: the frame gold still tints the
+          // scrollbars and the context-menu close button there, and the title gold still colours
+          // section/dialog titles — only the molding (ornaments + lit inner line) switches off.
           { label: t('themeColorFrameGold'),  field: 'frameGoldColor' as const, fallback: fieldFallback('frameGoldColor', schemePalette?.gold?.main ?? muiTheme.palette.gold.main) },
           { label: t('themeColorTitleGold'),  field: 'titleGoldColor' as const, fallback: fieldFallback('titleGoldColor', schemePalette?.gold?.light ?? muiTheme.palette.gold.light) },
           { label: t('themeColorSuccess'),    field: 'successColor'  as const, fallback: fieldFallback('successColor', schemePalette?.success?.main ?? muiTheme.palette.success.main) },
@@ -238,17 +255,37 @@ export default function ThemeEditorMenu({ colorBlindMode, setColorBlindMode, onO
           { label: t('themeColorTextDisabled'),  field: 'textDisabledColor'  as const, fallback: fieldFallback('textDisabledColor', schemePalette?.text?.disabled  ?? muiTheme.palette.text.disabled) },
           // Scrollbar thumb — fallback is the active scheme divider (current default behavior).
           { label: t('themeColorScrollbar'),  field: 'scrollbarThumbColor' as const, fallback: fieldFallback('scrollbarThumbColor', schemePalette?.divider ?? muiTheme.palette.divider) },
-        ]).map(({ label, field, fallback }) => (
-          <MenuItem key={field} disableRipple sx={{ gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
-            <ColorField
-              value={draft[field] ?? fallback}
-              onChange={(v) => setDraft(prev => ({ ...prev, [field]: v }))}
-              onChangeCommitted={(v) => setThemeCustom(prev => ({ ...prev, [field]: v }))}
-              onClear={() => { setDraft(prev => ({ ...prev, [field]: null })); setThemeCustom(prev => ({ ...prev, [field]: null })) }}
-              popoverRef={colorPickerPopoverRef}
-            />
-          </MenuItem>
+        ]).map(({ label, field, fallback, ...row }) => (
+          <React.Fragment key={field}>
+            <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
+              <ColorField
+                value={draft[field] ?? fallback}
+                onChange={(v) => setDraft(prev => ({ ...prev, [field]: v }))}
+                onChangeCommitted={(v) => setThemeCustom(prev => ({ ...prev, [field]: v }))}
+                onClear={() => { setDraft(prev => ({ ...prev, [field]: null })); setThemeCustom(prev => ({ ...prev, [field]: null })) }}
+                popoverRef={colorPickerPopoverRef}
+              />
+            </MenuItem>
+            {/* Border style — the frame language: the gold molding (dim-gold hairlines, lit
+                inner Paper line, corner ornaments) or 'neutral', the pre-gold-skin grey
+                hairlines with neither decoration. It only moves DEFAULTS, so the Dividers
+                colour above still wins; clearing that picker falls back to whichever mode is
+                selected here. Commits straight to the store (no drag state to debounce). */}
+            {'borderStyleAfter' in row && (
+              <MenuCycleRow
+                label={t('themeBorderStyle')}
+                options={borderStyleOptions}
+                value={borderStyle}
+                variant={borderStyle === DEFAULT_BORDER_STYLE_MODE ? 'outlined' : 'contained'}
+                onChange={(v) => {
+                  const mode = v as BorderStyleMode
+                  setDraft(prev => ({ ...prev, borderStyleMode: mode }))
+                  setThemeCustom(prev => ({ ...prev, borderStyleMode: mode }))
+                }}
+              />
+            )}
+          </React.Fragment>
         ))}
         {/* Border radius — controls global corner rounding for buttons, chips, cards, etc. */}
         <MenuItem disableRipple sx={{ gap: 1, alignItems: 'center' }}>

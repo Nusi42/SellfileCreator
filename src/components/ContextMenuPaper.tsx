@@ -56,25 +56,26 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
     backgroundColor: darken(p, 0.06),
     border: `1px solid ${d}`,
     color: textColor,
-    boxShadow: theme.shadows[3],
+    // No boxShadow, at rest or on hover/focus: under the gold skin depth is the FRAME, not
+    // MUI elevation, and this button rides ON a floating paper that already casts the one
+    // drop shadow — its own elevation[3]/[4]/[6] ladder read as a second, wrong light source.
+    // Hover and focus are carried by the fill and border colour changes below.
     transform: 'translate(50%, -50%)',
     zIndex: theme.zIndex.tooltip,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: theme.transitions.create(['background-color', 'color', 'box-shadow', 'border-color'], {
+    transition: theme.transitions.create(['background-color', 'color', 'border-color'], {
       duration: theme.transitions.duration.shortest,
     }),
     '&:hover': {
       backgroundColor: darken(p, 0.12),
       borderColor: darken(d, 0.08),
       color: textColor,
-      boxShadow: theme.shadows[4],
     },
     '&.Mui-focusVisible': {
       backgroundColor: darken(p, 0.18),
       color: textColor,
-      boxShadow: theme.shadows[6],
       borderColor: darken(d, 0.15),
     },
     // Dark mode: amber-tinted fills at the ORIGINAL grey ladder's lightness steps
@@ -89,12 +90,10 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
         backgroundColor: '#262013',  // warm grey[900]
         borderColor: TINT.floatingCloseBorderHover,
         color: textColor,
-        boxShadow: theme.shadows[4],
       },
       '&.Mui-focusVisible': {
         backgroundColor: '#665935',  // warm grey[700]
         color: textColor,
-        boxShadow: theme.shadows[6],
         borderColor: GOLD_FRAME_CSS,
       },
     }),

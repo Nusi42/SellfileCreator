@@ -271,6 +271,7 @@ const overrides: Catalog = {
   simpleModeAutoPush: "Envío automático",
   simpleModeAutoPushOnTooltip: "**Envío automático activado** — el Sellfile se envía a RSL Helper automáticamente con cada cambio. Haz clic para desactivar.",
   simpleModeAutoPushOffTooltip: "**Envío automático desactivado** — haz clic para enviar el Sellfile a RSL Helper automáticamente con cada cambio.",
+  simpleModeAutoPushDisconnectedTooltip: "**El envío automático necesita conexión** — conéctate primero a RSL Helper; hasta entonces no hay adónde enviar el Sellfile.",
 
   counting: "Contando…",
 
@@ -1477,6 +1478,9 @@ const overrides: Catalog = {
   themeColorSelection: "Selección",
   themeColorBackground: "Fondo",
   themeColorPaper: "Superficie",
+  themeBorderStyle: "Estilo de borde",
+  themeBorderStyle_gold: "Dorado",
+  themeBorderStyle_neutral: "Neutro",
   themeColorDividers: "Divisores",
   themeColorFrameGold: "Oro de marcos",
   themeColorTitleGold: "Oro de títulos",

@@ -178,6 +178,25 @@ export const RSLH_ENABLED_KEY = 'sellfileCreator.rslhEnabled.v1'
 // See state/rememberableViewPreference.ts.
 export const REMEMBER_LAST_VIEW_KEY = 'sellfileCreator.rememberLastView.v1'
 
+// ─── Border style (the gold molding, or the pre-gold neutral hairlines) ──────
+// The gold skin made every resting hairline a dimmed gold and hung corner ornaments plus a
+// lit inner line on every Paper. 'neutral' is the escape hatch back to the pre-gold frame
+// language: plain grey hairlines, no ornaments, no inset line. It changes DEFAULTS only —
+// an explicit dividerColor from the picker still wins over either mode.
+export const BORDER_STYLE_MODES = ['gold', 'neutral'] as const
+export type BorderStyleMode = typeof BORDER_STYLE_MODES[number]
+// null (un-set) means gold, so customizations saved before this option keep the current look.
+export const DEFAULT_BORDER_STYLE_MODE: BorderStyleMode = 'gold'
+// The two divider defaults per scheme — one definition consumed by theme.ts (palette build)
+// and by the theme popout (fallback swatch). Gold = the molding; neutral = the pre-gold greys.
+export const BORDER_STYLE_DIVIDER: Record<BorderStyleMode, { dark: string; light: string }> = {
+  gold:    { dark: '#5f5029', light: '#a08036' },
+  neutral: { dark: '#30363d', light: '#d0d7de' },
+}
+// Type guard for the persisted value (see state/themeCustomization.ts).
+export const isBorderStyleMode = (v: unknown): v is BorderStyleMode =>
+  typeof v === 'string' && (BORDER_STYLE_MODES as readonly string[]).includes(v)
+
 // Persisted per-element theme overrides from the theme editor popover
 export const THEME_CUSTOM_KEY = 'sellfileCreator.themeCustom.v1'
 export type ThemeCustomization = {
@@ -186,7 +205,10 @@ export type ThemeCustomization = {
   selectionColor: string | null   // null = primaryColor in light, #ffffff in dark (ships rgba(255,255,255,0.08))
   bgColor: string | null       // null = use mode default; paper is derived unless paperColor is set
   paperColor: string | null    // null = derive from bgColor (or use mode default)
-  dividerColor: string | null  // null = use mode default (dimmed gold: #5f5029 dark / #a08036 light)
+  // Frame language: null/'gold' = the gold molding, 'neutral' = pre-gold grey hairlines with
+  // no corner ornaments and no lit inner Paper line. See BORDER_STYLE_DIVIDER above.
+  borderStyleMode: BorderStyleMode | null
+  dividerColor: string | null  // null = the active borderStyleMode's per-scheme default
   // Gold-skin accents (frame molding + title voice) — null = per-scheme defaults (see theme.ts).
   frameGoldColor: string | null  // null = #c9a24b dark / #8a6a2a light; RSLH preset supplies its own
   titleGoldColor: string | null  // null = #e9d8a6 dark / #6d5620 light
@@ -211,7 +233,7 @@ export type ThemeCustomization = {
 // the theme builder default, and the popout reset so the three never drift out of sync.
 export const EMPTY_THEME_CUSTOMIZATION: ThemeCustomization = {
   primaryColor: null, toggleColor: null, selectionColor: null, bgColor: null, paperColor: null,
-  dividerColor: null, frameGoldColor: null, titleGoldColor: null,
+  borderStyleMode: null, dividerColor: null, frameGoldColor: null, titleGoldColor: null,
   successColor: null, warningColor: null, errorColor: null, infoColor: null,
   textPrimaryColor: null, textSecondaryColor: null, textDisabledColor: null,
   uiFontFamily: null, codeFontFamily: null, scrollbarThumbColor: null,

@@ -20,13 +20,21 @@ on major panels and dialogs. Key mechanics:
   explicitly via `hexToChannelTriplet`; `TINT` may reference `gold-main`/`gold-light`.
   CSS-var consumers use `GOLD_FRAME_CSS`/`GOLD_TITLE_CSS` from **`src/lib/goldSkin.ts`**.
 - **The molding** — `MuiPaper.root` = 1px `divider` hairline (divider defaults to a *dimmed
-  gold*: dark `#5f5029`, light `#a08036`) + `GOLD_INSET_SHADOW` (the lit inner line,
+  gold*: dark `#5f5029`, light `#a08036` — unless the `neutral` border style is selected, see
+  [Border style](#border-style--opting-out-of-the-molding)) + `GOLD_INSET_SHADOW` (the lit inner line,
   `theme.custom.goldInsetLine` at per-scheme `goldInsetAlpha`) + `backgroundImage: 'none'`
   (kills MUI's dark-mode elevation overlay that washed dialogs/menus grey). Depth = the
   frame, not elevation: stationary surfaces cast no shadow; floating layers (dialog, popover,
   menu, autocomplete, tooltip papers + the floating note panel and easter-egg flyouts) wear
-  `FLOATING_LAYER_SHADOW` (both in `themeCustomTokens.ts`) — do not reach for
-  `theme.shadows[N]` on floating surfaces.
+  `FLOATING_LAYER_SHADOW` (all in `themeCustomTokens.ts`, alongside the tooltip-only
+  `TOOLTIP_SHADOW`) — do not reach for `theme.shadows[N]` on floating surfaces, and that
+  includes controls sitting ON one: the ContextMenuPaper ✕ button carries no shadow at all
+  (its own elevation ladder read as a second light source over the paper's drop shadow);
+  hover/focus there are carried by fill and border colour alone.
+  **Shadow colours are literal `rgba(0 0 0 / …)`.** MUI emits `--mui-palette-common-black`
+  but no matching `…-blackChannel`, so a `var(--mui-palette-common-blackChannel)` reference
+  resolves to nothing and CSS drops the entire `box-shadow` as invalid — which is exactly how
+  every floating layer silently lost its drop shadow between the gold-skin commit and its fix.
 - **A resting hairline is always the molding** — borders read `divider` (or the
   divider-channel tokens `theme.custom.neutralBorder`/`weakBorder`/`ghostBorder` and
   `TINT.neutralBorder*`); `MuiOutlinedInput` is overridden accordingly (MUI hardcodes a grey
@@ -52,10 +60,45 @@ on major panels and dialogs. Key mechanics:
   distance; the negative margin tucks the label under the hover halo by design). All three
   surfaces share both.
 - **Tooltips are small panels** — theme-level `MuiTooltip` paints the plate as
-  `background.paper` + divider hairline + lit line + the floating drop shadow, with a
-  matching bordered arrow. Tooltip content therefore sits on the SAME surface as cards:
+  `background.paper` + divider hairline + lit line + `TOOLTIP_SHADOW`, with a matching
+  bordered arrow. Tooltips get a **border shadow** (a tight zero-offset halo hugging the
+  hairline on every side) rather than the floating layers' downward drop, because a tooltip
+  flips above/below/left/right of its anchor and must separate in every one of those
+  positions. Tooltip content therefore sits on the SAME surface as cards:
   stat/rarity colors inside tooltips go through the normal contrast adapters (the old
   "inverted dark tooltip surface" exception is gone).
+
+### Border style — opting out of the molding
+
+The skin's frame language is switchable from the theme popout ("Border style"), because the
+molding is a strong opinion that not every user wants. The two modes are `BORDER_STYLE_MODES`
+in `constants.ts`, persisted as `ThemeCustomization.borderStyleMode`:
+
+| Mode | Hairlines | Lit inner Paper line | Corner ornaments |
+| --- | --- | --- | --- |
+| `gold` (default) | dimmed gold — `BORDER_STYLE_DIVIDER.gold` (dark `#5f5029` / light `#a08036`) | yes | yes |
+| `neutral` | pre-gold-skin greys — `BORDER_STYLE_DIVIDER.neutral` (dark `#30363d` / light `#d0d7de`) | no | no |
+
+Rules that keep this one switch instead of a second skin:
+
+- **`null` means `gold`.** `resolveBorderStyleMode` / `isGoldMoldingEnabled` (`goldSkin.ts`)
+  are the only readers; a customization saved before the option existed keeps the gold look.
+- **It moves DEFAULTS only.** An explicit `dividerColor` from the picker still wins in either
+  mode — `buildSchemePalette` reads `custom.dividerColor ?? BORDER_STYLE_DIVIDER[mode][scheme]`.
+- **The two decorations switch off through CSS vars, not branches.** `buildCustomValueVars`
+  emits `goldInsetAlpha: 0` (draining the lit line out of *both* `GOLD_INSET_SHADOW` and
+  `FLOATING_LAYER_SHADOW`, leaving the floating drop shadow intact) and
+  `GOLD_ORNAMENT_DISPLAY_VAR: none` (which `GoldCornerOrnament` reads as its own `display`).
+  Both are written on the `[data-mui-color-scheme="…"]` selectors — the same ones that carry
+  the per-scheme alphas — so specificity does not depend on GlobalStyles injection order, and
+  no ornament host needs to know the setting.
+- **`palette.gold` stays live in neutral mode**, because the frame gold also tints the
+  scrollbars and the context-menu close button, and the title gold colours section/dialog
+  titles. Neutral is about the *frame*, not about removing gold from the app; both pickers
+  therefore remain in the popout.
+- **RSLH yields to an explicit neutral choice.** The preset pins its own hairline gold
+  (`dividerColor: '#5a4a26'`), which would otherwise survive a user's `neutral` pick since
+  they set no divider colour of their own; `mergeCustomization` drops it in that one case.
 
 ---
 
@@ -78,7 +121,7 @@ createTheme({
 
 `colorSchemeSelector: 'data-mui-color-scheme'` tells MUI to look for `data-mui-color-scheme="dark"` on an ancestor element (MUI puts it on `<html>`) instead of following the OS `prefers-color-scheme` media query directly, so the user's manual toggle always wins.
 
-`custom: ThemeCustomization` carries optional overrides for primary, toggle, selection, background, paper, divider, **the two gold-skin accents (frameGoldColor/titleGoldColor)**, success, warning, error, **info, the three text colours (primary/secondary/disabled), the UI and code font families, the scrollbar thumb colour**, border-radius, and selection opacity — all piped through by `ThemeEditorMenu`. `EMPTY_THEME_CUSTOMIZATION` (in `constants.ts`) is the SSOT all-null object shared by the store fallback, the theme default, and the popout reset.
+`custom: ThemeCustomization` carries optional overrides for primary, toggle, selection, background, paper, divider, **the border style (`borderStyleMode` — see [Border style](#border-style--opting-out-of-the-molding))**, **the two gold-skin accents (frameGoldColor/titleGoldColor)**, success, warning, error, **info, the three text colours (primary/secondary/disabled), the UI and code font families, the scrollbar thumb colour**, border-radius, and selection opacity — all piped through by `ThemeEditorMenu`. `EMPTY_THEME_CUSTOMIZATION` (in `constants.ts`) is the SSOT all-null object shared by the store fallback, the theme default, and the popout reset.
 
 **Disabled controls drain color via `DISABLED_CONTROL_FILTER`** (`filter: grayscale(1)`, module-scope SSOT in `theme.ts`): the stat/rarity color scopes paint label spans directly (`StatLabel`/`RarityLabel`/`SubstatToggleDisplay`), which overrides the `action.disabled` color MUI sets on the control *root* — so without this filter a disabled toggle would keep its full-strength stat color and look enabled. The grayscale filter on `&.Mui-disabled` (applied in the `MuiButton`, `MuiIconButton`, and `MuiToggleButton` styleOverrides) desaturates every descendant regardless of how or where content color was applied; default near-gray labels are visually unchanged. New button-like control overrides should reuse the constant.
 

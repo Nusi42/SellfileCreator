@@ -271,6 +271,7 @@ const overrides: Catalog = {
   simpleModeAutoPush: "Авто-надсилання",
   simpleModeAutoPushOnTooltip: "**Авто-надсилання увімкнено** — Sellfile надсилається до RSL Helper автоматично при кожній зміні. Натисніть, щоб вимкнути.",
   simpleModeAutoPushOffTooltip: "**Авто-надсилання вимкнено** — натисніть, щоб автоматично надсилати Sellfile до RSL Helper при кожній зміні.",
+  simpleModeAutoPushDisconnectedTooltip: "**Авто-надсиланню потрібне підключення** — спочатку підключіться до RSL Helper; доти Sellfile нікуди надсилати.",
 
   counting: "Підрахунок…",
 
@@ -1477,6 +1478,9 @@ const overrides: Catalog = {
   themeColorSelection: "Виділення",
   themeColorBackground: "Фон",
   themeColorPaper: "Поверхня",
+  themeBorderStyle: "Стиль рамок",
+  themeBorderStyle_gold: "Золото",
+  themeBorderStyle_neutral: "Нейтральний",
   themeColorDividers: "Розділювачі",
   themeColorFrameGold: "Золото рамок",
   themeColorTitleGold: "Золото заголовків",

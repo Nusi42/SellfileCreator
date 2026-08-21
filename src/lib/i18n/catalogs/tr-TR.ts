@@ -271,6 +271,7 @@ const overrides: Catalog = {
   simpleModeAutoPush: "Otomatik gönder",
   simpleModeAutoPushOnTooltip: "**Otomatik gönderme açık** — Sellfile her değişiklikte RSL Helper'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
   simpleModeAutoPushOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte Sellfile'ı RSL Helper'a otomatik göndermek için tıklayın.",
+  simpleModeAutoPushDisconnectedTooltip: "**Otomatik gönderme bağlantı gerektirir** — önce RSL Helper'a bağlanın; o zamana kadar Sellfile'ın gideceği bir yer yok.",
 
   counting: "Sayılıyor…",
 
@@ -1477,6 +1478,9 @@ const overrides: Catalog = {
   themeColorSelection: "Seçim",
   themeColorBackground: "Arka plan",
   themeColorPaper: "Yüzey",
+  themeBorderStyle: "Kenarlık stili",
+  themeBorderStyle_gold: "Altın",
+  themeBorderStyle_neutral: "Nötr",
   themeColorDividers: "Bölücüler",
   themeColorFrameGold: "Çerçeve altını",
   themeColorTitleGold: "Başlık altını",

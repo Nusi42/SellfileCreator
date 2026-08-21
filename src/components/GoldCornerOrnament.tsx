@@ -8,7 +8,7 @@
  * cards stay undecorated — the ornament marks a *place you work in*, not every surface.
  */
 import Box from '@mui/material/Box'
-import { GOLD_FRAME_CSS, GOLD_TITLE_CSS, GOLD_ORNAMENT } from '../lib/goldSkin'
+import { GOLD_FRAME_CSS, GOLD_TITLE_CSS, GOLD_ORNAMENT, GOLD_ORNAMENT_DISPLAY_CSS } from '../lib/goldSkin'
 
 // Host prerequisite: the ornament positions against the nearest positioned ancestor.
 export const GOLD_CORNER_HOST_SX = { position: 'relative' } as const
@@ -28,6 +28,10 @@ function Ornament({ side }: { side: 'left' | 'right' }) {
       aria-hidden
       viewBox={`0 0 ${size} ${size}`}
       sx={{
+        // Gated by the border-style CSS var: the 'neutral' frame language drops the ornament
+        // entirely (main.tsx writes `none`). A CSS switch, not a prop, so hosts as far apart as
+        // the app frame and every dialog paper need no knowledge of the setting.
+        display: GOLD_ORNAMENT_DISPLAY_CSS,
         position: 'absolute',
         top: inset,
         [side]: inset,

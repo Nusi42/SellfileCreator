@@ -271,6 +271,7 @@ const enUS: Catalog = {
   simpleModeAutoPush: "Auto-Push",
   simpleModeAutoPushOnTooltip: "**Auto-Push is on** — your Sellfile is sent to RSL Helper automatically on every change. Click to disable.",
   simpleModeAutoPushOffTooltip: "**Auto-Push is off** — click to send your Sellfile to RSL Helper automatically whenever it changes.",
+  simpleModeAutoPushDisconnectedTooltip: "**Auto-Push needs a connection** — connect to RSL Helper first; there is nowhere to send the Sellfile until then.",
 
   counting: "Counting…",
 
@@ -1477,6 +1478,9 @@ const enUS: Catalog = {
   themeColorSelection: "Selection",
   themeColorBackground: "Background",
   themeColorPaper: "Paper",
+  themeBorderStyle: "Border style",
+  themeBorderStyle_gold: "Gold",
+  themeBorderStyle_neutral: "Neutral",
   themeColorDividers: "Dividers",
   themeColorFrameGold: "Frame gold",
   themeColorTitleGold: "Title gold",

@@ -31,6 +31,7 @@ import { useColorBlindPreference } from './state/colorBlindPreference'
 import { useThemeCustomization } from './state/themeCustomization'
 import { useRslhEnabled } from './state/themeModePreference'
 import { SCHEME_ALPHA_STYLES, buildCustomValueVars } from './lib/themeCustomTokens'
+import { isGoldMoldingEnabled } from './lib/goldSkin'
 import { RSLH_PRESET, mergeCustomization } from './lib/rslhPreset'
 import { COLOR_SCHEME_STORAGE_KEY, THEME_MODE_KEY } from './lib/constants'
 import type { ColorBlindMode } from './lib/constants'
@@ -61,10 +62,15 @@ function AppShell() {
     () => makeTheme(cbMode, effectiveCustom),
     [cbMode, effectiveCustom],
   )
-  // Scheme-agnostic custom-value CSS vars (scrollbar thumb / code font), emitted at :root.
+  // Scheme-agnostic custom-value CSS vars (scrollbar thumb / code font), plus the 'neutral'
+  // border style's gold-molding kill switch (lit inner line + corner ornaments).
   const customValueStyles = useMemo(
-    () => buildCustomValueVars({ scrollbarThumbColor: effectiveCustom.scrollbarThumbColor, codeFontFamily: effectiveCustom.codeFontFamily }),
-    [effectiveCustom.scrollbarThumbColor, effectiveCustom.codeFontFamily],
+    () => buildCustomValueVars({
+      scrollbarThumbColor: effectiveCustom.scrollbarThumbColor,
+      codeFontFamily: effectiveCustom.codeFontFamily,
+      goldMolding: isGoldMoldingEnabled({ borderStyleMode: effectiveCustom.borderStyleMode }),
+    }),
+    [effectiveCustom.scrollbarThumbColor, effectiveCustom.codeFontFamily, effectiveCustom.borderStyleMode],
   )
   return (
     <ThemeProvider

@@ -9,6 +9,26 @@
  */
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
+import { DEFAULT_BORDER_STYLE_MODE, type BorderStyleMode, type ThemeCustomization } from './constants'
+
+// ─── Border style: is the skin's molding on? ─────────────────────────────────
+// One definition of "which frame language is active", consumed by the palette builder, the
+// Paper style override, the ornament gate and the theme popout. An un-set field means gold,
+// so nothing changes for a user who never touches the new control.
+export const resolveBorderStyleMode = (custom: Pick<ThemeCustomization, 'borderStyleMode'>): BorderStyleMode =>
+  custom.borderStyleMode ?? DEFAULT_BORDER_STYLE_MODE
+
+// The molding is the *whole* gold frame kit, not just the hairline colour: the lit inner line
+// on every Paper and the corner ornaments ride this one predicate too.
+export const isGoldMoldingEnabled = (custom: Pick<ThemeCustomization, 'borderStyleMode'>): boolean =>
+  resolveBorderStyleMode(custom) === 'gold'
+
+// CSS variable gating the corner ornaments. They are pure decoration rendered deep in the
+// tree (dialog papers, the app frame, the builder column), so a scheme-level CSS switch beats
+// threading the customization through every host: main.tsx emits `none` in neutral mode and
+// the ornament SVG reads it as its own `display`. Unset ⇒ the gold default, `block`.
+export const GOLD_ORNAMENT_DISPLAY_VAR = '--app-gold-ornament-display'
+export const GOLD_ORNAMENT_DISPLAY_CSS = `var(${GOLD_ORNAMENT_DISPLAY_VAR}, block)`
 
 // CSS variable references for the two gold accents. MUI emits these per scheme from the
 // palette; components use the strings directly (they are valid CSS color values).

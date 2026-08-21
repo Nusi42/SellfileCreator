@@ -271,6 +271,7 @@ const overrides: Catalog = {
   simpleModeAutoPush: "Авто-отправка",
   simpleModeAutoPushOnTooltip: "**Авто-отправка включена** — Sellfile отправляется в RSL Helper автоматически при каждом изменении. Нажмите, чтобы отключить.",
   simpleModeAutoPushOffTooltip: "**Авто-отправка выключена** — нажмите, чтобы автоматически отправлять Sellfile в RSL Helper при каждом изменении.",
+  simpleModeAutoPushDisconnectedTooltip: "**Авто-отправке нужно подключение** — сначала подключитесь к RSL Helper; до этого Sellfile некуда отправлять.",
 
   counting: "Подсчёт…",
 
@@ -1477,6 +1478,9 @@ const overrides: Catalog = {
   themeColorSelection: "Выделение",
   themeColorBackground: "Фон",
   themeColorPaper: "Поверхность",
+  themeBorderStyle: "Стиль рамок",
+  themeBorderStyle_gold: "Золото",
+  themeBorderStyle_neutral: "Нейтральный",
   themeColorDividers: "Разделители",
   themeColorFrameGold: "Золото рамок",
   themeColorTitleGold: "Золото заголовков",

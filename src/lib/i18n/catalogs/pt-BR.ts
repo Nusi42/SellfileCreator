@@ -271,6 +271,7 @@ const catalog: Catalog = {
   simpleModeAutoPush: "Envio automático",
   simpleModeAutoPushOnTooltip: "**Envio automático ativado** — o Sellfile é enviado ao RSL Helper automaticamente a cada alteração. Clique para desativar.",
   simpleModeAutoPushOffTooltip: "**Envio automático desativado** — clique para enviar o Sellfile ao RSL Helper automaticamente a cada alteração.",
+  simpleModeAutoPushDisconnectedTooltip: "**O envio automático precisa de conexão** — conecte-se primeiro ao RSL Helper; até lá não há para onde enviar o Sellfile.",
 
   counting: "Contando…",
 
@@ -1477,6 +1478,9 @@ const catalog: Catalog = {
   themeColorSelection: "Seleção",
   themeColorBackground: "Fundo",
   themeColorPaper: "Superfície",
+  themeBorderStyle: "Estilo da borda",
+  themeBorderStyle_gold: "Dourado",
+  themeBorderStyle_neutral: "Neutro",
   themeColorDividers: "Divisores",
   themeColorFrameGold: "Dourado das molduras",
   themeColorTitleGold: "Dourado dos títulos",

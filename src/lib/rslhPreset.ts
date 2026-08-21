@@ -34,6 +34,7 @@ export const RSLH_PRESET: ThemeCustomization = {
   paperColor: '#2C2C2C',          // flat surface (skin's lighter card paper)
   // Gold-skin era: RSLH hairlines join the app-wide gold molding, but in a warmer, slightly
   // muted gold so the frames sit with the orange #FF8800 accent instead of competing with it.
+  borderStyleMode: null,          // inherit the app default (gold molding); user choice wins
   dividerColor: '#5a4a26',
   frameGoldColor: '#b8933f',
   titleGoldColor: '#e9d8a6',
@@ -68,5 +69,10 @@ export function mergeCustomization(base: ThemeCustomization, user: ThemeCustomiz
     ;(out as Record<keyof ThemeCustomization, string | number | null>)[key] =
       userVal != null ? userVal : base[key]
   }
+  // Border style is the one field where a preset value is not merely a default the user may
+  // replace — it decides whether a whole visual language applies. When the user has chosen
+  // 'neutral', the preset's own hairline gold would still win (the user set no dividerColor),
+  // leaving gold frames in a mode that promises none. Drop it so neutral means neutral.
+  if (out.borderStyleMode === 'neutral' && user.dividerColor == null) out.dividerColor = null
   return out
 }

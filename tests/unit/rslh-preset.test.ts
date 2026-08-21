@@ -39,3 +39,26 @@ test('mergeCustomization: numeric overrides layer like colors', () => {
   // 0 is a meaningful value (not null) so it must win over the preset's 8.
   assert.equal(merged.borderRadius, 0)
 })
+
+// Border style is the one field where the preset must yield beyond its own slot: choosing
+// 'neutral' promises no gold frames, so the preset's hairline gold is dropped with it.
+test('mergeCustomization: neutral border style drops the preset divider gold', () => {
+  const user = { ...EMPTY_THEME_CUSTOMIZATION, borderStyleMode: 'neutral' as const }
+  const merged = mergeCustomization(RSLH_PRESET, user)
+  assert.equal(merged.borderStyleMode, 'neutral')
+  // Preset gold would otherwise survive (the user set no dividerColor of their own).
+  assert.equal(merged.dividerColor, null)
+})
+
+// …but an explicit divider colour is still the user's call, in either frame language.
+test('mergeCustomization: an explicit divider colour survives the neutral border style', () => {
+  const user = { ...EMPTY_THEME_CUSTOMIZATION, borderStyleMode: 'neutral' as const, dividerColor: '#123456' }
+  assert.equal(mergeCustomization(RSLH_PRESET, user).dividerColor, '#123456')
+})
+
+// The gold default must remain untouched for anyone who never opens the new control.
+test('mergeCustomization: the default (gold) border style keeps the preset divider gold', () => {
+  const merged = mergeCustomization(RSLH_PRESET, EMPTY_THEME_CUSTOMIZATION)
+  assert.equal(merged.borderStyleMode, null)
+  assert.equal(merged.dividerColor, '#5a4a26')
+})

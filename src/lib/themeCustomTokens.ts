@@ -10,6 +10,9 @@
  */
 import type { Theme } from '@mui/material/styles'
 import { blendAlpha, compositeOnBase, ensureContrastOnBg } from './colorUtils'
+// The ornament gate lives with the rest of the skin's vocabulary in goldSkin.ts; only the
+// "turn it off" write happens here, next to the other emitted custom-value vars.
+import { GOLD_ORNAMENT_DISPLAY_VAR } from './goldSkin'
 
 // ─── CSS variable names ───────────────────────────────────────────────────────
 export const APP_CSS_VAR = {
@@ -66,6 +69,8 @@ export const APP_CSS_VAR = {
   goldInsetAlpha:              '--app-gold-inset-alpha',
   // The single drop shadow floating layers (menus, popovers, dialogs, tooltips) cast.
   floatingShadowAlpha:         '--app-floating-shadow-alpha',
+  // Tooltip-only: the halo hugging the plate's border on every side (see TOOLTIP_SHADOW).
+  tooltipBorderShadowAlpha:    '--app-tooltip-border-shadow-alpha',
 } as const
 
 // ─── Per-scheme alpha values ───────────────────────────────────────────────────
@@ -123,6 +128,7 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     overlayPanelBorderAlpha:     0.20,
     goldInsetAlpha:              0.18,
     floatingShadowAlpha:         0.45,
+    tooltipBorderShadowAlpha:    0.55,
   },
   light: {
     hoverBgAlpha:           0.10,
@@ -169,6 +175,7 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
     overlayPanelBorderAlpha:     0.14,
     goldInsetAlpha:              0.14,
     floatingShadowAlpha:         0.25,
+    tooltipBorderShadowAlpha:    0.30,
   },
 }
 
@@ -202,12 +209,31 @@ export const APP_CUSTOM_VALUE_VAR = {
   codeFontFamily: '--font-code',
 } as const
 
-// Builds the :root style object for the custom-value vars. Only emits a var when the user
-// has set it, so the consuming `var(--x, <fallback>)` keeps the default behavior otherwise.
-export function buildCustomValueVars(opts: { scrollbarThumbColor?: string | null; codeFontFamily?: string | null }) {
+// Builds the style object for the custom-value vars. Only emits a var when the user has set
+// it, so the consuming `var(--x, <fallback>)` keeps the default behavior otherwise.
+//
+// `goldMolding: false` (the 'neutral' border style) additionally kills the two gold-only
+// decorations that are not the hairline colour: the lit inner line on every Paper (alpha → 0,
+// which drains both GOLD_INSET_SHADOW and FLOATING_LAYER_SHADOW at once, leaving the floating
+// drop shadow intact) and the corner ornaments (display → none). Those two overrides are
+// written on the SAME [data-mui-color-scheme] selectors that carry the per-scheme alphas —
+// `:root` would tie them on specificity and depend on GlobalStyles injection order.
+export function buildCustomValueVars(opts: {
+  scrollbarThumbColor?: string | null
+  codeFontFamily?: string | null
+  goldMolding?: boolean
+}) {
   const root: Record<string, string> = {}
   if (opts.scrollbarThumbColor) root[APP_CUSTOM_VALUE_VAR.scrollbarThumb] = opts.scrollbarThumbColor
   if (opts.codeFontFamily)      root[APP_CUSTOM_VALUE_VAR.codeFontFamily] = opts.codeFontFamily
+  if (opts.goldMolding === false) {
+    const off = { [APP_CSS_VAR.goldInsetAlpha]: 0, [GOLD_ORNAMENT_DISPLAY_VAR]: 'none' }
+    return {
+      ':root': root,
+      '[data-mui-color-scheme="dark"]':  off,
+      '[data-mui-color-scheme="light"]': off,
+    }
+  }
   return { ':root': root }
 }
 
@@ -279,7 +305,13 @@ export const CUSTOM_TOKENS = {
   // Gold molding: the lit inner line color (frame gold at the per-scheme inset alpha).
   goldInsetLine:               `rgba(var(--mui-palette-gold-mainChannel) / var(${APP_CSS_VAR.goldInsetAlpha}))`,
   // Floating-layer drop shadow color (black at per-scheme alpha).
-  floatingShadowColor:         `rgba(var(--mui-palette-common-blackChannel) / var(${APP_CSS_VAR.floatingShadowAlpha}))`,
+  // Shadow colors are literal `0 0 0`, NOT var(--mui-palette-common-blackChannel): MUI emits
+  // `--mui-palette-common-black` but never a *Channel* var for it, so the channel reference
+  // resolved to nothing and the whole rgba() — and with it every floating layer's shadow —
+  // was silently dropped as an invalid value. Black has no palette to track; inline it.
+  floatingShadowColor:         `rgba(0 0 0 / var(${APP_CSS_VAR.floatingShadowAlpha}))`,
+  // Tooltip border-shadow color (black at the tooltip-only alpha — see TOOLTIP_SHADOW).
+  tooltipBorderShadowColor:    `rgba(0 0 0 / var(${APP_CSS_VAR.tooltipBorderShadowAlpha}))`,
 } as const
 
 // ─── Composed shadow strings (the skin's complete shadow vocabulary) ─────────
@@ -287,8 +319,19 @@ export const CUSTOM_TOKENS = {
 // floating layers (menus, popovers, dialogs, tooltips) add the ONE soft drop shadow.
 // theme.ts applies these globally; component sx that must restate a boxShadow (e.g. to beat
 // an elevation class) imports the same strings instead of reaching for theme.shadows[N].
+// The lit inner line rides the per-scheme goldInsetAlpha var, which the 'neutral' border style
+// overrides to 0 at :root (see buildCustomValueVars) — so switching frame language needs no
+// second shadow string and every existing consumer of these two follows automatically.
 export const GOLD_INSET_SHADOW = `inset 0 0 0 1px ${CUSTOM_TOKENS.goldInsetLine}`
 export const FLOATING_LAYER_SHADOW = `0 4px 14px ${CUSTOM_TOKENS.floatingShadowColor}, ${GOLD_INSET_SHADOW}`
+
+// Tooltips get a BORDER shadow instead of the floating layers' downward drop: a tight,
+// zero-offset halo that hugs the plate's hairline evenly on every side, so the small plate
+// separates from whatever it covers regardless of which way it opens (tooltips flip above /
+// below / left / right, unlike a menu that always hangs off its anchor). The second, wider
+// pass keeps a hint of the floating layer's lift; the lit inner line closes the frame.
+export const TOOLTIP_SHADOW =
+  `0 0 4px ${CUSTOM_TOKENS.tooltipBorderShadowColor}, 0 2px 10px ${CUSTOM_TOKENS.floatingShadowColor}, ${GOLD_INSET_SHADOW}`
 
 export type ThemeCustomTokens = typeof CUSTOM_TOKENS
 

@@ -271,6 +271,7 @@ const overrides: Catalog = {
   simpleModeAutoPush: "Auto-Push",
   simpleModeAutoPushOnTooltip: "**Auto-Push ist an** — das Sellfile wird bei jeder Änderung automatisch an RSL Helper gesendet. Klicken zum Deaktivieren.",
   simpleModeAutoPushOffTooltip: "**Auto-Push ist aus** — klicken, um das Sellfile bei jeder Änderung automatisch an RSL Helper zu senden.",
+  simpleModeAutoPushDisconnectedTooltip: "**Auto-Push braucht eine Verbindung** — verbinde dich zuerst mit RSL Helper; bis dahin gibt es kein Ziel für das Sellfile.",
 
   counting: "Zählen…",
 
@@ -1477,6 +1478,9 @@ const overrides: Catalog = {
   themeColorSelection: "Auswahl",
   themeColorBackground: "Hintergrund",
   themeColorPaper: "Karte",
+  themeBorderStyle: "Rahmenstil",
+  themeBorderStyle_gold: "Gold",
+  themeBorderStyle_neutral: "Neutral",
   themeColorDividers: "Trennlinien",
   themeColorFrameGold: "Rahmen-Gold",
   themeColorTitleGold: "Titel-Gold",

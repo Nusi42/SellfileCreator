@@ -17,6 +17,7 @@ import { formatLocalDateTime } from '../lib/dateDisplay'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { AppTitle } from './AppTitle'
+import { GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../lib/goldSkin'
 import { APP_VERSION } from '../version'
 import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
@@ -4149,6 +4150,7 @@ export default function NoteDialog({
   pushEndpointReachable,
   onToggleRslHelperConnect,
   accountSwitcherNode,
+  themeMenuNode,
   onLoadSimplePreset,
   simplePresetMatch,
   simpleCustomAvailable,
@@ -4209,6 +4211,10 @@ export default function NoteDialog({
   // Pre-rendered compact AccountSwitcher (App owns its props); the switcher must be
   // reachable in simple view too, where this dialog is the whole UI.
   accountSwitcherNode?: React.ReactNode
+  // The palette/theme popout (ThemeEditorMenu), rendered by App and handed down as an element
+  // — same pattern as accountSwitcherNode. Passing the built node avoids threading the three
+  // colour-blind/manage-colours props (all App-level state) through this component's surface.
+  themeMenuNode?: React.ReactNode
   // Called when the express preset toggle changes; loads the beginner or lategame preset SFC.
   onLoadSimplePreset?: (variant: 'beginner' | 'lategame') => void
   // Which bundled preset the live SFC matches, or null when it matches neither.
@@ -4494,6 +4500,11 @@ export default function NoteDialog({
     openDisableRecipeOverridesDialog,
     viewRecipeOverridesMenuAction,
   ])
+  // Live connection: connect toggled on AND the push endpoint reachable. Anything short of
+  // that counts as "no endpoint". One definition, two consumers: the no-endpoint CSS state
+  // attribute on the note container, and the auto-push button's disabled state below.
+  const noteConnected = (rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false)
+
   // Full-width action strip for express simple mode.
   // Layout: [Overrides menu — left] [Account · Connect · AutoPush — center] [Go Expert — right]
   const simpleActionsNode: React.ReactNode = isSimpleMode ? (
@@ -4567,25 +4578,35 @@ export default function NoteDialog({
           />
         )}
         {autoPushExpressEnabled !== undefined && (
-          <MarkdownTooltip markdown={autoPushExpressEnabled ? t('simpleModeAutoPushOnTooltip') : t('simpleModeAutoPushOffTooltip')}>
-            {/* key change on each push remounts the button so the CSS animation replays.
-                A small Button (not IconButton) so its height matches the strip's other
-                controls exactly; on/off styling mirrors the Connect button's convention. */}
-            <Button
-              key={autoPushFlashSeq}
-              size="small"
-              variant={autoPushExpressEnabled ? 'contained' : 'outlined'}
-              color={autoPushExpressEnabled ? 'success' : 'primary'}
-              onClick={() => onToggleAutoPushExpress?.(!autoPushExpressEnabled)}
-              aria-label={t('simpleModeAutoPush')}
-              sx={{
-                // Icon-only: collapse the label minWidth to a compact square-ish pill.
-                minWidth: 0, px: 1,
-                ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
-              }}
-            >
-              <SendIcon fontSize="small" />
-            </Button>
+          // Auto-push has nowhere to push until RSL Helper is actually connected, so the button
+          // is disabled until then and says why. The tooltip needs the span wrapper: a disabled
+          // MUI Button swallows pointer events, and without it the explanation never appears.
+          <MarkdownTooltip markdown={
+            !noteConnected ? t('simpleModeAutoPushDisconnectedTooltip')
+            : autoPushExpressEnabled ? t('simpleModeAutoPushOnTooltip')
+            : t('simpleModeAutoPushOffTooltip')
+          }>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              {/* key change on each push remounts the button so the CSS animation replays.
+                  A small Button (not IconButton) so its height matches the strip's other
+                  controls exactly; on/off styling mirrors the Connect button's convention. */}
+              <Button
+                key={autoPushFlashSeq}
+                size="small"
+                disabled={!noteConnected}
+                variant={autoPushExpressEnabled ? 'contained' : 'outlined'}
+                color={autoPushExpressEnabled ? 'success' : 'primary'}
+                onClick={() => onToggleAutoPushExpress?.(!autoPushExpressEnabled)}
+                aria-label={t('simpleModeAutoPush')}
+                sx={{
+                  // Icon-only: collapse the label minWidth to a compact square-ish pill.
+                  minWidth: 0, px: 1,
+                  ...((autoPushFlashSeq ?? 0) > 0 ? { animation: `${autoPushBlink} ${AUTO_PUSH_BLINK_MS}ms ease-out` } : {}),
+                }}
+              >
+                <SendIcon fontSize="small" />
+              </Button>
+            </Box>
           </MarkdownTooltip>
         )}
         {/* Last successful push for the ACTIVE account, only while auto-push is armed —
@@ -4930,10 +4951,9 @@ export default function NoteDialog({
       ])),
     }
   }, [])
-  // Live connection: connect toggled on AND the push endpoint reachable. Anything
-  // short of that counts as "no endpoint". Drives the container state attribute that
-  // CSS uses to fade/collapse no-endpoint blocks (markup stays state-independent).
-  const noteConnected = (rslHelperConnectEnabled ?? false) && (pushEndpointReachable ?? false)
+  // (noteConnected is defined above, next to its other consumer — the auto-push button. It
+  // also drives the container state attribute CSS uses to fade/collapse no-endpoint blocks,
+  // keeping the markup state-independent.)
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       // First: stamp source offsets on block elements (editor scroll-sync anchors) while the
@@ -5303,6 +5323,12 @@ export default function NoteDialog({
         {...(useFloatingPanel ? { onPointerDown: handleTitlePointerDown } : {})}
         sx={{
           ...(useFloatingPanel ? { cursor: 'grab' } : {}),
+          // Composite title (branding/drag handle + controls): the theme-level gold ◆ rides
+          // ::before on the title ROOT, which in this flex row counts as a THIRD flex item —
+          // space-between then distributed the gap between the diamond and the title block,
+          // floating the app wordmark into the middle of the bar instead of pinning it left.
+          // Same opt-out the Tools/Help composite titles use.
+          ...GOLD_TITLE_COMPOSITE_OPT_OUT_SX,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -5345,6 +5371,10 @@ export default function NoteDialog({
         </Box>
         {/* Right side of title bar: language selector in simple mode, outcome chip otherwise. */}
         {isSimpleMode ? (
+          // Theme popout then language, mirroring the Help/README dialog's title bar — simple
+          // mode never shows the app header, so this is the only way in to the theme settings.
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          {themeMenuNode}
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="simple-mode-lang-label">{t('helpLanguage')}</InputLabel>
             <Select
@@ -5359,6 +5389,7 @@ export default function NoteDialog({
               ))}
             </Select>
           </FormControl>
+          </Box>
         ) : showNoteSummaryChip ? (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
             <WorkloadProgressIndicator

@@ -13,6 +13,7 @@ import { outlinedInputClasses } from '@mui/material/OutlinedInput'
 import type { ColorBlindMode, ThemeCustomization } from './lib/constants'
 import {
   SAFE_TEXT_LINE_HEIGHT,
+  BORDER_STYLE_DIVIDER,
   EMPTY_THEME_CUSTOMIZATION,
   FONT_SIZE_BASE_PX,
   FONT_SIZE_BASE_REM,
@@ -20,9 +21,12 @@ import {
   FONT_SIZE_SECONDARY_REM,
   FONT_SIZE_TITLE_REM,
 } from './lib/constants'
-import { CUSTOM_TOKENS, FLOATING_LAYER_SHADOW, GOLD_INSET_SHADOW } from './lib/themeCustomTokens'
+import { CUSTOM_TOKENS, FLOATING_LAYER_SHADOW, GOLD_INSET_SHADOW, TOOLTIP_SHADOW } from './lib/themeCustomTokens'
 import { hexToChannelTriplet } from './lib/colorUtils'
-import { GOLD_SECTION_TITLE_SX } from './lib/goldSkin'
+// The Paper's lit inner line is NOT branched here: GOLD_INSET_SHADOW rides a CSS alpha var
+// that the 'neutral' style zeroes at the scheme selector (see buildCustomValueVars), so the
+// one shadow string keeps serving both frame languages.
+import { GOLD_SECTION_TITLE_SX, resolveBorderStyleMode } from './lib/goldSkin'
 import GoldDialogPaper from './components/GoldDialogPaper'
 
 const EMPTY_CUSTOM: ThemeCustomization = EMPTY_THEME_CUSTOMIZATION
@@ -65,6 +69,9 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
     ? { success: { main: TR.success, contrastText: '#fff' }, warning: { main: TR.warning, contrastText: '#000' }, error: { main: TR.error, contrastText: '#000' } }
     : {}
 
+  // Which frame language this palette is built for (null ⇒ gold, the shipped default).
+  const borderStyle = resolveBorderStyleMode(custom)
+
   // Gold-skin bases: deep desaturated navy framed by gold molding in dark; the same molding
   // on parchment in light. Cyan primary is spent on the selected/focused thing only.
   const primaryMain = custom.primaryColor ?? (isDark ? '#46c8f0' : '#0e7fa8')
@@ -101,9 +108,10 @@ function buildSchemePalette(isDark: boolean, colorBlindMode: ColorBlindMode, cus
   return {
     primary: { main: primaryMain },
     background: { default: bgDefault, paper: bgPaper },
-    // Every hairline in the app is a dimmed gold — the resting frame IS the molding; grey
-    // dividers died with the gold skin. Colour on a frame always means state, never class.
-    divider: custom.dividerColor ?? (isDark ? '#5f5029' : '#a08036'),
+    // Under the gold skin every hairline is a dimmed gold — the resting frame IS the molding.
+    // 'neutral' border style hands the pre-gold greys back (see BORDER_STYLE_DIVIDER); either
+    // way an explicit picker colour wins. Colour on a frame always means state, never class.
+    divider: custom.dividerColor ?? BORDER_STYLE_DIVIDER[borderStyle][isDark ? 'dark' : 'light'],
     gold: {
       main: goldFrame,
       light: goldTitle,
@@ -233,7 +241,9 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
         },
         styleOverrides: {
           // The hover plate is a small gold-framed panel, not MUI's stock grey pill: paper
-          // surface, gold hairline, lit inner line, and the one floating drop shadow. Content
+          // surface, gold hairline, lit inner line, and TOOLTIP_SHADOW — a border shadow
+          // (even halo on all sides) rather than the floating layers' downward drop, since a
+          // tooltip flips to whichever side has room and must separate in every one. Content
           // therefore reads on background.paper — the same surface as every card — so
           // stat/rarity colors inside tooltips go through the normal contrast adapters.
           tooltip: ({ theme }) => ({
@@ -244,7 +254,7 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
             backgroundColor: theme.vars?.palette.background.paper ?? theme.palette.background.paper,
             color: theme.vars?.palette.text.primary ?? theme.palette.text.primary,
             border: `1px solid ${theme.vars?.palette.divider ?? theme.palette.divider}`,
-            boxShadow: FLOATING_LAYER_SHADOW,
+            boxShadow: TOOLTIP_SHADOW,
             // Slightly tighter radius than panels (0.75×) so the plate reads as a badge-scale
             // surface; tracks the user's radius knob instead of pinning a literal.
             borderRadius: `calc(${theme.vars?.shape.borderRadius ?? theme.shape.borderRadius}px * 0.75)`,
