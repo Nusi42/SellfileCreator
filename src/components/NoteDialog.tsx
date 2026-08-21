@@ -49,7 +49,7 @@ import MetasetsNoteBlock from './MetasetsNoteBlock'
 import type { Metaset } from '../lib/metasets'
 import { NOTE_METASETS_MARKER_KEYWORD } from '../lib/metasets'
 // Inline {set:Name} gear-set icon token — one splitter shared with the prose renderer.
-import { hasNoteSetIconToken, splitNoteSetIconSegments, stripNoteSetIconTokens } from '../lib/noteSetIconToken'
+import { hasNoteSetIconToken, splitNoteSetIconSegments, stripNoteSetIconTokens, type NoteSetIconSegment } from '../lib/noteSetIconToken'
 import type { ArtifactSetId } from '../lib/types'
 import { SetIcon } from './SetIcon'
 import {
@@ -727,26 +727,30 @@ function renderQuestionTextTokens({
   chipSx: Record<string, unknown>
   labelSx: Record<string, unknown>
 }): React.ReactNode {
-  // Render each token with the intended visual emphasis.
+  // Render each token with the intended visual emphasis. EVERY branch renders its text
+  // through NoteSetIconRuns: `{set:Name}` is inline markup an author can put anywhere, so
+  // it survives inside `**bold**` (a label token) and `` `code` `` (a chip token) just as
+  // it does in plain prose. Routing only the plain branch left prompts like
+  // `**{set:Mercurial}**` showing raw braces.
   return tokens.map((token) => (
     token.kind === 'chip' ? (
       // Chip tokens reuse the safeguard scope chip treatment.
       <Box key={token.key} component="span" sx={chipSx}>
         <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 'inherit' }}>
-          {token.text}
+          <NoteSetIconRuns text={token.text} keyPrefix={token.key} />
         </Typography>
       </Box>
     ) : token.kind === 'label' ? (
       // Label tokens keep the Quota/Scope styling while inheriting the surrounding size.
       <Typography key={token.key} component="span" variant="inherit" sx={labelSx}>
-        {token.text}
+        <NoteSetIconRuns text={token.text} keyPrefix={token.key} />
       </Typography>
     ) : (
       // Plain text inherits the surrounding Typography styles. It may still carry
       // `{set:Name}` icon tokens, so it renders through the shared segment splitter
       // rather than as a bare string (segments collapse to one run when absent).
       <Box key={token.key} component="span">
-        {renderNoteSetIconSegments(token.text, token.key)}
+        <NoteSetIconRuns text={token.text} keyPrefix={token.key} />
       </Box>
     )
   ))
@@ -757,15 +761,21 @@ function renderQuestionTextTokens({
  * name. Shared by prompts and option labels; the prose path runs the same splitter from
  * its own rehype pass, so both surfaces resolve names identically.
  */
-function renderNoteSetIconSegments(text: string, keyPrefix: string): React.ReactNode {
+function NoteSetIconRuns({ text, keyPrefix }: { text: string; keyPrefix: string }): React.ReactNode {
+  // A component, not a helper, so the set names can be localized through the i18n hook —
+  // the parsed segment deliberately carries only the id + canonical name.
+  const { t } = useI18n()
   // Fast path: most runs carry no token, so skip the split and keep the plain string.
   if (!hasNoteSetIconToken(text)) return text
-  // Keys pair the segment's own content with its offset: the content alone can repeat
-  // (`{set:Speed}/{set:Speed}`), and the index alone shifts whenever the label is edited.
-  let offset = 0
-  return splitNoteSetIconSegments(text).map((seg) => {
-    const at = offset
-    offset += seg.kind === 'text' ? seg.text.length : seg.name.length
+  // Keys are the running character offset plus the segment content. The offset is derived
+  // by slicing the ALREADY-parsed prefix rather than accumulated in a loop variable (the
+  // React compiler rejects reassigning a captured local during render), and it disambiguates
+  // repeats like `{set:Speed}/{set:Speed}` that a content-only key would collide on.
+  const segments = splitNoteSetIconSegments(text)
+  const lengthOf = (seg: NoteSetIconSegment): number => (seg.kind === 'text' ? seg.text.length : seg.name.length)
+  const offsetAt = (index: number): number => segments.slice(0, index).reduce((sum, seg) => sum + lengthOf(seg), 0)
+  return segments.map((seg, index) => {
+    const at = offsetAt(index)
     return seg.kind === 'text'
       ? <Fragment key={`${keyPrefix}-t${at}-${seg.text}`}>{seg.text}</Fragment>
       : (
@@ -776,7 +786,7 @@ function renderNoteSetIconSegments(text: string, keyPrefix: string): React.React
         >
           {/* Sized to the surrounding caption text rather than the menu default. */}
           <SetIcon setId={seg.setId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />
-          {seg.name}
+          {getLocalizedGearSetName(seg.setId, t)}
         </Box>
       )
   })
@@ -1400,13 +1410,15 @@ const rehypeMetasetsComment: Pluggable = makeCommentElementPlugin(METASETS_COMME
  * rather than an empty span, matching the splitter's never-drop-the-words contract.
  */
 function NoteSetIconInline(props: Record<string, unknown>): JSX.Element {
+  // The rehype pass resolved the id; the name rides along only as the fallback label.
+  const { t } = useI18n()
   const rawId = props['data-set-id'] ?? props['dataSetId']
   const name = String(props['data-set-name'] ?? props['dataSetName'] ?? '')
   const setId = Number(rawId)
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
       {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />}
-      {name}
+      {Number.isFinite(setId) ? getLocalizedGearSetName(setId as ArtifactSetId, t) : name}
     </Box>
   )
 }
@@ -4989,7 +5001,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG || tag === METASETS_ELEMENT_TAG || tag === COLLAPSE_ELEMENT_TAG) return true
+    if (tag === RECIPE_ELEMENT_TAG || tag === SAFEGUARD_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG || tag === SG_QUESTION_ELEMENT_TAG || tag === SG_QUESTION_GROUP_ELEMENT_TAG || tag === DUNGEON_SIM_ELEMENT_TAG || tag === METASETS_ELEMENT_TAG || tag === COLLAPSE_ELEMENT_TAG || tag === SET_ICON_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { loadLategameSfc } from '../setup/presetFixtures.js'
 import { resolveRecipeOverridesTags, collectRecipeOverridesDiagnostics } from '../../src/lib/noteRecipeOverrides.js'
 import { resolveNoteSafeguardOverridesTags, collectSafeguardOverridesDiagnostics } from '../../src/lib/noteSafeguardOverrides.js'
+import { stripNoteSetIconTokens } from '../../src/lib/noteSetIconToken.js'
 
 // ── Why this test exists ──────────────────────────────────────────────────────
 // A behavioural snapshot ("golden digest") of the FULL parse+resolve output for the
@@ -65,7 +66,10 @@ function buildDigest(label: string, questions: AnyQuestion[]): string {
 
   const lines: string[] = [`== ${label} ==`]
   for (const q of questions) {
-    const prompt = (q.prompt || '').replace(/\s+/g, ' ').trim().slice(0, 40)
+    // `{set:Name}` icon tokens collapse to the plain set name before truncating: the raw
+    // markup would eat most of the 40-char window and make the digest unreadable, and it
+    // would churn whenever a prompt gained or lost an icon without changing behaviour.
+    const prompt = stripNoteSetIconTokens(q.prompt || '').replace(/\s+/g, ' ').trim().slice(0, 40)
     lines.push(`Q "${prompt}" cols=${q.layoutColumns}${q.isSpacer ? ' SPACER' : ''}`)
     for (const o of q.options) {
       const parts: string[] = [`  ${refOf(o)}`, o.groupType[0]!]

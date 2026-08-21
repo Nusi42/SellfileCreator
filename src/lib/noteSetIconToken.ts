@@ -41,7 +41,15 @@ export const resolveNoteSetIconId = (rawName: string): ArtifactSetId | null => {
   return id == null ? null : id
 }
 
-/** One parsed span of note text: literal text, or a resolved gear-set icon + label. */
+/**
+ * One parsed span of note text: literal text, or a resolved gear-set icon + label.
+ *
+ * A set segment carries the ID, plus `name` as the CANONICAL (English) name only. Renderers
+ * must localize through `getLocalizedGearSetName(setId, t)` — `name` exists for text-only
+ * consumers (width measurement, digests) and as the last-resort label when no translator is
+ * in scope. Baking a localized string in here would freeze the note to whatever language
+ * happened to be active when it was parsed.
+ */
 export type NoteSetIconSegment =
   | { kind: 'text'; text: string }
   | { kind: 'set'; setId: ArtifactSetId; name: string }
