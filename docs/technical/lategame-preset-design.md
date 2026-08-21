@@ -174,11 +174,15 @@ then the catch-all safeguards.
 - **Chaos Ore set cards** (`q_ore5sets` / `q_ore6sets`, recipe domain). One card per rank, each
   exactly eight gear-set checkboxes. A card drives only its rank's three rarity rules
   (`ore<N>epic` / `ore<N>legendary` / `ore<N>mythical`).
-  - **The prompt names the rule's metaset pool** and points at the live `<!-- metasets -->` table
-    for the members — 5★ reads *Damage - Limited Sets*, *Support - Limited Sets*, *Accessory
-    Specific*, *Debuffer - Limited Sets*; 6★ adds *Need 4 Speed*. The eight checkboxes are framed
-    as the **debatable** sets, not as the whole scope: the pool is much larger and is not
-    individually addressable here.
+  - **The metaset pool is stated once, in the Optional 2 (Chaos Ore) section prose**, not on each
+    card: the two pools differ by a single metaset, so a per-card list was noise. That prose names
+    *Damage - Limited Sets*, *Support - Limited Sets*, *Accessory Specific* and *Debuffer - Limited
+    Sets* (noting that 6★ adds *Need 4 Speed*), folds in the scarce-set examples that used to sit
+    on the two rarity questions, and points at the live `<!-- metasets -->` table for membership.
+    The cards themselves only frame their eight checkboxes as the **debatable** sets — the pool is
+    much larger and is not individually addressable there.
+  - The **catch-all** card states its own pool inline, because the safety net covers a different,
+    wider metaset list (*Damage*, *Debuffer*, *Extra Turn*, *Survivability* … ) than the ore rules.
   - **Ticked adds, unticked excludes.** Each box writes `gearsets=+<Set>` when ticked and
     `gearsets=+-<Set>` (an EXCLUDED entry) through a per-option `else` when not. Both halves are
     load-bearing: a set the stored metaset pool lacks (Speed on the 5★ card) needs the include to

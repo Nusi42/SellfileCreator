@@ -268,17 +268,27 @@ test('ticking a set the pool lacks adds it (5★ Speed)', () => {
 })
 
 
-test('each ore prompt names its metaset pool and points at the table', () => {
-  // The prompt is the only place the user learns WHICH groups feed the rule; the live
-  // `<!-- metasets -->` table below carries the members, so the prompt must point at it.
-  const POOLS: Record<string, string[]> = {
-    q_ore5sets: ['Damage - Limited Sets', 'Support - Limited Sets', 'Accessory Specific', 'Debuffer - Limited Sets'],
-    q_ore6sets: ['Damage - Limited Sets', 'Support - Limited Sets', 'Need 4 Speed', 'Accessory Specific', 'Debuffer - Limited Sets'],
+test('the Chaos Ore section names the metaset pool and points at the table', () => {
+  // The pool is stated ONCE in the Optional 2 section prose rather than repeated on each
+  // rank card — the two pools differ by a single metaset, so a per-card list was noise.
+  // Asserted against the raw note: this is prose, not part of any parsed question.
+  const POOLS = ['Damage - Limited Sets', 'Support - Limited Sets', 'Accessory Specific', 'Debuffer - Limited Sets']
+  const intro = note.split('\n').find((l) => l.startsWith('This applies to the scarce sets'))
+  assert.ok(intro, 'the Chaos Ore section carries the pool statement')
+  for (const pool of POOLS) assert.ok(intro.includes(pool), `the intro names ${pool}`)
+  // The 6★ rules add one metaset the 5★ rules lack; the prose must say so.
+  assert.ok(intro.includes('Need 4 Speed'), 'the intro notes the 6★-only metaset')
+  assert.ok(/metaset table/i.test(intro), 'the intro points at the metaset table')
+})
+
+test('the catch-all prompt names its own (wider) metaset pool', () => {
+  // The safety net covers a different, broader pool than the ore rules, so it states its
+  // own list rather than sharing the Chaos Ore one.
+  const q = resolveNoteSafeguardOverridesTags(note).questions
+    .find((x) => x.options.some((o) => o.token === 'catchsets_useful'))
+  assert.ok(q, 'the catch-all question is present')
+  for (const pool of ['Damage', 'Debuffer', 'Extra Turn', 'Need 4 Speed', 'Survivability']) {
+    assert.ok(q.prompt.includes(pool), `the catch-all prompt names ${pool}`)
   }
-  for (const [id, pools] of Object.entries(POOLS)) {
-    const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === id)
-    assert.ok(q, `${id} is present`)
-    for (const pool of pools) assert.ok(q.prompt.includes(pool), `${id} names ${pool}`)
-    assert.ok(/metaset table/i.test(q.prompt), `${id} points at the metaset table`)
-  }
+  assert.ok(/metaset table/i.test(q.prompt), 'the catch-all prompt points at the metaset table')
 })
