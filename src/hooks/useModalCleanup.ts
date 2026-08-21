@@ -5,27 +5,44 @@ const BACKDROP_SELECTOR = '.MuiBackdrop-root'
 const HIDDEN_CLASS = 'MuiModal-hidden'
 const DATA_MARKER = 'data-cleanup-processed'
 
-// honorAriaHidden: aria-hidden="true" is an ambiguous signal. MUI's ModalManager sets it on
-// BACKGROUND modals whenever another modal stacks on top (theme-editor Menu over the Help
-// dialog), where the modal is fully alive and must keep its backdrop. Only when NO topmost
-// active modal exists does aria-hidden mean "orphaned leftovers" and justify cleanup.
-const isModalActive = (modal: HTMLElement, honorAriaHidden: boolean): boolean => {
+// aria-hidden="true" is an ambiguous signal on its own. MUI's ModalManager sets it BOTH on
+// background modals when another modal stacks on top (theme-editor Menu over the Help dialog),
+// where the modal is alive and must keep its backdrop, AND on a modal it is removing — the
+// orphan case this hook exists to clean up. The two are told apart by STACKING, not by a global
+// "is anything open" flag: a legitimately backgrounded modal always has a live modal rendered
+// ABOVE it, while an orphan is aria-hidden with nothing above it.
+const isModalActive = (modal: HTMLElement, hasLiveModalAbove: (modal: HTMLElement) => boolean): boolean => {
   if (!modal.isConnected) return false
   if (modal.classList.contains(HIDDEN_CLASS)) return false
-  if (honorAriaHidden && modal.getAttribute('aria-hidden') === 'true') return false
+  // Only a modal that something else is stacked over may keep its aria-hidden and stay active.
+  if (modal.getAttribute('aria-hidden') === 'true' && !hasLiveModalAbove(modal)) return false
   // When a modal is in the middle of a transition the style may be hidden.
   const style = window.getComputedStyle(modal)
   if (style.display === 'none' || style.visibility === 'hidden') return false
   return true
 }
 
+// "Live" ignores aria-hidden entirely: it answers only "is this element still a rendered modal",
+// which is what makes it a valid witness that a lower modal is merely backgrounded.
+const isModalLive = (modal: HTMLElement): boolean => {
+  if (!modal.isConnected) return false
+  if (modal.classList.contains(HIDDEN_CLASS)) return false
+  const style = window.getComputedStyle(modal)
+  return style.display !== 'none' && style.visibility !== 'hidden'
+}
+
+// MUI appends each new modal after the previous one, so DOM order is stacking order: a modal is
+// backgrounded iff some LATER sibling in the query result is still live and not itself hidden.
+const makeHasLiveModalAbove = (modals: readonly HTMLElement[]) => (modal: HTMLElement): boolean => {
+  const index = modals.indexOf(modal)
+  if (index === -1) return false
+  return modals.slice(index + 1).some((above) => above.getAttribute('aria-hidden') !== 'true' && isModalLive(above))
+}
+
 const cleanupBackdrops = () => {
   const modals = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR))
-  // A topmost active modal (visible AND not aria-hidden) means any aria-hidden sibling is a
-  // legitimately stacked background modal, not an orphan — so aria-hidden is only honored as
-  // an inactivity signal when no such topmost modal exists.
-  const hasTopmostActive = modals.some((modal) => isModalActive(modal, true))
-  const activeModals = modals.filter((modal) => isModalActive(modal, !hasTopmostActive))
+  const hasLiveModalAbove = makeHasLiveModalAbove(modals)
+  const activeModals = modals.filter((modal) => isModalActive(modal, hasLiveModalAbove))
 
   if (activeModals.length === 0) {
     document.body.classList.remove('MuiModal-open')
@@ -36,7 +53,7 @@ const cleanupBackdrops = () => {
   const backdrops = Array.from(document.querySelectorAll<HTMLElement>(BACKDROP_SELECTOR))
   backdrops.forEach((backdrop) => {
     const parentModal = backdrop.closest<HTMLElement>(MODAL_SELECTOR)
-    const parentActive = parentModal ? isModalActive(parentModal, !hasTopmostActive) : false
+    const parentActive = parentModal ? isModalActive(parentModal, hasLiveModalAbove) : false
     if (!parentActive) {
       // Disable interaction immediately so UI remains usable even if the element lingers.
       backdrop.style.pointerEvents = 'none'
@@ -45,9 +62,9 @@ const cleanupBackdrops = () => {
         backdrop.setAttribute(DATA_MARKER, '1')
         window.requestAnimationFrame(() => {
           // Re-derive the stacking state — the rAF runs after DOM mutations may have landed.
-          const stillHasTopmost = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR))
-            .some((modal) => isModalActive(modal, true))
-          const stillParentActive = parentModal ? isModalActive(parentModal, !stillHasTopmost) : false
+          const stillModals = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR))
+          const stillHasLiveModalAbove = makeHasLiveModalAbove(stillModals)
+          const stillParentActive = parentModal ? isModalActive(parentModal, stillHasLiveModalAbove) : false
           if (!stillParentActive) {
             backdrop.remove()
           } else {
