@@ -1334,21 +1334,40 @@ const rehypeQuestionComments: Pluggable = () => {
   }
 }
 
+/**
+ * Group adjacent override question cards into one flex row.
+ *
+ * Deliberately family-AGNOSTIC: a run may mix `note-recipe-overrides` and
+ * `note-safeguard-overrides` cards. Both already render through the same
+ * NoteQuestionGroup component, so the split into two near-identical passes bought
+ * nothing and actively hurt — a recipe card followed by a safeguard card could never
+ * share a row, which surfaced as the Optional 5 catch-all card dropping to its own line
+ * below the two Chaos Ore cards even though all three fit side by side.
+ *
+ * The emitted wrapper tag follows the FIRST card in the run, purely so the existing
+ * component map and sanitize allow-list keep working unchanged.
+ *
+ * A `<br>` between cards stays an explicit row-break sentinel: it terminates the current
+ * group and is consumed rather than rendered.
+ */
 const rehypeQuestionGroups: Pluggable = () => {
   return (tree: Root) => {
-    const isQuestionElement = (node: RootContent): node is Element => {
-      return node.type === 'element' && (node as Element).tagName === QUESTION_ELEMENT_TAG
-    }
+    const QUESTION_TAGS = new Set<string>([QUESTION_ELEMENT_TAG, SG_QUESTION_ELEMENT_TAG])
+    const isQuestionElement = (node: RootContent): node is Element => (
+      node.type === 'element' && QUESTION_TAGS.has((node as Element).tagName)
+    )
+    // The wrapper tag matching a card's family, so each group keeps a valid element name.
+    const groupTagFor = (node: Element): string => (
+      node.tagName === SG_QUESTION_ELEMENT_TAG ? SG_QUESTION_GROUP_ELEMENT_TAG : QUESTION_GROUP_ELEMENT_TAG
+    )
     const isWhitespaceText = (node: RootContent): boolean => {
       if (node.type !== 'text') return false
       const value = (node as { value?: string }).value ?? ''
       return value.trim().length === 0
     }
-    // A <br> between question elements acts as an explicit row-break sentinel:
-    // it terminates the current flex group without being emitted into the output.
-    const isBrElement = (node: RootContent): boolean => {
-      return node.type === 'element' && (node as Element).tagName === 'br'
-    }
+    const isBrElement = (node: RootContent): boolean => (
+      node.type === 'element' && (node as Element).tagName === 'br'
+    )
     const transform = (node: Root | Element): void => {
       const nodeChildren = (node.children ?? []) as RootContent[]
       for (const child of nodeChildren) {
@@ -1360,31 +1379,23 @@ const rehypeQuestionGroups: Pluggable = () => {
       for (let i = 0; i < nodeChildren.length; i += 1) {
         const child = nodeChildren[i]
         if (!child) continue
-        if (!isQuestionElement(child)) {
-          nextChildren.push(child)
-          continue
-        }
+        if (!isQuestionElement(child)) { nextChildren.push(child); continue }
         const grouped: Element[] = [child]
         let cursor = i + 1
         for (; cursor < nodeChildren.length; cursor += 1) {
           const candidate = nodeChildren[cursor]
           if (!candidate) continue
-          if (isQuestionElement(candidate)) {
-            grouped.push(candidate)
-            continue
-          }
+          if (isQuestionElement(candidate)) { grouped.push(candidate); continue }
           // Whitespace text is transparent to grouping — skip over it.
           if (isWhitespaceText(candidate)) continue
           // A <br> explicitly terminates the current group; consume it silently
           // so it does not render as a visible element between card rows.
-          if (isBrElement(candidate)) {
-            cursor += 1
-          }
+          if (isBrElement(candidate)) { cursor += 1 }
           break
         }
         nextChildren.push({
           type: 'element',
-          tagName: QUESTION_GROUP_ELEMENT_TAG,
+          tagName: groupTagFor(child),
           properties: {},
           children: grouped,
         })
@@ -1731,54 +1742,6 @@ const rehypeSafeguardOverridesComments: Pluggable = () => {
   }
 }
 
-const rehypeSafeguardOverridesGroups: Pluggable = () => {
-  return (tree: Root) => {
-    const isSgElement = (node: RootContent): node is Element => (
-      node.type === 'element' && (node as Element).tagName === SG_QUESTION_ELEMENT_TAG
-    )
-    const isWhitespaceText = (node: RootContent): boolean => {
-      if (node.type !== 'text') return false
-      const value = (node as { value?: string }).value ?? ''
-      return value.trim().length === 0
-    }
-    const isBrElement = (node: RootContent): boolean => (
-      node.type === 'element' && (node as Element).tagName === 'br'
-    )
-    const transform = (node: Root | Element): void => {
-      const nodeChildren = (node.children ?? []) as RootContent[]
-      for (const child of nodeChildren) {
-        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
-          transform(child as unknown as Element)
-        }
-      }
-      const nextChildren: RootContent[] = []
-      for (let i = 0; i < nodeChildren.length; i += 1) {
-        const child = nodeChildren[i]
-        if (!child) continue
-        if (!isSgElement(child)) { nextChildren.push(child); continue }
-        const grouped: Element[] = [child]
-        let cursor = i + 1
-        for (; cursor < nodeChildren.length; cursor += 1) {
-          const candidate = nodeChildren[cursor]
-          if (!candidate) continue
-          if (isSgElement(candidate)) { grouped.push(candidate); continue }
-          if (isWhitespaceText(candidate)) continue
-          if (isBrElement(candidate)) { cursor += 1 }
-          break
-        }
-        nextChildren.push({
-          type: 'element',
-          tagName: SG_QUESTION_GROUP_ELEMENT_TAG,
-          properties: {},
-          children: grouped,
-        })
-        i = cursor - 1
-      }
-      nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
-    }
-    transform(tree)
-  }
-}
 
 function collectRecipeIds(text: string, recipes: BuilderRecipe[]): Set<number> {
   const used = new Set<number>()
@@ -5120,10 +5083,11 @@ export default function NoteDialog({
       rehypeRecipeComments,
       rehypeSafeguardComments,
       rehypeQuestionComments,
-      rehypeQuestionGroups,
       // Transforms <!-- safeguard-overrides … --> blocks into note-safeguard-overrides elements.
       rehypeSafeguardOverridesComments,
-      rehypeSafeguardOverridesGroups,
+      // Groups adjacent cards of EITHER family into one flex row; runs after both
+      // comment transforms so it can see every question element.
+      rehypeQuestionGroups,
       // Replaces <!-- dungeon-simulator --> comments with the custom element tag.
       rehypeDungeonSimulatorComment,
       // Replaces <!-- metasets --> comments with the live metaset-table element.
