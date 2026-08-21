@@ -28,7 +28,11 @@ export const isGoldMoldingEnabled = (custom: Pick<ThemeCustomization, 'borderSty
 // threading the customization through every host: main.tsx emits `none` in neutral mode and
 // the ornament SVG reads it as its own `display`. Unset ⇒ the gold default, `block`.
 export const GOLD_ORNAMENT_DISPLAY_VAR = '--app-gold-ornament-display'
-export const GOLD_ORNAMENT_DISPLAY_CSS = `var(${GOLD_ORNAMENT_DISPLAY_VAR}, block)`
+// The two ends of the switch live together: the default the SVG falls back to, and the value
+// the 'neutral' style writes to hide it (emitted by buildCustomValueVars).
+export const GOLD_ORNAMENT_DISPLAY_ON = 'block'
+export const GOLD_ORNAMENT_DISPLAY_OFF = 'none'
+export const GOLD_ORNAMENT_DISPLAY_CSS = `var(${GOLD_ORNAMENT_DISPLAY_VAR}, ${GOLD_ORNAMENT_DISPLAY_ON})`
 
 // CSS variable references for the two gold accents. MUI emits these per scheme from the
 // palette; components use the strings directly (they are valid CSS color values).

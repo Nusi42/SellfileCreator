@@ -11,7 +11,7 @@
 // so there is exactly one definition per colour and they can never drift.
 import type { Theme } from '@mui/material/styles'
 import { ensureContrastOnBg } from './colorUtils'
-import { resolveSchemePalette, type SchemeMode } from './themeCustomTokens'
+import { resolveSchemePalette, schemeSelector, type SchemeMode } from './themeCustomTokens'
 
 // Limited colour palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -132,7 +132,7 @@ function buildSchemeVars(theme: Theme, mode: SchemeMode): Record<string, string>
 // background.default re-adapt automatically.
 export function buildNoteColorSchemeStyles(theme: Theme): Record<string, Record<string, string>> {
   return {
-    '[data-mui-color-scheme="dark"]': buildSchemeVars(theme, 'dark'),
-    '[data-mui-color-scheme="light"]': buildSchemeVars(theme, 'light'),
+    [schemeSelector('dark')]: buildSchemeVars(theme, 'dark'),
+    [schemeSelector('light')]: buildSchemeVars(theme, 'light'),
   }
 }

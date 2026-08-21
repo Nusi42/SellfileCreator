@@ -6,8 +6,13 @@ import {
   EMPTY_THEME_CUSTOMIZATION,
   isBorderStyleMode,
 } from '../../src/lib/constants.js'
-import { isGoldMoldingEnabled, resolveBorderStyleMode, GOLD_ORNAMENT_DISPLAY_VAR } from '../../src/lib/goldSkin.js'
-import { APP_CSS_VAR, buildCustomValueVars } from '../../src/lib/themeCustomTokens.js'
+import {
+  isGoldMoldingEnabled,
+  resolveBorderStyleMode,
+  GOLD_ORNAMENT_DISPLAY_OFF,
+  GOLD_ORNAMENT_DISPLAY_VAR,
+} from '../../src/lib/goldSkin.js'
+import { APP_CSS_VAR, buildCustomValueVars, schemeSelector } from '../../src/lib/themeCustomTokens.js'
 import { makeTheme } from '../../src/theme.js'
 
 // The whole point of the option is that it changes nothing until it is used: an un-set field
@@ -55,9 +60,10 @@ test('makeTheme: an explicit divider colour wins over the border style', () => {
 // scheme selectors that carry the per-scheme alphas (so injection order cannot flip them).
 test('buildCustomValueVars: neutral zeroes the inset line and hides the ornaments', () => {
   const off = buildCustomValueVars({ goldMolding: false }) as Record<string, Record<string, unknown>>
-  for (const sel of ['[data-mui-color-scheme="dark"]', '[data-mui-color-scheme="light"]']) {
+  for (const scheme of ['dark', 'light'] as const) {
+    const sel = schemeSelector(scheme)
     assert.equal(off[sel]?.[APP_CSS_VAR.goldInsetAlpha], 0)
-    assert.equal(off[sel]?.[GOLD_ORNAMENT_DISPLAY_VAR], 'none')
+    assert.equal(off[sel]?.[GOLD_ORNAMENT_DISPLAY_VAR], GOLD_ORNAMENT_DISPLAY_OFF)
   }
   // Gold (and an omitted flag) must emit no override at all, so the scheme defaults stand.
   assert.deepEqual(Object.keys(buildCustomValueVars({ goldMolding: true })), [':root'])

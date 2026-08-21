@@ -48,5 +48,3 @@ old_releases/*-dev.html
 /playwright/.auth/
 log.txt
 
-# Gold-skin preview screenshots (regenerate: CAPTURE_PREVIEWS=1 npx playwright test --project=chromium-fhd gold-skin-previews)
-/previews/

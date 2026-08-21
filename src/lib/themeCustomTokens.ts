@@ -12,7 +12,7 @@ import type { Theme } from '@mui/material/styles'
 import { blendAlpha, compositeOnBase, ensureContrastOnBg } from './colorUtils'
 // The ornament gate lives with the rest of the skin's vocabulary in goldSkin.ts; only the
 // "turn it off" write happens here, next to the other emitted custom-value vars.
-import { GOLD_ORNAMENT_DISPLAY_VAR } from './goldSkin'
+import { GOLD_ORNAMENT_DISPLAY_OFF, GOLD_ORNAMENT_DISPLAY_VAR } from './goldSkin'
 
 // ─── CSS variable names ───────────────────────────────────────────────────────
 export const APP_CSS_VAR = {
@@ -183,6 +183,18 @@ export const APP_SCHEME_ALPHAS: { readonly dark: AppAlphas; readonly light: AppA
 // Auto-derived from APP_CSS_VAR + APP_SCHEME_ALPHAS — no manual list to maintain.
 // Import this in main.tsx and pass directly to <GlobalStyles styles={SCHEME_ALPHA_STYLES} />.
 // Any new token added to APP_CSS_VAR + APP_SCHEME_ALPHAS is automatically injected.
+// The per-scheme selector, in ONE place: it must track theme.ts's
+// `cssVariables.colorSchemeSelector`, and both SCHEME_ALPHA_STYLES and the 'neutral' overrides
+// in buildCustomValueVars must write to the very same selectors (they rely on the tie).
+export const SCHEME_SELECTOR_ATTR = 'data-mui-color-scheme'
+export const schemeSelector = (scheme: 'dark' | 'light'): string => `[${SCHEME_SELECTOR_ATTR}="${scheme}"]`
+// Builds a `{ [darkSelector]: X, [lightSelector]: Y }` style object — the shape every
+// per-scheme GlobalStyles injection in this file uses.
+const bySchemeSelector = <T,>(dark: T, light: T): Record<string, T> => ({
+  [schemeSelector('dark')]:  dark,
+  [schemeSelector('light')]: light,
+})
+
 export const SCHEME_ALPHA_STYLES = (() => {
   const dark:  Record<string, number> = {}
   const light: Record<string, number> = {}
@@ -190,10 +202,7 @@ export const SCHEME_ALPHA_STYLES = (() => {
     dark[APP_CSS_VAR[k]]  = APP_SCHEME_ALPHAS.dark[k]
     light[APP_CSS_VAR[k]] = APP_SCHEME_ALPHAS.light[k]
   }
-  return {
-    '[data-mui-color-scheme="dark"]':  dark,
-    '[data-mui-color-scheme="light"]': light,
-  }
+  return bySchemeSelector(dark, light)
 })()
 
 // ─── Custom-value CSS variables (theme-popout overrides expressed as CSS) ────────
@@ -227,12 +236,9 @@ export function buildCustomValueVars(opts: {
   if (opts.scrollbarThumbColor) root[APP_CUSTOM_VALUE_VAR.scrollbarThumb] = opts.scrollbarThumbColor
   if (opts.codeFontFamily)      root[APP_CUSTOM_VALUE_VAR.codeFontFamily] = opts.codeFontFamily
   if (opts.goldMolding === false) {
-    const off = { [APP_CSS_VAR.goldInsetAlpha]: 0, [GOLD_ORNAMENT_DISPLAY_VAR]: 'none' }
-    return {
-      ':root': root,
-      '[data-mui-color-scheme="dark"]':  off,
-      '[data-mui-color-scheme="light"]': off,
-    }
+    // Same value both schemes: the molding is off outright, not dimmed per scheme.
+    const off = { [APP_CSS_VAR.goldInsetAlpha]: 0, [GOLD_ORNAMENT_DISPLAY_VAR]: GOLD_ORNAMENT_DISPLAY_OFF }
+    return { ':root': root, ...bySchemeSelector(off, off) }
   }
   return { ':root': root }
 }

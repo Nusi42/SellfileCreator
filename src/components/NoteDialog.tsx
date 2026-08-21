@@ -17,7 +17,7 @@ import { formatLocalDateTime } from '../lib/dateDisplay'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import RslHelperConnectButton from './RslHelperConnectButton'
 import { AppTitle } from './AppTitle'
-import { GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../lib/goldSkin'
+import { GOLD_SECTION_TITLE_SX, GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../lib/goldSkin'
 import { APP_VERSION } from '../version'
 import { DEFAULT_LANGUAGE, type Language } from '../lib/i18n/types'
 import { useDialogMinimizeAnimation } from '../hooks/useDialogMinimizeAnimation'
@@ -5353,7 +5353,10 @@ export default function NoteDialog({
               </Box>
             </Fade>
             <Fade in={!isSimpleMode} timeout={SIMPLE_MODE_TRANSITION_MS} unmountOnExit>
-              <Box component="span">{t('noteTitle')}</Box>
+              {/* The root ◆ is opted out above (composite bar), so the title voice is re-applied
+                  on the inner title node — the same restore LogicHubDialog does. Simple mode has
+                  its own branding (AppTitle) and deliberately carries no diamond. */}
+              <Box component="span" sx={GOLD_SECTION_TITLE_SX}>{t('noteTitle')}</Box>
             </Fade>
           </Box>
           {/* "Simple Mode" button — shown when the user entered expert mode during a simple session. */}

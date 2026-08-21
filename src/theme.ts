@@ -21,7 +21,7 @@ import {
   FONT_SIZE_SECONDARY_REM,
   FONT_SIZE_TITLE_REM,
 } from './lib/constants'
-import { CUSTOM_TOKENS, FLOATING_LAYER_SHADOW, GOLD_INSET_SHADOW, TOOLTIP_SHADOW } from './lib/themeCustomTokens'
+import { CUSTOM_TOKENS, FLOATING_LAYER_SHADOW, GOLD_INSET_SHADOW, SCHEME_SELECTOR_ATTR, TOOLTIP_SHADOW } from './lib/themeCustomTokens'
 import { hexToChannelTriplet } from './lib/colorUtils'
 // The Paper's lit inner line is NOT branched here: GOLD_INSET_SHADOW rides a CSS alpha var
 // that the 'neutral' style zeroes at the scheme selector (see buildCustomValueVars), so the
@@ -150,7 +150,9 @@ export function makeTheme(colorBlindMode: ColorBlindMode, custom: ThemeCustomiza
     // colorSchemeSelector: Without this, MUI defaults to 'media' when both dark and
     // light colorSchemes are provided — which ignores setMode() entirely and always
     // follows the OS preference. We need data-attribute toggling for the manual toggle.
-    cssVariables: { colorSchemeSelector: 'data-mui-color-scheme' },
+    // SCHEME_SELECTOR_ATTR is the one definition — the per-scheme GlobalStyles injections in
+    // themeCustomTokens.ts target the very same attribute and must never drift from it.
+    cssVariables: { colorSchemeSelector: SCHEME_SELECTOR_ATTR },
     colorSchemes: {
       dark:  { palette: darkPalette  },
       light: { palette: lightPalette },

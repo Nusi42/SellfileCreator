@@ -89,9 +89,14 @@ Rules that keep this one switch instead of a second skin:
   emits `goldInsetAlpha: 0` (draining the lit line out of *both* `GOLD_INSET_SHADOW` and
   `FLOATING_LAYER_SHADOW`, leaving the floating drop shadow intact) and
   `GOLD_ORNAMENT_DISPLAY_VAR: none` (which `GoldCornerOrnament` reads as its own `display`).
-  Both are written on the `[data-mui-color-scheme="…"]` selectors — the same ones that carry
-  the per-scheme alphas — so specificity does not depend on GlobalStyles injection order, and
-  no ornament host needs to know the setting.
+  Both are written on the per-scheme selectors — the same ones that carry the per-scheme
+  alphas — so specificity does not depend on GlobalStyles injection order, and no ornament
+  host needs to know the setting. Those selectors come from one place: `SCHEME_SELECTOR_ATTR`
+  / `schemeSelector(scheme)` in `themeCustomTokens.ts`, which `createTheme`'s
+  `cssVariables.colorSchemeSelector`, `SCHEME_ALPHA_STYLES`, `buildCustomValueVars` and
+  `buildNoteColorSchemeStyles` all consume — never hand-write the attribute selector.
+  `GOLD_ORNAMENT_DISPLAY_ON` / `_OFF` (in `goldSkin.ts`) hold the two ends of the ornament
+  switch next to the var itself.
 - **`palette.gold` stays live in neutral mode**, because the frame gold also tints the
   scrollbars and the context-menu close button, and the title gold colours section/dialog
   titles. Neutral is about the *frame*, not about removing gold from the app; both pickers
@@ -110,7 +115,7 @@ Rules that keep this one switch instead of a second skin:
 
 ```ts
 createTheme({
-  cssVariables: { colorSchemeSelector: 'data-mui-color-scheme' },
+  cssVariables: { colorSchemeSelector: SCHEME_SELECTOR_ATTR },  // 'data-mui-color-scheme'
   colorSchemes: {
     dark:  { palette: darkPalette  },
     light: { palette: lightPalette },
