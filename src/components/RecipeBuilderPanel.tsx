@@ -203,6 +203,7 @@ import {
 } from './builderPanel/constants'
 import { SeparatorToggleButton } from './SeparatorToggleButton'
 import { TINT } from '../lib/colorTints'
+import { GROUP_HEADER_ROW_SX } from '../lib/goldSkin'
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
@@ -4625,7 +4626,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     return (
       <>
         {/* Keep the German "Mindestwürfe" label from wrapping under the toggles. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        <Box sx={GROUP_HEADER_ROW_SX}>
           <BuilderSectionHeader
             id="minRolls"
             collapsed={builderCollapsed}
@@ -4896,7 +4897,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     return (
       <>
         {/* Required substats caption exposes overflow through the shared label helper. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        <Box sx={GROUP_HEADER_ROW_SX}>
           <BuilderSectionHeader
             id="requiredSubstats"
             collapsed={builderCollapsed}
@@ -5144,7 +5145,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         }}
       >
         {/* Milestone Thresholds label also clamps to the 146px column width. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        <Box sx={GROUP_HEADER_ROW_SX}>
           <BuilderSectionHeader
             id="milestoneThresholds"
             collapsed={builderCollapsed}
@@ -6056,7 +6057,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}),
         })}>
           {/* Action header row: chevron + label + info icon + undo/redo (always visible). */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="action"
               collapsed={builderCollapsed}
@@ -6536,7 +6537,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Rank — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0, position: 'relative' }}>
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="rank"
               collapsed={builderCollapsed}
@@ -6670,7 +6671,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Rarity — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="rarity"
               collapsed={builderCollapsed}
@@ -6856,7 +6857,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Faction selection (accessories only) — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={hasArtifactSlot}>
           {/* Faction label stays constrained to the Select width for DE translations. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader id="faction" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed}>
               <MarkdownTooltip
                 ellipsisTitle={t('builderFaction')}
@@ -7039,7 +7040,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           boxShadow: 'none',
           backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.mainstat">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
             <BuilderSectionHeader id="mainStat" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <MarkdownTooltip
@@ -7076,7 +7077,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           boxShadow: 'none',
           backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.substats">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
             {/* Two chevrons + two labels on one row: the first pair collapses the classic rows,
                 the second the anomalous ones. The anomalous LABEL carries the collapsed-with-content
@@ -7136,7 +7137,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           boxShadow: 'none',
           backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent',
         })} data-tour-id="builder.slots">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
             <BuilderSectionHeader id="slots" collapsed={builderCollapsed} onCollapsedChange={setBuilderCollapsed} labelSx={{ m: 0 }}>
               <MarkdownTooltip

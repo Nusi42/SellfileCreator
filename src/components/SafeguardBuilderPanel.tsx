@@ -237,6 +237,7 @@ import {
 import ClearTagsConfirmDialog from './dialogs/ClearTagsConfirmDialog'
 import { MenuToggleRow } from './MenuToggleRow'
 import { TINT } from '../lib/colorTints'
+import { GROUP_HEADER_ROW_SX } from '../lib/goldSkin'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -2762,7 +2763,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
 
         {/* Rank — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rank ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="rank"
               collapsed={builderCollapsed}
@@ -2828,7 +2829,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
 
         {/* Rarity — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.rarity ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="rarity"
               collapsed={builderCollapsed}
@@ -2891,7 +2892,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
 
         {/* Faction — shrinks to header width when collapsed */}
         <FormControl sx={{ flex: builderCollapsed.faction ? '0 0 auto' : '0 1 33.333%', minWidth: 0 }} disabled={!hasAccessorySlot}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="faction"
               collapsed={builderCollapsed}
@@ -3020,7 +3021,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
       {/* ── Row 3 left: Main stat + perMainStat chip ──────────────────────── */}
       <Box sx={(theme) => ({ gridColumn: '1 / 3', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="mainStat"
               collapsed={builderCollapsed}
@@ -3228,7 +3229,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
           The chips row adds its own mt: 0.75 inside the Collapse instead, which unmounts with the content. */}
       <Box sx={(theme) => ({ gridColumn: '3 / 5', display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent', ...(isSeparatorDraft ? separatorDisabledSectionSx(theme) : {}) })}>
         <FormControl>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             {/* Override badge anchored to the chevron so it stays put whether the group is open or collapsed. */}
             {/* Two chevrons + two labels on one row: the first pair collapses the classic rows,
                 the second the anomalous ones. The anomalous LABEL carries the collapsed-with-content
@@ -3564,7 +3565,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="slots"
               collapsed={builderCollapsed}
@@ -3725,7 +3726,7 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
       {/* flex: '0 1 50%' always — collapses vertically to header only, never shrinks horizontally */}
       <Box sx={(theme) => ({ flex: '0 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, transition: UI_BG_HOVER_DANGER_TRANSITION, backgroundColor: hoverReset ? theme.custom.dangerTintBg : 'transparent' })}>
         <FormControl fullWidth>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Box sx={GROUP_HEADER_ROW_SX}>
             <BuilderSectionHeader
               id="sets"
               collapsed={builderCollapsed}

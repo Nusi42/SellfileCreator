@@ -5,7 +5,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import MarkdownTooltip from '../MarkdownTooltip'
 import { useI18n } from '../../lib/i18n'
-import { GOLD_GROUP_HEADER_SX } from '../../lib/goldSkin'
+import { GOLD_GROUP_HEADER_SX, GROUP_HEADER_CHEVRON_SX, GROUP_HEADER_ROW_SX } from '../../lib/goldSkin'
 
 // Shared chart header used by all GearAnalytics* components.
 // Renders the collapse chevron (when onToggleCollapse is provided) + a titled label.
@@ -49,7 +49,7 @@ export function GearAnalyticsChartHeader({
     </Typography>
   )
   return (
-    <Box sx={[{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, minWidth: 0 }, ...(Array.isArray(boxSx) ? boxSx : boxSx ? [boxSx] : [])]}>
+    <Box sx={[{ ...GROUP_HEADER_ROW_SX, minWidth: 0 }, ...(Array.isArray(boxSx) ? boxSx : boxSx ? [boxSx] : [])]}>
       {onToggleCollapse && (
         // Tooltip surfaces the right-click toggle-all hint so users discover the gesture.
         <MarkdownTooltip markdown={t('gearAnalyticsCollapseChartTooltip')}>
@@ -58,7 +58,7 @@ export function GearAnalyticsChartHeader({
             data-snapshot-hide
             onClick={(e) => onToggleCollapse(e.ctrlKey || e.metaKey)}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onToggleCollapse(true) }}
-            sx={{ p: 0.25, flexShrink: 0 }}
+            sx={GROUP_HEADER_CHEVRON_SX}
           >
             {collapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
           </IconButton>

@@ -51,6 +51,29 @@ export const GOLD_GROUP_HEADER_SX = {
   letterSpacing: 0.3,
 } as const satisfies SystemStyleObject<Theme>
 
+// Layout row for a collapsible group header (chevron + label [+ inline actions]). One
+// definition across the builder panels, the filter panel, and the chart headers so the
+// chevron↔label gap stays a single number. gap 0.25 (review finding): the former 0.5
+// read too wide next to the IconButton's own padding.
+export const GROUP_HEADER_ROW_SX = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0.25,
+  mb: 0.5,
+} as const satisfies SystemStyleObject<Theme>
+
+// The chevron IconButton of a collapsible group header. The flex gap above is only a small
+// part of the visible chevron↔label distance — the button's padding plus the glyph's own
+// inset dominate — so the tightening lives HERE and applies to the filter/builder/chart
+// chevrons through the same one definition. The negative right margin tucks the label under
+// the button's circular hover halo (deliberate decision: the halo overlapping
+// the first characters is acceptable in exchange for a near-zero visual gap).
+export const GROUP_HEADER_CHEVRON_SX = {
+  p: 0.25,
+  mr: -0.5,
+  flexShrink: 0,
+} as const satisfies SystemStyleObject<Theme>
+
 // Opt-out for COMPOSITE DialogTitles (a title block that also hosts tabs/toolbars/branding):
 // the theme-level MuiDialogTitle ◆ rides ::before on the title ROOT, which on a composite
 // block floats detached at the block's corner instead of opening the title text. Such dialogs

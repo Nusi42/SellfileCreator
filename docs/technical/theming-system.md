@@ -46,6 +46,11 @@ on major panels and dialogs. Key mechanics:
   filter-panel sections (`RulesFilterPanel` `SectionHeaderLabel`), and gear-analytics chart
   headers (`GearAnalyticsChartHeader`). The collapsed-with-content dirty signal
   (`COLLAPSED_CONTENT_INDICATOR_SX`, primary blue) is applied after it and wins on color.
+  Row geometry (chevron↔label gap 0.25, mb 0.5) is the sibling SSOT `GROUP_HEADER_ROW_SX`;
+  the chevron IconButton itself wears `GROUP_HEADER_CHEVRON_SX` (p 0.25, mr −0.5 — the
+  button padding and glyph inset, not the flex gap, dominate the visible chevron↔label
+  distance; the negative margin tucks the label under the hover halo by design). All three
+  surfaces share both.
 - **Tooltips are small panels** — theme-level `MuiTooltip` paints the plate as
   `background.paper` + divider hairline + lit line + the floating drop shadow, with a
   matching bordered arrow. Tooltip content therefore sits on the SAME surface as cards:

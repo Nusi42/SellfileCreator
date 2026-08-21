@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS, type BuilderPanelCollapsibleSectionId, type BuilderPanelCollapsedSections } from '../state/builderPreferences'
 import { BUILDER_LABEL_INLINE_SX, COLLAPSED_CONTENT_INDICATOR_SX } from '../lib/constants'
 import { createSectionToggler, defaultSectionToggleAriaLabel, isCollapsedWithContent } from '../lib/collapsibleSections'
-import { GOLD_GROUP_HEADER_SX } from '../lib/goldSkin'
+import { GOLD_GROUP_HEADER_SX, GROUP_HEADER_CHEVRON_SX } from '../lib/goldSkin'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
 
@@ -36,6 +36,7 @@ const BuilderSectionToggle: React.FC<BuilderSectionToggleProps> = ({ id, collaps
     <MarkdownTooltip markdown={t('builderSectionToggleTooltip')}>
       <IconButton
         size="small"
+        sx={GROUP_HEADER_CHEVRON_SX}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id], t('sectionToggleExpandAria'), t('sectionToggleCollapseAria'))}

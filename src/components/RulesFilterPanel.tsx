@@ -107,7 +107,7 @@ import { useStatControlColorMap } from '../lib/statColorContext'
 import { StatLabel } from './StatLabel'
 import { RarityLabel } from './RarityLabel'
 import { TINT } from '../lib/colorTints'
-import { GOLD_GROUP_HEADER_SX } from '../lib/goldSkin'
+import { GOLD_GROUP_HEADER_SX, GROUP_HEADER_CHEVRON_SX, GROUP_HEADER_ROW_SX } from '../lib/goldSkin'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 
 // Filter options bundle metadata for consistent champion icons + rarity borders.
@@ -338,12 +338,10 @@ const collapsibleSectionSx = {
   alignSelf: 'flex-start',
 } as const
 
-// Shared header layout keeps toggles + titles inside the same width budget to avoid divergent clipping.
+// Shared header layout keeps toggles + titles inside the same width budget to avoid divergent
+// clipping. Row geometry (chevron↔label gap) comes from the app-wide GROUP_HEADER_ROW_SX SSOT.
 const sectionHeaderBaseSx = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 0.5,
-  mb: 0.5,
+  ...GROUP_HEADER_ROW_SX,
   minWidth: 0,
   maxWidth: '100%',
   flexWrap: 'nowrap',
@@ -427,6 +425,7 @@ const FilterSectionToggle: React.FC<FilterSectionToggleProps> = ({ id, collapsed
     <MarkdownTooltip markdown={t('rulesFilterSectionToggleTooltip')}>
       <IconButton
         size="small"
+        sx={GROUP_HEADER_CHEVRON_SX}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         aria-label={ariaLabel ?? defaultSectionToggleAriaLabel(collapsed[id], t('sectionToggleExpandAria'), t('sectionToggleCollapseAria'))}
