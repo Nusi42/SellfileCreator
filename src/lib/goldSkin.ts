@@ -37,6 +37,20 @@ export const GOLD_SECTION_TITLE_SX = {
   // spread into theme styleOverrides (CSSObject) as well as used directly in sx props.
 } as const satisfies SystemStyleObject<Theme>
 
+// The ONE voice for collapsible/expandable GROUP headers (builder sections, filter-panel
+// sections, gear-analytics chart headers): title-gold micro-caps, deliberately WITHOUT the ◆
+// (the diamond stays reserved for dialog/menu titles). Matches the pre-unification chart-header
+// metrics so the dashboard look carries over to the form panels. The collapsed-with-content
+// dirty signal (COLLAPSED_CONTENT_INDICATOR_SX) is applied AFTER this at every call site, so
+// state blue still beats the gold baseline.
+export const GOLD_GROUP_HEADER_SX = {
+  color: GOLD_TITLE_CSS,
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  fontSize: '0.68rem',
+  letterSpacing: 0.3,
+} as const satisfies SystemStyleObject<Theme>
+
 // Opt-out for COMPOSITE DialogTitles (a title block that also hosts tabs/toolbars/branding):
 // the theme-level MuiDialogTitle ◆ rides ::before on the title ROOT, which on a composite
 // block floats detached at the block's corner instead of opening the title text. Such dialogs

@@ -107,6 +107,7 @@ import { useStatControlColorMap } from '../lib/statColorContext'
 import { StatLabel } from './StatLabel'
 import { RarityLabel } from './RarityLabel'
 import { TINT } from '../lib/colorTints'
+import { GOLD_GROUP_HEADER_SX } from '../lib/goldSkin'
 import { useSubstatFgAdapter } from '../lib/themeContrastHooks'
 
 // Filter options bundle metadata for consistent champion icons + rarity borders.
@@ -349,7 +350,10 @@ const sectionHeaderBaseSx = {
 } as const
 
 // Labels render as block ellipsis targets so SectionHeaderLabel can consistently detect overflow.
+// GOLD_GROUP_HEADER_SX: the app-wide collapsible-group voice (gold micro-caps) — the inner
+// span's collapsed-with-content highlight is applied after it and still wins on color.
 const sectionHeaderLabelSx = {
+  ...GOLD_GROUP_HEADER_SX,
   m: 0,
   minWidth: 0,
   flex: '0 1 auto',

@@ -5,6 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { BUILDER_PANEL_COLLAPSIBLE_SECTION_IDS, type BuilderPanelCollapsibleSectionId, type BuilderPanelCollapsedSections } from '../state/builderPreferences'
 import { BUILDER_LABEL_INLINE_SX, COLLAPSED_CONTENT_INDICATOR_SX } from '../lib/constants'
 import { createSectionToggler, defaultSectionToggleAriaLabel, isCollapsedWithContent } from '../lib/collapsibleSections'
+import { GOLD_GROUP_HEADER_SX } from '../lib/goldSkin'
 import MarkdownTooltip from './MarkdownTooltip'
 import { useI18n } from '../lib/i18n'
 
@@ -97,7 +98,9 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
         {...(primaryAriaLabel !== undefined ? { ariaLabel: primaryAriaLabel } : {})}
       />
       <FormLabel
-        sx={{ ...BUILDER_LABEL_INLINE_SX, cursor: 'pointer', ...labelSx }}
+        // GOLD_GROUP_HEADER_SX: the app-wide collapsible-group voice (gold micro-caps). It sits
+        // before labelSx so per-section overrides — and the dirty-highlight span inside — win.
+        sx={{ ...GOLD_GROUP_HEADER_SX, ...BUILDER_LABEL_INLINE_SX, cursor: 'pointer', ...labelSx }}
         onClick={() => toggleSections(false)}
         onContextMenu={handleLabelContextMenu}
         data-tour-id={dataTourId}
@@ -117,6 +120,8 @@ const BuilderSectionHeader: React.FC<BuilderSectionHeaderProps> = ({
           {secondaryLabel ? (
             <FormLabel
               sx={{
+                // Same collapsible-group voice as the primary label (see above).
+                ...GOLD_GROUP_HEADER_SX,
                 ...BUILDER_LABEL_INLINE_SX,
                 cursor: 'pointer',
                 ...labelSx,

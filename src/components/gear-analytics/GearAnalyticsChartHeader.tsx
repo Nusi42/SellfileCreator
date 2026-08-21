@@ -5,7 +5,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import MarkdownTooltip from '../MarkdownTooltip'
 import { useI18n } from '../../lib/i18n'
-import { GOLD_SECTION_TITLE_SX } from '../../lib/goldSkin'
+import { GOLD_GROUP_HEADER_SX } from '../../lib/goldSkin'
 
 // Shared chart header used by all GearAnalytics* components.
 // Renders the collapse chevron (when onToggleCollapse is provided) + a titled label.
@@ -35,12 +35,9 @@ export function GearAnalyticsChartHeader({
     <Typography
       variant="caption"
       sx={{
-        fontWeight: 600,
-        letterSpacing: 0.3,
-        textTransform: 'uppercase',
-        fontSize: '0.68rem',
-        // Chart titles speak the gold section-title voice (color + ◆; size/spacing unchanged).
-        ...GOLD_SECTION_TITLE_SX,
+        // The shared collapsible-group voice (gold micro-caps, no ◆) — one definition with
+        // the builder/filter section headers so all expandable groups read identically.
+        ...GOLD_GROUP_HEADER_SX,
         display: 'inline-block',
         // cursor: 'help' signals the description tooltip; 'pointer' signals click-to-collapse.
         cursor: onToggleCollapse ? (description ? 'help' : 'pointer') : (description ? 'help' : 'default'),

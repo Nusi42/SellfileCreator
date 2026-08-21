@@ -38,8 +38,14 @@ on major panels and dialogs. Key mechanics:
   `GoldDialogPaper`, wired as the theme-level `MuiDialog` `slots.paper`), the builder and
   preview panels, and the floating note panel. NOT on menus/popovers/tooltips/grid cards.
 - **Gold title voice** — `GOLD_SECTION_TITLE_SX` (`goldSkin.ts`): title-gold text with a
-  frame-gold ◆ `::before`. Applied by `MuiDialogTitle`, `ContextMenuTitle`, and
-  `GearAnalyticsChartHeader`; reuse it for any new section-title surface.
+  frame-gold ◆ `::before`. Applied by `MuiDialogTitle` and `ContextMenuTitle` — the ◆ is
+  reserved for dialog/menu titles.
+- **Collapsible-group voice** — `GOLD_GROUP_HEADER_SX` (`goldSkin.ts`): title-gold
+  micro-caps (uppercase 0.68rem/600, letter-spaced), deliberately WITHOUT the ◆. The ONE
+  voice for every expandable group header: builder sections (`BuilderSectionToggle`),
+  filter-panel sections (`RulesFilterPanel` `SectionHeaderLabel`), and gear-analytics chart
+  headers (`GearAnalyticsChartHeader`). The collapsed-with-content dirty signal
+  (`COLLAPSED_CONTENT_INDICATOR_SX`, primary blue) is applied after it and wins on color.
 - **Tooltips are small panels** — theme-level `MuiTooltip` paints the plate as
   `background.paper` + divider hairline + lit line + the floating drop shadow, with a
   matching bordered arrow. Tooltip content therefore sits on the SAME surface as cards:

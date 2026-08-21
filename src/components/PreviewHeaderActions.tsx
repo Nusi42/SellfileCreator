@@ -2982,12 +2982,12 @@ export default function PreviewHeaderActions(props: {
             position: 'sticky',
             right: 0,
             zIndex: 1,
-            // Match the surface the controls scroll under: the per-scheme paper BASE plus the
-            // MUI elevation overlay the Paper paints on top (a translucent gradient in dark
-            // mode). Using only the base read as too-dark/black; --Paper-overlay is set on the
-            // ancestor Paper and inherited here (falls back to none in light mode).
+            // Match the surface the controls scroll under: the per-scheme paper. Gold skin:
+            // Papers no longer paint MUI's elevation overlay (backgroundImage:'none' in
+            // theme.ts), so plain scheme paper IS the surrounding surface — re-applying
+            // var(--Paper-overlay) here (MUI still defines the var) would make this sticky
+            // patch the one element lighter than its Paper.
             bgcolor: schemePaper,
-            backgroundImage: 'var(--Paper-overlay, none)',
             pl: 1,
           }}
         >
