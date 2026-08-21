@@ -38,6 +38,23 @@ export const loadLategameNote = (): string => {
   return Array.isArray(note) ? note.join('\n') : note ?? ''
 }
 
+/** The persisted recipe fields the override suites read; the rest passes through untyped. */
+export type PresetRecipeEntry = {
+  Tags?: string[]
+  appearance?: { name?: string }
+  minLevel?: number
+  maxLevel?: number
+  artifactSetNames?: Array<{ name?: string } | string>
+  artifactMetaSetNames?: string[]
+}
+
+/** The lategame preset's recipes in their persisted shape (tags + set/metaset filters). */
+export const loadLategameRecipes = (): PresetRecipeEntry[] => {
+  const recipes = (loadLategameSfc() as { Recipes?: unknown }).Recipes
+  assert.ok(Array.isArray(recipes), 'presets/lategame.sfc must carry a Recipes array')
+  return recipes as PresetRecipeEntry[]
+}
+
 /** The lategame preset's metasets in their persisted shape (display name + member set names). */
 export const loadLategameMetasets = (): Array<{ name: string; setNames: string[]; show?: boolean }> => {
   const metasets = (loadLategameSfc() as { Metasets?: unknown }).Metasets

@@ -1,17 +1,18 @@
 /**
  * lategame-gearset-scope.test.ts
  *
- * Pins "Optional 5 — which gear sets the wide-net rules use" in presets/lategame.sfc:
- * the catch-all safeguard scope question (q_catchsets) and the any-set Chaos Ore scope
- * question (q_orescope) with its four per-set fine-tune checkboxes (q_orefine).
+ * Pins "Optional 5 — Gear-set scope" in presets/lategame.sfc: the catch-all safeguard
+ * scope question (q_catchsets) and the two per-rank Chaos Ore set cards (q_ore6sets /
+ * q_ore5sets).
  *
- * These blocks are the shipped preset's only consumers of the `metasets=any` clear
- * keyword and the only place an override widens a rule back to "any gear set", so they
- * get effect-level coverage rather than riding on the id/diagnostic sweeps next door.
+ * These blocks are the shipped preset's only consumers of the `metasets=any` /
+ * `gearsets=any` clear keywords and the only place an override widens a rule back to
+ * "any gear set". The ore cards additionally carry a PARITY guarantee: their default
+ * ticks must resolve to exactly the set pool the pre-card recipes had.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { loadLategameMetasets, loadLategameNote, loadLategameSafeguardRules } from '../setup/presetFixtures.js'
+import { loadLategameMetasets, loadLategameNote, loadLategameRecipes, loadLategameSafeguardRules } from '../setup/presetFixtures.js'
 import {
   findRecipeOptionByToken,
   resolveRecipeOverridesTags,
@@ -22,6 +23,8 @@ import {
   resolveNoteSafeguardOverridesTags,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import { ArtifactSet } from '../../src/lib/artifactSets.js'
+import { artifactSetIdByName } from '../../src/lib/safeguards.js'
+import { resolveArtifactSetSelections } from '../../src/lib/gearSets/selection.js'
 import type { BuilderRecipe } from '../../src/lib/hsfBuilder/types.js'
 
 const note = loadLategameNote()
@@ -49,9 +52,9 @@ const recipeQuestionIdFor = (token: string): string => {
  * Replay a sequence of clicks against the note, starting from the shipped defaults.
  *
  * One resolution per click is what the dialog does, and it matters here: the account-level
- * buttons carry `+orescope_all`, so picking the farmable-skip radio only sticks because that
- * click (preferredId) releases the account option that forces the other answer. Folding both
- * clicks into one resolution would let the account directive win and silently revert the scope.
+ * buttons force every ore set box, so a hand-made tick only sticks because that click
+ * (preferredId, or removedId for an untick) releases the tier option forcing the other
+ * answer. Folding clicks into one resolution would let the tier directive win instead.
  */
 type OverrideClick = { token: string; answer: string[]; removed?: boolean }
 const clickSequence = (clicks: ReadonlyArray<OverrideClick>) => {
@@ -69,35 +72,29 @@ const clickSequence = (clicks: ReadonlyArray<OverrideClick>) => {
   return resolved
 }
 
-/** The stored shape of the any-set Chaos Ore recipe: no set filter at all. */
-const anySetOreRecipe = (): BuilderRecipe => ({
-  appearance: { name: 'Chaos Ore' },
-  keep: true,
-  exportMode: 'active',
-  rankCode: 0,
-  rarityCode: 0,
-  factionCode: 0,
-  mainStatsV: [],
-  minLevel: 16,
-  maxLevel: 16,
-  substatsV: [],
-  fixedSubstatsV: [],
-  minCount: 1,
-  autoMinCount: false,
-  autoSubstatFlex: false,
-  minRequiredRolls: 0,
-  autoMinRequiredRolls: true,
-  lockedMinRequiredRolls: 0,
-  artifactTypes: [],
-  artifactSets: [],
-  artifactMetaSets: [],
-  // The tag the Optional 5 blocks select on.
-  tags: ['if_not_reworked', 'ignore_by_safeguards', 'ore6legendary_allsets'],
-})
+/** Resolve a gear-set display name to its numeric id (throws on a preset typo). */
+const setIdByName = (name: string): number => {
+  const id = artifactSetIdByName.get(name.trim().toLowerCase())
+  assert.ok(id != null, `preset names an unknown gear set: ${name}`)
+  return Number(id)
+}
 
-/** Apply the overrides resolved from a click sequence to a stand-in any-set Chaos Ore recipe. */
-const oreRecipeAfter = (clicks: ReadonlyArray<OverrideClick>): BuilderRecipe =>
-  resolveRecipeOverridesEffectiveRecipe(anySetOreRecipe(), clickSequence(clicks).instructions)
+/** The preset's metasets in the shape resolveArtifactSetSelections expects. */
+const presetMetasets = () => loadLategameMetasets().map((m) => ({
+  name: m.name,
+  sets: m.setNames.map((n) => setIdByName(n)),
+}))
+
+/** The default answer of a question, plus/minus one option token. */
+const answerWith = (questionId: string, token: string): string[] => {
+  const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === questionId)!
+  return [...q.answer, recipeOptionId(token)]
+}
+const answerWithout = (questionId: string, token: string): string[] => {
+  const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === questionId)!
+  const drop = recipeOptionId(token)
+  return q.answer.filter((id) => id !== drop)
+}
 
 /** Included (non-excluded) / excluded set ids of a resolved recipe. */
 const includedSets = (recipe: BuilderRecipe): number[] =>
@@ -153,54 +150,123 @@ test('the limited-sets scope narrows the catch-all to the three scarce metasets'
   }
 })
 
-// ── Chaos Ore any-set scope (recipe domain) ───────────────────────────────────
 
-test('the default ore scope leaves the any-set rule genuinely any-set', () => {
-  const recipe = oreRecipeAfter([{ token: 'orescope_all', answer: [recipeOptionId('orescope_all')] }])
-  assert.deepEqual(recipe.artifactMetaSets ?? [], [], 'no metaset filter under the every-set scope')
-  // `orescope_all` unsets all four fine-tune boxes, so their `else` branches run and stage bare
-  // exclusions. On an implicit-any selection those resolve to "any set" (they delete out of an
-  // empty union), which is harmless — but an INCLUDE would silently narrow the rule to one set.
-  assert.deepEqual(includedSets(recipe), [], 'the every-set scope never narrows to a single set')
-})
+// ── Chaos Ore per-rank set cards (recipe domain) ──────────────────────────────
+//
+// q_ore6sets / q_ore5sets replaced the old scope radio + fine-tune pair. Each card is
+// eight set checkboxes plus an "Any set" escape, and the DEFAULT ticks must reproduce the
+// pre-change recipes exactly — that parity is the point of the whole card, so it is
+// asserted on the RESOLVED set list (metasets expanded, exclusions applied), not on the
+// raw fields, which can differ while meaning the same thing.
 
-test('the farmable-skip scope swaps in the Not Farmable metaset', () => {
-  const recipe = oreRecipeAfter([{ token: 'orescope_notfarm', answer: [recipeOptionId('orescope_notfarm')] }])
-  assert.deepEqual(recipe.artifactMetaSets ?? [], ['Not Farmable'], 'the scope option replaces the metaset filter')
-})
+/** Resolve a rank card's effect onto the stored ore recipe for that rank. */
+const oreRecipeFor = (rank: 5 | 6, clicks: ReadonlyArray<OverrideClick> = []): BuilderRecipe => {
+  const stored = storedOreRecipe(rank)
+  return resolveRecipeOverridesEffectiveRecipe(stored, clickSequence(clicks).instructions)
+}
 
-test('a ticked fine-tune box adds its farmable set back', () => {
-  // Speed is farmable (Dragon's Lair) so it is NOT in Not Farmable — ticking must add it back.
-  const recipe = oreRecipeAfter([
-    { token: 'orescope_notfarm', answer: [recipeOptionId('orescope_notfarm')] },
-    { token: 'orescope_speed', answer: [recipeOptionId('orescope_speed')] },
-  ])
-  assert.ok(includedSets(recipe).includes(ArtifactSet.Speed), 'ticked Speed is added back as an include')
-  // Composition check: Savage stays unticked in the same question, and its `else` exclusion must
-  // survive alongside the Speed include rather than being dropped by a last-writer-wins fold.
-  assert.ok(excludedSets(recipe).includes(ArtifactSet.Savage), 'sibling boxes compose on one recipe')
-})
+/** The shipped stored shape of one rank's Epic ore recipe, straight from the preset. */
+const storedOreRecipe = (rank: 5 | 6): BuilderRecipe => {
+  const raw = loadLategameRecipes().find((r) => (r.Tags ?? []).includes(`ore${rank}epic`))
+  assert.ok(raw, `preset ships an ore${rank}epic recipe`)
+  return {
+    appearance: raw.appearance,
+    keep: true,
+    exportMode: 'active',
+    rankCode: 0,
+    rarityCode: 0,
+    factionCode: 0,
+    mainStatsV: [],
+    minLevel: raw.minLevel,
+    maxLevel: raw.maxLevel,
+    substatsV: [],
+    fixedSubstatsV: [],
+    minCount: 1,
+    autoMinCount: false,
+    autoSubstatFlex: false,
+    minRequiredRolls: 0,
+    autoMinRequiredRolls: true,
+    lockedMinRequiredRolls: 0,
+    artifactTypes: [],
+    artifactSets: (raw.artifactSetNames ?? []).map((s) => ({ id: setIdByName(typeof s === 'string' ? s : (s.name ?? '')) })),
+    artifactMetaSets: raw.artifactMetaSetNames ?? [],
+    tags: raw.Tags ?? [],
+  } as unknown as BuilderRecipe
+}
 
-test('an unticked fine-tune box excludes a set the metaset would otherwise supply', () => {
-  // Pinpoint IS inside Not Farmable, so unticking has to actively EXCLUDE it: a bare remove
-  // would not reach an entry the metaset supplies. Answer the fine-tune question with nothing.
-  const recipe = oreRecipeAfter([
-    { token: 'orescope_notfarm', answer: [recipeOptionId('orescope_notfarm')] },
-    { token: 'orescope_pinpoint', answer: [], removed: true },
-  ])
-  assert.ok(excludedSets(recipe).includes(ArtifactSet.Pinpoint), 'unticked Pinpoint is excluded from the metaset')
-})
+/** Fully resolved gear-set ids of a recipe: metasets expanded, exclusions subtracted. */
+const resolvedSetIds = (recipe: BuilderRecipe): Set<number> => new Set(
+  resolveArtifactSetSelections({
+    selections: recipe.artifactSets as never,
+    metasetIds: recipe.artifactMetaSets as never,
+    metasets: presetMetasets(),
+  }).resolved.map(Number),
+)
 
-// ── The metaset the ore scope depends on ──────────────────────────────────────
-
-test('Not Farmable excludes exactly the three farmable dungeons', () => {
-  const notFarmable = loadLategameMetasets().find((m) => m.name === 'Not Farmable')
-  assert.ok(notFarmable, 'the preset ships the Not Farmable metaset')
-  // Spot-check both directions: one set per farmable dungeon is out, scarce sets are in.
-  for (const name of ['Speed', 'Savage', 'Life', 'Daze']) {
-    assert.ok(!notFarmable.setNames.includes(name), `farmable set ${name} stays out of Not Farmable`)
+test('each rank card ships nine options: eight sets plus the any-set escape', () => {
+  for (const rank of [5, 6] as const) {
+    const q = resolveRecipeOverridesTags(note).questions.find((x) => x.id === `q_ore${rank}sets`)
+    assert.ok(q, `q_ore${rank}sets is present`)
+    assert.equal(q.options.length, 9, `${rank}★ card has 8 sets + the escape option`)
   }
-  for (const name of ['Merciless', 'Pinpoint', 'Chronophage', 'Mercurial']) {
-    assert.ok(notFarmable.setNames.includes(name), `scarce set ${name} is part of Not Farmable`)
+})
+
+test('default ticks reproduce the pre-change ore scope exactly (both ranks)', () => {
+  // The old 6★ rules carried 5 metasets + an explicit Savage; the 5★ rules carried 4
+  // metasets. Ticking must land on the SAME resolved set pool — nothing added, nothing
+  // lost — or existing users silently start keeping/selling different gear.
+  for (const rank of [5, 6] as const) {
+    const stored = resolvedSetIds(storedOreRecipe(rank))
+    const effective = resolvedSetIds(oreRecipeFor(rank))
+    const added = [...effective].filter((id) => !stored.has(id))
+    const lost = [...stored].filter((id) => !effective.has(id))
+    assert.deepEqual(added, [], `${rank}★ defaults add no set to the stored scope`)
+    assert.deepEqual(lost, [], `${rank}★ defaults drop no set from the stored scope`)
   }
+})
+
+test('the 6★ card leaves the separate any-set rule untouched', () => {
+  // ore6legendary_allsets is the "6★ from ANY gear set" keep with its own question. It is
+  // deliberately absent from the card's selector: writing set includes onto an unfiltered
+  // rule would narrow it to the eight listed sets.
+  const raw = loadLategameRecipes().find((r) => (r.Tags ?? []).includes('ore6legendary_allsets'))
+  assert.ok(raw, 'preset ships the any-set ore recipe')
+  const recipe = { ...storedOreRecipe(6), tags: raw.Tags, artifactMetaSets: [], artifactSets: [] } as unknown as BuilderRecipe
+  const effective = resolveRecipeOverridesEffectiveRecipe(recipe, clickSequence([]).instructions)
+  assert.deepEqual(effective.artifactMetaSets ?? [], [], 'no metaset filter is written onto it')
+  assert.deepEqual(includedSets(effective), [], 'no set include narrows it')
+})
+
+test('unticking a set excludes it, so a metaset-supplied set really drops out', () => {
+  // Cruel arrives via the metaset pool, so removing it needs an EXCLUSION — a bare remove
+  // cannot reach an entry a metaset supplies. This is what the per-option `else` is for.
+  const before = resolvedSetIds(oreRecipeFor(6))
+  assert.ok(before.has(ArtifactSet.Cruel), 'Cruel is in the default 6★ pool')
+  const after = resolvedSetIds(oreRecipeFor(6, [
+    { token: 'ore6set_cruel', answer: answerWithout('q_ore6sets', 'ore6set_cruel'), removed: true },
+  ]))
+  assert.ok(!after.has(ArtifactSet.Cruel), 'unticked Cruel leaves the resolved pool')
+})
+
+test('ticking a set the pool lacks adds it (5★ Speed)', () => {
+  // Speed sits outside the 5★ metasets (it arrives via Need 4 Speed, a 6★-only metaset),
+  // so ticking it on the 5★ card must ADD it rather than merely un-exclude it.
+  const before = resolvedSetIds(oreRecipeFor(5))
+  assert.ok(!before.has(ArtifactSet.Speed), 'Speed is outside the default 5★ pool')
+  const after = resolvedSetIds(oreRecipeFor(5, [
+    { token: 'ore5set_speed', answer: answerWith('q_ore5sets', 'ore5set_speed') },
+  ]))
+  assert.ok(after.has(ArtifactSet.Speed), 'ticked Speed joins the 5★ pool')
+})
+
+test('the any-set escape opens the scope to every gear set', () => {
+  // "None ticked = really all" is spelled by one escape option writing both clear keywords,
+  // so the rule ends up with no metaset AND no set — genuinely unfiltered, including sets
+  // that belong to no metaset at all.
+  const recipe = oreRecipeFor(6, [
+    { token: 'ore6set_any', answer: [recipeOptionId('ore6set_any')] },
+  ])
+  assert.deepEqual(recipe.artifactMetaSets ?? [], [], 'metasets=any empties the pool')
+  assert.deepEqual(includedSets(recipe), [], 'gearsets=any leaves no explicit include')
+  assert.deepEqual(excludedSets(recipe), [], 'and no leftover exclusions narrow it')
 })

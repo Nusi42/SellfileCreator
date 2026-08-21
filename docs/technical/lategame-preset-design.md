@@ -157,9 +157,9 @@ and substats — names only add role + tier.
 
 ## Gear-set scope (Optional 5)
 
-"Optional 5 — which gear sets the wide-net rules use" is the one section that edits set/metaset
-*filters* rather than counts, ranks, or activation. It covers the two rules that deliberately cast
-a wide net, one per domain.
+"Optional 5 — Gear-set scope" is the one section that edits set/metaset *filters* rather than
+counts, ranks, or activation. Three cards: the catch-all safeguards, and one Chaos Ore set card
+per rank.
 
 - **Catch-all scope** (`q_catchsets`, safeguard domain). The four `catchrest` rules ship with a
   curated eight-metaset filter — a union of 41 of the 64 artifact-capable sets, leaving out the
@@ -170,39 +170,48 @@ a wide net, one per domain.
   41 → 64 sets grows its placeholder buckets by roughly 56% — the most expensive family in the
   file. That is why the option's help text calls it slower, and why it is wired to Midgame (small
   collections) rather than to the late tiers.
-- **Chaos Ore any-set scope** (`q_orescope` + `q_orefine`, recipe domain). Only the
-  `ore6legendary_allsets` pair is genuinely any-set; the 5★/6★ questions are already limited-set
-  scoped and are untouched. `orescope_notfarm` writes `metasets="Not Farmable"`.
-  **Why a positive metaset and not exclusions:** the rule has no explicit set and no metaset, so it
-  is *implicit-any*, and a bare `+-Name` on an implicit-any selection resolves to "any set" (the
-  exclusion deletes out of an empty union). HSF cannot express "all sets except X", so narrowing
-  requires listing what stays.
-- **`Not Farmable`** is a shipped, `show: false` metaset: every set that does not drop in Ice
-  Golem's Peak / Dragon's Lair / Fire Knight's Castle (37 artifact sets + the 5 accessory-only
-  ones). Membership mirrors the source table in [Artifact Rules](artifact-rules.md#gear-and-its-sources).
-  It lives in the preset file only — `defaultMetasets()` mirrors **beginner.sfc**, not this preset, and
-  a test pins that — so the name resolves wherever the lategame note is loaded. A newly-shipped gear
-  set simply falls outside the filter until it is added.
-- **The four fine-tune checkboxes** (`orescope_speed` / `_savage` / `_pinpoint` / `_chrono`) each
-  write `gearsets=+<Set>` when ticked and `gearsets=+-<Set>` (an EXCLUDED entry) via `else` when
-  not. That asymmetry is deliberate and both halves are load-bearing: Speed and Savage are farmable
-  so they are *absent* from `Not Farmable` and need an include to come back, while Pinpoint and
-  Chronophage are *inside* it and can only be taken out by an exclusion — a bare `-Name` removal
-  cannot reach an entry the metaset supplies. Defaults follow that split (Speed/Savage off,
-  Pinpoint/Chronophage on), so every box is a live toggle in both directions.
-- **Two traps this section depends on**, both worth re-checking before adding a similar block:
-  1. `gearsets=+X` on an *implicit-any* rule silently NARROWS it to X. The fine-tune boxes are safe
-     only because `orescope_all` carries `unset orescope_speed orescope_savage orescope_pinpoint
-     orescope_chrono`, which genuinely deselects them. `needs=off orescope_notfarm` only greys the
-     control — `needs` is a UI gate and does **not** suppress the block.
-  2. Two options writing `gearsets=` on the same recipe only compose because recipe list ops fold in
-     note order (see [Application Behavior → SFC Global Note](app-behavior.md#sfc-global-note)); this used to be
-     last-writer-wins, which dropped all but the final checkbox.
-- **Account-level wiring** (the four tier buttons pre-answer both questions):
-  Midgame `catchsets_all` + `orescope_all`; Lategame `catchsets_useful` + `orescope_all`;
-  Endgame `catchsets_useful` + `orescope_notfarm` (−Speed −Savage, +Pinpoint +Chronophage);
-  Endgame+ `catchsets_limited` + `orescope_notfarm` with all four boxes off. Picking a scope radio
-  by hand releases the tier button, as with every other tier-forced answer.
+
+- **Chaos Ore set cards** (`q_ore6sets` / `q_ore5sets`, recipe domain). One card per rank, each
+  eight gear-set checkboxes plus an `Any set` escape. A card drives only its rank's three rarity
+  rules (`ore<N>epic` / `ore<N>legendary` / `ore<N>mythical`).
+  - **Ticked adds, unticked excludes.** Each box writes `gearsets=+<Set>` when ticked and
+    `gearsets=+-<Set>` (an EXCLUDED entry) through a per-option `else` when not. Both halves are
+    load-bearing: a set the stored metaset pool lacks (Speed on the 5★ card) needs the include to
+    join, while a set the pool supplies (Cruel) can only leave via an exclusion — a bare `-Name`
+    cannot reach an entry a metaset contributed.
+  - **The stored metaset pool survives.** Ticks compose *on top of* the recipe's shipped metasets
+    rather than replacing them, so the ~29 (6★) and ~25 (5★) set pools stay intact and the eight
+    boxes are the individually-addressable subset.
+  - **Defaults reproduce the pre-card recipes exactly** — 6★ all eight ticked, 5★ without
+    Speed/Savage/Perception/Divine Speed, which is precisely the old `Need 4 Speed` + `Savage`
+    difference between the two ranks. `lategame-gearset-scope.test.ts` pins this on the RESOLVED
+    set list (metasets expanded, exclusions applied), because that is the only comparison that
+    proves users keep and sell the same gear as before.
+  - **`Any set` is the "none ticked = everything" escape.** It writes `metasets=any gearsets=any`
+    and carries `excl` against all eight boxes, so it and they are mutually exclusive. It opens the
+    scope wider than any pool — including sets belonging to no metaset at all — which is why the
+    prompt calls it out as not recommended.
+  - **`ore6legendary_allsets` is deliberately NOT in the 6★ card's selector.** That rule is the
+    separate "6★ from any gear set" keep with its own question; writing set includes onto an
+    intentionally unfiltered rule would narrow it to the eight listed sets.
+
+- **Three traps this section depends on**, all worth re-checking before authoring a similar block:
+  1. **`+-"Two Words"` does not parse.** The tokenizer does not classify `-` as a symbol, so
+     `gearsets=+-"Divine Speed"` lexes as the word `-"Divine` plus `Speed"`: the opening quote never
+     starts a string and the stray quote swallows the NEXT option, which silently disappears. Quote
+     with the prefix INSIDE — `gearsets="+-Divine Speed"` — which is what `overridesSerializer`
+     emits and what `parsePrefixedToken` expects.
+  2. **`else` belongs INSIDE the option's outer braces.** `{ … } else { … }` parses as a stray group
+     that never attaches, leaving `elseBlocks` empty and the untick silently inert; the working form
+     is `{ @sel { … } else { @sel { … } } }`.
+  3. **Two options writing `gearsets=` on one recipe only compose** because recipe list ops fold in
+     note order (see [Application Behavior → SFC Global Note](app-behavior.md#sfc-global-note)).
+     This used to be last-writer-wins, which dropped all but the final checkbox.
+
+- **Account-level wiring** (the tier buttons pre-answer every card): Midgame and Lategame ship the
+  parity defaults; Endgame additionally unticks 6★ Speed/Savage; Endgame+ keeps only the scarce
+  four on 6★ and Pinpoint/Chronophage on 5★. Picking a box by hand releases the tier button, as
+  with every other tier-forced answer.
 
 ## Override wiring notes
 

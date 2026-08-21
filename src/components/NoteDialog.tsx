@@ -1,4 +1,4 @@
-import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Fragment, use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import { Badge, Box, Button, Checkbox, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Fade, FormControl, FormControlLabel, FormGroup, GlobalStyles, InputLabel, LinearProgress, Menu, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Slider, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
@@ -48,6 +48,10 @@ import DungeonSimulatorNoteBlock from './DungeonSimulatorNoteBlock'
 import MetasetsNoteBlock from './MetasetsNoteBlock'
 import type { Metaset } from '../lib/metasets'
 import { NOTE_METASETS_MARKER_KEYWORD } from '../lib/metasets'
+// Inline {set:Name} gear-set icon token — one splitter shared with the prose renderer.
+import { hasNoteSetIconToken, splitNoteSetIconSegments, stripNoteSetIconTokens } from '../lib/noteSetIconToken'
+import type { ArtifactSetId } from '../lib/types'
+import { SetIcon } from './SetIcon'
 import {
   artifactTypeI18nKey,
   artifactTypeNames,
@@ -493,6 +497,8 @@ const DUNGEON_SIM_ELEMENT_TAG = 'dungeon-sim-block'
 const METASETS_COMMENT_REGEX = new RegExp(`^\\s*${NOTE_METASETS_MARKER_KEYWORD}\\s*$`, 'i')
 // Custom element tag emitted by the rehype plugin into the sanitised HAST tree.
 const METASETS_ELEMENT_TAG = 'note-metasets-block'
+// Inline gear-set icon emitted for a {set:Name} token in the note prose.
+const SET_ICON_ELEMENT_TAG = 'note-set-icon'
 
 // ── Collapsible section block (<!-- collapse --> … <!-- /collapse -->) ──
 // Wraps a marker range in a click-to-expand section (default collapsed) so optional
@@ -550,6 +556,10 @@ type SafeguardMarkerEntry = { id: number; rule: SafeguardRule }
 type SafeguardMarkerMap = Map<number, SafeguardMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
 type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
+
+// Inline gear-set icon size for {set:Name} tokens. Sized against the caption text the
+// prompts/labels render at, not SET_ICON_PX (18), which is tuned for menu rows.
+const NOTE_SET_ICON_PX = 14 as const
 
 // Backticks mark chip-style emphasis within prompts.
 const QUESTION_PROMPT_CHIP_MARKER = '`'
@@ -732,12 +742,44 @@ function renderQuestionTextTokens({
         {token.text}
       </Typography>
     ) : (
-      // Plain text inherits the surrounding Typography styles.
+      // Plain text inherits the surrounding Typography styles. It may still carry
+      // `{set:Name}` icon tokens, so it renders through the shared segment splitter
+      // rather than as a bare string (segments collapse to one run when absent).
       <Box key={token.key} component="span">
-        {token.text}
+        {renderNoteSetIconSegments(token.text, token.key)}
       </Box>
     )
   ))
+}
+
+/**
+ * Render one text run, expanding `{set:Name}` into an inline gear-set icon plus the set's
+ * name. Shared by prompts and option labels; the prose path runs the same splitter from
+ * its own rehype pass, so both surfaces resolve names identically.
+ */
+function renderNoteSetIconSegments(text: string, keyPrefix: string): React.ReactNode {
+  // Fast path: most runs carry no token, so skip the split and keep the plain string.
+  if (!hasNoteSetIconToken(text)) return text
+  // Keys pair the segment's own content with its offset: the content alone can repeat
+  // (`{set:Speed}/{set:Speed}`), and the index alone shifts whenever the label is edited.
+  let offset = 0
+  return splitNoteSetIconSegments(text).map((seg) => {
+    const at = offset
+    offset += seg.kind === 'text' ? seg.text.length : seg.name.length
+    return seg.kind === 'text'
+      ? <Fragment key={`${keyPrefix}-t${at}-${seg.text}`}>{seg.text}</Fragment>
+      : (
+        <Box
+          key={`${keyPrefix}-s${at}-${seg.setId}`}
+          component="span"
+          sx={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
+        >
+          {/* Sized to the surrounding caption text rather than the menu default. */}
+          <SetIcon setId={seg.setId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />
+          {seg.name}
+        </Box>
+      )
+  })
 }
 
 function renderQuestionOptionLabel(
@@ -767,8 +809,9 @@ function renderQuestionOptionLabel(
 }
 
 function measureOptionLabelLength(label: string): number {
-  // Normalize newlines so labels stay single-line in the column.
-  const normalized = normalizeOptionLabelText(label)
+  // Normalize newlines so labels stay single-line in the column. Icon tokens collapse to
+  // their set name first: measuring `{set:Speed}` would reserve 11ch for a ~5ch label.
+  const normalized = normalizeOptionLabelText(stripNoteSetIconTokens(label))
   // Split on newlines so we measure the widest visible line.
   const lines = normalized.split('\n')
   let maxLength = 0
@@ -1348,6 +1391,70 @@ const rehypeDungeonSimulatorComment: Pluggable = makeCommentElementPlugin(DUNGEO
 // Replace <!-- metasets --> comment nodes with a <note-metasets-block /> element.
 // The component reads the live metasets list from NoteRenderContext.
 const rehypeMetasetsComment: Pluggable = makeCommentElementPlugin(METASETS_COMMENT_REGEX, METASETS_ELEMENT_TAG)
+
+/**
+ * Inline gear-set icon + name for a `{set:Name}` token in the note prose.
+ *
+ * The rehype pass resolved the id already, so this only paints. Attributes arrive as
+ * strings (hast property values); an id that fails to parse renders the name alone
+ * rather than an empty span, matching the splitter's never-drop-the-words contract.
+ */
+function NoteSetIconInline(props: Record<string, unknown>): JSX.Element {
+  const rawId = props['data-set-id'] ?? props['dataSetId']
+  const name = String(props['data-set-name'] ?? props['dataSetName'] ?? '')
+  const setId = Number(rawId)
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+      {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} size={NOTE_SET_ICON_PX} sx={{ mr: 0.375 }} />}
+      {name}
+    </Box>
+  )
+}
+
+/**
+ * Expand `{set:Name}` tokens inside the note's PROSE into gear-set icon elements.
+ *
+ * Unlike the other note plugins this one rewrites text nodes rather than comments, since
+ * the token is inline markup an author drops mid-sentence. Each hit becomes a
+ * SET_ICON_ELEMENT_TAG element carrying the resolved id + name; the React component
+ * renders the same icon+label pair the question tokenizer produces, so a set reads
+ * identically in a prompt, an option label, and a paragraph.
+ *
+ * Runs before sanitize (which allow-lists the tag) and skips <code>/<pre> subtrees so a
+ * documented literal like `{set:Speed}` in a code span stays literal.
+ */
+const rehypeSetIconTokens: Pluggable = () => (tree: unknown) => {
+  const LITERAL_TAGS = new Set(['code', 'pre'])
+  const visit = (node: Record<string, unknown>, parentTag: string | null): void => {
+    const children = node['children']
+    if (!Array.isArray(children)) return
+    const tagName = typeof node['tagName'] === 'string' ? node['tagName'] : null
+    // Inside a code span the braces are the author's subject matter — leave them alone.
+    if (tagName != null && LITERAL_TAGS.has(tagName)) return
+    const next: unknown[] = []
+    for (const child of children) {
+      const rec = child as Record<string, unknown>
+      const isText = rec?.['type'] === 'text' && typeof rec['value'] === 'string'
+      // Recurse into elements; only text nodes can carry the token.
+      if (!isText) { visit(rec, tagName); next.push(child); continue }
+      const value = rec['value'] as string
+      if (!hasNoteSetIconToken(value)) { next.push(child); continue }
+      for (const seg of splitNoteSetIconSegments(value)) {
+        if (seg.kind === 'text') { if (seg.text) next.push({ type: 'text', value: seg.text }); continue }
+        next.push({
+          type: 'element',
+          tagName: SET_ICON_ELEMENT_TAG,
+          // Stringified: hast properties survive sanitize as strings, not numbers.
+          properties: { 'data-set-id': String(seg.setId), 'data-set-name': seg.name },
+          children: [],
+        })
+      }
+    }
+    node['children'] = next
+    void parentTag
+  }
+  visit(tree as Record<string, unknown>, null)
+}
 
 // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges in a <div> tagged with
 // NOTE_CONDITIONAL_ATTR. The content is ALWAYS emitted into the DOM (never dropped)
@@ -4935,6 +5042,7 @@ export default function NoteDialog({
         [SAFEGUARD_ELEMENT_TAG]: mergedSafeguardAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
         [SG_QUESTION_ELEMENT_TAG]: mergedSgQuestionAttrs,
+        [SET_ICON_ELEMENT_TAG]: ['data-set-id', 'dataSetId', 'data-set-name', 'dataSetName'],
       },
       tagNames: Array.from(new Set([
         ...(defaultSchema.tagNames ?? []),
@@ -4948,6 +5056,7 @@ export default function NoteDialog({
         SG_QUESTION_GROUP_ELEMENT_TAG,
         DUNGEON_SIM_ELEMENT_TAG,
         METASETS_ELEMENT_TAG,
+        SET_ICON_ELEMENT_TAG,
       ])),
     }
   }, [])
@@ -4970,6 +5079,8 @@ export default function NoteDialog({
       rehypeDungeonSimulatorComment,
       // Replaces <!-- metasets --> comments with the live metaset-table element.
       rehypeMetasetsComment,
+      // Expands inline {set:Name} tokens in prose into note-set-icon elements.
+      rehypeSetIconTokens,
       // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges (always present in the
       // DOM) before sanitize strips the comment markers. State-independent: the
       // wrapper is shown/hidden via CSS keyed on the container's connection attr.
@@ -4992,6 +5103,8 @@ export default function NoteDialog({
     [DUNGEON_SIM_ELEMENT_TAG]: DungeonSimulatorNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders the live metaset table from <!-- metasets -->.
     [METASETS_ELEMENT_TAG]: MetasetsNoteBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    // Renders an inline {set:Name} token from the prose as icon + set name.
+    [SET_ICON_ELEMENT_TAG]: NoteSetIconInline as unknown as React.ComponentType<Record<string, unknown>>,
     // Renders a <!-- collapse --> … <!-- /collapse --> range as a collapsible section.
     [COLLAPSE_ELEMENT_TAG]: NoteCollapseSection as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
