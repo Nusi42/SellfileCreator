@@ -601,8 +601,14 @@ export const builderSectionLabelSx = (collapsed: boolean, dirty: boolean) =>
 
 // Mirror the English layout widths for the Min Required / Required / Milestone trio so
 // other locales preserve the same proportions without wrapping their controls.
-export const BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX = 224
-export const BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX = 135
+// Sized to the fused ToggleButtonGroups' NATURAL widths (Auto 46 + N numerics × 23.5 at
+// default padding with collapsed shared borders: 6 numerics = 187, 4 numerics = 140) so the
+// last button is never clipped by the column's overflow:hidden AND the column holds no
+// trailing slack — the inter-column gaps then all equal the uniform columnGap. Font variance
+// (RSLH's Segoe) compresses the shrinkable buttons instead of clipping. The former 224 was
+// sized for the old gap-separated buttons.
+export const BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX = 187
+export const BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX = 140
 export const BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX = 146
 // Fixed width for builder "Auto" toggle buttons so translations stay aligned with numeric chips.
 export const BUILDER_AUTO_TOGGLE_WIDTH_PX = 46

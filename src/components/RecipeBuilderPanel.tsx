@@ -4649,20 +4649,32 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {/* Inline-flex column wrapper so the warning row below is exactly as wide as the buttons row.
             inline-flex shrinks to content; the buttons determine the width; the warning row inherits it. */}
         <Box sx={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
-        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
-        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-        <Box
+        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row.
+            maxWidth+minWidth let the group COMPRESS in a tight column instead of the wrapper
+            keeping its content width and getting clipped by the column's overflow:hidden. */}
+        <Box sx={{ position: 'relative', display: 'inline-flex', maxWidth: '100%', minWidth: 0 }}>
+        {/* ToggleButtonGroup purely for the fused single-control LOOK (joined borders, outer
+            corners only). No group `value`/`onChange`: multiple buttons can be active at once
+            and multi-edit tri-states are per-button, so each ToggleButton keeps its own
+            `selected` + onClick exactly as before — the group is presentation only. */}
+        <ToggleButtonGroup
+          size="small"
           data-tour-id="builder.min-rolls"
           sx={{
-            display: 'flex',
-            gap: 0.5,
             // Buttons shrink instead of wrapping when the panel is narrowed by the splitter.
             flexWrap: 'nowrap',
             // overflow:visible so the absolutely-positioned lock icon can paint outside the button bounds.
             overflow: 'visible',
+            // Same per-button sizing as the Min Substats group so both rows' buttons are
+            // identical: content + default padding, shrink-capable. No selected fontWeight
+            // bump anywhere in the row — under fonts with a real Medium face (RSLH's Segoe
+            // UI) 500 renders wider than 400 and content-sized buttons would resize on
+            // toggle; the selected state already reads via the tint.
             '& .MuiToggleButton-root': {
               height: TOGGLE_BUTTON_HEIGHT_PX,
               minHeight: TOGGLE_BUTTON_HEIGHT_PX,
+              flex: '0 1 auto',
+              minWidth: 0,
             },
           }}
         >
@@ -4670,17 +4682,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             value="auto"
             selected={autoState === 'on'}
             onClick={handleAutoMinRequiredRolls}
-            sx={(theme) => ({
+            sx={{
               minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
               width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-              ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
               ...(autoState === 'mixed' ? {
                 borderStyle: 'dashed',
                 borderColor: mixedBorderColor,
                 color: mixedTextColor,
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : {}),
-            })}
+            }}
           >
             {t('headerMenuAuto')}
           </ToggleButton>
@@ -4707,25 +4718,23 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 selected={isSelected}
                 onClick={() => handleManualMinRequiredRolls(n)}
                 data-tour-id={`builder.min-rolls.button.${n}`}
-                sx={(theme) => ({
+                sx={{
                   position: 'relative',
-                  minWidth: 24,
-                  padding: 0,
+                  // overflow:visible (unlike Min Substats' buttons) so the absolutely-
+                  // positioned lock icon can paint above the button bounds; width sizing
+                  // itself comes from the group-level rule shared with Min Substats.
                   overflow: 'visible',
-                  ...(manualActive || lockedActive
-                    ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
-                    : {}),
                   ...(isMixed ? {
                     borderStyle: 'dashed',
                     borderColor: mixedBorderColor,
                     color: mixedTextColor,
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                   } : {}),
-                })}
+                }}
               >
-                <Box component="span" sx={{ fontSize: FONT_SIZE_BASE_PX }}>
-                  {n}
-                </Box>
+                {/* Bare digit like the Min Substats buttons — identical label markup keeps the
+                    two rows' button widths equal by construction. */}
+                {n}
                 {lockable ? (
                   <MarkdownTooltip
                     markdown={lockTooltip ?? ''}
@@ -4802,7 +4811,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </ToggleButton>
             )
           })}
-        </Box>
+        </ToggleButtonGroup>
         {minRequiredRollsOverrideActive
           ? renderWarningBadgeOverlay(buildRecipeOverridesBadgeTooltip(
               rollStateLabel(recipe.autoMinRequiredRolls, recipe.minRequiredRolls),
@@ -4935,8 +4944,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           })}
         </Box>
         <Collapse in={!builderCollapsed.requiredSubstats} timeout="auto" unmountOnExit>
-        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row. */}
-        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+        {/* Relative wrapper so the recipe-overrides badge can be anchored above the button row.
+            maxWidth+minWidth let the group COMPRESS in a tight column instead of the wrapper
+            keeping its content width and getting clipped by the column's overflow:hidden. */}
+        <Box sx={{ position: 'relative', display: 'inline-flex', maxWidth: '100%', minWidth: 0 }}>
         <ToggleButtonGroup
           exclusive
           size="small"
@@ -4991,17 +5002,18 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           <ToggleButton
             value="auto"
             selected={autoState === 'on'}
-            sx={(theme) => ({
+            // No selected fontWeight bump (same rule as Min Rolls): with a real Medium face
+            // (RSLH's Segoe UI) 500 renders wider and content-sized buttons resize on toggle.
+            sx={{
               minWidth: BUILDER_AUTO_TOGGLE_WIDTH_PX,
               width: BUILDER_AUTO_TOGGLE_WIDTH_PX,
-              ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
               ...(autoState === 'mixed' ? {
                 borderStyle: 'dashed',
                 borderColor: mixedBorderColor,
                 color: mixedTextColor,
                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
               } : {}),
-            })}
+            }}
           >
             {t('headerMenuAuto')}
           </ToggleButton>
@@ -5012,15 +5024,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 key={n}
                 value={String(n)}
                 selected={state === 'on'}
-                sx={(theme) => ({
-                  ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                sx={{
                   ...(state === 'mixed' ? {
                     borderStyle: 'dashed',
                     borderColor: mixedBorderColor,
                     color: mixedTextColor,
                     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                   } : {}),
-                })}
+                }}
               >
                 {n}
               </ToggleButton>
