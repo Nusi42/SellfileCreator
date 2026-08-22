@@ -25,6 +25,14 @@ export type RuntimeConfig = {
 
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
 
+// The only transports an RSL Helper endpoint may use. SSOT for both the launch-param scheme
+// gate below and the port extractor in externalWsProtocol.ts, so the two cannot drift on what
+// counts as a WebSocket URL. Values are `URL.protocol` strings, hence the trailing colon.
+const WS_SCHEMES: readonly string[] = ['ws:', 'wss:']
+
+// True when a parsed URL's protocol is a supported WebSocket scheme.
+export const isWebSocketProtocol = (protocol: string): boolean => WS_SCHEMES.includes(protocol)
+
 function sanitizePushEndpoint(value: unknown): string | undefined {
   // Only accept string inputs so we do not coerce unexpected objects.
   if (typeof value !== 'string') return undefined
@@ -34,7 +42,7 @@ function sanitizePushEndpoint(value: unknown): string | undefined {
   try {
     const url = new URL(trimmed)
     // WebSocket endpoints are the only supported transport now.
-    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
+    if (isWebSocketProtocol(url.protocol)) {
       return url.toString()
     }
   } catch {

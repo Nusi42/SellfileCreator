@@ -14,12 +14,16 @@ file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&player
 - `endpoint` — WebSocket URL of the locally running RSL Helper server. No longer required for a
   connection: the connection is a persisted user preference (the robot toggle), so the app
   auto-connects on later loads without any param. On a launch that *does* carry `endpoint`, the
-  app turns the preference on, **adopts the URL's port** as the persisted port
-  (`extractRslHelperPortFromEndpoint`; a portless `ws://`/`wss://` URL implies 80/443), and then
-  strips the param from the address bar so it cannot re-assert stale state on reload. Only the
-  port is taken from the URL — the connection is always rebuilt as `ws://localhost:<port>/`, so a
-  non-localhost host in `endpoint` is ignored. Users can change the port by right-clicking the
-  connect button.
+  app turns the preference on, **adopts the URL's port** as the persisted port, and then strips
+  the param from the address bar so it cannot re-assert stale state on reload. Only the port is
+  taken from the URL — the connection is always rebuilt as `ws://localhost:<port>/`, so a
+  non-localhost host in `endpoint` is ignored. The scheme must be `ws://` or `wss://`; any other
+  scheme is rejected and the param ignored. **Always spell the port out** — a URL with no
+  explicit port (`ws://localhost/`) carries no port information and leaves the stored port
+  untouched, rather than falling back to the scheme's implied 80/443. Users can also set the
+  port by right-clicking the connect button, but an `endpoint` that names a port wins: it
+  overwrites the stored value permanently, so it applies to every later start too, including
+  ones launched with no `endpoint` at all.
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
 - `playerid` — optional; the game's Player ID for the account (e.g. `um12345678`). Routes the
   session to the matching Sellfile Creator account, binding or creating one as needed.

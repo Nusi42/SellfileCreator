@@ -1,6 +1,9 @@
 import type { ExternalCommand } from './externalCommands'
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 import { resolveAccountScopedKey } from './accounts'
+// Shared WebSocket-scheme predicate, so the port extractor below accepts exactly the schemes
+// the launch-param sanitizer does.
+import { isWebSocketProtocol } from './runtimeConfig'
 
 // Default port for a locally running RSL Helper WebSocket server.
 export const RSL_HELPER_DEFAULT_PORT = 8080
@@ -80,24 +83,24 @@ export const setSimpleExpertMode = (enabled: boolean): void => {
 export const buildRslHelperWsEndpoint = (port?: number): string =>
   `ws://localhost:${port ?? getRslHelperPort()}/`
 
-// Default WebSocket endpoint, built from the default port.
-export const RSL_HELPER_DEFAULT_WS_ENDPOINT = `ws://localhost:${RSL_HELPER_DEFAULT_PORT}/`
-
 // Extract the port from a launch `?endpoint=ws://host:port/` URL, or null when it has none.
 // The migration path (App.tsx) uses this so a helper running on a non-default port is still
 // reached after the param is stripped — without it the URL's port was parsed and discarded,
 // and the session silently fell back to the persisted/default port.
-// A portless ws:// URL implies 80 (wss:// implies 443) per URL semantics; we return those
-// explicitly because `URL.port` is the empty string for a scheme's default port.
+// Only an EXPLICIT port counts. A portless `ws://localhost/` implies 80 per URL semantics, but
+// 80 is never where RSL Helper listens — adopting it would overwrite a working persisted port
+// (possibly one the user set by hand) with a port nothing serves. `URL.port` is '' both for a
+// truly portless URL and for one spelling out the scheme default, and that ambiguity is fine
+// here: either way we report "no port information" and the caller keeps what it has.
+// The scheme gate comes from isWebSocketProtocol (runtimeConfig.ts), which is also what the
+// launch-param sanitizer uses.
 export const extractRslHelperPortFromEndpoint = (endpoint: string): number | null => {
   try {
     const url = new URL(endpoint)
     // Gate on the scheme FIRST: a port from a non-WebSocket URL is not an RSL Helper port,
     // even though `URL` happily parses one out of e.g. http://localhost:8080/.
-    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return null
-    if (url.port) return parseRslHelperPort(url.port)
-    // No explicit port — `URL.port` is '' for a scheme's default, so fill it in.
-    return url.protocol === 'ws:' ? 80 : 443
+    if (!isWebSocketProtocol(url.protocol)) return null
+    return parseRslHelperPort(url.port)
   } catch {
     // Unparseable endpoint — the caller keeps its persisted port.
     return null

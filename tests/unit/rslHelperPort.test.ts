@@ -8,6 +8,7 @@ import {
   RSL_HELPER_PORT_MIN,
   RSL_HELPER_PORT_MAX,
 } from '../../src/lib/externalWsProtocol.js'
+import { isWebSocketProtocol } from '../../src/lib/runtimeConfig.js'
 
 test('parseRslHelperPort accepts the valid TCP range and rejects everything else', () => {
   // Boundaries are inclusive on both ends.
@@ -29,13 +30,29 @@ test('extractRslHelperPortFromEndpoint recovers the launch port', () => {
   // The regression this guards: a non-default port in ?endpoint= must survive the migration.
   assert.equal(extractRslHelperPortFromEndpoint('ws://localhost:9099/'), 9099)
   assert.equal(extractRslHelperPortFromEndpoint('ws://localhost:8080/'), 8080)
-  assert.equal(extractRslHelperPortFromEndpoint('wss://127.0.0.1:443/'), 443)
+  assert.equal(extractRslHelperPortFromEndpoint('wss://127.0.0.1:9443/'), 9443)
 })
 
-test('extractRslHelperPortFromEndpoint falls back to the scheme default port', () => {
-  // URL.port is '' for a scheme's default port, so these must be filled in explicitly.
-  assert.equal(extractRslHelperPortFromEndpoint('ws://localhost/'), 80)
-  assert.equal(extractRslHelperPortFromEndpoint('wss://localhost/'), 443)
+test('extractRslHelperPortFromEndpoint ignores a portless endpoint', () => {
+  // A portless ws:// URL implies 80 per URL semantics, but 80 is never where RSL Helper
+  // listens — adopting it would overwrite a working persisted port with a dead one. null
+  // means "no port information", which makes the caller keep what it already has.
+  assert.equal(extractRslHelperPortFromEndpoint('ws://localhost/'), null)
+  assert.equal(extractRslHelperPortFromEndpoint('wss://localhost/'), null)
+  // URL normalizes an explicitly-spelled scheme default away to '', so it reads the same way.
+  assert.equal(extractRslHelperPortFromEndpoint('ws://localhost:80/'), null)
+  assert.equal(extractRslHelperPortFromEndpoint('wss://localhost:443/'), null)
+})
+
+test('isWebSocketProtocol gates exactly the supported transports', () => {
+  // Same predicate the launch-param sanitizer uses, so the two cannot drift.
+  assert.equal(isWebSocketProtocol('ws:'), true)
+  assert.equal(isWebSocketProtocol('wss:'), true)
+  assert.equal(isWebSocketProtocol('http:'), false)
+  assert.equal(isWebSocketProtocol('https:'), false)
+  // Inherited Object members must not read as supported schemes.
+  assert.equal(isWebSocketProtocol('toString'), false)
+  assert.equal(isWebSocketProtocol('constructor'), false)
 })
 
 test('extractRslHelperPortFromEndpoint returns null for unusable endpoints', () => {
