@@ -97,27 +97,48 @@ const NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX = /<!--(\s*)keep-uniques\b/gi
 
 // Canonicalize all known legacy note aliases at SFC IO boundaries: the marker wording,
 // plus the behaviour-tag selectors that predate the recipe flags.
-const canonicalizeLegacyNoteMarkers = (note: string): string => (
-  transcodeLegacyNoteTagSelectors(
-    canonicalizeNoteRecipeOverridesMarkers(note)
-      .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards'),
-  )
-)
+//
+// The selector rewrite is gated on the same legacy window as the recipe-tag transcode, so a
+// file cannot have its tags left alone while its notes are rewritten to match tags that are
+// no longer there. Marker canonicalization is unconditional — it is pure wording, with no
+// behaviour attached, and current files never contain the old spelling anyway.
+const canonicalizeLegacyNoteMarkers = (note: string, sourceVersion?: string): string => {
+  const canonical = canonicalizeNoteRecipeOverridesMarkers(note)
+    .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
+  return usesLegacyBehaviourTags(sourceVersion) ? transcodeLegacyNoteTagSelectors(canonical) : canonical
+}
 
 /** True when the SFC version string is at or below the given major.minor.patch ceiling.
  *  Pre-release / build-metadata suffixes (e.g. -dev, +build) are stripped before comparison.
- *  A missing or unparseable version is treated as old (returns true). */
+ *  A missing or unparseable version is treated as old (returns true) — hand-written and
+ *  third-party files carry arbitrary Version strings, and reading those as NEW would skip
+ *  the migrations they most likely need. */
 function sfcVersionAtMost(version: string | undefined, major: number, minor: number, patch: number): boolean {
   if (!version) return true
   const core = version.replace(/[-+].*$/, '')
   const parts = core.split('.').map(Number)
-  const vmaj = parts[0] ?? 0
-  const vmin = parts[1] ?? 0
-  const vpatch = parts[2] ?? 0
+  // A non-numeric segment parses to NaN, which `??` does NOT catch (it is not nullish) and
+  // which loses every comparison below — so coerce it to 0 to honour the "unparseable is
+  // old" contract above rather than silently reporting such a file as new.
+  const segment = (raw: number | undefined): number => (Number.isFinite(raw) ? Number(raw) : 0)
+  const vmaj = segment(parts[0])
+  const vmin = segment(parts[1])
+  const vpatch = segment(parts[2])
   if (vmaj !== major) return vmaj < major
   if (vmin !== minor) return vmin < minor
   return vpatch <= patch
 }
+
+/**
+ * True when a file predates the recipe flags and may still encode behaviour as magic tags.
+ *
+ * THE definition of the legacy-transcode window, so the recipe-tag pass and the note-selector
+ * pass can never disagree about which files get converted. 1.0.41 is the last release that
+ * wrote behaviour tags; anything newer already stores the flags, so a legacy spelling there is
+ * a deliberate user label and must survive as one. A missing/unparseable Version reads as old,
+ * which is what keeps hand-written files converting.
+ */
+const usesLegacyBehaviourTags = (version: string | undefined): boolean => sfcVersionAtMost(version, 1, 0, 41)
 
 /** Convert legacy space-separated improvchance values to canonical comma-separated form.
  *  "improvchance = 25 35 50 65" → "improvchance = 25, 35, 50, 65" (1–4 values). */
@@ -427,13 +448,23 @@ function mergeMetasetNames(base: BuilderRecipe, metasets: Metaset[], extras: rea
  *
  * `runtimeNameMap` is only supplied by autosave restore to resolve dormant
  * runtime set names without activating the runtime catalog.
+ *
+ * `sourceVersion` is the owning file's `Version`. It gates the legacy behaviour-tag
+ * transcode: only files at or below the last tag-writing release are converted, so a legacy
+ * spelling typed into a current file survives as the plain label the user meant. Omitted by
+ * callers with no file context, which reads as "old" and therefore still converts.
  */
-export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, number>): BuilderRecipe {
+export function normalizeRecipe(
+  input: unknown,
+  runtimeNameMap?: Map<string, number>,
+  sourceVersion?: string,
+): BuilderRecipe {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
   const recipes = Array.isArray(rec['Recipes']) ? rec['Recipes'] : rec['Configs']
   if (Array.isArray(recipes) && recipes.length > 0) {
     const first = recipes[0]
-    if (isRecord(first)) return normalizeRecipe(first)
+    // Unwrapping a nested payload keeps the same file context.
+    if (isRecord(first)) return normalizeRecipe(first, runtimeNameMap, sourceVersion)
   }
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const parsedReadableSubstats = parseReadableSubstatEntries(rec['substats'])
@@ -525,11 +556,16 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
 
   // Resolve appearance from the current nested form or legacy flat fields (incl. [#RRGGBB]).
   const baseAppearance = readAppearanceFromRecord(rec)
-  // Split the stored tags into surviving labels plus the flags older files encoded as
-  // magic tags. Runs for every file: a hand-written or third-party .sfc can carry any
-  // Version string (or none), so gating this on the version would silently drop the
-  // author's intent. See LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT for the removal plan.
-  const transcodedTags = transcodeLegacyRecipeTags(normalizeTagList(rec['Tags'] ?? rec['tags']))
+  // Split the stored tags into surviving labels plus the flags older files encoded as magic
+  // tags — but ONLY for files old enough to have written them. A current file already stores
+  // the real flag keys, so a legacy-looking tag there is a deliberate user label and
+  // converting it would silently eat a name the user chose. See
+  // LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT for the removal plan.
+  const rawTagList = normalizeTagList(rec['Tags'] ?? rec['tags'])
+  const transcodedTags = usesLegacyBehaviourTags(sourceVersion)
+    ? transcodeLegacyRecipeTags(rawTagList)
+    // Outside the window tags pass through untouched and carry no flags.
+    : { tags: rawTagList ?? [] }
   // Explicit flag keys are authoritative when present — a current build wrote them, so
   // they must beat anything a leftover legacy tag in the same file implied.
   const ignoredBySafeguards = typeof rec[SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS] === 'boolean'
@@ -1098,9 +1134,12 @@ export function parseSfcObject(
   const substatTargets: SubstatTargetTable = (!Array.isArray(parsed) && parsedRec['Minima'])
     ? normalizeSubstatTargets(parsedRec['Minima'])
     : prev.substatTargets
+  // Read the file Version before the recipes: it gates the legacy behaviour-tag transcode,
+  // so it has to be known while each recipe is normalized rather than after.
+  const rawVersion = typeof parsedRec['Version'] === 'string' ? parsedRec['Version'] : undefined
   const recipes: BuilderRecipe[] = rawRecipes.map((raw) => {
     // Only autosave restore provides `runtimeSetNameMap`.
-    const base = normalizeRecipe(raw, runtimeSetNameMap)
+    const base = normalizeRecipe(raw, runtimeSetNameMap, rawVersion)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
     // Current format: artifactMetaSetNames contains display names directly.
     const names = Array.isArray(rec['artifactMetaSetNames']) ? (rec['artifactMetaSetNames'] as unknown[]).map(String) : []
@@ -1181,7 +1220,6 @@ export function parseSfcObject(
   const selectedIndex = firstSelectableRecipeIndex(recipes)
   // Canonicalize legacy note markers during SFC import so runtime state uses new wording only.
   // Accept both the legacy plain-string form and the current array-of-lines form.
-  const rawVersion = typeof parsedRec['Version'] === 'string' ? parsedRec['Version'] : undefined
   const rawNote = parsedRec['Note']
   const noteStr = Array.isArray(rawNote)
     ? rawNote.map(String).join('\n')
@@ -1190,7 +1228,7 @@ export function parseSfcObject(
   const migratedNoteStr = noteStr && sfcVersionAtMost(rawVersion, 1, 0, 13)
     ? migrateImprovchanceSpacesToCommas(noteStr)
     : noteStr
-  const note = migratedNoteStr ? canonicalizeLegacyNoteMarkers(migratedNoteStr) : undefined
+  const note = migratedNoteStr ? canonicalizeLegacyNoteMarkers(migratedNoteStr, rawVersion) : undefined
   // Dynamic-overrides answers ride beside the Note. Reuse the canonical normalizers so a
   // hand-edited or truncated file is sanitized exactly like an autosave payload (SSOT).
   // `null` preserves "key absent" — normalize* returns null for missing/invalid input.
@@ -1634,7 +1672,9 @@ export function buildSfcPayload(args: {
     RecipesEnabled: recipesEnabled !== false,
     // Canonicalize legacy marker aliases so exports never re-emit old note keywords.
     // Store as an array of lines so the saved file is diff-friendly and copy-readable.
-    ...(note ? { Note: canonicalizeLegacyNoteMarkers(note).split('\n') } : {}),
+    // Passed the version we are WRITING, so the legacy selector rewrite does not fire: a
+    // legacy spelling surviving to save is the author's own text and must round-trip as-is.
+    ...(note ? { Note: canonicalizeLegacyNoteMarkers(note, version).split('\n') } : {}),
     // Dynamic-overrides answers sit directly after the Note they belong to. Each key is
     // omitted when it carries nothing, keeping override-free files unchanged on disk.
     ...(recipeAnswersOut ? { [NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]: recipeAnswersOut } : {}),

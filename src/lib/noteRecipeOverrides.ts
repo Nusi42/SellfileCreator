@@ -28,7 +28,6 @@ import {
   DSL_FIELD_REWORK_GATE,
   isIgnoredBySafeguards,
   legacyRecipeFlagForTagToken,
-  type LegacyRecipeFlag,
 } from './recipeFlags'
 // Wire tokens for the tri-state gate — the same strings the SFC payload and HSF export use.
 import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from './generated/domainConstants'
@@ -1244,71 +1243,6 @@ const parseReworkGateValue = (raw: string): ReworkGate | 'any' | null => {
   return hit ?? null
 }
 
-/** The replacement DSL text a legacy behaviour tag folds onto — one definition, used by the
- *  deprecation diagnostic below so the message always names DSL the parser really accepts. */
-const legacyRecipeFlagReplacementText = (legacy: LegacyRecipeFlag): string => (
-  legacy.kind === 'ignoredBySafeguards'
-    // The legacy tag only ever meant "on"; there was no tag for the false side.
-    ? `${DSL_FIELD_IGNORED_BY_SAFEGUARDS}=${NOTE_OVERRIDES_BOOLEAN_KEYWORDS[0]}`
-    : `${DSL_FIELD_REWORK_GATE}=${legacy.gate}`
-)
-
-/**
- * Marker every deprecation-only diagnostic carries.
- *
- * The `DiagnosticSpan` shape has no severity field, so consumers that treat any diagnostic
- * as "this fragment is broken" would misread a deprecation. Rather than widen the shape for
- * one case, deprecations are tagged with this token and recognized through
- * `isDeprecationDiagnostic` — one definition, so no consumer hand-rolls the check.
- */
-const DEPRECATION_DIAGNOSTIC_MARKER = 'is deprecated —'
-
-/** True when a diagnostic only reports a deprecated spelling, not a parse failure. */
-export const isDeprecationDiagnostic = (diagnostic: DiagnosticSpan): boolean => (
-  diagnostic.message.includes(DEPRECATION_DIAGNOSTIC_MARKER)
-)
-
-/**
- * The diagnostics that actually mean "this text is not usable DSL".
- *
- * THE definition of that rule, so every consumer that decides between the structured model
- * and raw-DSL display agrees. Deprecations are filtered out: the parser understood the text
- * and already folded it onto the current spelling, so the structured model represents it
- * exactly and would re-serialize it canonically on save. Dropping such a block to raw would
- * make the shipped preset's own legacy note uneditable.
- */
-export const blockingDiagnostics = (diagnostics: readonly DiagnosticSpan[]): DiagnosticSpan[] => (
-  diagnostics.filter((diagnostic) => !isDeprecationDiagnostic(diagnostic))
-)
-
-/**
- * Flag a legacy behaviour tag as deprecated WITHOUT rejecting it.
- *
- * Deliberately a diagnostic and not an error: the note still parses and still applies, so an
- * old preset keeps working untouched — the span only tells the editor to underline the old
- * spelling and offer the replacement. Same collector shape as `reportUnknownField`, whose
- * lenient-parse contract this extends to the tag→flag transcode window.
- *
- * Because it is only a deprecation, `blockingDiagnostics` filters it out for the consumers
- * that would otherwise fall back to raw-DSL display, so a block still using the legacy
- * spelling stays editable as rows and re-serializes to the new spelling on save.
- */
-const reportDeprecatedLegacyFlagTag = (
-  legacy: LegacyRecipeFlag,
-  valueToken: Token,
-  diags: DiagnosticSpan[] | undefined,
-  blockOffset: number,
-): void => {
-  // No collector means this is a plain parse; the fold still happened either way.
-  if (!diags) return
-  const from = blockOffset + valueToken.index
-  diags.push({
-    from,
-    to: from + valueToken.value.length,
-    message: `'tag=${valueToken.value}' ${DEPRECATION_DIAGNOSTIC_MARKER} use '${legacyRecipeFlagReplacementText(legacy)}' instead`,
-  })
-}
-
 const parseSelectorTokens = (
   tokens: Token[],
   absoluteOffset = 0,
@@ -1375,9 +1309,10 @@ const parseSelectorTokens = (
       // A tag that used to CARRY behaviour is now a field. Fold it onto the flag condition so
       // notes written before the flags existed keep selecting what their author meant — the
       // tags themselves no longer survive load, so a `tag=` term here would match nothing.
+      // Silent by design: the SFC load path already rewrites these selectors, so reaching
+      // here means hand-typed DSL, and the fold makes it mean exactly what it says.
       const legacy = legacyRecipeFlagForTagToken(normalized)
       if (legacy) {
-        reportDeprecatedLegacyFlagTag(legacy, valueToken, diags, absoluteOffset)
         return legacy.kind === 'ignoredBySafeguards'
           ? { kind: 'ignoredBySafeguards', value: true }
           : { kind: 'reworkGate', value: legacy.gate }

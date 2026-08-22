@@ -52,7 +52,6 @@ import {
   NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
-  blockingDiagnostics,
 } from './noteRecipeOverrides'
 // Behaviour-flag field tokens + the gate's wire values, so the widget metadata spells them
 // exactly as the grammar does (the metadata Records are keyed BY these tokens).
@@ -121,10 +120,10 @@ const parseFragment = (
 ): DraftSelectorBlock | null => {
   const raw = buildFragmentBlock(hostDomain, blockDomain, selectorText, operationsText)
   const { draft, diagnostics } = parseOverridesBlockDraft(raw)
-  // Any BLOCKING diagnostic means the fragment is not clean DSL — reject it outright.
-  // blockingDiagnostics is the single definition of which diagnostics count (deprecations
-  // do not: the fragment parsed fine and already folded onto the current spelling).
-  const blocking = blockingDiagnostics(diagnostics)
+  // Any diagnostic means the fragment is not clean DSL — reject it outright. Legacy
+  // behaviour tags produce none: they are rewritten at SFC load and folded silently, so a
+  // fragment still using an old spelling parses clean and stays editable as rows.
+  const blocking = diagnostics
   if (blocking.length > 0 || !draft || draft.kind !== 'question') return null
   const option = draft.options[0]
   if (!option || option.body.kind !== 'structured') return null

@@ -34,7 +34,6 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   parseRecipeSelectorBlock,
   parseRecipeSelectorBlockCross,
-  blockingDiagnostics,
 } from './noteRecipeOverrides'
 import {
   type SafeguardOverridesOperation,
@@ -265,10 +264,11 @@ const toDraftOption = (
   // (diagnostics inside the option) or the round-trip gate fails. Raw needs the
   // body span; without it the structured form is the only representation we have.
   //
-  // "Suspect" means a BLOCKING diagnostic; blockingDiagnostics owns that rule (deprecations
-  // are excluded there). The round-trip gate below is the real correctness check anyway,
-  // since it re-serializes the structured form and compares.
-  const blockingDiags = blockingDiagnostics(diags)
+  // Any diagnostic makes the source suspect. Legacy behaviour tags do NOT produce one:
+  // they are rewritten at SFC load and folded silently by the parser, so a legacy note
+  // reaches here as clean DSL. The round-trip gate below is the real correctness check
+  // anyway, since it re-serializes the structured form and compares.
+  const blockingDiags = diags
   let body: DraftOptionBody = structured
   const canExtractRaw = option.bodyFrom != null && option.sourceTo != null
   if (canExtractRaw

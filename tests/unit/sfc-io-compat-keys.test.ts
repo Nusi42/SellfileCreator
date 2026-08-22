@@ -305,6 +305,77 @@ test('an explicit recipe flag key wins over a stale legacy tag in the same file'
   assert.equal(parsed.recipes[0]?.tags, undefined)
 })
 
+// Parse a single recipe carrying `tags` at the given file Version, so the tests below can
+// state the version window as the only variable.
+const parseTaggedAt = (version: string | undefined, tags: string[]): BuilderRecipe | undefined => parseSfcObject(
+  {
+    ...(version === undefined ? {} : { Version: version }),
+    Recipes: [{ ...buildRecipe('Windowed'), Tags: tags }],
+  },
+  { metasets: [], substatTargets: defaultSubstatTargets() },
+).recipes[0]
+
+test('the legacy tag transcode only runs for files at or below the last tag-writing release', () => {
+  // 1.0.41 is the last release that WROTE behaviour tags, so it is inside the window.
+  const inside = parseTaggedAt('1.0.41', ['ignore_keep_unique', 'speed'])
+  assert.equal(inside?.ignoredBySafeguards, true, 'a 1.0.41 file still converts')
+  assert.deepEqual(inside?.tags, ['speed'], 'the behaviour tag is lifted out of the labels')
+
+  // 1.0.42 already stores the real flag keys, so a legacy-looking tag there is a plain
+  // user label the author chose — converting it would silently eat the name.
+  const outside = parseTaggedAt('1.0.42', ['ignore_keep_unique', 'speed'])
+  assert.equal(outside?.ignoredBySafeguards, undefined, 'a current file does not convert')
+  assert.deepEqual(outside?.tags, ['ignore_keep_unique', 'speed'], 'the label survives verbatim')
+})
+
+test('a pre-release suffix does not push a file out of the legacy window', () => {
+  // Version strings carry -dev during development; the suffix is stripped before compare,
+  // so 1.0.41-dev must behave exactly like 1.0.41 rather than reading as newer.
+  assert.equal(parseTaggedAt('1.0.41-dev', ['if_reworked'])?.reworkGate, REWORK_GATE_REWORKED)
+  // …and the release just above it is still outside, suffix or not.
+  assert.equal(parseTaggedAt('1.0.42-dev', ['if_reworked'])?.reworkGate, undefined)
+})
+
+test('a missing or unparseable Version converts, so hand-written files are not stranded', () => {
+  // Third-party and hand-edited .sfc files carry arbitrary or absent Version strings.
+  // Reading those as NEW would skip the migration they are most likely to need, so both
+  // forms fall inside the window. Guards the NaN path: a non-numeric segment must not
+  // silently compare as newer than the ceiling.
+  assert.equal(parseTaggedAt(undefined, ['ignore_keep_unique'])?.ignoredBySafeguards, true, 'absent Version converts')
+  assert.equal(parseTaggedAt('handwritten', ['ignore_keep_unique'])?.ignoredBySafeguards, true, 'unparseable Version converts')
+  assert.equal(parseTaggedAt('v1.0.41', ['ignore_keep_unique'])?.ignoredBySafeguards, true, 'a leading v is not a version number')
+})
+
+test('note behaviour-tag selectors are rewritten on the same window as the tags', () => {
+  // The two passes must agree: rewriting a note to match flags while leaving the tags
+  // alone (or vice versa) would leave the file internally inconsistent.
+  const note = '<!-- recipe-overrides q "q" cb "o" id=o { @tag=if_reworked { action=sell } } -->'
+  const parseNoteAt = (version: string): string | undefined => parseSfcObject(
+    { Version: version, Recipes: [buildRecipe('N')], Note: note },
+    { metasets: [], substatTargets: defaultSubstatTargets() },
+  ).note
+
+  // Inside the window the selector is rewritten onto the flag comparison.
+  assert.match(String(parseNoteAt('1.0.41')), /reworkgate=reworked/i, 'a legacy note is rewritten')
+  // Outside it the author's text is left exactly as written.
+  assert.match(String(parseNoteAt('1.0.42')), /@tag=if_reworked/, 'a current note is left alone')
+})
+
+test('saving never rewrites a legacy selector the author kept', () => {
+  // The save path writes a CURRENT file, so a legacy spelling surviving to this point was
+  // typed deliberately and must round-trip verbatim rather than being converted on write.
+  const note = '<!-- recipe-overrides q "q" cb "o" id=o { @tag=if_reworked { action=sell } } -->'
+  const payload = buildSfcPayload({
+    version: '1.0.42',
+    metasets: [],
+    substatTargets: defaultSubstatTargets(),
+    recipes: [buildRecipe('Keep')],
+    note,
+  }) as Record<string, unknown>
+  const written = (payload['Note'] as string[]).join('\n')
+  assert.match(written, /@tag=if_reworked/, 'the selector survives the write unchanged')
+})
+
 test('SFC round-trip preserves not:true rollBounds for substat', () => {
   // User-provided SFC shape that uses the ¬ (not-present) condition.
   const sfc = {

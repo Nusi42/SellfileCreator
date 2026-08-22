@@ -1284,7 +1284,7 @@ test('behaviour-flag conditions and assignments round-trip through the canonical
   }
 })
 
-test('legacy behaviour tags still parse — folded onto the flag with a deprecation diagnostic', () => {
+test('legacy behaviour tags still fold onto the flag, silently', () => {
   // Every shipped legacy spelling, and the flag condition it must fold onto.
   const cases: Array<[string, RecipeOverridesSelector]> = [
     ['ignore_by_safeguards', { kind: 'ignoredBySafeguards', value: true }],
@@ -1296,17 +1296,14 @@ test('legacy behaviour tags still parse — folded onto the flag with a deprecat
   ]
   for (const [tag, expected] of cases) {
     // The old `tag=` spelling parses into the NEW selector kind, not a tag selector.
-    // Asserted through the real note parse, not the editor's fragment parser: the latter
-    // rejects anything carrying a diagnostic, and a deprecated spelling carries one.
     assert.deepEqual(flagInstructions(`@tag=${tag} { action=sell }`)[0]?.selector, expected, `tag=${tag} must fold onto the flag`)
-    // …and it is a DEPRECATION, not an error: the parse succeeded above, and the span
-    // names the replacement so the editor can offer it.
+    // …and it does so WITHOUT a diagnostic. Legacy spellings are converted at SFC load, so
+    // text still using one here was typed by hand and means exactly what the fold makes it
+    // mean — there is nothing left to warn about, and a warning would only make the block
+    // uneditable in the visual editor for no benefit.
     const ds: { from: number; to: number; message: string }[] = []
     collectRecipeOverridesDiagnostics(`<!-- recipe-overrides q "q" cb "o" id=o { @tag=${tag} { action=sell } } -->`, 0, ds)
-    const hit = ds.find((d) => d.message.includes(tag))
-    assert.ok(hit, `expected a deprecation diagnostic for tag=${tag}`)
-    assert.match(hit.message, /deprecated/, 'the diagnostic must read as a deprecation, not a rejection')
-    assert.match(hit.message, /ignoredbysafeguards=|reworkgate=/, 'the diagnostic must name the replacement DSL')
+    assert.deepEqual(ds, [], `tag=${tag} must fold without emitting a diagnostic`)
   }
   // A plain label is untouched — only the behaviour spellings fold.
   assert.deepEqual(parseSelectorText('recipe', 'recipe', 'tag=chaos'), { kind: 'tag', mode: 'eq', values: ['chaos'] })
@@ -1314,11 +1311,11 @@ test('legacy behaviour tags still parse — folded onto the flag with a deprecat
 
 test('a legacy behaviour tag stays editable in the visual editor', () => {
   // The visual editor drops an option to verbatim raw DSL whenever a diagnostic lands
-  // inside it, because a diagnostic normally means "we did not understand this". A
-  // deprecation is the opposite: the parser understood it and already folded it onto the
-  // current spelling, so the structured model represents it exactly. Without the
-  // deprecation exemption, every legacy block — including the one in the shipped preset —
-  // would render as an uneditable blob of text purely because it uses an old tag name.
+  // inside it, because a diagnostic means "we did not understand this". A legacy behaviour
+  // tag produces none: the parser understands it and folds it onto the current spelling, so
+  // the structured model represents it exactly and re-serializes it canonically on save.
+  // This is what keeps a legacy block — including one in a shipped preset — editable as
+  // rows rather than an uneditable blob of text purely because it uses an old tag name.
   for (const [text, expected] of [
     ['tag=ignore_by_safeguards', { kind: 'ignoredBySafeguards', value: true }],
     ['tag=if_reworked', { kind: 'reworkGate', value: REWORK_GATE_REWORKED }],
@@ -1328,7 +1325,7 @@ test('a legacy behaviour tag stays editable in the visual editor', () => {
   ] as const) {
     assert.deepEqual(parseSelectorText('recipe', 'recipe', text), expected, `${text} must stay editable`)
   }
-  // The exemption is narrow: genuinely unparseable DSL is still rejected outright, so a
+  // The fold is narrow: genuinely unparseable DSL is still rejected outright, so a
   // typo cannot silently become an editable row that re-serializes to something else.
   assert.equal(parseSelectorText('recipe', 'recipe', 'nonsensefield=7'), null)
   assert.equal(parseSelectorText('recipe', 'recipe', 'reworkgate=someday'), null)
