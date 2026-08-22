@@ -93,12 +93,24 @@ import { SeparatorDividerRow } from './SeparatorDividerRow'
 
 
 export type SafeguardChipsPanelProps = {
+  // The DISPLAY rules: stored rules with the dynamic-overrides instructions already applied.
+  // Read-only, for rendering. Every mutation must go through `onRulesChange`'s UPDATER form so
+  // it is applied to the STORED rules instead — see the note on `onRulesChange`.
   rules: SafeguardRule[]
   selectedRuleIdx: number | null
   onSelect: (ruleIdx: number) => void
   // `displayOnly` marks a change that alters presentation state only. Such a change produces
   // no history descriptor by design, so the parent must be told it is real rather than a no-op.
-  onRulesChange: (next: SafeguardRule[], options?: { displayOnly?: boolean }) => void
+  //
+  // Always hand this an UPDATER, never an array built from `rules`: that prop is override-applied,
+  // so committing a list derived from it bakes the overrides into the stored document — and from
+  // there into the saved .sfc. The updater receives the STORED rules, so structural edits (group,
+  // move, delete, paste) rebase onto pre-override values. Baking overrides in is a real feature,
+  // but a deliberate one: it lives in App's `applySafeguardOverridesToRules`.
+  onRulesChange: (
+    next: SafeguardRule[] | ((prev: SafeguardRule[]) => SafeguardRule[]),
+    options?: { displayOnly?: boolean },
+  ) => void
   maxHeightPx: number | undefined
   // When true the paper is a fixed-height flex container; use minHeight:0 + maxHeight:100%
   // so the chips list flex-fills the available wrapper space rather than holding a fixed size.
@@ -575,13 +587,16 @@ export default function SafeguardChipsPanel({
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
+  // Forward the edit to the parent UNRESOLVED. Resolving it here would run it against the
+  // override-applied `rules` prop and persist those values; the parent applies it to the stored
+  // rules instead. Index-based edits stay correct because the display and stored arrays are
+  // positionally identical — overrides rewrite a rule's fields, never the list's shape.
   const mutateRules = useCallback((
     action: SafeguardRule[] | ((prev: SafeguardRule[]) => SafeguardRule[]),
     options?: { displayOnly?: boolean },
   ) => {
-    const next = typeof action === 'function' ? action(rules) : action
-    onRulesChange(next, options)
-  }, [rules, onRulesChange])
+    onRulesChange(action, options)
+  }, [onRulesChange])
 
   // ── name editing ─────────────────────────────────────────────────────────
 
@@ -761,15 +776,19 @@ export default function SafeguardChipsPanel({
   const handleDuplicateRule = useCallback((ruleIdx: number) => {
     // Delegate to parent when in multi-select mode so grouped duplicates work.
     if (onRuleDuplicate) { onRuleDuplicate(ruleIdx); return }
-    const source = rules[ruleIdx]
-    if (!source) return
-    // Deep-cloned so no two chips ever share a reference (the identity rule multi-select and
-    // history depend on). The clone lands right after its source, so a duplicated group member
-    // is adjacent to its siblings and simply stays a member.
-    const duplicated = cloneSafeguardRule(source)
-    const next = rules.slice()
-    next.splice(ruleIdx + 1, 0, duplicated)
-    mutateRules(next)
+    if (!rules[ruleIdx]) return
+    // Duplicate from the STORED rule, not the display one: cloning the override-applied chip
+    // would persist the overridden values as the copy's own.
+    mutateRules((prev) => {
+      const source = prev[ruleIdx]
+      if (!source) return prev
+      // Deep-cloned so no two chips ever share a reference (the identity rule multi-select and
+      // history depend on). The clone lands right after its source, so a duplicated group member
+      // is adjacent to its siblings and simply stays a member.
+      const next = prev.slice()
+      next.splice(ruleIdx + 1, 0, cloneSafeguardRule(source))
+      return next
+    })
     // Select the clone; the selectedRuleIdx effect will scroll it into view.
     onSelect(ruleIdx + 1)
   }, [mutateRules, onRuleDuplicate, rules, onSelect])
@@ -778,36 +797,36 @@ export default function SafeguardChipsPanel({
   // Every one of these delegates its array maths to lib/safeguardGroups, which also repairs
   // the runs afterwards — no membership logic is written twice.
 
+  // Every group helper below runs against the STORED rules via the updater. Running them on the
+  // display prop would seed the new group's requiredCount/countMode from override-applied values
+  // AND carry every untouched rule through in its overridden form — silently baking the whole
+  // document's dynamic overrides in. The membership decision is positional, so it is unaffected.
+
   // Turn a selection into a new group. The selection is CLEARED rather than moved: selecting
   // through onSelect here would auto-apply the still-pending builder draft to whatever now sits
   // at the old index, and grouping moves the block to its first member's slot.
   const handleGroupSelection = useCallback((indices: readonly number[]) => {
-    const grouped = groupSafeguardSelection(rules, indices)
-    if (!grouped) return
-    mutateRules(grouped.rules)
+    // Probed on the display list first so an impossible selection never opens a history entry;
+    // the committed result is recomputed from the stored rules.
+    if (!groupSafeguardSelection(rules, indices)) return
+    mutateRules((prev) => groupSafeguardSelection(prev, indices)?.rules ?? prev)
     onClearSelection?.()
   }, [mutateRules, onClearSelection, rules])
 
   // Dissolve the whole group; its members keep the counts they never stopped carrying.
   const handleUngroup = useCallback((ruleIdx: number) => {
-    const next = ungroupSafeguardRun(rules, ruleIdx)
-    if (!next) return
-    mutateRules(next)
-  }, [mutateRules, rules])
+    mutateRules((prev) => ungroupSafeguardRun(prev, ruleIdx) ?? prev)
+  }, [mutateRules])
 
   // Remove one member; a run left with one member is dissolved by the normalizer.
   const handleLeaveGroup = useCallback((ruleIdx: number) => {
-    const next = removeSafeguardFromGroup(rules, ruleIdx)
-    if (!next) return
-    mutateRules(next)
-  }, [mutateRules, rules])
+    mutateRules((prev) => removeSafeguardFromGroup(prev, ruleIdx) ?? prev)
+  }, [mutateRules])
 
   // Join the run touching this entry above / below, adopting its settings.
   const handleJoinGroup = useCallback((ruleIdx: number, side: 'above' | 'below') => {
-    const next = joinSafeguardAdjacentGroup(rules, ruleIdx, side)
-    if (!next) return
-    mutateRules(next)
-  }, [mutateRules, rules])
+    mutateRules((prev) => joinSafeguardAdjacentGroup(prev, ruleIdx, side) ?? prev)
+  }, [mutateRules])
 
   const moveRule = useCallback((ruleIdx: number, targetIndex: number, direction?: 'up' | 'down' | 'top' | 'bottom') => {
     // In multi-select mode, delegate directional moves to the parent hook.
