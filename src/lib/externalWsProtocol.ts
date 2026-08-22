@@ -83,13 +83,58 @@ export const buildRslHelperWsEndpoint = (port?: number): string =>
 // Default WebSocket endpoint, built from the default port.
 export const RSL_HELPER_DEFAULT_WS_ENDPOINT = `ws://localhost:${RSL_HELPER_DEFAULT_PORT}/`
 
+// Extract the port from a launch `?endpoint=ws://host:port/` URL, or null when it has none.
+// The migration path (App.tsx) uses this so a helper running on a non-default port is still
+// reached after the param is stripped — without it the URL's port was parsed and discarded,
+// and the session silently fell back to the persisted/default port.
+// A portless ws:// URL implies 80 (wss:// implies 443) per URL semantics; we return those
+// explicitly because `URL.port` is the empty string for a scheme's default port.
+export const extractRslHelperPortFromEndpoint = (endpoint: string): number | null => {
+  try {
+    const url = new URL(endpoint)
+    // Gate on the scheme FIRST: a port from a non-WebSocket URL is not an RSL Helper port,
+    // even though `URL` happily parses one out of e.g. http://localhost:8080/.
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return null
+    if (url.port) return parseRslHelperPort(url.port)
+    // No explicit port — `URL.port` is '' for a scheme's default, so fill it in.
+    return url.protocol === 'ws:' ? 80 : 443
+  } catch {
+    // Unparseable endpoint — the caller keeps its persisted port.
+    return null
+  }
+}
+
+// Inclusive bounds of the valid TCP port range — the SSOT for every port range check
+// (storage read, the config popout's field + spinner, and the launch-param migration).
+export const RSL_HELPER_PORT_MIN = 1
+export const RSL_HELPER_PORT_MAX = 65535
+
+// Parse an arbitrary raw value into a valid port number, or null when it is not one.
+// Single definition of "is this a usable port" so the popout, the storage reader, and the
+// ?endpoint= migration cannot drift apart on what they accept.
+export const parseRslHelperPort = (raw: string | number | null | undefined): number | null => {
+  if (raw === null || raw === undefined) return null
+  const parsed = typeof raw === 'number' ? raw : parseInt(raw, 10)
+  // Reject NaN/Infinity and non-integers before the range check.
+  if (!Number.isInteger(parsed)) return null
+  return parsed >= RSL_HELPER_PORT_MIN && parsed <= RSL_HELPER_PORT_MAX ? parsed : null
+}
+
 // Read the persisted port from localStorage, falling back to the default.
-export const getRslHelperPort = (): number => {
-  const raw = safeGetItem(RSL_HELPER_PORT_STORAGE_KEY)
-  if (!raw) return RSL_HELPER_DEFAULT_PORT
-  const parsed = parseInt(raw, 10)
-  // Reject anything outside the valid TCP port range.
-  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 65535 ? parsed : RSL_HELPER_DEFAULT_PORT
+export const getRslHelperPort = (): number =>
+  parseRslHelperPort(safeGetItem(RSL_HELPER_PORT_STORAGE_KEY)) ?? RSL_HELPER_DEFAULT_PORT
+
+// Persist the port, clearing the key when it is the default so storage stays clean.
+// Invalid values are ignored rather than written, so the stored value is always readable.
+// safeSetItem/safeRemoveItem keep an opaque-origin (incognito file://) launch from throwing.
+export const setRslHelperPort = (port: number): void => {
+  const valid = parseRslHelperPort(port)
+  if (valid === null) return
+  if (valid === RSL_HELPER_DEFAULT_PORT) {
+    safeRemoveItem(RSL_HELPER_PORT_STORAGE_KEY)
+  } else {
+    safeSetItem(RSL_HELPER_PORT_STORAGE_KEY, String(valid))
+  }
 }
 
 // Build the deep-link URL that opens the app pre-connected to a local RSL Helper instance.

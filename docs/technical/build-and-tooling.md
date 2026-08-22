@@ -196,7 +196,8 @@ release bundle, which previously still contained `capturePackets`/`logWasmHeap` 
 
 The launch URL params (`?endpoint=` + `#endpoint=` alias, `&simple`, `playerid`, `playerName`)
 and the export→`uploadSellfile` behavior are the SSOT of [WebSocket Protocol](websocket-jsonrpc.md#launch-url).
-The launch reads `endpoint` into `window.__APP_CONFIG__` (`pushEndpoint` for the session).
+The launch reads `endpoint` into `window.__APP_CONFIG__` (`pushEndpoint` for the session), then
+migrates it into the persisted connect preference + port before stripping it from the address bar.
 
 - `scripts/watchers/run-db-watcher.ps1` demonstrates an external tool opening the packaged app via `Start-Process`, appending the encoded endpoint automatically, and hosting a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (default `exported-sellfile.hsf`, `-OutputPath` configurable). Targets PowerShell 7; `[R]` emits demo `selectRule` events, `[F]` forces a DB snapshot, and it can watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Gear Inspector refreshes without drag-and-drop.
 

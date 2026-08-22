@@ -31,8 +31,11 @@ import {
   AUTOSAVE_SIMPLE_EXPERT_MODE_KEY,
   getRslHelperConnectEnabled,
   getRslHelperPort,
+  extractRslHelperPortFromEndpoint,
   // Aliased so the React state setter can follow the setX naming convention without conflict.
   setRslHelperConnectEnabled as persistRslHelperConnectEnabled,
+  // Aliased for symmetry with the connect-enabled writer above.
+  setRslHelperPort as persistRslHelperPort,
 } from './lib/externalWsProtocol'
 import { isGearDbPartCommand } from './lib/externalCommands'
 import type {
@@ -3833,7 +3836,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   // Initialize from localStorage; migrate users who previously loaded via ?endpoint= URL param.
   const [rslHelperConnectEnabled, setRslHelperConnectEnabled] = useState<boolean>(() => {
-    if (getPushEndpoint()) {
+    const launchEndpoint = getPushEndpoint()
+    if (launchEndpoint) {
+      // Adopt the launch URL's port BEFORE stripping the param — the endpoint we actually
+      // connect to is rebuilt from the persisted port below, so dropping it here would send
+      // a helper launched on a non-default port to the stale/default one instead.
+      const launchPort = extractRslHelperPortFromEndpoint(launchEndpoint)
+      if (launchPort !== null) persistRslHelperPort(launchPort)
       // Persist the preference so subsequent loads auto-connect without a URL param.
       persistRslHelperConnectEnabled(true)
       // Strip the endpoint param from the address bar so it does not linger.

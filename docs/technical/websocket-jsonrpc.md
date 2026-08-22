@@ -11,7 +11,15 @@ RSL Helper opens Sellfile Creator by navigating to the distributed HTML file wit
 file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&playerid=um12345678&playerName=MyMainAccount
 ```
 
-- `endpoint` — WebSocket URL of the locally running RSL Helper server (required for any connection).
+- `endpoint` — WebSocket URL of the locally running RSL Helper server. No longer required for a
+  connection: the connection is a persisted user preference (the robot toggle), so the app
+  auto-connects on later loads without any param. On a launch that *does* carry `endpoint`, the
+  app turns the preference on, **adopts the URL's port** as the persisted port
+  (`extractRslHelperPortFromEndpoint`; a portless `ws://`/`wss://` URL implies 80/443), and then
+  strips the param from the address bar so it cannot re-assert stale state on reload. Only the
+  port is taken from the URL — the connection is always rebuilt as `ws://localhost:<port>/`, so a
+  non-localhost host in `endpoint` is ignored. Users can change the port by right-clicking the
+  connect button.
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
 - `playerid` — optional; the game's Player ID for the account (e.g. `um12345678`). Routes the
   session to the matching Sellfile Creator account, binding or creating one as needed.

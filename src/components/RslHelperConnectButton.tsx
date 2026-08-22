@@ -20,8 +20,10 @@ import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
 import {
   getRslHelperPort,
-  RSL_HELPER_DEFAULT_PORT,
-  RSL_HELPER_PORT_STORAGE_KEY,
+  parseRslHelperPort,
+  setRslHelperPort as persistRslHelperPort,
+  RSL_HELPER_PORT_MIN,
+  RSL_HELPER_PORT_MAX,
 } from '../lib/externalWsProtocol'
 
 export type RslHelperConnectButtonProps = {
@@ -70,11 +72,9 @@ export default function RslHelperConnectButton({
   // Raw string for the text field; lets the user type freely while we validate each change.
   const [draft, setDraft] = useState(String(port))
 
-  // Parse and range-check without throwing; null means invalid.
-  const parsedDraft = (() => {
-    const n = parseInt(draft, 10)
-    return Number.isFinite(n) && n >= 1 && n <= 65535 ? n : null
-  })()
+  // Parse and range-check without throwing; null means invalid. Shared parser so the field,
+  // the storage reader, and the launch-param migration agree on what a valid port is.
+  const parsedDraft = parseRslHelperPort(draft)
 
   // Derive the visual state from the combination of enabled + reachable.
   const connectState = !connectEnabled ? 'off' : pushEndpointReachable ? 'connected' : 'connecting'
@@ -91,21 +91,17 @@ export default function RslHelperConnectButton({
   // matching the pattern used by other config popouts (e.g. Last Used range).
   const applyPortValue = (raw: string) => {
     setDraft(raw)
-    const n = parseInt(raw, 10)
-    if (!Number.isFinite(n) || n < 1 || n > 65535) return
-    // Keep localStorage clean: remove the key when restoring the default port.
-    if (n === RSL_HELPER_DEFAULT_PORT) {
-      localStorage.removeItem(RSL_HELPER_PORT_STORAGE_KEY)
-    } else {
-      localStorage.setItem(RSL_HELPER_PORT_STORAGE_KEY, String(n))
-    }
+    const n = parseRslHelperPort(raw)
+    if (n === null) return
+    // Shared writer: clears the key on the default port and is storage-throw safe.
+    persistRslHelperPort(n)
     setPort(n)
   }
   const handlePortChange = (e: React.ChangeEvent<HTMLInputElement>) => applyPortValue(e.target.value)
   // Spinner step shares the apply path; an invalid draft steps from the persisted port.
   const stepPort = (delta: number) => {
     const base = parsedDraft ?? port
-    applyPortValue(String(Math.min(65535, Math.max(1, base + delta))))
+    applyPortValue(String(Math.min(RSL_HELPER_PORT_MAX, Math.max(RSL_HELPER_PORT_MIN, base + delta))))
   }
 
   // Label text changes with state.
@@ -218,7 +214,7 @@ export default function RslHelperConnectButton({
           helperText={t('rslHelperPortHelper')}
           type="number"
           slotProps={{
-            htmlInput: { min: 1, max: 65535, step: 1 },
+            htmlInput: { min: RSL_HELPER_PORT_MIN, max: RSL_HELPER_PORT_MAX, step: 1 },
             // Shared custom spinner (SSOT with the Minima/Roll-Targets inputs) in place
             // of the browser-native number arrows.
             input: {
