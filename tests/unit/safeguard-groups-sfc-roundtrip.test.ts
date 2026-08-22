@@ -10,9 +10,11 @@
  *  1. A grouped list survives write → read → write unchanged (membership, the group's count and
  *     chips, every member's own count) — everything except the id, which is deliberately not
  *     persisted.
- *  2. A list with NO groups re-serializes byte-identically — a rule record gained no key from the
- *     feature. This suite proves it against the shipped 154-entry lategame preset rather than a
- *     synthetic fixture, because the preset is what real users load.
+ *  2. A rule record gains no key from the feature — an UNGROUPED entry re-serializes byte-
+ *     identically. This suite proves it against the shipped lategame preset rather than a
+ *     synthetic fixture, because the preset is what real users load. The preset now ships
+ *     groups of its own, so the check runs at LIST level: a group occupies one nested entry
+ *     holding N members, so stored index and rule index no longer line up one-to-one.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -76,14 +78,20 @@ test('a second round trip is a fixed point', () => {
   assert.deepEqual(buildReadableSafeguardEntries(twice), buildReadableSafeguardEntries(once))
 })
 
-test('every safeguard entry in the shipped lategame preset re-serializes byte-identically', () => {
+test('the shipped lategame preset re-serializes byte-identically, groups and all', () => {
   const rules = loadLategameSafeguardRules()
   const storedEntries = loadLategameSfc().Safeguards ?? []
   assert.ok(rules.length > 0)
-  for (const [index, entry] of storedEntries.entries()) {
-    const written = buildReadableSafeguardRuleEntry(rules[index] as SafeguardRule)
-    assert.equal('Group' in written, false, `preset entry ${index} must not gain a Group key`)
-    assert.deepEqual(written, entry, `preset entry ${index} must round-trip byte-identically`)
+  // List level, not per index: each group collapses N loaded rules back into ONE nested entry,
+  // so the written list is what must match the file — entry-for-entry indices would not align.
+  const written = buildReadableSafeguardEntries(rules)
+  assert.equal(written.length, storedEntries.length, 'the entry count must survive a round trip')
+  assert.deepEqual(written, storedEntries, 'the preset must round-trip byte-identically')
+  // The half that protects pre-group files: an UNGROUPED rule still gains no Group key.
+  for (const rule of rules) {
+    if (rule.group != null) continue
+    assert.equal('Group' in buildReadableSafeguardRuleEntry(rule), false,
+      `ungrouped rule "${rule.appearance?.name ?? ''}" must not gain a Group key`)
   }
 })
 

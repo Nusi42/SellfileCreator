@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { loadLategameSfc } from '../setup/presetFixtures.js'
+import { loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
+import { findArtifactSetIdByName } from '../../src/lib/types.js'
 import {
   findRecipeOptionByToken,
   resolveRecipeOverridesTags,
@@ -240,11 +241,16 @@ test('the FW-Hard question carries no option-write coupling; its safeguard effec
   assert.deepEqual(yesTokens, ['fwh_yes16', 'fwh_yes'], 'exactly Yes and Yes! carry the Daze exclusion')
   // The preset baseline must NOT pre-exclude Daze — the exclusion exists only through
   // the question, so the default `No` answer keeps Daze utility pieces protected.
-  const utilityRules = (sfc.Safeguards as Array<{ tags?: string[]; tuple?: { sets?: Array<{ name?: string; excluded?: boolean }> } }>)
-    .filter((r) => r.tags?.includes('utility'))
+  // Read through the shared loader, not the raw array: the utility family is partly GROUPED,
+  // and a grouped entry nests its members (tags and all), so a flat scan of the file would
+  // silently miss them and pass this test vacuously.
+  const utilityRules = loadLategameSafeguardRules().filter((r) => (r.tags ?? []).includes('utility'))
   assert.ok(utilityRules.length >= 6, 'the utility safeguard family must exist')
+  // Loaded rules carry numeric set ids, so resolve the name once through the shared lookup.
+  const dazeId = findArtifactSetIdByName('Daze')
+  assert.notEqual(dazeId, null, 'the Daze gear set must resolve to an id')
   for (const rule of utilityRules) {
-    assert.ok(!(rule.tuple?.sets ?? []).some((s) => s.name === 'Daze'),
+    assert.ok(!rule.combination.sets.some((entry) => entry.id === dazeId),
       'baseline utility rules must not carry a Daze sets entry')
   }
   // And the utility card does not write back into the FW question either.

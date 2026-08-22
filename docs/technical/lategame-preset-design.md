@@ -95,9 +95,10 @@ and substats — names only add role + tier.
   family slider simply by not carrying a factor tag — e.g. the any-set Bomber Amulet is
   fixed count 1, untouched by `min_acc_pieces`. Don't "fix" such a missing tag.
 - **Every factor block mirrors its count write with `group.count` at the same scale**:
-  `{ count=$value/8 group.count=$value/8 }`. The preset ships no groups, so this is a strict
-  no-op today (`group.*` does nothing on an ungrouped rule) — it is forward-compat wiring so a
-  group formed later out of ANY family is driven by its slider the moment it exists. Same
+  `{ count=$value/8 group.count=$value/8 }`. This is a live write on the grouped utility damage
+  families and a no-op elsewhere (`group.*` does nothing on an ungrouped rule), which doubles as
+  forward-compat wiring so a group formed later out of ANY family is driven by its slider the
+  moment it exists. Same
   expression, not `$value`: a group seeds from the MIN of its members' counts, so `div8` members
   promise `$value/8` and their group must too (`$value` would silently 8× it). Blocks apply in
   **note order across every question** (questions → options → blocks, as `applySafeguardOverrides`
@@ -118,12 +119,16 @@ and substats — names only add role + tier.
 - Never introduce an `acc*` tag (too close to "accuracy") — use `accessory*`. Option ids
   like `acc_rolls_22` are ids, not tags, and keep their spelling for answer
   compatibility.
-- **The preset ships no groups (measured, not assumed — see below).** Its 18 separators fake a
-  two-level structure — top-level sections (`Speed`, `Accessories`, `Mercurial`, …) plus
-  `#`-prefixed sub-sections (`# Rings`, `# Amulets`, `# Banners`). The loader will never infer
-  membership from those: `#` prefixes stay a divider line-style hint. Every slider factor block
-  does carry the `group.count` mirror described under "Tag conventions" above, so a group formed
-  later in any family is slider-driven from day one.
+- **The preset's only groups are the two utility damage fan-outs; everything else is flat.**
+  Each groups two `Protect: Utility Damage` rules that share filters, slots and `countMode` and
+  differ only in one swapped %-stat weight (ATK% vs DEF%) — the shape point 1 below calls out as
+  worth grouping, since the group caps the union at its own count per bucket. Membership is
+  explicit in the file (a nested `Group` + `members` entry) and never inferred: the 18 separators
+  fake a two-level structure — top-level sections (`Speed`, `Accessories`, `Mercurial`, …) plus
+  `#`-prefixed sub-sections (`# Rings`, `# Amulets`, `# Banners`) — and `#` prefixes stay a pure
+  divider line-style hint the loader will never read as membership. Every slider factor block
+  carries the `group.count` mirror described under "Tag conventions" above, so those groups are
+  slider-driven and any group formed later in another family is too, from day one.
 - **Why the `X` / `X - Across Sets` pairs stay ungrouped.** A pair like `Protect: % Ring`
   (`perSet` on, count 1) next to `Protect: % Ring - Across Sets` (`perSet` off, count 3) looks
   like a faked shared quota, but it is not: it deliberately keeps **one ring of each set AND the

@@ -192,16 +192,16 @@ test('an unknown group.* suffix is skipped without disturbing its neighbours', (
 // ── The shipped preset's live wiring ──────────────────────────────────────────
 // Integration guard over the real note + real rules. EVERY count-writing factor block in the
 // preset's safeguard sliders mirrors its member write with the group's own count at the same
-// scale — `{ count=$value/8 group.count=$value/8 }` — so a group formed later out of any family
-// is driven by its slider the moment it exists, at the scale its members promise (a group seeds
-// from the MIN of its members' counts, so `$value` on `div8` members would silently 8× it). The
-// preset ships NO groups today (measured inert — see lategame-preset-design.md), so every
-// `group.count` is a strict no-op now. This pins both halves of that contract against the live
-// note: each factor block resolves to a `count` AND a `groupCount` op with the SAME expression,
-// and applying them writes every rule's own count while no rule grows a group.
-test('every lategame slider factor block mirrors count with group.count and no-ops until a group exists', () => {
+// scale — `{ count=$value/8 group.count=$value/8 }` — so every group is driven by its slider at
+// the scale its members promise (a group seeds from the MIN of its members' counts, so `$value`
+// on `div8` members would silently 8× it). The preset ships real groups today (the utility
+// damage fan-outs — see lategame-preset-design.md), so those mirrors are live writes rather
+// than the no-ops they once were. This pins both halves against the live note: each factor
+// block resolves to a `count` AND a `groupCount` op with the SAME expression, and applying
+// them writes every rule's own count without ever changing which rules are grouped.
+test('every lategame slider factor block mirrors count with group.count, and applying preserves membership', () => {
   const rules = loadLategameSafeguardRules()
-  assert.equal(safeguardListHasGroups(rules), false, 'the preset ships no groups')
+  assert.ok(safeguardListHasGroups(rules), 'the preset ships the grouped utility families')
   const note = loadLategameNote()
   // Default answers: every slider at its default, so every factor block resolves.
   const { questions, instructions } = resolveNoteSafeguardOverridesTags(note, {})
@@ -224,12 +224,15 @@ test('every lategame slider factor block mirrors count with group.count and no-o
       `group.count must resolve to the same value as count: ${JSON.stringify(block.selector)}`,
     )
   }
-  // Applying everything writes each rule's own count and grows no group anywhere.
+  // Applying everything writes each rule's own count without restructuring the list: a
+  // `group.count` may retune a group it targets, but it must never create or dissolve one.
   const out = applySafeguardOverrides(rules, instructions)
   assert.equal(out.length, rules.length)
-  for (const [index, rule] of out.entries()) {
-    assert.equal(rule.group, undefined, `rule ${index} must stay ungrouped — group.count is a no-op here`)
-  }
+  assert.deepEqual(
+    out.map((rule) => rule.group?.id ?? null),
+    rules.map((rule) => rule.group?.id ?? null),
+    'group membership must be identical before and after — group.count retunes, never regroups',
+  )
   // And a concrete write still lands: answer the damage/survivability slider (addressed by its
   // DSL id — question ids are content hashes and would move with an edit to the prompt) with a
   // value distinct from the on-disk 32 and every damage/div1 rule follows.

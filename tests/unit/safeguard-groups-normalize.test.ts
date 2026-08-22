@@ -21,6 +21,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createFactorySafeguardBuilderDefaults,
+  safeguardEntryKind,
   type SafeguardGroupSettings,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
@@ -32,7 +33,7 @@ import {
   safeguardGroupSettingsAt,
   safeguardListHasGroups,
 } from '../../src/lib/safeguardGroups.js'
-import { loadLategameSafeguardRules } from '../setup/presetFixtures.js'
+import { loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
 
 // Group settings with a given id and count; chips at the per-rule default.
 const settings = (id: string, requiredCount = 2): SafeguardGroupSettings => ({
@@ -136,13 +137,25 @@ test('repair never discards an entry, whatever it carried', () => {
   assert.deepEqual(next.map((r) => r.appearance?.name), ['a', 'b', 'c', '#', 'd'])
 })
 
-test('the shipped lategame preset still loads as a flat, group-free list', () => {
+test('the shipped lategame preset groups exactly what it nests, and nothing a separator faked', () => {
   // Regression guard: the preset fakes structure with '#'-prefixed separator labels, and those
-  // must stay pure line-style hints — never inferred into groups.
+  // must stay pure line-style hints — never inferred into groups. The preset now ships real
+  // groups (nested `Group` + `members` entries), so the guard is not "no groups at all" but
+  // "exactly the nested ones" — inference from separators would show up as a surplus member.
   const rules = loadLategameSafeguardRules()
   assert.ok(rules.length > 0, 'the preset must contain safeguard entries')
-  assert.equal(safeguardListHasGroups(rules), false, 'no preset entry may load as a group member')
-  // The shared loader already ran the group pass; a second pass over a group-free list is
-  // identity, which is exactly the flat-list guarantee this pins.
+  // Membership may come ONLY from entries the file nests, so count the truth off the raw file.
+  const stored = (loadLategameSfc().Safeguards ?? []) as Array<{ members?: unknown[] }>
+  const nestedMembers = stored.reduce((sum, entry) => sum + (entry.members?.length ?? 0), 0)
+  const loadedMembers = rules.filter((rule) => rule.group != null).length
+  assert.equal(loadedMembers, nestedMembers,
+    'exactly the nested members load as group members — no separator may fake one')
+  // Every separator stays outside any group, whatever its label looks like.
+  for (const [index, rule] of rules.entries()) {
+    if (safeguardEntryKind(rule) !== 'separator') continue
+    assert.equal(rule.group, undefined,
+      `separator ${index} ("${rule.appearance?.name ?? ''}") must never load as a group member`)
+  }
+  // The shared loader already ran the group pass; a second pass must be a fixed point.
   assert.equal(normalizeSafeguardGroups(rules), rules)
 })

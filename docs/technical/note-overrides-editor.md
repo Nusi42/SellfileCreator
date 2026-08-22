@@ -280,10 +280,11 @@ its member write with the group's own count, inline and at the same scale
 @tag=debuffer and tag=div8 { count=$value/8 group.count=$value/8 }
 ```
 
-The preset ships **no** groups today (grouping its damage fan-out was measured inert), so every
-`group.count` is a deliberate no-op: `group.*` does nothing on an ungrouped rule. The mirror is
-forward-compat wiring — a group formed later out of any family is driven by its slider the moment
-it exists, without anyone remembering to add the write. It is the SAME expression as `count`, not a
+The preset ships groups for its utility damage fan-outs, so those `group.count` writes are live;
+on any still-ungrouped family the mirror stays a deliberate no-op (`group.*` does nothing on an
+ungrouped rule) and acts as forward-compat wiring — a group formed later out of any family is
+driven by its slider the moment it exists, without anyone remembering to add the write. It is the
+SAME expression as `count`, not a
 bare `$value`, because a group seeds from the MIN of its members' counts: `div8` members promise
 `$value/8` and their group must promise the same. Inline (one block, two ops) rather than a second
 `@grouped …` block so the expression exists once and cannot drift. Pinned across every slider by
