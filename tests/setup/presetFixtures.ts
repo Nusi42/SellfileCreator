@@ -14,8 +14,9 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { normalizeSafeguardRule, type SafeguardRule } from '../../src/lib/safeguards.js'
+import { type SafeguardRule } from '../../src/lib/safeguards.js'
 import { normalizeSafeguardGroups } from '../../src/lib/safeguardGroups.js'
+import { parseReadableSafeguardEntries } from '../../src/lib/sfcIO.js'
 
 /** The readable-SFC shape these fixtures are read for; other keys pass through untyped. */
 type PresetSfcFile = Record<string, unknown> & { Note?: string[] | string; Safeguards?: unknown[] }
@@ -63,16 +64,15 @@ export const loadLategameMetasets = (): Array<{ name: string; setNames: string[]
 }
 
 /**
- * The lategame preset's safeguard entries, normalized exactly as a load does: per-entry
- * `normalizeSafeguardRule` (dropping anything unreadable), then the group pass. Every suite that
- * asserts something about the shipped rules starts from this list.
+ * The lategame preset's safeguard entries, normalized exactly as a load does: the shared reader
+ * `parseReadableSafeguardEntries` (which unnests group entries and drops anything unreadable),
+ * then the group pass — the same two steps `parseSfcObject` runs. Going through the reader rather
+ * than mapping `normalizeSafeguardRule` per entry is what keeps this in step: a nested group entry
+ * carries no `tuple`, so the per-entry form would silently drop every member of a grouped preset.
+ * Every suite that asserts something about the shipped rules starts from this list.
  */
 export const loadLategameSafeguardRules = (): SafeguardRule[] => {
   const entries = loadLategameSfc().Safeguards
   assert.ok(Array.isArray(entries), 'presets/lategame.sfc must carry a Safeguards array')
-  return normalizeSafeguardGroups(
-    entries
-      .map((entry) => normalizeSafeguardRule(entry))
-      .filter((entry): entry is SafeguardRule => entry !== null),
-  )
+  return normalizeSafeguardGroups(parseReadableSafeguardEntries(entries))
 }

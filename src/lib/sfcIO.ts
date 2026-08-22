@@ -51,6 +51,8 @@ import {
   normalizeSafeguardRule,
   // Entry-kind discriminator: the SSOT for rule vs separator at every branch.
   safeguardEntryKind,
+  // Membership predicate: the SSOT for "does this entry belong to a group at all".
+  isSafeguardGrouped,
   sanitizeSafeguardCountMode,
   sortSafeguardCombination,
   sortSafeguardSubstats,
@@ -1360,7 +1362,6 @@ export const buildReadableSafeguardRuleEntry = (
   // Nothing about membership is written here: a member is persisted by being NESTED inside its
   // group entry (buildReadableSafeguardEntries), so a rule record looks the same whether or not
   // it belongs to a group — which is what lets a single copied member paste as an ordinary rule.
-  const groupFields = {}
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
   const mode = sanitizeSafeguardCountMode(rule.countMode)
   // Capture selected substats in readable form so exports stay user-friendly.
@@ -1401,7 +1402,6 @@ export const buildReadableSafeguardRuleEntry = (
   // first so it appears as the leading field of every serialized safeguard entry.
   const entry: ReadableSafeguardRuleEntry = {
     ...appearancePersistField(rule.appearance),
-    ...groupFields,
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
     activation: rule.activation ?? SafeguardRuleActivation.ProtectExisting,
     countMode: {
@@ -1451,17 +1451,6 @@ export const buildReadableSafeguardRuleEntry = (
 }
 
 /**
- * Projects a safeguard list to its persisted form, NESTING each group into a single entry.
- *
- * The SFC identifies a group by SHAPE: a group entry carries the settings once plus a `members`
- * array, and adjacency is implied by the nesting rather than by a shared id. Nothing on disk needs
- * to be unique, so no id is written and one is minted per group on load. The shape also cannot
- * express a torn or overlapping run, which is why the reader needs no group repair.
- *
- * One definition for every persistence path (file save, autosave, clipboard, preset snapshot) so
- * a copied run and a saved run agree byte for byte.
- */
-/**
  * The inverse of `buildReadableSafeguardEntries`: walks a persisted safeguard array and returns a
  * flat rule list with membership re-attached.
  *
@@ -1497,22 +1486,42 @@ export const parseReadableSafeguardEntries = (raws: readonly unknown[]): Safegua
   return out
 }
 
+/**
+ * Projects a safeguard list to its persisted form, NESTING each group into a single entry.
+ *
+ * The SFC identifies a group by SHAPE: a group entry carries the settings once plus a `members`
+ * array, and adjacency is implied by the nesting rather than by a shared id. Nothing on disk needs
+ * to be unique, so no id is written and one is minted per group on load. The shape also cannot
+ * express a torn or overlapping run, which is why the reader needs no group repair.
+ *
+ * One definition for every persistence path (file save, autosave, clipboard, preset snapshot) so
+ * a copied run and a saved run agree byte for byte.
+ */
 export const buildReadableSafeguardEntries = (
   rules: readonly SafeguardRule[],
 ): Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry | ReadableSafeguardGroupEntry> => {
+  // Flat-list fast path, mirroring `normalizeSafeguardGroups`: with no member there is no run to
+  // nest, so the projection stays pure TypeScript. That matters beyond speed — the resolver below
+  // is a SYNC wasm call that throws when the engine is not warm, and saving/autosaving/preset
+  // canonicalization must not depend on warm-up for the overwhelmingly common group-free document.
+  if (!rules.some((rule) => isSafeguardGrouped(rule))) {
+    return rules.map((rule) => buildReadableSafeguardRuleEntry(rule))
+  }
   const out: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry | ReadableSafeguardGroupEntry> = []
   // Runs come from the Rust authority, never from comparing neighbours' ids here.
   const groups = resolveSafeguardGroups(rules)
   for (let index = 0; index < rules.length; index += 1) {
     const start = groups.runStarts[index] ?? SAFEGUARD_GROUP_NO_RUN
+    // A run start always comes with a length of at least 1 (the resolver's contract); treating a
+    // missing/zero length as "ungrouped" keeps a malformed payload from rewinding `index` below.
+    const len = start < 0 ? 0 : (groups.runLens[index] ?? 0)
     // Ungrouped entry: written flat, exactly as before groups existed.
-    if (start < 0) {
+    if (len < 1) {
       out.push(buildReadableSafeguardRuleEntry(rules[index] as SafeguardRule))
       continue
     }
     // Emit the whole run once, at its head, then skip past its members.
     if (start !== index) continue
-    const len = groups.runLens[index] ?? 0
     const members = rules.slice(index, index + len)
     // The head's settings are the copy the engine reads, so they are the copy that persists.
     const settings = (members[0] as SafeguardRule).group as SafeguardGroupSettings

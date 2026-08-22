@@ -480,7 +480,8 @@ export const cloneSafeguardGroupSettings = (settings: SafeguardGroupSettings): S
  * **Ids are runtime-only.** The SFC identifies a group by SHAPE (a group entry holds its members),
  * so nothing on disk needs to be unique and no id is written. Each load mints a fresh one via
  * `createSafeguardGroupId`, which the in-memory model uses to answer "same run?" cheaply.
- * Mirrored by `parse_sfc_safeguard_rule` in Rust for the native DLL path.
+ * Mirrored by `parse_sfc_safeguard_entries` in Rust for the native DLL path — that is where the
+ * group entry is unnested there; `parse_sfc_safeguard_rule` no longer reads membership at all.
  */
 export const normalizeSafeguardGroupSettings = (value: unknown): SafeguardGroupSettings | null => {
   if (!value || typeof value !== 'object') return null
@@ -1388,9 +1389,9 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
     }
   }
   // Membership is NOT a field of a persisted rule any more: the SFC nests members inside a group
-  // entry, so the caller that walks the array (`parseSfc`) is the only thing that can see it and
-  // it stamps `group` onto the members it unnests. A lone rule record is therefore ungrouped.
-  const groupFields = {}
+  // entry, so only the caller that walks the array (`parseReadableSafeguardEntries`) can see it,
+  // and it stamps `group` onto the members it unnests. A lone rule record is therefore ungrouped,
+  // which is why nothing below ever writes a `group` field onto the returned rule.
   const combinationSource = record.combination ?? record.tuple ?? value
   const combination = normalizeSafeguardCombination(combinationSource)
   if (!combination) return null
@@ -1446,8 +1447,6 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
   // cannot smuggle in a faction filter with empty slots.
   return normalizeSafeguardFactionSlotScope(normalizeSafeguardSubstatDependents({
     ...(appearance ? { appearance } : {}),
-    // Group membership rides through both gates untouched — neither one reasons about structure.
-    ...groupFields,
     tags,
     combination,
     requiredCount,

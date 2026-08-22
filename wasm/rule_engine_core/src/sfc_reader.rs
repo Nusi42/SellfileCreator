@@ -859,6 +859,19 @@ fn parse_sfc_count_mode(v: &serde_json::Value) -> SafeguardWasmCountMode {
     }
 }
 
+/// True when a raw Safeguards entry is a separator (an inert list divider).
+///
+/// ONE definition for every branch that asks — the group unnester and the rule parser both call
+/// it, so they can never disagree about what counts as a divider. Accepts the lowercase alias
+/// because `normalizeSafeguardRule` (safeguards.ts) does: a hand-edited file writing `separator`
+/// must resolve to the same entry kind in the browser and in the native DLL.
+fn is_sfc_safeguard_separator(raw: &serde_json::Value) -> bool {
+    raw.as_object()
+        .and_then(|rec| rec.get("Separator").or_else(|| rec.get("separator")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 /// Walks the SFC's Safeguards array and returns a FLAT rule list with membership re-attached.
 ///
 /// A group persists as one entry holding its `members`: the nesting IS the grouping, so nothing on
@@ -892,11 +905,7 @@ fn parse_sfc_safeguard_entries(raws: &[serde_json::Value]) -> Result<Vec<Safegua
                 .map_err(|e| format!("Safeguard[{i}].members[{m}] parse error: {e}"))?;
             // A separator cannot be a member; it survives as a plain divider rather than
             // being dropped. Matches the writer, which never nests one.
-            let is_separator = member.as_object()
-                .and_then(|r| r.get("Separator"))
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if !is_separator {
+            if !is_sfc_safeguard_separator(member) {
                 rule.group = settings.clone();
             }
             out.push(rule);
@@ -913,7 +922,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // Separator entries persist minimally ({ appearance?, Separator: true }) and are pure
     // list dividers — parse them as inert activation="off" rules so the Safeguards array
     // indices stay aligned with the TS side and matching never sees them.
-    if rec.get("Separator").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if is_sfc_safeguard_separator(raw) {
         return Ok(SafeguardWasmRuleIn {
             id: None,
             name: None,
