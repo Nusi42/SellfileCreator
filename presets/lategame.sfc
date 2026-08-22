@@ -15490,7 +15490,7 @@
         "HP%",
         "DEF%"
       ],
-      "substatMatch": "3",
+      "substatMatch": "2",
       "substatWeights": {
         "HP%": 0.15,
         "DEF%": 0.1,
