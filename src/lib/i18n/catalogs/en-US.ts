@@ -899,6 +899,7 @@ const enUS: Catalog = {
   colOre: "Ore",
   colSub: "Sub",
   rulesHeaderHelp: "{label} — drag to reorder; drag handle at right edge to resize; right-click for options",
+  rulesHeaderAutoWidthHint: "Drag to resize; double-click to fit the column to its contents",
   rulesEmpty: "No RSL Helper Sellfile rule yet.",
   rulesEmptyFiltered: "No RSL Helper Sellfile rules due to the filter.",
   rulesBuilding: "Building…",

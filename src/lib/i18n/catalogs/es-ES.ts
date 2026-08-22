@@ -899,6 +899,7 @@ const overrides: Catalog = {
   colOre: "Mineral",
   colSub: "Substats",
   rulesHeaderHelp: "{label} — arrastra para reordenar; asa derecha para redimensionar; clic derecho para opciones",
+  rulesHeaderAutoWidthHint: "Arrastra para redimensionar; doble clic para ajustar la columna a su contenido",
   rulesEmpty: "Aún no hay reglas de venta de RSL Helper.",
   rulesEmptyFiltered: "Sin reglas debido al filtro.",
   rulesBuilding: "Generando…",

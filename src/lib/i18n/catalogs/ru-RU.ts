@@ -899,6 +899,7 @@ const overrides: Catalog = {
   colOre: "Руда",
   colSub: "Подстат",
   rulesHeaderHelp: "{label} — перетащите для изменения порядка; справа тяните для изменения ширины; правый клик для опций",
+  rulesHeaderAutoWidthHint: "Тяните для изменения ширины; двойной клик подгоняет колонку под содержимое",
   rulesEmpty: "Пока нет правил продажи RSL Helper.",
   rulesEmptyFiltered: "Нет правил из‑за фильтра.",
   rulesBuilding: "Создание…",

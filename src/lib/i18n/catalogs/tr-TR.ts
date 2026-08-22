@@ -899,6 +899,7 @@ const overrides: Catalog = {
   colOre: "Cevher",
   colSub: "Alt",
   rulesHeaderHelp: "{label} — sıralamak için sürükle; sağ koldan genişlik ayarla; sağ tık menüsü",
+  rulesHeaderAutoWidthHint: "Genişliği ayarlamak için sürükleyin; sütunu içeriğine sığdırmak için çift tıklayın",
   rulesEmpty: "Henüz RSL Helper satış kuralları yok.",
   rulesEmptyFiltered: "Filtre nedeniyle kural yok.",
   rulesBuilding: "Oluşturuluyor…",

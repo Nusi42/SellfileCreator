@@ -899,6 +899,7 @@ const catalog: Catalog = {
   colOre: "Minério",
   colSub: "Sub",
   rulesHeaderHelp: "{label} — arraste para reordenar; alça à direita para redimensionar; clique direito para opções",
+  rulesHeaderAutoWidthHint: "Arraste para redimensionar; clique duplo para ajustar a coluna ao conteúdo",
   rulesEmpty: "Ainda não há regras de venda do RSL Helper.",
   rulesEmptyFiltered: "Sem regras devido ao filtro.",
   rulesBuilding: "Gerando…",

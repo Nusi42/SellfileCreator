@@ -998,6 +998,40 @@ export const RULES_TABLE_CELL_PADDING_X_PX = 3
 // exactly what the padding rule above adds — derived, never re-typed as a literal.
 export const RULES_TABLE_CELL_PADDING_X_TOTAL_PX = RULES_TABLE_CELL_PADDING_X_PX * 2
 
+// Slot-icon footprint in the preview's Slot column, and the gap between two of them.
+// Why: the renderer packs as many icons as fit and the auto-width measurer sizes the column to
+// hold them all — both must step by the same unit, or a column sized to N icons renders N-1.
+// The icon itself is font-sized (`fontSize: 'inherit'`), so this is the drawn footprint of a
+// glyph at FONT_SIZE_BASE_PX rather than a dimension set on the element.
+export const RULES_TABLE_SLOT_ICON_PX = 16
+export const RULES_TABLE_SLOT_ICON_GAP_PX = 4
+
+// Same pairing for the Sets column, which draws larger icons with a tighter gap.
+export const RULES_TABLE_SET_ICON_GAP_PX = 2
+
+// Width one column auto-sizes to its widest content, rather than to a fixed pixel count.
+// Why: stored as a sentinel inside the existing numeric `width` so the preference format, the
+// resize handler, and the column menu keep working unchanged — no parallel "isAuto" flag to
+// keep in sync. Negative is safe: no real width can collide with it.
+export const RULES_TABLE_COL_WIDTH_AUTO = -1
+
+// Bounds applied to a measured auto width, before padding.
+// Why: a column of empty cells must still show its header and stay grabbable, and one pathological
+// 400-character rule must not push a column past the viewport.
+export const RULES_TABLE_AUTO_WIDTH_MIN_PX = 40
+export const RULES_TABLE_AUTO_WIDTH_MAX_PX = 600
+
+// Deadline for the deferred auto-width pass, after which the browser runs it regardless of idle.
+// Why: on a busy main thread an idle callback can be starved indefinitely, leaving auto columns
+// stuck at their fallback width. This bounds how long the fitted width can be delayed.
+// How many rows tied at the widest cheap count are formatted to settle the exact width.
+// Why: rendered length is monotonic in the count, so only top-count rows can win — but rows at
+// the SAME count can still differ (a longer stat name). Formatting a handful makes the result
+// exact in practice while keeping the formatter call count bounded instead of per-rule.
+export const RULES_TABLE_AUTO_WIDTH_TIE_SAMPLES = 8
+
+export const RULES_TABLE_AUTO_WIDTH_IDLE_TIMEOUT_MS = 500
+
 // Height of the unselectable group-separator rows that head each recipe/safeguard/group block.
 // Why: separators are slimmer than data rows so the heading reads as a divider, not a record.
 export const RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX = 26

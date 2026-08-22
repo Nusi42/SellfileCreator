@@ -25,6 +25,12 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  RULES_TABLE_FIXED_ROW_HEIGHT_PX,
 	  RULES_TABLE_CELL_PADDING_X_PX,
 	  RULES_TABLE_CELL_PADDING_X_TOTAL_PX,
+	  RULES_TABLE_SLOT_ICON_PX,
+	  RULES_TABLE_SLOT_ICON_GAP_PX,
+	  RULES_TABLE_SET_ICON_GAP_PX,
+	  RULES_TABLE_AUTO_WIDTH_MIN_PX,
+	  RULES_TABLE_AUTO_WIDTH_IDLE_TIMEOUT_MS,
+	  RULES_TABLE_COL_WIDTH_AUTO,
 	  RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX,
 	  RULES_TABLE_HOVER_PROPAGATION_MS,
 	  RULES_TABLE_SCROLL_HINT_HIDE_MS,
@@ -42,6 +48,17 @@ import { FactionIcon } from './FactionIcon'
 import { reworkGateForOreSentinel } from '../lib/recipeFlags'
 import { recipeFlagChipForReworkGate, type RecipeFlagChipSpec } from './recipeFlagChips'
 import { keepSellOutcome, type KeepSellOutcomePresentation } from './keepSellOutcome'
+import { GLYPH_KEEP } from './keepSellOutcome'
+import {
+  emptyContentExtent,
+  extendWithIcons,
+  extendWithText,
+  considerByCount,
+  resolvePending,
+  isAutoWidth,
+  widthForExtent,
+  type ColumnContentExtent,
+} from './rulesTableAutoWidth'
 import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { renderColoredStatText } from '../lib/renderColoredStatText'
@@ -58,7 +75,6 @@ import { CycleButton } from './CycleButton'
 import { MenuToggleRow } from './MenuToggleRow'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleRecipeIndex, resolveMatchRecipeName } from '../lib/ruleRecipeIndex'
-import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { resolveDisabledOpacity } from './disabledOpacity'
 import { ensureContrastOnBg } from '../lib/colorUtils'
 import { resolveSchemePaper, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
@@ -1005,12 +1021,14 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   const startResize = (idx: number, clientX: number) => {
     const base = cols[idx]
     if (!base) return
-    resizeRef.current = { idx, startX: clientX, startW: Number(base.width) || 40 }
+    // `cols` is the RESOLVED array, so an auto column starts its drag from the width it is
+    // currently rendering at — dragging it simply converts it back into a fixed width.
+    resizeRef.current = { idx, startX: clientX, startW: Number(base.width) || RULES_TABLE_AUTO_WIDTH_MIN_PX }
     const onMove = (ev: MouseEvent) => {
       const st = resizeRef.current
       if (!st) return
       const dx = ev.clientX - st.startX
-      const nextW = Math.max(40, st.startW + dx)
+      const nextW = Math.max(RULES_TABLE_AUTO_WIDTH_MIN_PX, st.startW + dx)
       updateColumns(prev => prev.map((c, i) => (i === st.idx ? { ...c, width: Math.floor(nextW) } : c)))
     }
     const onUp = () => {
@@ -1020,6 +1038,14 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+  }
+
+  // Double-clicking a column's resize handle switches it to auto width — the familiar
+  // spreadsheet gesture for "fit this column to its contents". Writes the sentinel rather than
+  // a measured number, so the column keeps re-fitting as the rules change instead of freezing
+  // at whatever width happened to fit once.
+  const autoSizeColumn = (idx: number) => {
+    updateColumns(prev => prev.map((c, i) => (i === idx ? { ...c, width: RULES_TABLE_COL_WIDTH_AUTO } : c)))
   }
 
   // Virtualizer keys must be stable across filter/sort toggles so scroll position stays anchored.
@@ -1327,6 +1353,113 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     { key: 'Ore', label: 'Ore', width: 46, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]), [])
+
+  // Width an auto column renders at until its deferred measurement lands: the shipped default,
+  // so the first paint is a sane layout rather than a collapsed one.
+  const autoWidthFallback = useCallback((key: ColKey): number => {
+    const base = defaultCols.find((d) => d.key === key)
+    // A default that is itself auto would leave nothing to fall back to; the floor covers it.
+    const width = base?.width ?? RULES_TABLE_AUTO_WIDTH_MIN_PX
+    return isAutoWidth(width) ? RULES_TABLE_AUTO_WIDTH_MIN_PX : width
+  }, [defaultCols])
+
+  // Per-icon step for the columns that draw icons instead of text, matching what the renderer
+  // packs. Zero for text columns, which makes the icon term drop out of the width formula.
+  const iconStepForColumn = useCallback((key: ColKey): number => {
+    if (key === 'ArtifactTypeNames') return RULES_TABLE_SLOT_ICON_PX + RULES_TABLE_SLOT_ICON_GAP_PX
+    if (key === 'ArtifactSetNames') return SET_ICON_PX + RULES_TABLE_SET_ICON_GAP_PX
+    // The faction column draws at most one icon, so its footprint is the icon itself.
+    if (key === 'Faction') return FACTION_ICON_PREVIEW_PX
+    return 0
+  }, [])
+
+  // How a deferred column turns one of its candidate rows into the text it renders.
+  //
+  // Only the columns that call `considerByCount` above have one; everything else measures its
+  // text inline and returns null here. The formatter is the SAME getter the cell renderer uses,
+  // so the width is measured against exactly the string that will be drawn.
+  const pendingFormatterForColumn = useCallback((key: ColKey): ((row: unknown) => string) | null => {
+    if (key === 'SubstatsSummary') return (row) => getSubstatSummary(row as HsfRuleWithRecipe)
+    if (key === 'ArtifactSetNames') return (row) => getArtifactSetLabel(row as HsfRuleWithRecipe)
+    return null
+  }, [getSubstatSummary, getArtifactSetLabel])
+
+  // Fold one rule's contribution into one column's extent.
+  //
+  // Mirrors the cell renderer's branches: a column showing icons contributes an icon COUNT, a
+  // column showing text contributes its character count. Reuses the same cached value getters
+  // the renderer calls, so the measuring pass warms exactly the caches the rows then hit.
+  const measureRuleIntoExtent = useCallback((key: ColKey, rule: HsfRuleWithRecipe, extent: ColumnContentExtent): void => {
+    switch (key) {
+      case 'ArtifactTypeNames':
+        // In icon mode the column packs one icon per slot; otherwise it renders the joined label.
+        if (showSlotIcons) extendWithIcons(extent, getSortedArtifactTypes(rule).length)
+        else extendWithText(extent, getArtifactTypeLabel(rule))
+        return
+      case 'ArtifactSetNames':
+        // The "all known sets" shorthand renders as text even in icon mode.
+        if (showSetIcons && !rule.__allKnownSets) extendWithIcons(extent, getSortedArtifactSets(rule).length)
+        // Joining N set names is expensive per row, and the joined length grows with N — so
+        // defer on the raw id count and format only the top candidates.
+        else if (rule.__allKnownSets) extendWithText(extent, getArtifactSetLabel(rule))
+        else considerByCount(extent, Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.length : 0, rule)
+        return
+      case 'Faction': {
+        const label = getFactionLabel(rule)
+        // Icon mode draws a single icon, and only when the rule actually names a faction.
+        if (showFactionIcons) {
+          if (label) extendWithIcons(extent, 1)
+        } else extendWithText(extent, label)
+        return
+      }
+      case 'Keep':
+        // Renders the shared keep/sell glyph — one character wide either way.
+        extendWithText(extent, GLYPH_KEEP)
+        return
+      case 'Ore': {
+        // Blank unless the rule gates on rework state, in which case it is a single glyph.
+        const chip = recipeFlagChipForReworkGate(reworkGateForOreSentinel(rule.Ore))
+        if (chip) extendWithText(extent, chip.glyph)
+        return
+      }
+      case 'Use':
+        extendWithText(extent, rule.Use ? '✓' : '-')
+        return
+      case 'RuleName':
+        // Same safeguard-row test the separator rows use: only that branch changes the name,
+        // and the renderer's longer source fallback agrees with it for safeguard injections.
+        extendWithText(extent, resolvePreviewRuleName(rule, rule.__source === RULE_SOURCE_SAFEGUARDS))
+        return
+      case 'RankRarity':
+        extendWithText(extent, getRankRarityLabel(rule))
+        return
+      case 'MainStatName': {
+        const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
+        if (!isAnyMain) extendWithText(extent, t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF))))
+        return
+      }
+      case 'LevelLabel':
+        extendWithText(extent, formatLevel(rule.LVLForCheck))
+        return
+      case 'SubstatsSummary':
+        // The one proportional column, and by far the costliest to format (it normalizes and
+        // formats every substat entry). Its rendered length grows with the entry COUNT, so the
+        // walk compares counts and formats only the top candidates.
+        // Measuring the result as monospace over-sizes it slightly, which errs wide rather than
+        // clipping and keeps the whole pass free of DOM work.
+        considerByCount(extent, Array.isArray(rule.Substats) ? rule.Substats.length : 0, rule)
+        return
+      default:
+        // Idx and RecipeIdx are ordinals whose width follows the row COUNT, not any one rule,
+        // so the caller sizes them once from `rules.length` instead of per row.
+        return
+    }
+  }, [
+    showSlotIcons, showSetIcons, showFactionIcons,
+    getSortedArtifactTypes, getArtifactTypeLabel, getSortedArtifactSets, getArtifactSetLabel,
+    getFactionLabel, getRankRarityLabel, resolvePreviewRuleName, t,
+  ])
+
   const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
 
   const restoreColumns = useCallback((prefs: StoredColumnConfig[]): ColConfig[] => {
@@ -1376,7 +1509,112 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     }))
   ), [])
 
-  const cols = useMemo(() => restoreColumns(storedCols), [restoreColumns, storedCols])
+  // Columns as STORED — an auto column still carries the sentinel here. Only the persistence
+  // layer, the column menu, and the resize handler work with this shape; everything that lays
+  // out or measures uses `cols` below, where the sentinel is already resolved to pixels.
+  const storedColConfigs = useMemo(() => restoreColumns(storedCols), [restoreColumns, storedCols])
+
+  // Which columns currently ask to be auto-sized. Kept as a joined key so the measuring effect
+  // re-runs when the SET of auto columns changes, not on every unrelated column edit.
+  const autoColKeys = useMemo(
+    () => storedColConfigs.filter((c) => isAutoWidth(c.width)).map((c) => String(c.key)),
+    [storedColConfigs],
+  )
+  const autoColKeysToken = autoColKeys.join('|')
+
+  // Measured pixel width per auto column, filled in by the deferred pass below.
+  // Empty until the pass completes, which is what lets the table paint immediately.
+  const [measuredAutoWidths, setMeasuredAutoWidths] = useState<Record<string, number>>({})
+
+  // Measure auto columns against EVERY rule, off the critical path.
+  //
+  // Deferred to an idle callback so a 100k-rule load paints at its previous width first and
+  // only then snaps to the fitted one — a synchronous pass here would block first paint on
+  // every rules change. Keyed on the rules array identity, so it runs once per rebuild rather
+  // than per scroll or resize.
+  // The two suppressions below are the point of this effect rather than an oversight: the width
+  // CANNOT be derived during render, because deriving it means walking every rule, which is
+  // exactly the work being kept off the critical path. State is how the deferred result gets
+  // back in, and the early-return branch is a cleanup of stale measurements, not a prop mirror.
+  useEffect(() => {
+    // Nothing asked for auto sizing; drop any stale measurements so a column that leaves auto
+    // mode does not keep an old width alive.
+    if (autoColKeys.length === 0) {
+      // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/set-state-in-effect -- clearing a stale deferred result, not mirroring a prop.
+      setMeasuredAutoWidths((prev) => (Object.keys(prev).length === 0 ? prev : {}))
+      return
+    }
+    // Cancelled when rules change again mid-measure, so a superseded pass cannot apply its result.
+    let cancelled = false
+    const run = () => {
+      if (cancelled) return
+      // One extent per auto column, folded over every rule in a single pass so the 100k-row walk
+      // happens once regardless of how many columns are auto.
+      const extents = new Map<string, ColumnContentExtent>()
+      for (const key of autoColKeys) extents.set(key, emptyContentExtent())
+      // The header must always fit, so seed each extent with its own label before the rows.
+      for (const key of autoColKeys) extendWithText(extents.get(key)!, colHeaderLabel(key as ColKey))
+      // Ordinal columns are sized by the LARGEST ordinal, which is a property of the row count
+      // rather than of any single rule — so they are folded in here, in constant time, instead
+      // of being compared once per row inside the walk below.
+      const ordinalChars = String(rules.length).length
+      const idxExtent = extents.get('Idx')
+      if (idxExtent) extendWithText(idxExtent, '0'.repeat(ordinalChars))
+      // The recipe index renders a bare ordinal too (or a star icon, which is narrower than the
+      // header), so the same digit count bounds it — recipe count never exceeds rule count.
+      const recipeIdxExtent = extents.get('RecipeIdx')
+      if (recipeIdxExtent) extendWithText(recipeIdxExtent, '0'.repeat(ordinalChars))
+      for (const rule of rules) {
+        if (!rule) continue
+        for (const key of autoColKeys) {
+          const extent = extents.get(key)!
+          measureRuleIntoExtent(key as ColKey, rule, extent)
+        }
+      }
+      if (cancelled) return
+      // Build the deferred columns' text now: only the rows that tied for the widest cheap count
+      // reach a formatter, so this is a handful of calls rather than one per rule.
+      for (const key of autoColKeys) {
+        const format = pendingFormatterForColumn(key as ColKey)
+        if (format) resolvePending(extents.get(key)!, format)
+      }
+      // Resolve each extent to pixels, stepping icon columns by the same unit the renderer packs.
+      const next: Record<string, number> = {}
+      for (const key of autoColKeys) {
+        next[key] = widthForExtent(extents.get(key)!, iconStepForColumn(key as ColKey))
+      }
+      setMeasuredAutoWidths((prev) => {
+        // Skip the state write when nothing moved, so an unchanged rebuild causes no re-render.
+        const same = Object.keys(next).length === Object.keys(prev).length
+          && Object.entries(next).every(([k, v]) => prev[k] === v)
+        return same ? prev : next
+      })
+    }
+    // requestIdleCallback where available; a short timeout elsewhere (Safari) keeps the same
+    // "after paint" ordering without blocking it.
+    const idle = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback(run, { timeout: RULES_TABLE_AUTO_WIDTH_IDLE_TIMEOUT_MS })
+      : window.setTimeout(run, 0)
+    return () => {
+      cancelled = true
+      if (typeof requestIdleCallback === 'function') cancelIdleCallback(idle as number)
+      else window.clearTimeout(idle as number)
+    }
+    // `autoColKeysToken` stands in for the key ARRAY, whose identity changes every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- keyed on the token, not the array identity.
+  }, [rules, autoColKeysToken, measureRuleIntoExtent, iconStepForColumn, colHeaderLabel, pendingFormatterForColumn])
+
+  // Columns as LAID OUT: every auto sentinel replaced by its measured width, or by the fallback
+  // while the deferred pass is still pending. Downstream code (layout, h-scroll totals, the icon
+  // capacity math) therefore never has to know the sentinel exists.
+  const cols = useMemo(
+    () => storedColConfigs.map((c) => (
+      isAutoWidth(c.width)
+        ? { ...c, width: measuredAutoWidths[String(c.key)] ?? autoWidthFallback(c.key) }
+        : c
+    )),
+    [storedColConfigs, measuredAutoWidths, autoWidthFallback],
+  )
 
   const updateColumns = useCallback((updater: (prev: ColConfig[]) => ColConfig[]) => {
     setStoredCols((prevPrefs) => {
@@ -1790,9 +2028,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                   })
                 } else {
                   // Single-line mode: render only icons that fit, reserve space for an ellipsis if truncated
-                  const GAP_PX = 4
-                  const SLOT_ICON_PX = 16
-                  const unit = SLOT_ICON_PX + GAP_PX
+                  const unit = RULES_TABLE_SLOT_ICON_PX + RULES_TABLE_SLOT_ICON_GAP_PX
                   const avail = Math.max(0, (c.width || 0) - RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
                   const capacity = Math.max(0, Math.floor(avail / unit))
                   const needsEllipsis = types.length > capacity
@@ -1900,8 +2136,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                       <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
                     ))
                   } else {
-                    const GAP_PX = 2
-                    const unit = SET_ICON_PX + GAP_PX
+                    const unit = SET_ICON_PX + RULES_TABLE_SET_ICON_GAP_PX
                     const avail = Math.max(0, (c.width || 0) - RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
                     const capacity = Math.max(0, Math.floor(avail / unit))
                     const needsEllipsis = setEntries.length > capacity
@@ -2108,8 +2343,13 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
             // Prevent scroll chaining to the page and stabilize scrollbar space
             overscrollBehaviorY: 'contain',
             overscrollBehaviorX: 'contain',
-            // Firefox ignores scrollbar-gutter, so add inline padding there while Chrome keeps its native gutter.
-            ...reserveScrollbarGutterSpace(),
+            // NO inline gutter reservation here, unlike the app's vertical-only scrollers.
+            // Why: a reserved gutter is inline PADDING inside the scroll port, so the table —
+            // which is width:100% of that padded content box — ends up narrower than the port
+            // while the horizontal scroll range is still measured against the full width. The
+            // rightmost column then cannot be scrolled fully into view. This scroller is
+            // bi-directional, so the port must span the whole width and let the vertical
+            // scrollbar sit at its edge.
             // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
             contain: 'layout paint',
             // CSS-only hover highlight class for hovered rows (recipe or safeguard; added imperatively).
@@ -2227,7 +2467,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                         <span>{colHeaderLabel(c.key)}</span>
                       </MarkdownTooltip>
                     </Box>
-                    <Box onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }} sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }} />
+                    {/* The styled tooltip, not a native `title`: that one is reserved for
+                        ellipsized text, where the OS bubble is the deliberate visual tell. */}
+                    <MarkdownTooltip markdown={t('rulesHeaderAutoWidthHint')}>
+                      <Box
+                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }}
+                        // Double-click fits the column to its content (see `autoSizeColumn`).
+                        onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); autoSizeColumn(realIdx) }}
+                        sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }}
+                      />
+                    </MarkdownTooltip>
                   </TableCell>
                 )
               })}

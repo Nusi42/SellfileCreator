@@ -899,6 +899,7 @@ const overrides: Catalog = {
   colOre: "Erz",
   colSub: "Unterwerte",
   rulesHeaderHelp: "{label} — zum Umordnen ziehen; Ziehgriff am rechten Rand zum Größenändern; Rechtsklick für Optionen",
+  rulesHeaderAutoWidthHint: "Ziehen zum Größenändern; Doppelklick passt die Spalte an ihren Inhalt an",
   rulesEmpty: "Noch keine RSL‑Helper‑Verkaufsregel.",
   rulesEmptyFiltered: "Keine Verkaufsregeln aufgrund des Filters.",
   rulesBuilding: "Wird erstellt…",
