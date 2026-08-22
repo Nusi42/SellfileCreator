@@ -52,6 +52,7 @@ import { GLYPH_KEEP } from './keepSellOutcome'
 import {
   emptyContentExtent,
   extendWithIcons,
+  extendWithIconTextPair,
   extendWithText,
   considerByCount,
   resolvePending,
@@ -1309,7 +1310,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   // to avoid re-render cost entirely during hover.)
 
 
-  type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'RuleName' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity'
+  type ColKey = keyof HsfRule | 'Idx' | 'RecipeIdx' | 'RuleName' | 'SubstatsSummary' | 'ArtifactTypeNames' | 'ArtifactSetNames' | 'MainStatName' | 'LevelLabel' | 'RankRarity' | 'Special'
   type ColMode = 'auto' | 'show' | 'hide'
   type ColConfig = { key: ColKey; label: string; width: number; visible: boolean; mode?: ColMode }
   const colHeaderLabel = (key: ColKey): string => (
@@ -1324,8 +1325,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     key === 'RankRarity' ? t('colRankRarity') :
     key === 'MainStatName' ? t('colMain') :
     key === 'LevelLabel' ? t('colLevel') :
-    key === 'Faction' ? t('colFaction') :
-    key === 'Ore' ? t('colOre') :
+    key === 'Special' ? t('colSpecial') :
     key === 'SubstatsSummary' ? t('colSub') : String(key)
   )
   const colMenuLabel = (key: ColKey): string => (
@@ -1347,11 +1347,11 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
     { key: 'MainStatName', label: 'Main', width: 76, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 78, visible: true },
-    // Default to hidden; users can opt-in via the header menu or auto mode.
-    { key: 'Faction', label: 'Faction', width: 46, visible: false, mode: 'auto' },
-    // Chaos-ore gate column: auto-shows only when some rule actually narrows it.
-    { key: 'Ore', label: 'Ore', width: 46, visible: false, mode: 'auto' },
+    // Faction + chaos-ore gates share one column: a rule rarely sets either, and when it does
+    // the cell holds a single icon or glyph, so two columns of padding bought nothing.
+    // Auto-shows when a rule narrows EITHER gate; default hidden, opt-in via the header menu.
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
+    { key: 'Special', label: 'Special', width: 52, visible: false, mode: 'auto' },
   ]), [])
 
   // Width an auto column renders at until its deferred measurement lands: the shipped default,
@@ -1369,7 +1369,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     if (key === 'ArtifactTypeNames') return RULES_TABLE_SLOT_ICON_PX + RULES_TABLE_SLOT_ICON_GAP_PX
     if (key === 'ArtifactSetNames') return SET_ICON_PX + RULES_TABLE_SET_ICON_GAP_PX
     // The faction column draws at most one icon, so its footprint is the icon itself.
-    if (key === 'Faction') return FACTION_ICON_PREVIEW_PX
+    if (key === 'Special') return FACTION_ICON_PREVIEW_PX
     return 0
   }, [])
 
@@ -1404,24 +1404,29 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
         else if (rule.__allKnownSets) extendWithText(extent, getArtifactSetLabel(rule))
         else considerByCount(extent, Array.isArray(rule.ArtifactSet) ? rule.ArtifactSet.length : 0, rule)
         return
-      case 'Faction': {
+      case 'Special': {
+        // The merged gate cell can hold BOTH parts at once, so its width is their sum rather
+        // than the wider of the two — measuring them independently would under-size the column
+        // for a rule that narrows faction and rework together.
         const label = getFactionLabel(rule)
-        // Icon mode draws a single icon, and only when the rule actually names a faction.
+        const chip = recipeFlagChipForReworkGate(reworkGateForOreSentinel(rule.Ore))
+        const glyph = chip ? chip.glyph : ''
         if (showFactionIcons) {
+          // Icon mode: at most one faction icon, plus the rework glyph measured as text.
           if (label) extendWithIcons(extent, 1)
-        } else extendWithText(extent, label)
+          extendWithText(extent, glyph)
+          // Both present: the icon sits beside the glyph, so reserve room for the pair.
+          if (label && glyph) extendWithIconTextPair(extent, 1, glyph.length)
+        } else {
+          // Text mode: the faction NAME and the glyph share the cell, joined by one space.
+          extendWithText(extent, label && glyph ? `${label}${NBSP}${glyph}` : (label || glyph))
+        }
         return
       }
       case 'Keep':
         // Renders the shared keep/sell glyph — one character wide either way.
         extendWithText(extent, GLYPH_KEEP)
         return
-      case 'Ore': {
-        // Blank unless the rule gates on rework state, in which case it is a single glyph.
-        const chip = recipeFlagChipForReworkGate(reworkGateForOreSentinel(rule.Ore))
-        if (chip) extendWithText(extent, chip.glyph)
-        return
-      }
       case 'Use':
         extendWithText(extent, rule.Use ? '✓' : '-')
         return
@@ -1643,7 +1648,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   // What "Auto" resolves to per auto-capable column. Keyed the same way the header menu
   // detects them (a declared `mode`), so a new auto column only has to register here.
   const autoColumnPredicates = useMemo<Partial<Record<ColKey, boolean>>>(
-    () => ({ Faction: anyWithFaction, Ore: anyWithOre }),
+    // The merged column earns its place as soon as EITHER gate is narrowed, so a sellfile that
+    // only uses one of them keeps showing that one — the union preserves what each separate
+    // column used to reveal on its own.
+    () => ({ Special: anyWithFaction || anyWithOre }),
     [anyWithFaction, anyWithOre],
   )
   const isColVisible = React.useCallback((c: ColConfig) => {
@@ -1955,25 +1963,22 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               else if (c.key === 'RankRarity') {
                 value = getRankRarityLabel(rule)
               }
-              else if (c.key === 'Faction') {
-                const label = getFactionLabel(rule)
-                factionLabel = label
-                value = showFactionIcons ? '' : label
-              }
               else if (c.key === 'MainStatName') {
                 // When main stat is Any (MainStatID === -1 or undefined), render nothing.
                 // This matches the intended preview behavior post‑i18n.
                 const isAnyMain = (rule.MainStatID === undefined || rule.MainStatID === null || Number(rule.MainStatID) === -1)
                 value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
               }
-              else if (c.key === 'Ore') {
-                // Show the builder's own rework glyph rather than a word, so the same gate reads
-                // identically in the Flags chip row, on the recipe chip, and here. The spec also
-                // carries the term, which becomes the cell's tooltip below.
-                // Unconstrained rules resolve to no spec and render blank, mirroring how an Any
-                // main stat shows nothing.
+              else if (c.key === 'Special') {
+                // One cell for both gates. Faction resolves to an icon (or its name when icons
+                // are off); rework resolves to the builder's own glyph, so the gate reads the
+                // same here as in the Flags chip row and on the recipe chip. A rule that narrows
+                // neither renders blank, mirroring how an Any main stat shows nothing.
+                factionLabel = getFactionLabel(rule)
                 oreFlagChip = recipeFlagChipForReworkGate(reworkGateForOreSentinel(rule.Ore))
-                value = oreFlagChip ? oreFlagChip.glyph : ''
+                // Only the text forms land in `value`; the icon form is composed below.
+                // Joined with a space so a faction NAME and a rework glyph stay legible together.
+                value = [showFactionIcons ? '' : factionLabel, oreFlagChip?.glyph ?? ''].filter(Boolean).join(NBSP)
               }
               else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
               else if (c.key === 'Idx') value = String(lineIdx + 1)
@@ -2066,40 +2071,49 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                   </MarkdownTooltip>
                 )
               }
-              // Name the rework glyph on hover, so the column stays readable without the builder open.
-              if (c.key === 'Ore' && oreFlagChip) {
-                content = (
-                  <MarkdownTooltip markdown={t(oreFlagChip.labelKey)}>
-                    <Box component="span">{oreFlagChip.glyph}</Box>
-                  </MarkdownTooltip>
-                )
-              }
-              if (c.key === 'Faction' && showFactionIcons) {
-                const fc = Number(rule.Faction)
-                if (fc && fc !== 0 && factionLabel) {
+              // Compose the merged gate cell. Each part carries its own tooltip naming it, so the
+              // icon and the glyph stay individually identifiable now that they share a column.
+              if (c.key === 'Special') {
+                const factionId = Number(rule.Faction)
+                const showFactionIcon = showFactionIcons && Boolean(factionId) && factionId !== 0 && Boolean(factionLabel)
+                // Only take over the cell when there is something graphical to draw; a
+                // text-only cell (faction icons off) keeps the plain `value` rendering above.
+                if (showFactionIcon || oreFlagChip) {
                   content = (
-                    <MarkdownTooltip markdown={factionLabel}>
-                      <Box
-                        component="span"
-                        sx={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          lineHeight: 0,
-                          width: '100%',
-                          minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
-                          height: `${FACTION_ICON_PREVIEW_PX}px`,
-                          position: 'relative',
-                          transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
-                        }}
-                      >
-                        <FactionIcon
-                          faction={fc as FactionId}
-                          size={FACTION_ICON_PREVIEW_PX}
-                          sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
-                        />
-                      </Box>
-                    </MarkdownTooltip>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, maxWidth: '100%' }}>
+                      {showFactionIcon ? (
+                        <MarkdownTooltip markdown={factionLabel ?? ''}>
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 0,
+                              minWidth: `${FACTION_ICON_PREVIEW_PX}px`,
+                              height: `${FACTION_ICON_PREVIEW_PX}px`,
+                              position: 'relative',
+                              transform: wrapRows ? undefined : `translateY(${FACTION_ICON_PREVIEW_OFFSET_PX}px)`,
+                            }}
+                          >
+                            <FactionIcon
+                              faction={factionId as FactionId}
+                              size={FACTION_ICON_PREVIEW_PX}
+                              sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
+                            />
+                          </Box>
+                        </MarkdownTooltip>
+                      ) : null}
+                      {/* Faction icons off but a faction is set: keep its name beside the glyph. */}
+                      {!showFactionIcons && factionLabel ? (
+                        <Box component="span">{factionLabel}</Box>
+                      ) : null}
+                      {oreFlagChip ? (
+                        <MarkdownTooltip markdown={t(oreFlagChip.labelKey)}>
+                          <Box component="span">{oreFlagChip.glyph}</Box>
+                        </MarkdownTooltip>
+                      ) : null}
+                    </Box>
                   )
                 }
               }
@@ -2223,7 +2237,7 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               const alignY = wrapRows ? 'flex-start' : 'center'
               // Allow faction icon halos to bleed outside the cell without
               // forcing the row height to grow in single-line mode.
-              const factionIconOverflow = (!wrapRows && c.key === 'Faction' && showFactionIcons)
+              const factionIconOverflow = (!wrapRows && c.key === 'Special' && showFactionIcons)
               return (
                 <TableCell
                   key={String(c.key)}

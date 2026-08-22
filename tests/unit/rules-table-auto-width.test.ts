@@ -5,6 +5,7 @@ import {
   considerByCount,
   emptyContentExtent,
   extendWithIcons,
+  extendWithIconTextPair,
   extendWithText,
   isAutoWidth,
   resolvePending,
@@ -121,4 +122,29 @@ test('widthForExtent takes the wider of the icon and text terms', () => {
   extendWithText(extent, 'ab')
   const step = 20
   assert.equal(widthForExtent(extent, step), 10 * step + RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
+})
+
+test('extendWithIconTextPair sizes a cell that draws icons and text together', () => {
+  const extent = emptyContentExtent()
+  // The merged gate column: one faction icon beside a one-character rework glyph.
+  extendWithIcons(extent, 1)
+  extendWithText(extent, '@')
+  extendWithIconTextPair(extent, 1, 1)
+  const step = 20
+  const width = widthForExtent(extent, step)
+  // Must exceed either half alone — the icon term is 20px, the text term ~9px, but the cell
+  // holds both, so a max() over the separate terms would under-size it.
+  assert.ok(width > step + RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
+})
+
+test('extendWithIconTextPair keeps the widest pair, not the last', () => {
+  const extent = emptyContentExtent()
+  extendWithIconTextPair(extent, 1, 5)
+  // Same icon count but shorter text must not shrink the recorded pair.
+  extendWithIconTextPair(extent, 1, 2)
+  assert.equal(extent.maxPairChars, 5)
+  // A higher icon count wins outright.
+  extendWithIconTextPair(extent, 2, 1)
+  assert.equal(extent.maxPairIcons, 2)
+  assert.equal(extent.maxPairChars, 1)
 })

@@ -46,6 +46,12 @@ export interface ColumnContentExtent {
   /** Most icons any single row draws, for icon columns. */
   maxIcons: number
   /**
+   * Largest combined icon+text footprint seen in a single cell, for a column that draws both
+   * at once. See `extendWithIconTextPair`; zero for every ordinary column.
+   */
+  maxPairIcons: number
+  maxPairChars: number
+  /**
    * Highest cheap "size" seen so far for a deferred column, and the rows that had it.
    *
    * See `considerByCount`: for columns whose text is expensive to build but whose length grows
@@ -58,7 +64,7 @@ export interface ColumnContentExtent {
 
 /** An empty extent, so callers can fold rows onto it without a null branch. */
 export const emptyContentExtent = (): ColumnContentExtent => (
-  { maxChars: 0, maxIcons: 0, pendingCount: -1, pendingRows: [] }
+  { maxChars: 0, maxIcons: 0, maxPairIcons: 0, maxPairChars: 0, pendingCount: -1, pendingRows: [] }
 )
 
 /**
@@ -72,6 +78,25 @@ export const extendWithText = (extent: ColumnContentExtent, text: string): void 
 /** Widen an extent to cover one more row's icon count. Mutates, for the same reason. */
 export const extendWithIcons = (extent: ColumnContentExtent, count: number): void => {
   if (count > extent.maxIcons) extent.maxIcons = count
+}
+
+/**
+ * Widen an extent for a row that draws icons AND text side by side in the same cell.
+ *
+ * `widthForExtent` normally takes the WIDER of the icon and text terms, because a column is
+ * one kind or the other. The merged gate column breaks that: a rule can narrow both faction
+ * (an icon) and rework (a glyph), and the cell lays them out in a row. Recording the combined
+ * footprint here keeps such a row from being measured as though only its wider half existed.
+ */
+export const extendWithIconTextPair = (
+  extent: ColumnContentExtent,
+  iconCount: number,
+  chars: number,
+): void => {
+  if (iconCount > extent.maxPairIcons || (iconCount === extent.maxPairIcons && chars > extent.maxPairChars)) {
+    extent.maxPairIcons = iconCount
+    extent.maxPairChars = chars
+  }
 }
 
 /**
@@ -209,8 +234,13 @@ const finishWidth = (contentPx: number): number => (
  * of which column it is sizing.
  */
 export const widthForExtent = (extent: ColumnContentExtent, iconStepPx: number): number => {
+  const advancePx = monospaceAdvancePx()
   // An icon column is one whose rows actually drew icons; otherwise treat it as text.
   const iconsPx = extent.maxIcons > 0 ? extent.maxIcons * iconStepPx : 0
-  const textPx = extent.maxChars > 0 ? extent.maxChars * monospaceAdvancePx() : 0
-  return finishWidth(Math.max(iconsPx, textPx))
+  const textPx = extent.maxChars > 0 ? extent.maxChars * advancePx : 0
+  // A cell that draws both at once needs their SUM, which can exceed either term alone.
+  const pairPx = extent.maxPairIcons > 0
+    ? extent.maxPairIcons * iconStepPx + extent.maxPairChars * advancePx
+    : 0
+  return finishWidth(Math.max(iconsPx, textPx, pairPx))
 }

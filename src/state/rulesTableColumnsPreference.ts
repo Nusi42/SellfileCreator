@@ -15,7 +15,7 @@ export type StoredColumnConfig = {
 
 // Bump the key when the default column set/order changes so stale layouts do not mask new defaults.
 // Exported so tests can seed a layout without re-typing the literal and silently drifting from it.
-export const RULES_TABLE_COLUMNS_STORAGE_KEY = 'sellfileCreator.rulesTableCols.v5'
+export const RULES_TABLE_COLUMNS_STORAGE_KEY = 'sellfileCreator.rulesTableCols.v6'
 
 const parseStoredColumns = (raw: string | null): StoredColumnConfig[] => {
   if (!raw) return []
