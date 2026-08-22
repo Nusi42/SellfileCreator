@@ -13,6 +13,7 @@
  * Keep/Sell badge — so a flag can never show one glyph in the panel and another on the chip.
  */
 import type { BuilderRecipe } from '../lib/hsfBuilder'
+import type { ReworkGate } from '../lib/hsfBuilder/types'
 import type { I18nKey } from '../lib/i18n'
 import { isIgnoredBySafeguards, type RecipeFlagKey, type RecipeFlagValue } from '../lib/recipeFlags'
 import {
@@ -87,4 +88,19 @@ export const RECIPE_FLAG_CHIPS: readonly RecipeFlagChipSpec[] = [
 /** The chips a recipe currently has set, in registry order. Empty for most recipes. */
 export const activeRecipeFlagChips = (recipe: BuilderRecipe): RecipeFlagChipSpec[] => (
   RECIPE_FLAG_CHIPS.filter((spec) => spec.isOn(recipe))
+)
+
+/**
+ * The chip spec describing a rework gate, or undefined when the gate is absent.
+ *
+ * Looks the spec up by the value it writes, so the registry above stays the only place a
+ * gate token is paired with a glyph and a term. Used by the sellfile preview's Ore column,
+ * which reads the gate back off a rule's `Ore` sentinel and must show the same glyph the
+ * builder's Flags row does.
+ */
+export const recipeFlagChipForReworkGate = (
+  gate: ReworkGate | null | undefined,
+): RecipeFlagChipSpec | undefined => (
+  // Absent gate means unconstrained; no chip stands for that state.
+  gate ? RECIPE_FLAG_CHIPS.find((spec) => spec.fieldKey === 'reworkGate' && spec.onValue === gate) : undefined
 )

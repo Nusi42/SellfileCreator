@@ -899,8 +899,6 @@ const overrides: Catalog = {
   colLevel: "Livello",
   colFaction: "Fazione",
   colOre: "Minerale",
-  oreOred: "Rielaborato",
-  oreNotOred: "Non rielaborato",
   colSub: "Sotto",
   rulesHeaderHelp: "{label} — trascina per riordinare; trascina la maniglia sul bordo destro per ridimensionare; clic destro per le opzioni",
   rulesEmpty: "Ancora nessuna regola Sellfile di RSL Helper.",

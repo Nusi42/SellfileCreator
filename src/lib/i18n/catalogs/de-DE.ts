@@ -899,8 +899,6 @@ const overrides: Catalog = {
   colLevel: "Level",
   colFaction: "Fraktion",
   colOre: "Erz",
-  oreOred: "Überarbeitet",
-  oreNotOred: "Nicht überarbeitet",
   colSub: "Unterwerte",
   rulesHeaderHelp: "{label} — zum Umordnen ziehen; Ziehgriff am rechten Rand zum Größenändern; Rechtsklick für Optionen",
   rulesEmpty: "Noch keine RSL‑Helper‑Verkaufsregel.",

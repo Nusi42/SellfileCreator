@@ -37,8 +37,8 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
-import { isChaosOreConstrained, normalizeOreValue } from '../lib/recipeFlags'
-import { ORE_ORED } from '../lib/generated/domainConstants'
+import { reworkGateForOreSentinel } from '../lib/recipeFlags'
+import { recipeFlagChipForReworkGate, type RecipeFlagChipSpec } from './recipeFlagChips'
 import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { renderColoredStatText } from '../lib/renderColoredStatText'
@@ -1395,10 +1395,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
   // (those carrying RecipeID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   // Show the Ore column automatically when any rule actually gates on chaos-ore state.
-  // isChaosOreConstrained is the SSOT for "this value narrows something" (ORE_ANY does not).
-  // normalizeOreValue keeps this agreeing with the cell renderer for loaded HSF files,
-  // whose JSON may carry Ore as a numeric string rather than a number.
-  const anyWithOre = useMemo(() => rules.some((r) => r && isChaosOreConstrained(normalizeOreValue(r.Ore))), [rules])
+  // Resolve through the same sentinel→gate helper the cell renderer uses, so the column can
+  // never auto-show for a rule the renderer then leaves blank (or vice versa). It also absorbs
+  // the coercion loaded HSF files need, whose JSON may carry Ore as a numeric string.
+  const anyWithOre = useMemo(() => rules.some((r) => r && reworkGateForOreSentinel(r.Ore) !== undefined), [rules])
   // What "Auto" resolves to per auto-capable column. Keyed the same way the header menu
   // detects them (a declared `mode`), so a new auto column only has to register here.
   const autoColumnPredicates = useMemo<Partial<Record<ColKey, boolean>>>(
@@ -1665,6 +1665,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
             {visibleCols.map((c) => {
               let value: string = ''
               let factionLabel: string | null = null
+              // Set by the Ore branch below; carries the glyph's term so the cell can name it
+              // in a tooltip, the way the recipe chip spells its flag glyphs out.
+              let oreFlagChip: RecipeFlagChipSpec | undefined
               let recipeSpecialContent: React.ReactNode | null = null
               if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
               else if (c.key === 'RecipeIdx') {
@@ -1717,13 +1720,13 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                 value = isAnyMain ? '' : t(statVariantI18nKey(mainToVariant(rule.MainStatID, rule.MainStatF)))
               }
               else if (c.key === 'Ore') {
-                // Unconstrained rules render blank, mirroring how an Any main stat shows nothing.
-                // Coerce once, then use that single value for both the guard and the branch —
-                // mixing a strict check with a Number() branch made a string "1" blank the cell.
-                const oreValue = normalizeOreValue(rule.Ore)
-                value = isChaosOreConstrained(oreValue)
-                  ? (oreValue === ORE_ORED ? t('oreOred') : t('oreNotOred'))
-                  : ''
+                // Show the builder's own rework glyph rather than a word, so the same gate reads
+                // identically in the Flags chip row, on the recipe chip, and here. The spec also
+                // carries the term, which becomes the cell's tooltip below.
+                // Unconstrained rules resolve to no spec and render blank, mirroring how an Any
+                // main stat shows nothing.
+                oreFlagChip = recipeFlagChipForReworkGate(reworkGateForOreSentinel(rule.Ore))
+                value = oreFlagChip ? oreFlagChip.glyph : ''
               }
               else if (c.key === 'LevelLabel') value = formatLevel(rule.LVLForCheck)
               else if (c.key === 'Idx') value = String(lineIdx + 1)
@@ -1806,6 +1809,14 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                       {slotIconsContent}
                     </Box>
+                  </MarkdownTooltip>
+                )
+              }
+              // Name the rework glyph on hover, so the column stays readable without the builder open.
+              if (c.key === 'Ore' && oreFlagChip) {
+                content = (
+                  <MarkdownTooltip markdown={t(oreFlagChip.labelKey)}>
+                    <Box component="span">{oreFlagChip.glyph}</Box>
                   </MarkdownTooltip>
                 )
               }

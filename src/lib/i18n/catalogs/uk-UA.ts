@@ -899,8 +899,6 @@ const overrides: Catalog = {
   colLevel: "Рівень",
   colFaction: "Фракція",
   colOre: "Руда",
-  oreOred: "Перероблено",
-  oreNotOred: "Не перероблено",
   colSub: "Підстат",
   rulesHeaderHelp: "{label} — перетягніть для зміни порядку; праворуч тягніть для зміни ширини; правий клік — опції",
   rulesEmpty: "Поки немає правил продажу RSL Helper.",

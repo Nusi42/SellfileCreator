@@ -899,8 +899,6 @@ const enUS: Catalog = {
   colLevel: "Level",
   colFaction: "Faction",
   colOre: "Ore",
-  oreOred: "Reworked",
-  oreNotOred: "Not reworked",
   colSub: "Sub",
   rulesHeaderHelp: "{label} — drag to reorder; drag handle at right edge to resize; right-click for options",
   rulesEmpty: "No RSL Helper Sellfile rule yet.",

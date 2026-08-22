@@ -297,3 +297,20 @@ export const isChaosOreConstrained = (ore: number | null | undefined): boolean =
   // Only the two concrete states constrain; ORE_ANY and nullish do not.
   ore === ORE_ORED || ore === ORE_NOT_ORED
 )
+
+/**
+ * The inverse of `oreSentinelForReworkGate`: recover the gate a rule's `Ore` field encodes.
+ *
+ * The preview table reads rules, not recipes, so it only ever sees the sentinel. Routing it
+ * back through the gate token lets that surface reuse the builder's per-gate presentation
+ * (glyph + term) instead of re-deriving a second sentinel→label mapping of its own.
+ * Unconstrained rules (ORE_ANY, or anything unrecognized) resolve to undefined, matching how
+ * an absent `reworkGate` spells "this recipe does not care".
+ */
+export const reworkGateForOreSentinel = (ore: unknown): ReworkGate | undefined => {
+  // Coerce first, so a loaded file's numeric-string Ore resolves like a freshly built number.
+  const normalized = normalizeOreValue(ore)
+  if (normalized === ORE_ORED) return REWORK_GATE_REWORKED
+  if (normalized === ORE_NOT_ORED) return REWORK_GATE_NOT_REWORKED
+  return undefined
+}

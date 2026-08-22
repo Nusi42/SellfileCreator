@@ -899,8 +899,6 @@ const overrides: Catalog = {
   colLevel: "Seviye",
   colFaction: "Fraksiyon",
   colOre: "Cevher",
-  oreOred: "Yeniden işlendi",
-  oreNotOred: "İşlenmedi",
   colSub: "Alt",
   rulesHeaderHelp: "{label} — sıralamak için sürükle; sağ koldan genişlik ayarla; sağ tık menüsü",
   rulesEmpty: "Henüz RSL Helper satış kuralları yok.",

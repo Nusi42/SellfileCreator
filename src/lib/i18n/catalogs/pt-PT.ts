@@ -899,8 +899,6 @@ const overrides: Catalog = {
   colLevel: "Nível",
   colFaction: "Facção",
   colOre: "Minério",
-  oreOred: "Retrabalhado",
-  oreNotOred: "Não retrabalhado",
   colSub: "Sub",
   rulesHeaderHelp: "{label} — arraste para reordenar; alça à direita para redimensionar; clique direito para opções",
   rulesEmpty: "Ainda não há regras de venda do RSL Helper.",
