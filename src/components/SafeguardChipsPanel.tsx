@@ -97,6 +97,12 @@ export type SafeguardChipsPanelProps = {
   // Read-only, for rendering. Every mutation must go through `onRulesChange`'s UPDATER form so
   // it is applied to the STORED rules instead — see the note on `onRulesChange`.
   rules: SafeguardRule[]
+  // The STORED rules — the same list `onRulesChange`'s updater receives, positionally identical to
+  // `rules`. Read this (never `rules`) for anything that LEAVES the panel as data the user can
+  // persist: the clipboard. Copying a chip off the display list and pasting it back would write the
+  // overridden values as the copy's own, which is the same leak `onRulesChange`'s updater form
+  // closes for structural edits.
+  storedRules: readonly SafeguardRule[]
   selectedRuleIdx: number | null
   onSelect: (ruleIdx: number) => void
   // `displayOnly` marks a change that alters presentation state only. Such a change produces
@@ -499,6 +505,7 @@ const SafeguardChip = React.memo(function SafeguardChip({
 
 export default function SafeguardChipsPanel({
   rules,
+  storedRules,
   selectedRuleIdx,
   onSelect,
   onRulesChange,
@@ -776,12 +783,15 @@ export default function SafeguardChipsPanel({
   const handleDuplicateRule = useCallback((ruleIdx: number) => {
     // Delegate to parent when in multi-select mode so grouped duplicates work.
     if (onRuleDuplicate) { onRuleDuplicate(ruleIdx); return }
-    if (!rules[ruleIdx]) return
     // Duplicate from the STORED rule, not the display one: cloning the override-applied chip
-    // would persist the overridden values as the copy's own.
+    // would persist the overridden values as the copy's own. The existence check lives inside the
+    // updater rather than out here, so it tests the list actually being edited; the flag carries
+    // the outcome back out, the same way `insertSafeguardRulesAt` reports its insert index.
+    let duplicated = false
     mutateRules((prev) => {
       const source = prev[ruleIdx]
       if (!source) return prev
+      duplicated = true
       // Deep-cloned so no two chips ever share a reference (the identity rule multi-select and
       // history depend on). The clone lands right after its source, so a duplicated group member
       // is adjacent to its siblings and simply stays a member.
@@ -790,8 +800,8 @@ export default function SafeguardChipsPanel({
       return next
     })
     // Select the clone; the selectedRuleIdx effect will scroll it into view.
-    onSelect(ruleIdx + 1)
-  }, [mutateRules, onRuleDuplicate, rules, onSelect])
+    if (duplicated) onSelect(ruleIdx + 1)
+  }, [mutateRules, onRuleDuplicate, onSelect])
 
   // ── group edits ──────────────────────────────────────────────────────────
   // Every one of these delegates its array maths to lib/safeguardGroups, which also repairs
@@ -806,12 +816,12 @@ export default function SafeguardChipsPanel({
   // through onSelect here would auto-apply the still-pending builder draft to whatever now sits
   // at the old index, and grouping moves the block to its first member's slot.
   const handleGroupSelection = useCallback((indices: readonly number[]) => {
-    // Probed on the display list first so an impossible selection never opens a history entry;
-    // the committed result is recomputed from the stored rules.
-    if (!groupSafeguardSelection(rules, indices)) return
+    // Computed once, inside the updater, against the stored rules. A refusal returns `prev`
+    // unchanged, which the parent's no-op guard already drops before it can open a history entry —
+    // so no separate probe (which would have to run on the display list) is needed.
     mutateRules((prev) => groupSafeguardSelection(prev, indices)?.rules ?? prev)
     onClearSelection?.()
-  }, [mutateRules, onClearSelection, rules])
+  }, [mutateRules, onClearSelection])
 
   // Dissolve the whole group; its members keep the counts they never stopped carrying.
   const handleUngroup = useCallback((ruleIdx: number) => {
@@ -990,8 +1000,11 @@ export default function SafeguardChipsPanel({
     setPasteDialogError(null)
   }, [])
 
+  // The copy handlers read `storedRules`, not the override-applied `rules`: a clipboard payload is
+  // persistable user data, so serializing the display form lets a paste write the overridden values
+  // as the copy's own — the same leak the updater form closes for structural edits.
   const handleCopyRule = useCallback(async (ruleIdx: number) => {
-    const source = rules[ruleIdx]
+    const source = storedRules[ruleIdx]
     if (!source) return
     // Serialize via the canonical readable entry builder so the format stays stable.
     const snapshot = buildReadableSafeguardRuleEntry(source)
@@ -1000,7 +1013,7 @@ export default function SafeguardChipsPanel({
     // Fall back to the manual copy dialog when the Clipboard API is unavailable.
     const ok = await writeTextSafe(text)
     if (!ok) triggerCopyDialog(text)
-  }, [rules])
+  }, [storedRules])
 
   // Copies a specific subset of rules (by index) as a flat array, preserving sort order.
   // Used when the per-chip "Copy" action fires while a multi-selection of ≥2 chips is active
@@ -1010,25 +1023,25 @@ export default function SafeguardChipsPanel({
     const sorted = indices.slice().sort((a, b) => a - b)
     // Nest through the shared builder so a copied RUN pastes back as a run: the selection is
     // projected as its own little list, and a run fully inside it survives the round trip.
-    const picked = sorted.map((i) => rules[i]).filter((r): r is SafeguardRule => Boolean(r))
+    const picked = sorted.map((i) => storedRules[i]).filter((r): r is SafeguardRule => Boolean(r))
     const entries = buildReadableSafeguardEntries(picked)
     if (entries.length === 0) return
     const payload = { kind: 'safeguardRule', rule: entries }
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
     if (!ok) triggerCopyDialog(text)
-  }, [rules])
+  }, [storedRules])
 
   // Copies all rules as an array using the same envelope format as handleCopyRule;
   // parseSafeguardClipboardRules already handles array payloads on paste.
   const handleCopyAllRules = useCallback(async () => {
-    if (rules.length === 0) return
-    const snapshots = buildReadableSafeguardEntries(rules)
+    if (storedRules.length === 0) return
+    const snapshots = buildReadableSafeguardEntries(storedRules)
     const payload = { kind: 'safeguardRule', rule: snapshots }
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
     if (!ok) triggerCopyDialog(text)
-  }, [rules])
+  }, [storedRules])
 
   const handlePasteAfterRule = useCallback(async (ruleIdx: number) => {
     const text = await readTextSafe()

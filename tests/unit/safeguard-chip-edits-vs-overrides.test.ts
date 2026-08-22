@@ -39,6 +39,7 @@ import {
   ungroupSafeguardRun,
   safeguardGroupSettingsAt,
 } from '../../src/lib/safeguardGroups.js'
+import { buildReadableSafeguardEntries } from '../../src/lib/sfcIO.js'
 
 // Three plain, ungrouped rules with distinct counts. `keep` is never selected for grouping — it is
 // the bystander that proves the leak reached rules the edit did not even touch.
@@ -130,4 +131,22 @@ test('every structural chip edit is override-safe when applied to the stored rul
     assert.equal(overridden.length, 0, `${label} must not persist an override-applied count`)
     for (const rule of next) assert.ok(STORED_COUNTS.includes(rule.requiredCount), `${label} kept a stored count`)
   }
+})
+
+test('the clipboard payload carries the stored counts, not the overridden ones', () => {
+  // The panel's copy actions serialize a chip into persistable user data, so they read the STORED
+  // rules for the same reason the structural edits commit against them: a payload built from the
+  // display list pastes the overridden values back as the copy's own, and "Save .sfc" then keeps
+  // them. The readable entry keeps the field name `requiredCount`.
+  const stored = makeStored()
+  const display = makeDisplay(stored)
+
+  const storedCounts = buildReadableSafeguardEntries(stored)
+    .map((entry) => (entry as { requiredCount?: number }).requiredCount)
+  assert.deepEqual(storedCounts, STORED_COUNTS)
+
+  // The old, leaking source — pinned so the regression is unmistakable if the wiring is reverted.
+  const displayCounts = buildReadableSafeguardEntries(display as SafeguardRule[])
+    .map((entry) => (entry as { requiredCount?: number }).requiredCount)
+  assert.deepEqual(displayCounts, stored.map(() => OVERRIDDEN_COUNT))
 })

@@ -7544,6 +7544,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const safeguardChipsPanelElement = (
     <SafeguardChipsPanel
       rules={displaySafeguardRules as SafeguardRule[]}
+      // The pre-override rules the panel's clipboard actions serialize; `rules` above is the
+      // override-applied display list and must never be the source of persistable data.
+      storedRules={safeguardRules}
       selectedRuleIdx={selectedSafeguardRuleIdx}
       onSelect={handleSelectSafeguardRule}
       onRulesChange={(next, options) => applySafeguardRulesChange(next, options)}
