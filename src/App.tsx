@@ -148,7 +148,7 @@ import {
 } from './lib/safeguards'
 // Safeguard groups: structural facts come from the Rust authority through this facade; the
 // repair runs at the mutation funnel plus the append-import seam.
-import { normalizeSafeguardGroups } from './lib/safeguardGroups'
+import { normalizeSafeguardGroups, withStoredSafeguardMembership } from './lib/safeguardGroups'
 import { updateRecipeRulesCache } from './lib/ruleCache'
 import {
   PIPELINE_CACHE_MAX_ENTRIES,
@@ -2732,7 +2732,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const current = safeguardBuilderRef.current
     // Same faction→accessory-slots normalization as the insert path.
     const updated: SafeguardRule = normalizeSafeguardFactionSlotScope({ ...cloneSafeguardRule(current) })
-    applySafeguardRulesChange((prev) => prev.map((r, i) => (i === selectedSafeguardRuleIdx ? updated : r)))
+    applySafeguardRulesChange((prev) => prev.map((r, i) => {
+      if (i !== selectedSafeguardRuleIdx) return r
+      // The stored rule stays authoritative about MEMBERSHIP: a group edit made from the chip menu
+      // while this draft sat open must survive the write-back (see the helper's contract).
+      return withStoredSafeguardMembership(updated, r)
+    }))
   }, [applySafeguardRulesChange, selectedSafeguardRuleIdx])
 
   // Reset the builder draft to effective defaults: user-saved defaults if present, factory otherwise.
@@ -7192,7 +7197,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selectedSafeguardRuleIdx === null) return false
     const selectedRule = safeguardRules[selectedSafeguardRuleIdx]
     if (!selectedRule) return false
-    return JSON.stringify(createSafeguardRuleContentSnapshot(safeguardBuilder))
+    // Compare what Apply would actually WRITE, not the raw draft: membership comes from the stored
+    // rule, so a group edit made from the chip menu while this draft sat open is not a pending
+    // change. Without the rebase the draft's stale `group` reads as dirty and the button offers an
+    // Apply that (correctly) writes nothing — and stays lit until the rule is reloaded.
+    return JSON.stringify(createSafeguardRuleContentSnapshot(withStoredSafeguardMembership(safeguardBuilder, selectedRule)))
       !== JSON.stringify(createSafeguardRuleContentSnapshot(selectedRule))
   }, [safeguardBuilder, selectedSafeguardRuleIdx, safeguardRules])
   const safeguardBuilderPanelElement = (

@@ -254,6 +254,33 @@ export const removeSafeguardFromGroup = (rules: readonly SafeguardRule[], index:
   )))
 }
 
+/**
+ * Rebases an edited draft onto the rule it replaces, keeping the STORED membership while letting
+ * the draft's group SETTINGS through.
+ *
+ * The two halves of `group` have different owners. **Membership** (is there a group, and which
+ * one — the `id`) is structure: it is edited through the chip list (group / leave / join / drag),
+ * never through the builder form. **Settings** (`requiredCount`, `countMode`) are edited from the
+ * builder's group strip and must commit on Apply like any other field.
+ *
+ * The draft only snapshots `group` when a rule is loaded and nothing resyncs it afterwards, so a
+ * plain write-back would undo a membership edit made while that draft sat open. Dropping the
+ * draft's `group` wholesale would fix that but throw away the strip's edit with it — hence the
+ * split: the stored side decides *whether* and *which*, the draft side decides *what it promises*.
+ * Every "replace rule N with the draft" seam goes through here, so the builder can never resurrect
+ * a group the user just left nor strip one they just joined, and the strip still works.
+ */
+export const withStoredSafeguardMembership = (draft: SafeguardRule, stored: SafeguardRule): SafeguardRule => {
+  const storedGroup = stored.group
+  // Not a member any more (or never was): the draft's stale settings have nothing to attach to.
+  if (!storedGroup) return withSafeguardGroup(draft, null)
+  // A member: keep the stored id — the draft may name a group the rule has since left or joined —
+  // and take the settings from the draft, which is where the group strip wrote them. A draft with
+  // no group of its own (it was ungrouped when loaded) simply keeps what the store already has.
+  const settings = draft.group ?? storedGroup
+  return withSafeguardGroup(draft, { ...cloneSafeguardGroupSettings(settings), id: storedGroup.id })
+}
+
 // The settings `index` would adopt by joining the run on `side`, or null when there is no such
 // run or the entry is already in it. ONE definition of "can this entry join", so the menu's
 // enablement and the mutation can never disagree about which entries offer the action — and the

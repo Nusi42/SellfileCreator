@@ -12,6 +12,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createFactorySafeguardBuilderDefaults,
+  createSafeguardRuleContentSnapshot,
   type SafeguardGroupSettings,
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
@@ -26,6 +27,7 @@ import {
   resolveSafeguardDropMembership,
   safeguardGroupRunRange,
   ungroupSafeguardRun,
+  withStoredSafeguardMembership,
 } from '../../src/lib/safeguardGroups.js'
 
 const settings = (id: string, requiredCount = 2): SafeguardGroupSettings => ({
@@ -207,4 +209,66 @@ test('re-id: a fully copied run becomes a new group; a partial copy stays a memb
   const pasted = remapSafeguardGroupIds(rules, null, [rules[1]!, rules[2]!])
   assert.notEqual(pasted[0]?.group?.id, 'g')
   assert.equal(pasted[0]?.group?.id, pasted[1]?.group?.id)
+})
+
+test('builder write-back keeps the STORED membership, not the draft snapshot', () => {
+  const rules = base()
+  // The builder loads member 'c' — the draft snapshots its group along with everything else.
+  const draft: SafeguardRule = { ...rules[2]! }
+  // The user then removes 'c' from the group through the chip menu, while that draft stays open.
+  const afterLeave = removeSafeguardFromGroup(rules, 2)!
+  assert.equal(afterLeave[2]?.group, undefined, 'the chip edit dropped the membership')
+  // Pressing Apply writes the (now stale) draft back. Membership must NOT come back with it.
+  const edited: SafeguardRule = { ...draft, requiredCount: 7 }
+  const applied = afterLeave.map((r, i) => (i === 2 ? withStoredSafeguardMembership(edited, r) : r))
+  assert.equal(applied[2]?.group, undefined, 'apply must not resurrect the group the user left')
+  assert.equal(applied[2]?.requiredCount, 7, 'the edited fields still land')
+  // The mirror case: a membership JOINED while the draft was open survives the write-back too.
+  // 'e' (index 4) sits right below the run, and its draft snapshot carries no group at all.
+  const ungroupedDraft: SafeguardRule = { ...rules[4]! }
+  assert.equal(ungroupedDraft.group, undefined, 'the draft was snapshotted while still ungrouped')
+  const joined = joinSafeguardAdjacentGroup(rules, 4, 'above')!
+  assert.equal(joined[4]?.group?.id, 'g', 'the chip edit added the membership')
+  const rejoined = joined.map((r, i) => (i === 4 ? withStoredSafeguardMembership({ ...ungroupedDraft, requiredCount: 9 }, r) : r))
+  assert.equal(rejoined[4]?.group?.id, 'g', 'apply must not strip a group just joined')
+  assert.equal(rejoined[4]?.requiredCount, 9, 'the edited fields still land')
+})
+
+test('a membership-only difference does not read as a pending builder edit', () => {
+  const rules = base()
+  // The builder loaded member 'c'; the user then removed it from the group via the chip menu.
+  const draft: SafeguardRule = { ...rules[2]! }
+  const stored = removeSafeguardFromGroup(rules, 2)![2]!
+  // The dirty check compares what Apply would WRITE, so it rebases membership first. Comparing the
+  // raw draft instead would report a pending change that Apply deliberately never writes — an
+  // Apply button that lights up and then does nothing.
+  const snapshotOf = (rule: SafeguardRule): string => JSON.stringify(createSafeguardRuleContentSnapshot(rule))
+  assert.notEqual(snapshotOf(draft), snapshotOf(stored), 'the raw draft still carries the stale group')
+  assert.equal(
+    snapshotOf(withStoredSafeguardMembership(draft, stored)),
+    snapshotOf(stored),
+    'rebased onto the stored membership there is nothing left to apply',
+  )
+  // A REAL edit alongside the stale membership is still reported as dirty.
+  const edited = withStoredSafeguardMembership({ ...draft, requiredCount: 7 }, stored)
+  assert.notEqual(snapshotOf(edited), snapshotOf(stored), 'a genuine field change still counts')
+})
+
+test('the rebase keeps stored MEMBERSHIP but lets the group strip\'s SETTINGS through', () => {
+  const rules = base()
+  // The group strip edits requiredCount/countMode on the draft; those must still commit.
+  const draft: SafeguardRule = { ...rules[2]!, group: { ...G, requiredCount: 9 } }
+  const rebased = withStoredSafeguardMembership(draft, rules[2]!)
+  assert.equal(rebased.group?.id, 'g', 'membership comes from the store')
+  assert.equal(rebased.group?.requiredCount, 9, 'the strip edit survives the rebase')
+  // A draft naming a DIFFERENT group cannot move the rule: the stored id wins, settings still ride.
+  const moved = withStoredSafeguardMembership({ ...rules[2]!, group: settings('other', 5) }, rules[2]!)
+  assert.equal(moved.group?.id, 'g', 'the draft cannot re-point membership at another group')
+  assert.equal(moved.group?.requiredCount, 5)
+  // A draft snapshotted while ungrouped, applied to a rule that has since JOINED, keeps the
+  // store's settings rather than inventing any.
+  const joined = joinSafeguardAdjacentGroup(rules, 4, 'above')!
+  const late = withStoredSafeguardMembership({ ...rules[4]! }, joined[4]!)
+  assert.equal(late.group?.id, 'g')
+  assert.equal(late.group?.requiredCount, joined[4]?.group?.requiredCount)
 })
