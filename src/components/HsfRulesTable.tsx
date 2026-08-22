@@ -23,6 +23,8 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  MENU_CONTROL_MIN_WIDTH_PX,
 	  RULES_TABLE_OVERSCAN_IDLE,
 	  RULES_TABLE_FIXED_ROW_HEIGHT_PX,
+	  RULES_TABLE_CELL_PADDING_X_PX,
+	  RULES_TABLE_CELL_PADDING_X_TOTAL_PX,
 	  RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX,
 	  RULES_TABLE_HOVER_PROPAGATION_MS,
 	  RULES_TABLE_SCROLL_HINT_HIDE_MS,
@@ -1788,11 +1790,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                   })
                 } else {
                   // Single-line mode: render only icons that fit, reserve space for an ellipsis if truncated
-                  const PAD_X = 12
                   const GAP_PX = 4
                   const SLOT_ICON_PX = 16
                   const unit = SLOT_ICON_PX + GAP_PX
-                  const avail = Math.max(0, (c.width || 0) - PAD_X)
+                  const avail = Math.max(0, (c.width || 0) - RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
                   const capacity = Math.max(0, Math.floor(avail / unit))
                   const needsEllipsis = types.length > capacity
                   const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(types.length, capacity)
@@ -1899,10 +1900,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                       <SetIcon key={`set-${id}`} setId={id} label={label} sx={{ mr: 0 }} />
                     ))
                   } else {
-                    const PAD_X = 12
                     const GAP_PX = 2
                     const unit = SET_ICON_PX + GAP_PX
-                    const avail = Math.max(0, (c.width || 0) - PAD_X)
+                    const avail = Math.max(0, (c.width || 0) - RULES_TABLE_CELL_PADDING_X_TOTAL_PX)
                     const capacity = Math.max(0, Math.floor(avail / unit))
                     const needsEllipsis = setEntries.length > capacity
                     const visibleCount = needsEllipsis ? Math.max(0, capacity - 1) : Math.min(setEntries.length, capacity)
@@ -2168,6 +2168,12 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
           sx={{
             tableLayout: 'fixed',
             width: '100%',
+            // Tighten the inter-column gutter in both wrap modes: MUI's small-size default of 6px
+            // per side reads as loose here. Header and body cells share the value so a column's
+            // heading stays aligned with the data under it.
+            '& th, & td': {
+              px: `${RULES_TABLE_CELL_PADDING_X_PX}px`,
+            },
             // Force single-line mode to a strict fixed row height so TanStack offsets stay exact without measuring.
             // Why: MUI's default cell padding can produce slight row-height variance unless we clamp it.
             ...(wrapRows ? {} : {

@@ -986,6 +986,18 @@ export const RULES_TABLE_OVERSCAN_IDLE = 20
 // can compute exact offsets without DOM measurement, even for very large index jumps.
 export const RULES_TABLE_FIXED_ROW_HEIGHT_PX = 34
 
+// Horizontal padding on each preview cell, and therefore half the visible gap between columns.
+// Why: MUI's `size="small"` default is 6px per side (a 12px gutter), which reads as loose in a
+// dense preview. Tightening to 3px halves the gutter while leaving text clear of the column edge.
+// Cells consume this as the `px` clamp; the slot/set icon capacity math subtracts the full
+// both-sides value below, so the two can never drift apart.
+export const RULES_TABLE_CELL_PADDING_X_PX = 3
+
+// The horizontal space a cell's padding takes away from its declared width.
+// Why: icon columns fit as many glyphs as the remaining width allows, so they must subtract
+// exactly what the padding rule above adds — derived, never re-typed as a literal.
+export const RULES_TABLE_CELL_PADDING_X_TOTAL_PX = RULES_TABLE_CELL_PADDING_X_PX * 2
+
 // Height of the unselectable group-separator rows that head each recipe/safeguard/group block.
 // Why: separators are slimmer than data rows so the heading reads as a divider, not a record.
 export const RULES_TABLE_SEPARATOR_ROW_HEIGHT_PX = 26

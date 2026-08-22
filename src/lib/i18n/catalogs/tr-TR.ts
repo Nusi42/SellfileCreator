@@ -288,7 +288,7 @@ const overrides: Catalog = {
   titleCopyRecipeJson: "Reçete JSON kopyala",
   msgBlockedClipboard: "Tarayıcı pano erişimini engelledi. Elle seçip kopyalayın.",
 
-  msgFinalSellExplainer: "“Koru” kurallarıyla eşleşmeyen öğeler için nihai satış kuralları ekleyin.\nNihai satış olmadan eşleşmeyen öğeler korunur. Satış yalnızca bir satış kuralı eşleştiğinde olur.",
+  msgFinalSellExplainer: "“Tut” kurallarıyla eşleşmeyen öğeler için nihai satış kuralları ekleyin.\nNihai satış olmadan eşleşmeyen öğeler korunur. Satış yalnızca bir satış kuralı eşleştiğinde olur.",
   msgFinalSellExplicitSetsWarning: "Final Satış kuralları, tüm bilinen setleri açıkça listeleyecek şekilde genişler (“Herhangi” jokersiz). Oyun ileride yeni bir set eklerse listede yer almaz, böylece dışa aktarılan Sellfile o taptaze ekipmanı otomatik satmaz.",
   msgFinalSellAnySetsWarning: "Final Satış kuralları her seti eşleşme olarak kabul eder. Diğer kurallarınızda henüz kapsamadığınız yeni bir set buraya düştüğünde o da satılır.",
   labelFinalSellSetsMode: "Set kapsamı",
@@ -903,7 +903,7 @@ const overrides: Catalog = {
   rulesEmptyFiltered: "Filtre nedeniyle kural yok.",
   rulesBuilding: "Oluşturuluyor…",
   rulesLimitExceeded: "Önizleme için çok fazla kombinasyon var (≥ {limit} kural). Lütfen reçeteyi daraltıp yeniden deneyin.",
-  keepValueKeep: "Koru",
+  keepValueKeep: "Tut",
   keepValueSell: "Sat",
   setAllKnownShorthand: "Tüm bilinenler",
   // Recipe chip labels
