@@ -2,19 +2,25 @@
 /**
  * safeguard-groups-sfc-roundtrip.test.ts
  *
- * SFC persistence for safeguard groups. The contract has two halves and the second is the one
- * that protects existing users:
+ * SFC persistence for safeguard groups. A group persists POSITIONALLY: one entry carrying the
+ * settings once plus the `members` it holds. The nesting IS the grouping, so nothing on disk needs
+ * a unique id and none is written — ids are minted per load. The contract has two halves and the
+ * second is the one that protects existing users:
  *
  *  1. A grouped list survives write → read → write unchanged (membership, the group's count and
- *     chips, every member's own count).
- *  2. Every file written BEFORE groups existed re-serializes byte-identically. `Group` is
- *     omitted on ungrouped rules precisely so that holds — this suite proves it against the
- *     shipped 154-entry lategame preset rather than a synthetic fixture, because the preset is
- *     what real users load.
+ *     chips, every member's own count) — everything except the id, which is deliberately not
+ *     persisted.
+ *  2. A list with NO groups re-serializes byte-identically — a rule record gained no key from the
+ *     feature. This suite proves it against the shipped 154-entry lategame preset rather than a
+ *     synthetic fixture, because the preset is what real users load.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildReadableSafeguardRuleEntry } from '../../src/lib/sfcIO.js'
+import {
+  buildReadableSafeguardEntries,
+  buildReadableSafeguardRuleEntry,
+  parseReadableSafeguardEntries,
+} from '../../src/lib/sfcIO.js'
 import {
   createFactorySafeguardBuilderDefaults,
   normalizeSafeguardRule,
@@ -27,11 +33,10 @@ import {
 } from '../../src/lib/safeguardGroups.js'
 import { loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
 
-// Writes a rule list out and reads it straight back, the way a save/load cycle does.
+// Writes a rule list out and reads it straight back, the way a save/load cycle does — through the
+// list-level pair, since a group persists as ONE nested entry rather than per-member keys.
 const roundTrip = (rules: readonly SafeguardRule[]): SafeguardRule[] => normalizeSafeguardGroups(
-  rules
-    .map((rule) => normalizeSafeguardRule(buildReadableSafeguardRuleEntry(rule)))
-    .filter((rule): rule is SafeguardRule => rule !== null),
+  parseReadableSafeguardEntries(buildReadableSafeguardEntries(rules)),
 )
 
 const perSet = { perRule: false, perSet: true, perFaction: false, perMainStat: false, perSlot: false }
@@ -49,7 +54,10 @@ test('a grouped list survives a save/load round trip intact', () => {
   assert.deepEqual(safeguardGroupRunRange(reloaded, 0), { start: 0, end: 2 })
   assert.equal(safeguardGroupRunRange(reloaded, 2), null)
   const settings = safeguardGroupSettingsAt(reloaded, 1)
-  assert.equal(settings?.id, 'g-acc')
+  // The id is NOT persisted — the nesting identifies the group — so a fresh one is minted on load.
+  // What must survive is that both members share it, which the run range above already proves.
+  assert.ok(settings?.id)
+  assert.notEqual(settings?.id, 'g-acc', 'the on-disk shape carries no id to restore')
   assert.equal(settings?.requiredCount, 3)
   assert.equal(settings?.countMode.perSet, true)
   // Members keep their own counts — the group's number never overwrites them.
@@ -63,10 +71,9 @@ test('a second round trip is a fixed point', () => {
     { ...createFactorySafeguardBuilderDefaults(), group },
   ])
   const twice = roundTrip(once)
-  assert.deepEqual(
-    twice.map((rule) => buildReadableSafeguardRuleEntry(rule)),
-    once.map((rule) => buildReadableSafeguardRuleEntry(rule)),
-  )
+  // Compared at the LIST level: the group's settings live on the nested entry, not on any member,
+  // so a per-rule projection would compare blind to exactly what this test is about.
+  assert.deepEqual(buildReadableSafeguardEntries(twice), buildReadableSafeguardEntries(once))
 })
 
 test('every safeguard entry in the shipped lategame preset re-serializes byte-identically', () => {

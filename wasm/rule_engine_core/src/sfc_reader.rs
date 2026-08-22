@@ -623,15 +623,9 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
         parsed_recipes.push(parsed);
     }
 
-    // Parse safeguard rules.
+    // Parse safeguard rules, unnesting groups (see parse_sfc_safeguard_entries).
     let raw_safeguards = sfc.safeguards.as_deref().unwrap_or(&[]);
-    let mut safeguard_rules = Vec::with_capacity(raw_safeguards.len());
-    for (i, raw) in raw_safeguards.iter().enumerate() {
-        match parse_sfc_safeguard_rule(raw) {
-            Ok(rule) => safeguard_rules.push(rule),
-            Err(e)   => return Err(format!("Safeguard[{i}] parse error: {e}")),
-        }
-    }
+    let safeguard_rules = parse_sfc_safeguard_entries(raw_safeguards)?;
 
     // Parse final sell remainder.
     let final_sell = sfc.final_sell_remainder.as_ref().map(|fs| FinalSellRemainderIn {
@@ -865,6 +859,52 @@ fn parse_sfc_count_mode(v: &serde_json::Value) -> SafeguardWasmCountMode {
     }
 }
 
+/// Walks the SFC's Safeguards array and returns a FLAT rule list with membership re-attached.
+///
+/// A group persists as one entry holding its `members`: the nesting IS the grouping, so nothing on
+/// disk carries an id and the shape cannot express a torn or overlapping run. Ids are runtime-only
+/// — `resolve_safeguard_groups` still answers "which run?" by id, so one is minted per group here
+/// and stamped onto every member it unnests. Positional (`grp/0`, `grp/1`, …) rather than random:
+/// this parse is pure and must stay reproducible, and uniqueness within one array is all the
+/// resolver needs. Mirrors `parseReadableSafeguardEntries` in sfcIO.ts.
+fn parse_sfc_safeguard_entries(raws: &[serde_json::Value]) -> Result<Vec<SafeguardWasmRuleIn>, String> {
+    let mut out = Vec::with_capacity(raws.len());
+    for (i, raw) in raws.iter().enumerate() {
+        let members = raw.as_object()
+            .and_then(|rec| rec.get("members"))
+            .and_then(|v| v.as_array());
+        // Not a group entry: an ordinary rule or a separator, ungrouped by construction.
+        let Some(members) = members else {
+            out.push(parse_sfc_safeguard_rule(raw).map_err(|e| format!("Safeguard[{i}] parse error: {e}"))?);
+            continue;
+        };
+        let rec = raw.as_object().ok_or_else(|| format!("Safeguard[{i}] parse error: group entry is not a JSON object"))?;
+        // One id for the whole nested run — the only place a loaded group's id comes from.
+        let settings = rec.get("Group").or_else(|| rec.get("group")).and_then(|v| v.as_object()).map(|g| {
+            SafeguardWasmGroupIn {
+                id: format!("grp/{i}"),
+                required_count: g.get("requiredCount").and_then(|v| v.as_i64()),
+                count_mode: g.get("countMode").map(parse_sfc_count_mode),
+            }
+        });
+        for (m, member) in members.iter().enumerate() {
+            let mut rule = parse_sfc_safeguard_rule(member)
+                .map_err(|e| format!("Safeguard[{i}].members[{m}] parse error: {e}"))?;
+            // A separator cannot be a member; it survives as a plain divider rather than
+            // being dropped. Matches the writer, which never nests one.
+            let is_separator = member.as_object()
+                .and_then(|r| r.get("Separator"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !is_separator {
+                rule.group = settings.clone();
+            }
+            out.push(rule);
+        }
+    }
+    Ok(out)
+}
+
 /// Parse a safeguard rule entry from the SFC's Safeguards array.
 /// The SFC stores these with readable labels; we convert to SafeguardWasmRuleIn.
 fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRuleIn, String> {
@@ -924,17 +964,10 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
     let count_mode = rec.get("countMode").map(parse_sfc_count_mode);
 
-    // Group membership: the settings a member carries inline (`Group: { id, requiredCount,
-    // countMode }`). Mirrors safeguards.ts `normalizeSafeguardGroupSettings`; an entry without a
-    // usable id is simply ungrouped. Run resolution itself lives in resolve_safeguard_groups.
-    let group = rec.get("Group").or_else(|| rec.get("group")).and_then(|v| v.as_object()).and_then(|g| {
-        let id = g.get("id").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty())?;
-        Some(SafeguardWasmGroupIn {
-            id: id.to_string(),
-            required_count: g.get("requiredCount").and_then(|v| v.as_i64()),
-            count_mode: g.get("countMode").map(parse_sfc_count_mode),
-        })
-    });
+    // Membership is NOT a field of a persisted rule: the SFC nests members inside a group entry,
+    // so only the caller walking the array can see it and it stamps the settings on afterwards
+    // (see `parse_sfc_safeguard_entries`). A lone rule record is therefore ungrouped.
+    let group = None;
 
     // Substats: stored as string label array in the SFC.
     let substats = rec.get("substats").and_then(|v| v.as_array()).map(|arr| {

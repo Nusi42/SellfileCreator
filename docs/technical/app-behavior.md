@@ -277,14 +277,36 @@ the run closes, and the close caps first and publishes the survivors
 
 All pinned in `safeguards/group_tests.rs`.
 
-**Settings ride inline on every member.** `SafeguardRule.group` is
+**Settings ride inline on every member — in memory.** `SafeguardRule.group` is
 `{ id, requiredCount, countMode }` (`SafeguardGroupSettings`, `lib/safeguards.ts`); every member of
 a run carries an identical copy and the run's **first member is the copy the engine reads**. A
-single member pasted elsewhere therefore still knows what its group promised. Persisted as
-`Group: { id, requiredCount, countMode }` on the rule entry, omitted when ungrouped, so files
-written before groups existed re-save byte-identically; `sfc_reader.rs` parses the same key so the
-native DLL cannot flatten a group. Group ids are opaque random tokens (`createSafeguardGroupId`),
-unique only within one array.
+single member pasted elsewhere therefore still knows what its group promised. Group ids are opaque
+random tokens (`createSafeguardGroupId`), unique only within one array.
+
+**On disk a group is POSITIONAL — identified by shape, not by id.** The `Safeguards` array holds
+one entry per group, carrying the settings once plus the `members` it contains:
+
+```
+Safeguards: [
+  { …rule… },
+  { Group: { requiredCount, countMode }, members: [ { …rule… }, { …rule… } ] },
+  { …rule… }
+]
+```
+
+The nesting **is** the grouping, so nothing on disk needs to be unique and **no id is written** —
+one is minted per group on load (`normalizeSafeguardGroupSettings`; `grp/<index>` on the Rust
+side, which must stay reproducible). Two consequences worth naming: the shape cannot express a
+torn or overlapping run, so the reader needs no group repair for anything the writer produced; and
+a member's own record gains **no key** from the feature, so a list with no groups re-serializes
+byte-identically and a single copied member pastes as an ordinary rule.
+
+`buildReadableSafeguardEntries` / `parseReadableSafeguardEntries` (`lib/sfcIO.ts`) are the one
+definition of that projection, shared by the file/autosave path and the clipboard so a run copied
+from one document lands as a run in the other; `parse_sfc_safeguard_entries` (`sfc_reader.rs`)
+mirrors it for the native DLL. Separators are never nested and never become members. Pinned by
+`tests/unit/safeguard-groups-sfc-roundtrip.test.ts` and
+`tests/unit/separator-serialization.test.ts`.
 
 **Derived, never stored: which entries form a run.** `resolve_safeguard_groups`
 (`wasm/rule_engine_core/src/safeguards/groups.rs`) resolves runs — maximal sequences of ADJACENT
@@ -306,6 +328,31 @@ places — the mutation funnel `applySafeguardRulesChange`, the SFC parse path a
    settings changed relative to the previous list (found by object identity, since every mutation
    path replaces the edited entry; this is how an edit in the builder's group strip on ONE member
    fans out to its whole run), and the run's head otherwise.
+
+**The two halves of `group` have different owners.** *Membership* (is there a group, and which one
+— the `id`) is **structure**: edited only through the chip list (group / ungroup / leave / join /
+drag), never from the builder form. *Settings* (`requiredCount`, `countMode`) are edited from the
+builder's **group strip** and commit on Apply like any other field.
+
+The draft snapshots `group` when a rule is loaded and nothing resyncs it afterwards, so any seam
+that replaces a stored rule with the draft must take membership from the **stored** rule while
+letting the draft's settings through. That rebase has one definition,
+`withStoredSafeguardMembership` (`lib/safeguardGroups.ts`): the stored side decides *whether* and
+*which*, the draft side decides *what it promises*. Used by the builder's apply/auto-apply path —
+without it, leaving a group and then pressing Apply wrote the stale draft's `group` straight back
+and the rule silently rejoined; dropping the draft's `group` wholesale instead would fix that but
+discard the strip's edit with it.
+
+The **dirty check** rebases through the same helper before snapshotting, because it must compare
+what Apply would actually WRITE: left raw, the draft's stale `group` reads as a pending change and
+lights up an Apply button that then does nothing, staying lit until the rule is reloaded.
+`createSafeguardRuleContentSnapshot` keeps carrying `group` — the strip's settings must stay
+dirty-detectable; only membership is rebased away. Pinned in
+`tests/unit/safeguard-groups-structure.test.ts` and `tests/playwright/safeguard-groups.spec.ts`.
+
+Multi-edit is unaffected by construction — its
+`groupRequiredCount` / `groupCountMode` fields no-op on a rule that has no `group`, so it never
+creates or restores membership.
 
 **Engine shape.** Members run through the unchanged per-rule evaluation in array order, and
 `safeguard_apply_group_cap` runs the moment a run's last member has evaluated (via `safeguard_close_group_run`), pools the members' finished

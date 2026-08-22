@@ -474,17 +474,20 @@ export const cloneSafeguardGroupSettings = (settings: SafeguardGroupSettings): S
 })
 
 /**
- * Parses the persisted `Group` object of a rule entry. Returns null when the record carries no
- * usable id — the entry is then simply ungrouped, never rejected. Mirrored by
- * `parse_sfc_safeguard_rule` in Rust for the native DLL path.
+ * Parses the persisted `Group` settings block of a nested group entry. Returns null only when the
+ * value is not an object — there is no id on disk to reject it by.
+ *
+ * **Ids are runtime-only.** The SFC identifies a group by SHAPE (a group entry holds its members),
+ * so nothing on disk needs to be unique and no id is written. Each load mints a fresh one via
+ * `createSafeguardGroupId`, which the in-memory model uses to answer "same run?" cheaply.
+ * Mirrored by `parse_sfc_safeguard_rule` in Rust for the native DLL path.
  */
 export const normalizeSafeguardGroupSettings = (value: unknown): SafeguardGroupSettings | null => {
   if (!value || typeof value !== 'object') return null
   const record = value as Record<string, unknown>
-  const id = typeof record.id === 'string' ? record.id.trim() : ''
-  if (!id) return null
   return {
-    id,
+    // Minted per load: the persisted shape carries no id and never did after the positional change.
+    id: createSafeguardGroupId(),
     // Clamped like every other required count — 0 would mean "keep nothing".
     requiredCount: Math.max(1, toFiniteFloor(record.requiredCount) ?? 1),
     countMode: Object.prototype.hasOwnProperty.call(record, 'countMode')
@@ -1384,11 +1387,10 @@ export function normalizeSafeguardRule(value: unknown): SafeguardRule | null {
       separator: true,
     }
   }
-  // Group membership rides inline on the entry (`Group: { id, requiredCount, countMode }`).
-  // Which entries form a run is repaired list-wide by normalizeSafeguardGroups; this only
-  // carries the stored settings, and omits the field when there are none.
-  const group = normalizeSafeguardGroupSettings(record['Group'] ?? record['group'])
-  const groupFields = group ? { group } : {}
+  // Membership is NOT a field of a persisted rule any more: the SFC nests members inside a group
+  // entry, so the caller that walks the array (`parseSfc`) is the only thing that can see it and
+  // it stamps `group` onto the members it unnests. A lone rule record is therefore ungrouped.
+  const groupFields = {}
   const combinationSource = record.combination ?? record.tuple ?? value
   const combination = normalizeSafeguardCombination(combinationSource)
   if (!combination) return null

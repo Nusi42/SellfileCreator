@@ -46,7 +46,6 @@ import {
 import {
   cloneSafeguardRule,
   isSafeguardGrouped,
-  normalizeSafeguardRule,
   safeguardActivationShortLabelKey,
   safeguardEntryEffectiveActivation,
   safeguardEntryKind,
@@ -72,7 +71,7 @@ import { useReservedLabelHues } from '../lib/themeContrastHooks'
 import { SafeguardGroupBadge } from './SafeguardGroupBadge'
 import { INLINE_TAG_CHIP_SX, useTagChipSx } from './BuilderTagChips'
 import type { Metaset } from '../lib/metasets'
-import { buildReadableSafeguardRuleEntry } from '../lib/sfcIO'
+import { buildReadableSafeguardEntries, buildReadableSafeguardRuleEntry, parseReadableSafeguardEntries } from '../lib/sfcIO'
 import { useI18n } from '../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../lib/clipboard'
 import { RecipeContextMenu } from './RecipeContextMenu'
@@ -929,9 +928,9 @@ export default function SafeguardChipsPanel({
       )
       // Normalize to array so both single-rule and multi-rule pastes share one path.
       const rawList = Array.isArray(candidate) ? candidate : [candidate]
-      const normalized = rawList
-        .map((entry) => normalizeSafeguardRule(entry))
-        .filter((entry): entry is SafeguardRule => Boolean(entry))
+      // Unnest through the shared reader so a copied RUN pastes back as a run, with a fresh group
+      // id minted for this document — the same path the file/autosave loader takes.
+      const normalized = parseReadableSafeguardEntries(rawList)
       if (normalized.length === 0) return []
       // Clone each rule so the caller gets fresh identity references.
       return normalized.map((r) => cloneSafeguardRule(r))
@@ -990,9 +989,10 @@ export default function SafeguardChipsPanel({
   const handleCopySelectedRules = useCallback(async (indices: number[]) => {
     // Sort so the clipboard payload reflects list order, not click order.
     const sorted = indices.slice().sort((a, b) => a - b)
-    const entries = sorted
-      .map((i) => { const r = rules[i]; return r ? buildReadableSafeguardRuleEntry(r) : null })
-      .filter((e): e is ReturnType<typeof buildReadableSafeguardRuleEntry> => e !== null)
+    // Nest through the shared builder so a copied RUN pastes back as a run: the selection is
+    // projected as its own little list, and a run fully inside it survives the round trip.
+    const picked = sorted.map((i) => rules[i]).filter((r): r is SafeguardRule => Boolean(r))
+    const entries = buildReadableSafeguardEntries(picked)
     if (entries.length === 0) return
     const payload = { kind: 'safeguardRule', rule: entries }
     const text = JSON.stringify(payload, null, 2)
@@ -1004,7 +1004,7 @@ export default function SafeguardChipsPanel({
   // parseSafeguardClipboardRules already handles array payloads on paste.
   const handleCopyAllRules = useCallback(async () => {
     if (rules.length === 0) return
-    const snapshots = rules.map((r) => buildReadableSafeguardRuleEntry(r))
+    const snapshots = buildReadableSafeguardEntries(rules)
     const payload = { kind: 'safeguardRule', rule: snapshots }
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)

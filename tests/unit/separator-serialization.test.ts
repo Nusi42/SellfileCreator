@@ -14,8 +14,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildReadableRecipe,
+  buildReadableSafeguardEntries,
   buildReadableSafeguardRuleEntry,
   normalizeRecipe,
+  parseReadableSafeguardEntries,
 } from '../../src/lib/sfcIO'
 import {
   cloneSafeguardRule,
@@ -109,9 +111,10 @@ test('safeguard separators are never active and the flag rides through clone/sna
 })
 
 // ── safeguard group members ──────────────────────────────────────────────────
-// A group is not an entry kind: it is inline settings a member carries (`group`), persisted as
-// `Group: { id, requiredCount, countMode }`. The contract belongs beside the separator one because
-// it rides the SAME clone → snapshot → fingerprint → normalize plumbing.
+// A group is not an entry kind: in memory it is inline settings a member carries (`group`). On
+// disk it is POSITIONAL — one entry holding `Group` once plus its `members` — so a member's own
+// record gains no key from the feature and no id is persisted. The contract belongs beside the
+// separator one because it rides the SAME clone → snapshot → fingerprint → normalize plumbing.
 
 const makeSafeguardMember = (): SafeguardRule => ({
   ...createFactorySafeguardBuilderDefaults(),
@@ -120,41 +123,68 @@ const makeSafeguardMember = (): SafeguardRule => ({
   group: { id: 'g-acc', requiredCount: 3, countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false, perSlot: false } },
 })
 
-test('a group member serializes its own tuple AND its inline group settings', () => {
-  const entry = buildReadableSafeguardRuleEntry(makeSafeguardMember())
-  const keys = Object.keys(entry)
-  // A member is an ordinary rule: it still persists its own filter and count.
-  assert.equal(keys.includes('tuple'), true, 'a member must persist its combination tuple')
-  assert.equal((entry as { requiredCount?: number }).requiredCount, 5)
-  // Plus the group it belongs to, capitalised like Separator.
-  const group = (entry as { Group?: { id: string; requiredCount: number; countMode: { perSet: boolean } } }).Group
-  assert.equal(group?.id, 'g-acc')
-  assert.equal(group?.requiredCount, 3)
-  assert.equal(group?.countMode.perSet, true)
+test('a group persists as ONE nested entry: settings once, members inside, no id', () => {
+  const member = makeSafeguardMember()
+  const [entry, ...rest] = buildReadableSafeguardEntries([member, { ...member, requiredCount: 7 }])
+  assert.equal(rest.length, 0, 'a run of two collapses to a single nested entry')
+  const group = entry as { Group?: { requiredCount: number; countMode: { perSet: boolean } }; members?: unknown[] }
+  // The settings are written once, on the group — not repeated on each member.
+  assert.equal(group.Group?.requiredCount, 3)
+  assert.equal(group.Group?.countMode.perSet, true)
+  assert.equal('id' in (group.Group ?? {}), false, 'the shape identifies the group; no id is stored')
+  // Members are ordinary rule records, each keeping its own filter and count.
+  assert.equal(group.members?.length, 2)
+  const [first, second] = group.members as Array<{ tuple?: unknown; requiredCount?: number; Group?: unknown }>
+  assert.ok(first?.tuple, 'a member must persist its combination tuple')
+  assert.equal(first?.requiredCount, 5)
+  assert.equal(second?.requiredCount, 7)
+  assert.equal('Group' in (first ?? {}), false, 'membership is the nesting, not a key on the member')
 })
 
-test('Group is omitted on ungrouped rules so pre-group files re-save byte-identically', () => {
-  const entry = buildReadableSafeguardRuleEntry(createFactorySafeguardBuilderDefaults())
-  assert.equal('Group' in entry, false, 'Group must be omitted when the rule is not a member')
+test('an ungrouped rule is written flat and gains no group keys', () => {
+  const [entry, ...rest] = buildReadableSafeguardEntries([createFactorySafeguardBuilderDefaults()])
+  assert.equal(rest.length, 0)
+  assert.equal('Group' in (entry ?? {}), false, 'Group must be omitted when the rule is not a member')
+  assert.equal('members' in (entry ?? {}), false, 'an ungrouped rule is never nested')
+  // The per-rule builder agrees — it is what the single-rule clipboard copy emits.
+  assert.equal('Group' in buildReadableSafeguardRuleEntry(createFactorySafeguardBuilderDefaults()), false)
 })
 
-test('a member entry loads back with its group settings intact', () => {
-  const rule = normalizeSafeguardRule({
-    appearance: { name: 'SPD core' },
-    Group: { id: ' g1 ', requiredCount: 2, countMode: { perSlot: true } },
-    requiredCount: 4,
-    tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] },
+test('a nested group loads back with its settings intact and one minted id', () => {
+  const rules = parseReadableSafeguardEntries([{
+    Group: { requiredCount: 2, countMode: { perSlot: true } },
+    members: [
+      { appearance: { name: 'SPD core' }, requiredCount: 4, tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] } },
+      { appearance: { name: 'SPD boots' }, requiredCount: 6, tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] } },
+    ],
+  }])
+  assert.equal(rules.length, 2, 'members are unnested into the flat list')
+  assert.equal(rules[0]?.group?.requiredCount, 2)
+  assert.equal(rules[0]?.group?.countMode.perSlot, true)
+  // One id minted for the run: not persisted, but shared by every member so runs resolve.
+  assert.ok(rules[0]?.group?.id)
+  assert.equal(rules[0]?.group?.id, rules[1]?.group?.id, 'both members share the minted id')
+  // Members keep their own counts.
+  assert.deepEqual(rules.map((r) => r.requiredCount), [4, 6])
+})
+
+test('two nested groups get DISTINCT ids so they never resolve as one run', () => {
+  const nested = (name: string) => ({
+    Group: { requiredCount: 2, countMode: { perSlot: true } },
+    members: [
+      { appearance: { name }, requiredCount: 1, tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] } },
+      { appearance: { name }, requiredCount: 1, tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] } },
+    ],
   })
-  assert.ok(rule, 'member entries must not be skipped on load')
-  assert.equal(rule!.group?.id, 'g1', 'the id is trimmed')
-  assert.equal(rule!.group?.requiredCount, 2)
-  assert.equal(rule!.group?.countMode.perSlot, true)
-  assert.equal(rule!.requiredCount, 4)
+  const rules = parseReadableSafeguardEntries([nested('a'), nested('b')])
+  assert.equal(rules.length, 4)
+  assert.equal(rules[0]?.group?.id, rules[1]?.group?.id)
+  assert.equal(rules[2]?.group?.id, rules[3]?.group?.id)
+  assert.notEqual(rules[0]?.group?.id, rules[2]?.group?.id, 'adjacent groups must stay separate runs')
 })
 
-test('a Group without a usable id loads as an ungrouped rule, never as a rejected entry', () => {
+test('a rule record carrying no nesting loads as ungrouped', () => {
   const rule = normalizeSafeguardRule({
-    Group: { requiredCount: 2 },
     requiredCount: 1,
     tuple: { slots: [], sets: [], ranks: [], rarities: [], mainStats: [], factions: [] },
   })

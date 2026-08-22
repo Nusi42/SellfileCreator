@@ -57,11 +57,13 @@ import {
   type SafeguardRule,
   SafeguardRuleActivation,
   SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+  normalizeSafeguardGroupSettings,
+  cloneSafeguardGroupSettings,
   type SafeguardGroupSettings,
 } from './safeguards'
 // Group repair runs on the whole parsed array — which entries form a run is a property of
-// the sequence, not of any single entry.
-import { normalizeSafeguardGroups } from './safeguardGroups'
+// the sequence, not of any single entry. The writer asks the same authority which entries to nest.
+import { normalizeSafeguardGroups, resolveSafeguardGroups, SAFEGUARD_GROUP_NO_RUN } from './safeguardGroups'
 import { normalizeTagList } from './tagHelpers'
 // Recipe behaviour flags plus the legacy tag transcode that keeps older files loading.
 import { normalizeReworkGate, transcodeLegacyNoteTagSelectors, transcodeLegacyRecipeTags } from './recipeFlags'
@@ -1145,9 +1147,7 @@ export function parseSfcObject(
       : parsedRec['KeepUniques']
     if (!Array.isArray(raws)) return []
     const normalized: SafeguardRule[] = []
-    for (const entry of raws) {
-      const rule = normalizeSafeguardRule(entry)
-      if (!rule) continue
+    for (const rule of parseReadableSafeguardEntries(raws)) {
       // Legacy-ID resolution: old SFC files stored metaSetIds (opaque IDs like "meta/1")
       // in safeguard combinations. normalizeSafeguardRule collects them verbatim into
       // metaSetNames; remap any that appear in the legacyMetaIdToName map built above.
@@ -1256,20 +1256,26 @@ export type ReadableSeparatorEntry = {
   Separator: true
 }
 
-// The group settings a member persists inline (capitalised to match `Separator`). Present on
-// every member of a group and omitted otherwise, so files without groups re-save
-// byte-identically. Adjacent entries with the same `id` form one group.
+// The settings a group persists (capitalised to match `Separator`). Written ONCE per group, on
+// the group entry that holds the members — not repeated on each member. Carries no id: the SFC
+// identifies a group by shape, so nothing on disk needs to be unique and ids are minted on load.
 export type ReadableSafeguardGroup = {
-  id: string
   requiredCount: number
   countMode: SafeguardRule['countMode']
+}
+
+// A group as it persists: its settings plus the members it holds, in order. The nesting IS the
+// grouping — there is no id to match and no way to express a torn or overlapping run.
+export type ReadableSafeguardGroupEntry = {
+  Group: ReadableSafeguardGroup
+  members: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry>
 }
 
 export type ReadableSafeguardRuleEntry = {
   // Nested appearance record (name + optional fgColor). Emitted first when present.
   appearance?: NameAppearance
-  // Group membership + the group's own count and chips; absent on an ungrouped rule.
-  Group?: ReadableSafeguardGroup
+  // No group field: membership is carried by the nesting (see ReadableSafeguardGroupEntry), not
+  // by anything on the rule itself.
   // Tags for safeguard-overrides DSL targeting; omitted when empty.
   tags?: string[]
   requiredCount: number
@@ -1322,11 +1328,10 @@ const buildReadableSafeguardTuple = (combination: SafeguardRule['combination']):
   }
 }
 
-// The persisted shape of a member's group settings: id, the group's count and its chips.
+// The persisted shape of a group's settings: its count and its chips. No id — see the type.
 const buildReadableSafeguardGroup = (group: SafeguardGroupSettings): ReadableSafeguardGroup => {
   const mode = sanitizeSafeguardCountMode(group.countMode)
   return {
-    id: group.id,
     requiredCount: Math.max(1, Math.floor(group.requiredCount)),
     countMode: {
       perRule: mode.perRule,
@@ -1352,10 +1357,10 @@ export const buildReadableSafeguardRuleEntry = (
       Separator: true,
     }
   }
-  // Group membership, omitted when ungrouped so a file with no groups serializes exactly as it
-  // did before the feature existed. The chips are written in the same normalized shape as a
-  // rule's own countMode so both loaders (safeguards.ts, sfc_reader.rs) parse them alike.
-  const groupFields = rule.group ? { Group: buildReadableSafeguardGroup(rule.group) } : {}
+  // Nothing about membership is written here: a member is persisted by being NESTED inside its
+  // group entry (buildReadableSafeguardEntries), so a rule record looks the same whether or not
+  // it belongs to a group — which is what lets a single copied member paste as an ordinary rule.
+  const groupFields = {}
   // Persist the normalized scope object explicitly so the loader can rehydrate chips.
   const mode = sanitizeSafeguardCountMode(rule.countMode)
   // Capture selected substats in readable form so exports stay user-friendly.
@@ -1445,6 +1450,81 @@ export const buildReadableSafeguardRuleEntry = (
   return entry
 }
 
+/**
+ * Projects a safeguard list to its persisted form, NESTING each group into a single entry.
+ *
+ * The SFC identifies a group by SHAPE: a group entry carries the settings once plus a `members`
+ * array, and adjacency is implied by the nesting rather than by a shared id. Nothing on disk needs
+ * to be unique, so no id is written and one is minted per group on load. The shape also cannot
+ * express a torn or overlapping run, which is why the reader needs no group repair.
+ *
+ * One definition for every persistence path (file save, autosave, clipboard, preset snapshot) so
+ * a copied run and a saved run agree byte for byte.
+ */
+/**
+ * The inverse of `buildReadableSafeguardEntries`: walks a persisted safeguard array and returns a
+ * flat rule list with membership re-attached.
+ *
+ * A group is one entry holding its `members`, so members arrive already contiguous and already
+ * agreeing on their settings — the shape cannot express a torn or overlapping run. Each group
+ * mints ONE fresh id here (ids are runtime-only; see `normalizeSafeguardGroupSettings`) and stamps
+ * it onto every member it unnests. Separators are never members, matching the writer.
+ *
+ * Shared by the file/autosave reader and the clipboard paste path so a run copied from one
+ * document lands as a run in the other.
+ */
+export const parseReadableSafeguardEntries = (raws: readonly unknown[]): SafeguardRule[] => {
+  const out: SafeguardRule[] = []
+  for (const entry of raws) {
+    const rec = (entry && typeof entry === 'object') ? (entry as Record<string, unknown>) : null
+    const members = rec && Array.isArray(rec['members']) ? (rec['members'] as unknown[]) : null
+    // Not a group entry: an ordinary rule or a separator, ungrouped by construction.
+    if (!members) {
+      const rule = normalizeSafeguardRule(entry)
+      if (rule) out.push(rule)
+      continue
+    }
+    // One id for the whole nested run — this is the only place a loaded group's id comes from.
+    const settings = normalizeSafeguardGroupSettings(rec?.['Group'] ?? rec?.['group'])
+    for (const member of members) {
+      const rule = normalizeSafeguardRule(member)
+      if (!rule) continue
+      // A separator cannot be a member; it survives as a plain divider rather than being dropped.
+      if (!settings || safeguardEntryKind(rule) === 'separator') { out.push(rule); continue }
+      out.push({ ...rule, group: cloneSafeguardGroupSettings(settings) })
+    }
+  }
+  return out
+}
+
+export const buildReadableSafeguardEntries = (
+  rules: readonly SafeguardRule[],
+): Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry | ReadableSafeguardGroupEntry> => {
+  const out: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry | ReadableSafeguardGroupEntry> = []
+  // Runs come from the Rust authority, never from comparing neighbours' ids here.
+  const groups = resolveSafeguardGroups(rules)
+  for (let index = 0; index < rules.length; index += 1) {
+    const start = groups.runStarts[index] ?? SAFEGUARD_GROUP_NO_RUN
+    // Ungrouped entry: written flat, exactly as before groups existed.
+    if (start < 0) {
+      out.push(buildReadableSafeguardRuleEntry(rules[index] as SafeguardRule))
+      continue
+    }
+    // Emit the whole run once, at its head, then skip past its members.
+    if (start !== index) continue
+    const len = groups.runLens[index] ?? 0
+    const members = rules.slice(index, index + len)
+    // The head's settings are the copy the engine reads, so they are the copy that persists.
+    const settings = (members[0] as SafeguardRule).group as SafeguardGroupSettings
+    out.push({
+      Group: buildReadableSafeguardGroup(settings),
+      members: members.map((member) => buildReadableSafeguardRuleEntry(member)),
+    })
+    index += len - 1
+  }
+  return out
+}
+
 export function buildSfcPayload(args: {
   version: string,
   metasets: Metaset[],
@@ -1470,7 +1550,8 @@ export function buildSfcPayload(args: {
     FinalSellRemainder: FinalSellRemainderConfig
     // The entry types are the serializer's own (SSOT) — the old inline copy here had
     // silently drifted (missing appearance/tags/improvementChanceThreshold).
-    Safeguards: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry>
+    // A group persists as one nested entry holding its members, so the array is heterogeneous.
+    Safeguards: Array<ReadableSafeguardRuleEntry | ReadableSeparatorEntry | ReadableSafeguardGroupEntry>
     SafeguardsEnabled: boolean
     RecipesEnabled: boolean
     // Array of lines for diff-friendliness; legacy files may still carry a plain string.
@@ -1538,8 +1619,8 @@ export function buildSfcPayload(args: {
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),
-    // Safeguard exports reuse the shared readable helper for clipboard parity.
-    Safeguards: safeguardRules.map((rule) => buildReadableSafeguardRuleEntry(rule)),
+    // Safeguard exports reuse the shared readable helper for clipboard parity; it nests groups.
+    Safeguards: buildReadableSafeguardEntries(safeguardRules),
     SafeguardsEnabled: safeguardsEnabled === true,
     RecipesEnabled: recipesEnabled !== false,
     // Canonicalize legacy marker aliases so exports never re-emit old note keywords.

@@ -339,7 +339,8 @@ pub struct SafeguardWasmRuleIn {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[ts(export, rename_all = "camelCase")]
 pub struct SafeguardWasmGroupIn {
-    // Opaque unique id; membership is "adjacent AND same id".
+    // Opaque unique id; membership is "adjacent AND same id". RUNTIME ONLY — the SFC identifies a
+    // group by shape (one entry holding its members), so this is minted on load, never persisted.
     pub id: String,
     // How many pieces the group keeps per merged bucket. Absent → 1, like every count.
     #[serde(default)]
