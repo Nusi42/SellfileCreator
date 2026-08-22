@@ -15495,6 +15495,7 @@
         "HP%": 0.15,
         "DEF%": 0.1,
         "SPD": 2,
+        "ACC": 1.1,
         "CR%": 0.4
       },
       "weightMainStatByRank": true,
