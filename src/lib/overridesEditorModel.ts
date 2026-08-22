@@ -52,7 +52,7 @@ import {
   NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
-  isDeprecationDiagnostic,
+  blockingDiagnostics,
 } from './noteRecipeOverrides'
 // Behaviour-flag field tokens + the gate's wire values, so the widget metadata spells them
 // exactly as the grammar does (the metadata Records are keyed BY these tokens).
@@ -121,11 +121,10 @@ const parseFragment = (
 ): DraftSelectorBlock | null => {
   const raw = buildFragmentBlock(hostDomain, blockDomain, selectorText, operationsText)
   const { draft, diagnostics } = parseOverridesBlockDraft(raw)
-  // Any diagnostic means the fragment is not clean DSL — reject it outright. Deprecations
-  // are the exception: the fragment parsed fine and already folded onto the current
-  // spelling, so rejecting it would drop a legacy block to raw-DSL display even though the
-  // editor can represent it perfectly (and would re-serialize it canonically on save).
-  const blocking = diagnostics.filter((diagnostic) => !isDeprecationDiagnostic(diagnostic))
+  // Any BLOCKING diagnostic means the fragment is not clean DSL — reject it outright.
+  // blockingDiagnostics is the single definition of which diagnostics count (deprecations
+  // do not: the fragment parsed fine and already folded onto the current spelling).
+  const blocking = blockingDiagnostics(diagnostics)
   if (blocking.length > 0 || !draft || draft.kind !== 'question') return null
   const option = draft.options[0]
   if (!option || option.body.kind !== 'structured') return null

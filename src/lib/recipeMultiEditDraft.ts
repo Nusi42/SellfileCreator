@@ -13,6 +13,9 @@ import { isAccessorySlot, slotPatchIntroducesArtifact } from './gearInspectorDom
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, pruneImplicitAnyExclusions } from './gearSets/selection'
 import type { NameAppearance } from './nameAppearance'
+// Omit-when-default write rule for the two behaviour flags — one definition, shared with
+// the single-edit path in RecipeBuilderPanel and the overrides apply step.
+import { isRecipeFlagKey, writeRecipeFlag } from './recipeFlags'
 
 // Virtual sub-keys for appearance — tracked independently so name and fgColor each have
 // their own mixed/dirty state. Not real keys of BuilderRecipe; read/write via helpers below.
@@ -301,6 +304,10 @@ function setRecipeFieldValue(recipe: BuilderRecipe, key: BuilderFieldKey, value:
     delete (base as { appearance?: NameAppearance }).appearance
     return base
   }
+  // Behaviour flags are omit-when-default: writing `false`/`undefined` would leave a key
+  // the SFC loader never produces, so the same recipe would fingerprint differently after
+  // a save/load round trip. writeRecipeFlag is the single definition of that rule.
+  if (isRecipeFlagKey(key)) return writeRecipeFlag(recipe, key, value)
   return { ...recipe, [key]: value }
 }
 

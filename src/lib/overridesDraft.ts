@@ -34,7 +34,7 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   parseRecipeSelectorBlock,
   parseRecipeSelectorBlockCross,
-  isDeprecationDiagnostic,
+  blockingDiagnostics,
 } from './noteRecipeOverrides'
 import {
   type SafeguardOverridesOperation,
@@ -265,12 +265,10 @@ const toDraftOption = (
   // (diagnostics inside the option) or the round-trip gate fails. Raw needs the
   // body span; without it the structured form is the only representation we have.
   //
-  // Deprecation diagnostics do NOT make a source suspect: the parser understood the text
-  // and already folded it onto the current spelling, so the structured model represents it
-  // exactly. Treating them as suspect would drop a whole option to raw display just because
-  // it still uses an old tag name — and the round-trip gate below is the real correctness
-  // check, since it re-serializes and compares.
-  const blockingDiags = diags.filter((diag) => !isDeprecationDiagnostic(diag))
+  // "Suspect" means a BLOCKING diagnostic; blockingDiagnostics owns that rule (deprecations
+  // are excluded there). The round-trip gate below is the real correctness check anyway,
+  // since it re-serializes the structured form and compares.
+  const blockingDiags = blockingDiagnostics(diags)
   let body: DraftOptionBody = structured
   const canExtractRaw = option.bodyFrom != null && option.sourceTo != null
   if (canExtractRaw

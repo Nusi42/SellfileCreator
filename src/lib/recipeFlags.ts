@@ -61,6 +61,44 @@ export const isIgnoredBySafeguards = (
 ): boolean => recipe?.ignoredBySafeguards === true
 
 /**
+ * The two behaviour-flag keys, as recipe field names.
+ *
+ * Both are OMIT-WHEN-DEFAULT: `ignoredBySafeguards: false` and `reworkGate: undefined` are
+ * spelled as the absence of the key, never as a stored falsey value. Any writer that can
+ * reach these fields must go through `writeRecipeFlag` below, or the recipe stops matching
+ * the shape the SFC loader produces and its rule-cache fingerprint drifts.
+ */
+export const RECIPE_FLAG_KEYS = ['ignoredBySafeguards', 'reworkGate'] as const
+export type RecipeFlagKey = (typeof RECIPE_FLAG_KEYS)[number]
+
+/** True when `key` is one of the omit-when-default behaviour flags. */
+export const isRecipeFlagKey = (key: string): key is RecipeFlagKey => (
+  (RECIPE_FLAG_KEYS as readonly string[]).includes(key)
+)
+
+/**
+ * THE write path for a behaviour flag: set it when truthy, DELETE it when not.
+ *
+ * `buildCanonicalRecipeSnapshot` fingerprints a recipe by sweeping `Object.entries`, and the
+ * SFC loader only ever emits a flag key when it is set. Storing `false`/`undefined` instead
+ * of deleting therefore produces a recipe that fingerprints differently from the identical
+ * recipe reloaded from disk, forcing a spurious rule rebuild. Returns a fresh object so
+ * callers keep their copy-on-write discipline.
+ */
+export const writeRecipeFlag = <R extends Partial<Pick<BuilderRecipe, RecipeFlagKey>>>(
+  recipe: R,
+  key: RecipeFlagKey,
+  value: unknown,
+): R => {
+  const next = { ...recipe }
+  // Truthy writes the value; every falsey state (false, undefined, 'any' already resolved
+  // away by the caller) is spelled as the absent key.
+  if (value) (next as Record<string, unknown>)[key] = value
+  else delete (next as Record<string, unknown>)[key]
+  return next
+}
+
+/**
  * Coerce an unknown SFC value into a rework gate.
  *
  * Loaded files are untrusted JSON: an unrecognized token (a hand edit, or a gate added by a
@@ -162,11 +200,17 @@ export const transcodeLegacyRecipeTags = (
       tags.push(String(rawTag))
       continue
     }
-    if (IGNORED_BY_SAFEGUARDS_TOKENS.has(normalized)) { ignoredBySafeguards = true; continue }
-    if (REWORKED_TOKENS.has(normalized)) { wantsReworked = true; continue }
-    if (NOT_REWORKED_TOKENS.has(normalized)) { wantsNotReworked = true; continue }
-    // An ordinary label survives the transcode untouched.
-    tags.push(normalized)
+    // Classify through the single-token classifier, so the array walk and the note-selector
+    // fold can never recognize different sets of legacy spellings.
+    const legacy = legacyRecipeFlagForTagToken(normalized)
+    if (!legacy) {
+      // An ordinary label survives the transcode untouched.
+      tags.push(normalized)
+      continue
+    }
+    if (legacy.kind === 'ignoredBySafeguards') ignoredBySafeguards = true
+    else if (legacy.gate === REWORK_GATE_REWORKED) wantsReworked = true
+    else wantsNotReworked = true
   }
   return {
     tags,

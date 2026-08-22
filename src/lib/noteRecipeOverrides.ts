@@ -1254,19 +1254,6 @@ const legacyRecipeFlagReplacementText = (legacy: LegacyRecipeFlag): string => (
 )
 
 /**
- * Flag a legacy behaviour tag as deprecated WITHOUT rejecting it.
- *
- * Deliberately a diagnostic and not an error: the note still parses and still applies, so an
- * old preset keeps working untouched — the span only tells the editor to underline the old
- * spelling and offer the replacement. Same collector shape as `reportUnknownField`, whose
- * lenient-parse contract this extends to the tag→flag transcode window.
- *
- * One knock-on worth knowing: the visual editor's fragment parser rejects any text that
- * produces a diagnostic, so a block still using the legacy spelling shows as raw DSL rather
- * than as editable rows. That is the desired nudge — the row would re-serialize to the new
- * spelling anyway, and showing it unchanged would hide the deprecation from the author.
- */
-/**
  * Marker every deprecation-only diagnostic carries.
  *
  * The `DiagnosticSpan` shape has no severity field, so consumers that treat any diagnostic
@@ -1281,6 +1268,31 @@ export const isDeprecationDiagnostic = (diagnostic: DiagnosticSpan): boolean => 
   diagnostic.message.includes(DEPRECATION_DIAGNOSTIC_MARKER)
 )
 
+/**
+ * The diagnostics that actually mean "this text is not usable DSL".
+ *
+ * THE definition of that rule, so every consumer that decides between the structured model
+ * and raw-DSL display agrees. Deprecations are filtered out: the parser understood the text
+ * and already folded it onto the current spelling, so the structured model represents it
+ * exactly and would re-serialize it canonically on save. Dropping such a block to raw would
+ * make the shipped preset's own legacy note uneditable.
+ */
+export const blockingDiagnostics = (diagnostics: readonly DiagnosticSpan[]): DiagnosticSpan[] => (
+  diagnostics.filter((diagnostic) => !isDeprecationDiagnostic(diagnostic))
+)
+
+/**
+ * Flag a legacy behaviour tag as deprecated WITHOUT rejecting it.
+ *
+ * Deliberately a diagnostic and not an error: the note still parses and still applies, so an
+ * old preset keeps working untouched — the span only tells the editor to underline the old
+ * spelling and offer the replacement. Same collector shape as `reportUnknownField`, whose
+ * lenient-parse contract this extends to the tag→flag transcode window.
+ *
+ * Because it is only a deprecation, `blockingDiagnostics` filters it out for the consumers
+ * that would otherwise fall back to raw-DSL display, so a block still using the legacy
+ * spelling stays editable as rows and re-serializes to the new spelling on save.
+ */
 const reportDeprecatedLegacyFlagTag = (
   legacy: LegacyRecipeFlag,
   valueToken: Token,

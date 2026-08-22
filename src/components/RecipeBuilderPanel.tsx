@@ -14,10 +14,14 @@ import { StatLabel } from './StatLabel'
 import { SlotTintControlScope } from '../lib/slotTintContext'
 import { useStatControlColorMap } from '../lib/statColorContext'
 import { variantToSub } from '../lib/hsfTypes'
-import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_IGNORED_BY_SAFEGUARDS, GLYPH_REWORK_REWORKED, GLYPH_REWORK_NOT_REWORKED } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 // Recipe behaviour-flag wire tokens + the shared glyph chip the flag row renders.
 import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../lib/generated/domainConstants'
 import type { ReworkGate } from '../lib/hsfBuilder'
+// Omit-when-default writer, shared with the multi-edit apply path.
+import { writeRecipeFlag } from '../lib/recipeFlags'
+// Glyph + term + read predicate per flag state; the same registry RecipeChip's badge reads.
+import { RECIPE_FLAG_CHIPS, type RecipeFlagChipSpec } from './recipeFlagChips'
 import { BuilderGlyphToggleChip } from './BuilderGlyphToggleChip'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { focusCycleWithin } from '../lib/focusCycle'
@@ -1979,11 +1983,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       return
     }
     // Omit rather than store false, so an untouched recipe stays byte-identical on save —
-    // the SFC writer only emits this key when it is set.
-    const next = { ...recipe }
-    if (value) next.ignoredBySafeguards = true
-    else delete next.ignoredBySafeguards
-    onChange(next)
+    // the SFC writer only emits this key when it is set. writeRecipeFlag is the single
+    // definition of that omit-when-default rule, shared with the multi-edit apply path.
+    onChange(writeRecipeFlag(recipe, 'ignoredBySafeguards', value))
   }, [multiEditActive, multiEdit, onChange, recipe])
 
   // Writing the rework gate. Clicking the active chip clears the gate (back to "any"),
@@ -1993,17 +1995,26 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       multiEdit.updateField('reworkGate', { value, status: 'common' })
       return
     }
-    const next = { ...recipe }
-    if (value) next.reworkGate = value
-    else delete next.reworkGate
-    onChange(next)
+    // Same omit-when-default rule as the flag above; 'no gate' is the absent key.
+    onChange(writeRecipeFlag(recipe, 'reworkGate', value))
   }, [multiEditActive, multiEdit, onChange, recipe])
 
-  // The three chip states. The two rework chips are mutually exclusive by construction:
-  // they read the same tri-state field, so turning one on necessarily turns the other off.
-  const ignoredBySafeguardsState = resolveFlagState('ignoredBySafeguards', (r) => r.ignoredBySafeguards === true)
-  const reworkedState = resolveFlagState('reworkGate', (r) => r.reworkGate === REWORK_GATE_REWORKED)
-  const notReworkedState = resolveFlagState('reworkGate', (r) => r.reworkGate === REWORK_GATE_NOT_REWORKED)
+  // Toggling one chip: the safeguard flag is a plain boolean, while the two rework chips
+  // write the same tri-state field — clicking the active one clears the gate, and selecting
+  // one state inherently deselects the other. One definition, keyed by the registry id.
+  const toggleRecipeFlagChip = useCallback((id: RecipeFlagChipSpec['id'], wasOn: boolean) => {
+    if (id === 'ignoredBySafeguards') { commitIgnoredBySafeguards(!wasOn); return }
+    // Mixed resolves to "on" so a single click makes the whole selection agree.
+    commitReworkGate(wasOn ? undefined : (id === 'reworked' ? REWORK_GATE_REWORKED : REWORK_GATE_NOT_REWORKED))
+  }, [commitIgnoredBySafeguards, commitReworkGate])
+
+  // Per-chip on/off/mixed state, in registry order. The read predicates come from the same
+  // registry RecipeChip's badge uses, so the two surfaces can never disagree about a flag.
+  const recipeFlagChipStates = RECIPE_FLAG_CHIPS.map((spec) => ({
+    spec,
+    // Both rework chips read the `reworkGate` field, which is what the key argument tracks.
+    state: resolveFlagState(spec.id === 'ignoredBySafeguards' ? 'ignoredBySafeguards' : 'reworkGate', spec.isOn),
+  }))
 
   // Keep the tags label stable for the tooltip + button text.
   const tagsButtonLabel = t('builderTagsLabel')
@@ -6459,33 +6470,19 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 {t('builderFlagsGroupLabel')}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <BuilderGlyphToggleChip
-                  glyph={GLYPH_IGNORED_BY_SAFEGUARDS}
-                  label={t('builderIgnoredBySafeguards')}
-                  hint={t('builderIgnoredBySafeguardsHint')}
-                  active={ignoredBySafeguardsState === 'on'}
-                  mixed={ignoredBySafeguardsState === 'mixed'}
-                  // Mixed resolves to "on" so one click makes the whole selection agree.
-                  onToggle={() => commitIgnoredBySafeguards(ignoredBySafeguardsState !== 'on')}
-                />
-                <BuilderGlyphToggleChip
-                  glyph={GLYPH_REWORK_REWORKED}
-                  label={t('builderReworkReworked')}
-                  hint={t('builderReworkReworkedHint')}
-                  active={reworkedState === 'on'}
-                  mixed={reworkedState === 'mixed'}
-                  // Clicking the active chip clears the gate; the field is tri-state, so
-                  // selecting one state inherently deselects the other.
-                  onToggle={() => commitReworkGate(reworkedState === 'on' ? undefined : REWORK_GATE_REWORKED)}
-                />
-                <BuilderGlyphToggleChip
-                  glyph={GLYPH_REWORK_NOT_REWORKED}
-                  label={t('builderReworkNotReworked')}
-                  hint={t('builderReworkNotReworkedHint')}
-                  active={notReworkedState === 'on'}
-                  mixed={notReworkedState === 'mixed'}
-                  onToggle={() => commitReworkGate(notReworkedState === 'on' ? undefined : REWORK_GATE_NOT_REWORKED)}
-                />
+                {/* Driven by the shared registry, so adding a flag means adding one
+                    entry there rather than another hand-written chip here. */}
+                {recipeFlagChipStates.map(({ spec, state }) => (
+                  <BuilderGlyphToggleChip
+                    key={spec.id}
+                    glyph={spec.glyph}
+                    label={t(spec.labelKey)}
+                    hint={t(spec.hintKey)}
+                    active={state === 'on'}
+                    mixed={state === 'mixed'}
+                    onToggle={() => toggleRecipeFlagChip(spec.id, state === 'on')}
+                  />
+                ))}
               </Box>
             </Box>
             {/* Tags sit next to export mode to reinforce the enable/disable connection. */}

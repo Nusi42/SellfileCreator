@@ -12,6 +12,8 @@ import assert from 'node:assert/strict'
 // because the cache serves the pre-change rules.
 import { buildCanonicalRecipeSnapshot } from '../../src/lib/recipeSnapshot.js'
 import { buildTagVocabulary } from '../../src/lib/tagHelpers.js'
+// The multi-edit write path must obey the same omit-when-default rule as single edit.
+import { applyMultiEditFieldToRecipe } from '../../src/lib/recipeMultiEditDraft.js'
 import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../../src/lib/generated/domainConstants.js'
 import type { BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 
@@ -72,4 +74,35 @@ test('the tag vocabulary offers exactly the tags in use', () => {
   assert.equal(counts['crit'], 1, 'counts how many entries carry each tag')
   // An empty document yields an empty vocabulary rather than a seeded list.
   assert.deepEqual(buildTagVocabulary([[], []]).tags, [], 'nothing is offered by default')
+})
+
+// Both flags are OMIT-WHEN-DEFAULT: the SFC loader only ever emits a key when it is set, so
+// a cleared flag must be the ABSENT key, never a stored `false` / `undefined`. The snapshot
+// sweeps `Object.entries`, so a stored falsey value fingerprints differently from the same
+// recipe reloaded from disk — a spurious full rule rebuild after every clear.
+test('clearing a flag omits the key rather than storing a falsey value', () => {
+  const cleared = applyMultiEditFieldToRecipe(
+    recipe({ ignoredBySafeguards: true }),
+    'ignoredBySafeguards',
+    { status: 'common', value: false, dirty: true } as never,
+  )
+  assert.equal('ignoredBySafeguards' in cleared, false, 'a cleared boolean flag must delete its key')
+  // The multi-edit clear must fingerprint identically to a recipe that never had the flag.
+  assert.equal(JSON.stringify(buildCanonicalRecipeSnapshot(cleared)), fingerprint(), 'no phantom cache fork')
+
+  const ungated = applyMultiEditFieldToRecipe(
+    recipe({ reworkGate: REWORK_GATE_REWORKED }),
+    'reworkGate',
+    { status: 'common', value: undefined, dirty: true } as never,
+  )
+  assert.equal('reworkGate' in ungated, false, 'a cleared gate must delete its key')
+  assert.equal(JSON.stringify(buildCanonicalRecipeSnapshot(ungated)), fingerprint(), 'no phantom cache fork')
+})
+
+// The write path still stores a SET flag, or the clear test above would pass vacuously.
+test('setting a flag through multi-edit writes the key', () => {
+  const set = applyMultiEditFieldToRecipe(
+    recipe(), 'reworkGate', { status: 'common', value: REWORK_GATE_NOT_REWORKED, dirty: true } as never,
+  )
+  assert.equal(set.reworkGate, REWORK_GATE_NOT_REWORKED, 'a set gate is stored')
 })

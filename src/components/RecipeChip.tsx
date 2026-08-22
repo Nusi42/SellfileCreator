@@ -23,9 +23,10 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { GLYPH_IGNORED_BY_SAFEGUARDS, GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, GLYPH_REWORK_NOT_REWORKED, GLYPH_REWORK_REWORKED, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
-// Rework-gate wire tokens, so the chip compares against the same values the file stores.
-import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../lib/generated/domainConstants'
+import { GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+// Shared flag-chip registry: glyph + term + read predicate for each behaviour flag, so the
+// badge and the builder's Flags row can never name the same state differently.
+import { activeRecipeFlagChips } from './recipeFlagChips'
 import { CircledDigitBadge } from './CircledDigitBadge'
 import { engineAppliedTargetValue, normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
@@ -157,23 +158,21 @@ function RecipeChip({
   // ignore flags after the mode badge — same glyphs as the builder's flag chips, so the two
   // surfaces read as one vocabulary. Omitted entirely when no flag is set, which keeps the
   // badge unchanged for the overwhelming majority of recipes.
-  const recipeFlagGlyphs = useMemo(() => {
-    const parts: string[] = []
-    if (recipe.ignoredBySafeguards === true) parts.push(GLYPH_IGNORED_BY_SAFEGUARDS)
-    if (recipe.reworkGate === REWORK_GATE_REWORKED) parts.push(GLYPH_REWORK_REWORKED)
-    else if (recipe.reworkGate === REWORK_GATE_NOT_REWORKED) parts.push(GLYPH_REWORK_NOT_REWORKED)
-    return parts
-  }, [recipe.ignoredBySafeguards, recipe.reworkGate])
-  const recipeFlagSuffix = recipeFlagGlyphs.length > 0 ? NBSP + recipeFlagGlyphs.join('') : ''
+  // Read from the shared flag-chip registry, so the glyph and the term shown here are the
+  // exact ones the builder's Flags row uses — one definition, no parallel if/else chain.
+  const activeFlagChips = useMemo(
+    () => activeRecipeFlagChips(recipe),
+    [recipe],
+  )
+  const recipeFlagSuffix = activeFlagChips.length > 0
+    ? NBSP + activeFlagChips.map((spec) => spec.glyph).join('')
+    : ''
   // Spell the active flags out for the badge tooltip, so the glyphs are discoverable
-  // without having to open the builder. One label per set flag, in chip order.
-  const recipeFlagTooltip = useMemo(() => {
-    const labels: string[] = []
-    if (recipe.ignoredBySafeguards === true) labels.push(t('builderIgnoredBySafeguards'))
-    if (recipe.reworkGate === REWORK_GATE_REWORKED) labels.push(t('builderReworkReworked'))
-    else if (recipe.reworkGate === REWORK_GATE_NOT_REWORKED) labels.push(t('builderReworkNotReworked'))
-    return labels.join('\n\n')
-  }, [recipe.ignoredBySafeguards, recipe.reworkGate, t])
+  // without having to open the builder. One label per set flag, in registry order.
+  const recipeFlagTooltip = useMemo(
+    () => activeFlagChips.map((spec) => t(spec.labelKey)).join('\n\n'),
+    [activeFlagChips, t],
+  )
   const tooltipSuppressed = hideTooltip
   const tooltipListenerProps = tooltipSuppressed
     ? {
