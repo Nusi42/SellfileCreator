@@ -1,5 +1,5 @@
 {
-  "Version": "1.0.42-dev",
+  "Version": "1.0.42",
   "Metasets": [
     {
       "name": "Damage - Limited Sets",
@@ -15219,7 +15219,7 @@
     },
     {
       "appearance": {
-        "name": "Protect: Utility"
+        "name": "Protect: Utility Survivability"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15283,77 +15283,160 @@
       "mainStatRankWeightFactor": 4.5
     },
     {
-      "appearance": {
-        "name": "Protect: Utility"
+      "Group": {
+        "requiredCount": 1,
+        "countMode": {
+          "perRule": false,
+          "perSet": true,
+          "perFaction": false,
+          "perMainStat": false,
+          "perSlot": true
+        }
       },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": false,
-        "perMainStat": false,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Weapon",
-          "Helmet",
-          "Shield"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Utility"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [],
-        "factions": []
-      },
-      "tags": [
-        "utility",
-        "div1"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "CR%",
-        "CDMG%",
-        "ACC",
-        "HP%",
-        "ATK%"
-      ],
-      "substatMatch": "3",
-      "substatWeights": {
-        "HP%": 0.4,
-        "ATK%": 0.4,
-        "SPD": 2,
-        "ACC": 0.4,
-        "CR%": 0.9,
-        "CDMG%": 0.9
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
+      "members": [
+        {
+          "appearance": {
+            "name": "Protect: Utility Damage"
+          },
+          "requiredCount": 1,
+          "activation": "anticipateGaps",
+          "countMode": {
+            "perRule": false,
+            "perSet": true,
+            "perFaction": false,
+            "perMainStat": false,
+            "perSlot": true
+          },
+          "ignorePreviousSafeguards_v2": false,
+          "ignoreEquippedInCollection": false,
+          "ignoreEquippedInVault": false,
+          "tuple": {
+            "slots": [
+              "Weapon",
+              "Helmet",
+              "Shield"
+            ],
+            "sets": [],
+            "metaSetNames": [
+              "Utility"
+            ],
+            "ranks": [
+              "5★",
+              "6★"
+            ],
+            "rarities": [
+              "Rare",
+              "Epic",
+              "Legendary",
+              "Mythical"
+            ],
+            "mainStats": [],
+            "factions": []
+          },
+          "tags": [
+            "utility",
+            "div1"
+          ],
+          "improvementChanceThreshold": {
+            "atLevel0": 50,
+            "atLevel4": null,
+            "atLevel8": null,
+            "atLevel12": null
+          },
+          "substats": [
+            "SPD",
+            "CR%",
+            "CDMG%",
+            "ACC",
+            "HP%",
+            "ATK%"
+          ],
+          "substatMatch": "3",
+          "substatWeights": {
+            "HP%": 0.4,
+            "ATK%": 0.4,
+            "SPD": 2,
+            "ACC": 0.4,
+            "CR%": 0.9,
+            "CDMG%": 0.9
+          },
+          "weightMainStatByRank": true,
+          "mainStatRankWeightFactor": 4.5
+        },
+        {
+          "appearance": {
+            "name": "Protect: Utility Damage"
+          },
+          "requiredCount": 1,
+          "activation": "anticipateGaps",
+          "countMode": {
+            "perRule": false,
+            "perSet": true,
+            "perFaction": false,
+            "perMainStat": false,
+            "perSlot": true
+          },
+          "ignorePreviousSafeguards_v2": false,
+          "ignoreEquippedInCollection": false,
+          "ignoreEquippedInVault": false,
+          "tuple": {
+            "slots": [
+              "Weapon",
+              "Helmet",
+              "Shield"
+            ],
+            "sets": [],
+            "metaSetNames": [
+              "Utility"
+            ],
+            "ranks": [
+              "5★",
+              "6★"
+            ],
+            "rarities": [
+              "Rare",
+              "Epic",
+              "Legendary",
+              "Mythical"
+            ],
+            "mainStats": [],
+            "factions": []
+          },
+          "tags": [
+            "utility",
+            "div1"
+          ],
+          "improvementChanceThreshold": {
+            "atLevel0": 50,
+            "atLevel4": null,
+            "atLevel8": null,
+            "atLevel12": null
+          },
+          "substats": [
+            "SPD",
+            "CR%",
+            "CDMG%",
+            "ACC",
+            "HP%",
+            "DEF%"
+          ],
+          "substatMatch": "3",
+          "substatWeights": {
+            "HP%": 0.4,
+            "DEF%": 0.4,
+            "SPD": 2,
+            "ACC": 0.4,
+            "CR%": 0.9,
+            "CDMG%": 0.9
+          },
+          "weightMainStatByRank": true,
+          "mainStatRankWeightFactor": 4.5
+        }
+      ]
     },
     {
       "appearance": {
-        "name": "Protect: Utility"
+        "name": "Protect: Utility Debuffer"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15403,26 +15486,23 @@
       "substats": [
         "SPD",
         "CR%",
-        "CDMG%",
         "ACC",
         "HP%",
         "DEF%"
       ],
       "substatMatch": "3",
       "substatWeights": {
-        "HP%": 0.4,
-        "DEF%": 0.4,
+        "HP%": 0.15,
+        "DEF%": 0.1,
         "SPD": 2,
-        "ACC": 0.4,
-        "CR%": 0.9,
-        "CDMG%": 0.9
+        "CR%": 0.4
       },
       "weightMainStatByRank": true,
       "mainStatRankWeightFactor": 4.5
     },
     {
       "appearance": {
-        "name": "Protect: Utility"
+        "name": "Protect: Utility Survivability"
       },
       "requiredCount": 1,
       "activation": "anticipateGaps",
@@ -15492,158 +15572,172 @@
       "mainStatRankWeightFactor": 4.5
     },
     {
-      "appearance": {
-        "name": "Protect: Utility"
+      "Group": {
+        "requiredCount": 1,
+        "countMode": {
+          "perRule": false,
+          "perSet": true,
+          "perFaction": false,
+          "perMainStat": true,
+          "perSlot": true
+        }
       },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": false,
-        "perMainStat": true,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Gauntlets",
-          "Chestplate",
-          "Boots"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Utility"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "SPD",
-          "CR%",
-          "CDMG%",
-          "ACC",
-          "HP%",
-          "ATK%",
-          "DEF%"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "utility",
-        "div1"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "CR%",
-        "CDMG%",
-        "ACC",
-        "HP%",
-        "DEF%"
-      ],
-      "substatMatch": "3",
-      "substatWeights": {
-        "HP%": 0.4,
-        "DEF%": 0.4,
-        "SPD": 2,
-        "ACC": 0.4,
-        "CR%": 0.9,
-        "CDMG%": 0.9
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
-    },
-    {
-      "appearance": {
-        "name": "Protect: Utility"
-      },
-      "requiredCount": 1,
-      "activation": "anticipateGaps",
-      "countMode": {
-        "perRule": false,
-        "perSet": true,
-        "perFaction": false,
-        "perMainStat": true,
-        "perSlot": true
-      },
-      "ignorePreviousSafeguards_v2": false,
-      "ignoreEquippedInCollection": false,
-      "ignoreEquippedInVault": false,
-      "tuple": {
-        "slots": [
-          "Gauntlets",
-          "Chestplate",
-          "Boots"
-        ],
-        "sets": [],
-        "metaSetNames": [
-          "Utility"
-        ],
-        "ranks": [
-          "5★",
-          "6★"
-        ],
-        "rarities": [
-          "Rare",
-          "Epic",
-          "Legendary",
-          "Mythical"
-        ],
-        "mainStats": [
-          "SPD",
-          "CR%",
-          "CDMG%",
-          "ACC",
-          "HP%",
-          "ATK%",
-          "DEF%"
-        ],
-        "factions": []
-      },
-      "tags": [
-        "utility",
-        "div1"
-      ],
-      "improvementChanceThreshold": {
-        "atLevel0": 50,
-        "atLevel4": null,
-        "atLevel8": null,
-        "atLevel12": null
-      },
-      "substats": [
-        "SPD",
-        "CR%",
-        "CDMG%",
-        "ACC",
-        "HP%",
-        "ATK%"
-      ],
-      "substatMatch": "3",
-      "substatWeights": {
-        "HP%": 0.4,
-        "ATK%": 0.4,
-        "SPD": 2,
-        "ACC": 0.4,
-        "CR%": 0.9,
-        "CDMG%": 0.9
-      },
-      "weightMainStatByRank": true,
-      "mainStatRankWeightFactor": 4.5
+      "members": [
+        {
+          "appearance": {
+            "name": "Protect: Utility Damage"
+          },
+          "requiredCount": 1,
+          "activation": "anticipateGaps",
+          "countMode": {
+            "perRule": false,
+            "perSet": true,
+            "perFaction": false,
+            "perMainStat": true,
+            "perSlot": true
+          },
+          "ignorePreviousSafeguards_v2": false,
+          "ignoreEquippedInCollection": false,
+          "ignoreEquippedInVault": false,
+          "tuple": {
+            "slots": [
+              "Gauntlets",
+              "Chestplate",
+              "Boots"
+            ],
+            "sets": [],
+            "metaSetNames": [
+              "Utility"
+            ],
+            "ranks": [
+              "5★",
+              "6★"
+            ],
+            "rarities": [
+              "Rare",
+              "Epic",
+              "Legendary",
+              "Mythical"
+            ],
+            "mainStats": [
+              "SPD",
+              "CR%",
+              "CDMG%",
+              "ACC",
+              "HP%",
+              "ATK%",
+              "DEF%"
+            ],
+            "factions": []
+          },
+          "tags": [
+            "utility",
+            "div1"
+          ],
+          "improvementChanceThreshold": {
+            "atLevel0": 50,
+            "atLevel4": null,
+            "atLevel8": null,
+            "atLevel12": null
+          },
+          "substats": [
+            "SPD",
+            "CR%",
+            "CDMG%",
+            "ACC",
+            "HP%",
+            "DEF%"
+          ],
+          "substatMatch": "3",
+          "substatWeights": {
+            "HP%": 0.4,
+            "DEF%": 0.4,
+            "SPD": 2,
+            "ACC": 0.4,
+            "CR%": 0.9,
+            "CDMG%": 0.9
+          },
+          "weightMainStatByRank": true,
+          "mainStatRankWeightFactor": 4.5
+        },
+        {
+          "appearance": {
+            "name": "Protect: Utility Damage"
+          },
+          "requiredCount": 1,
+          "activation": "anticipateGaps",
+          "countMode": {
+            "perRule": false,
+            "perSet": true,
+            "perFaction": false,
+            "perMainStat": true,
+            "perSlot": true
+          },
+          "ignorePreviousSafeguards_v2": false,
+          "ignoreEquippedInCollection": false,
+          "ignoreEquippedInVault": false,
+          "tuple": {
+            "slots": [
+              "Gauntlets",
+              "Chestplate",
+              "Boots"
+            ],
+            "sets": [],
+            "metaSetNames": [
+              "Utility"
+            ],
+            "ranks": [
+              "5★",
+              "6★"
+            ],
+            "rarities": [
+              "Rare",
+              "Epic",
+              "Legendary",
+              "Mythical"
+            ],
+            "mainStats": [
+              "SPD",
+              "CR%",
+              "CDMG%",
+              "ACC",
+              "HP%",
+              "ATK%",
+              "DEF%"
+            ],
+            "factions": []
+          },
+          "tags": [
+            "utility",
+            "div1"
+          ],
+          "improvementChanceThreshold": {
+            "atLevel0": 50,
+            "atLevel4": null,
+            "atLevel8": null,
+            "atLevel12": null
+          },
+          "substats": [
+            "SPD",
+            "CR%",
+            "CDMG%",
+            "ACC",
+            "HP%",
+            "ATK%"
+          ],
+          "substatMatch": "3",
+          "substatWeights": {
+            "HP%": 0.4,
+            "ATK%": 0.4,
+            "SPD": 2,
+            "ACC": 0.4,
+            "CR%": 0.9,
+            "CDMG%": 0.9
+          },
+          "weightMainStatByRank": true,
+          "mainStatRankWeightFactor": 4.5
+        }
+      ]
     },
     {
       "appearance": {
