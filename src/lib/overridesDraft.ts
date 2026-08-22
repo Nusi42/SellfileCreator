@@ -268,11 +268,10 @@ const toDraftOption = (
   // they are rewritten at SFC load and folded silently by the parser, so a legacy note
   // reaches here as clean DSL. The round-trip gate below is the real correctness check
   // anyway, since it re-serializes the structured form and compares.
-  const blockingDiags = diags
   let body: DraftOptionBody = structured
   const canExtractRaw = option.bodyFrom != null && option.sourceTo != null
   if (canExtractRaw
-    && (overlapsSpan(blockingDiags, option.sourceFrom, option.sourceTo) || !structuredBodyRoundTrips(domain, structured, option))) {
+    && (overlapsSpan(diags, option.sourceFrom, option.sourceTo) || !structuredBodyRoundTrips(domain, structured, option))) {
     body = { kind: 'raw', text: rawBlock.slice(option.bodyFrom!, option.sourceTo!) }
   }
   return {

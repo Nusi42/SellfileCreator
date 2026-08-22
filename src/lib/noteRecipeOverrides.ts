@@ -28,6 +28,8 @@ import {
   DSL_FIELD_REWORK_GATE,
   isIgnoredBySafeguards,
   legacyRecipeFlagForTagToken,
+  // Omit-when-default writer, shared with the single-edit and multi-edit apply paths.
+  writeRecipeFlag,
 } from './recipeFlags'
 // Wire tokens for the tri-state gate — the same strings the SFC payload and HSF export use.
 import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from './generated/domainConstants'
@@ -3477,15 +3479,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   // Both flags OMIT their falsey state rather than storing it: `ignoredBySafeguards: false`
   // and `reworkGate: undefined` are the absent-field defaults, so clearing must delete the
   // key — otherwise a recipe an override merely touched would no longer round-trip byte-
-  // identically through SFC save/load.
-  if (appliedIgnoredBySafeguards) {
-    if (nextIgnoredBySafeguards) next.ignoredBySafeguards = true
-    else delete next.ignoredBySafeguards
-  }
-  if (appliedReworkGate) {
-    if (nextReworkGate) next.reworkGate = nextReworkGate
-    else delete next.reworkGate
-  }
+  // identically through SFC save/load. `writeRecipeFlag` is the single definition of that
+  // rule, shared with the single-edit and multi-edit write paths.
+  if (appliedIgnoredBySafeguards) next = writeRecipeFlag(next, 'ignoredBySafeguards', nextIgnoredBySafeguards)
+  if (appliedReworkGate) next = writeRecipeFlag(next, 'reworkGate', nextReworkGate)
   if (appliedSubstatMin) {
     next = applySubstatMinOverrides(next, substatMinAll, substatMinByVariant)
   }

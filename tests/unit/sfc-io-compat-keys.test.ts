@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildSfcPayload, parseSfcObject } from '../../src/lib/sfcIO.js'
+import { buildSfcPayload, parseRecipesFromText, parseSfcObject } from '../../src/lib/sfcIO.js'
 import { parseHsfFile } from '../../src/lib/hsfIO.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { StatVariant } from '../../src/lib/types.js'
@@ -359,6 +359,26 @@ test('note behaviour-tag selectors are rewritten on the same window as the tags'
   assert.match(String(parseNoteAt('1.0.41')), /reworkgate=reworked/i, 'a legacy note is rewritten')
   // Outside it the author's text is left exactly as written.
   assert.match(String(parseNoteAt('1.0.42')), /@tag=if_reworked/, 'a current note is left alone')
+})
+
+test('pasting an SFC honours its own Version for the legacy window', () => {
+  // parseRecipesFromText is the clipboard / single-recipe import path. It accepts a whole SFC
+  // object, so it must read that object's Version exactly as parseSfcObject does — otherwise
+  // pasting a current-version file silently converts the user's own labels into flags.
+  const pasteAt = (version: string, tags: string[]): BuilderRecipe | undefined => parseRecipesFromText(
+    JSON.stringify({ Version: version, Recipes: [{ ...buildRecipe('Pasted'), Tags: tags }] }),
+  )[0]
+
+  // Inside the window the paste still converts, matching the file-load path.
+  assert.equal(pasteAt('1.0.41', ['ignore_keep_unique'])?.ignoredBySafeguards, true, 'an old paste converts')
+  // Above it the label is the user's own and must survive the paste verbatim.
+  const current = pasteAt('1.0.42', ['ignore_keep_unique'])
+  assert.equal(current?.ignoredBySafeguards, undefined, 'a current paste does not convert')
+  assert.deepEqual(current?.tags, ['ignore_keep_unique'], 'the label survives the paste')
+
+  // A bare recipe array carries no file context, so it reads as old and still converts.
+  const bare = parseRecipesFromText(JSON.stringify([{ ...buildRecipe('Bare'), Tags: ['if_reworked'] }]))[0]
+  assert.equal(bare?.reworkGate, REWORK_GATE_REWORKED, 'a context-free paste still converts')
 })
 
 test('saving never rewrites a legacy selector the author kept', () => {

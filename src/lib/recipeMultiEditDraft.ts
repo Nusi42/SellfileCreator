@@ -307,7 +307,9 @@ function setRecipeFieldValue(recipe: BuilderRecipe, key: BuilderFieldKey, value:
   // Behaviour flags are omit-when-default: writing `false`/`undefined` would leave a key
   // the SFC loader never produces, so the same recipe would fingerprint differently after
   // a save/load round trip. writeRecipeFlag is the single definition of that rule.
-  if (isRecipeFlagKey(key)) return writeRecipeFlag(recipe, key, value)
+  // `value` here is a loosely-typed BuilderFieldValue the caller cannot narrow, so the cast
+  // lands once at this boundary; writeRecipeFlag stays key/value-correlated for everyone else.
+  if (isRecipeFlagKey(key)) return writeRecipeFlag(recipe, key, value as BuilderRecipe[typeof key])
   return { ...recipe, [key]: value }
 }
 

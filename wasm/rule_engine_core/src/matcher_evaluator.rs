@@ -1210,18 +1210,24 @@ mod tests {
     // agree, or the native DLL and the app disagree about which gear a recipe matches.
 
     // Convenience wrappers so each case reads as either a gate or a list of tag spellings.
+    // A gate is version-independent, so the wrapper pins no version; the tag wrapper reports
+    // from inside the legacy window, which is the only place tags carry behaviour.
     fn resolve_gate(gate: &str) -> i64 {
-        crate::sfc_reader::resolve_chaos_ore_value(Some(gate), None)
+        crate::sfc_reader::resolve_chaos_ore_value(Some(gate), None, None)
+    }
+    fn resolve_tags_at(tags: &[&str], version: Option<&str>) -> i64 {
+        let owned: Vec<String> = tags.iter().map(|s| (*s).to_string()).collect();
+        crate::sfc_reader::resolve_chaos_ore_value(None, Some(&owned), version)
     }
     fn resolve_tags(tags: &[&str]) -> i64 {
-        let owned: Vec<String> = tags.iter().map(|s| (*s).to_string()).collect();
-        crate::sfc_reader::resolve_chaos_ore_value(None, Some(&owned))
+        // No version reads as "unparseable is old", so hand-written files still convert.
+        resolve_tags_at(tags, None)
     }
 
     #[test]
     fn rework_gate_resolves_to_expected_sentinels() {
         // No gate and no tags leaves the rule unconstrained.
-        assert_eq!(crate::sfc_reader::resolve_chaos_ore_value(None, None), ORE_ANY);
+        assert_eq!(crate::sfc_reader::resolve_chaos_ore_value(None, None, None), ORE_ANY);
         // Each gate selects its own sentinel.
         assert_eq!(resolve_gate(REWORK_GATE_REWORKED), ORE_ORED);
         assert_eq!(resolve_gate(REWORK_GATE_NOT_REWORKED), ORE_NOT_ORED);
@@ -1258,7 +1264,33 @@ mod tests {
         // The gate is authoritative so the newer intent is not overridden.
         let tags: Vec<String> = vec!["if_not_reworked".to_string()];
         assert_eq!(
-            crate::sfc_reader::resolve_chaos_ore_value(Some(REWORK_GATE_REWORKED), Some(&tags)),
+            crate::sfc_reader::resolve_chaos_ore_value(Some(REWORK_GATE_REWORKED), Some(&tags), None),
+            ORE_ORED,
+        );
+    }
+
+    #[test]
+    fn the_legacy_tag_fallback_honours_the_same_version_window_as_typescript() {
+        // Mirror of "the legacy tag transcode only runs for files at or below the last
+        // tag-writing release" in tests/unit/sfc-io-compat-keys.test.ts. If this reader and
+        // the TS loader disagreed about the window, the same file would sell different gear
+        // in the app than through the native DLL.
+
+        // Inside the window a behaviour tag still resolves to its sentinel.
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("1.0.41")), ORE_ORED);
+        // Above it the tag is a plain user label and constrains nothing.
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("1.0.42")), ORE_ANY);
+        // A pre-release suffix is stripped, so -dev sits on the same side as its release.
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("1.0.41-dev")), ORE_ORED);
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("1.0.42-dev")), ORE_ANY);
+        // Missing or unparseable versions read as old, so hand-written and third-party
+        // files are not stranded. Guards the coerce-to-0 path for a non-numeric segment.
+        assert_eq!(resolve_tags_at(&["if_reworked"], None), ORE_ORED);
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("handwritten")), ORE_ORED);
+        assert_eq!(resolve_tags_at(&["if_reworked"], Some("v1.0.41")), ORE_ORED);
+        // An explicit gate is authoritative regardless of the window.
+        assert_eq!(
+            crate::sfc_reader::resolve_chaos_ore_value(Some(REWORK_GATE_REWORKED), None, Some("1.0.42")),
             ORE_ORED,
         );
     }

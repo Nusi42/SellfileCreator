@@ -39,9 +39,9 @@
     "reworked": "reworked",
     "notReworked": "notReworked"
   },
-  "_comment_legacyRecipeTags": "Recipe tags that carried app behaviour before the flags above existed. READ-ONLY: on load they are transcoded into the fields and stripped from the tag list, and nothing writes them again. Each family lists every spelling we have shipped, canonical first. Delete this block, its generated constants, and the transcode once the app reaches removeAtVersion.",
+  "_comment_legacyRecipeTags": "Recipe tags that carried app behaviour before the flags above existed. READ-ONLY: on load they are transcoded into the fields and stripped from the tag list, and nothing writes them again. Each family lists every spelling we have shipped, canonical first. `lastWritingVersion` is the last release that WROTE these tags and therefore closes the transcode window: a file at or below it converts, anything above already stores the real flag keys, so a legacy-looking tag there is a deliberate user label that must survive as one. Both languages read the window from here so the TS loader and the Rust SFC reader can never disagree about which files convert. Delete this block, its generated constants, and the transcode once files at or below `lastWritingVersion` no longer need to load.",
   "legacyRecipeTags": {
-    "removeAtVersion": "1.0.50",
+    "lastWritingVersion": "1.0.41",
     "ignoredBySafeguards": ["ignore_by_safeguards", "ignore_keep_unique", "ignore_safeguard"],
     "reworked": ["if_reworked", "only_for_chaos_ored"],
     "notReworked": ["if_not_reworked", "ignore_for_chaos_ored"]

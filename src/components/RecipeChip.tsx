@@ -160,9 +160,15 @@ function RecipeChip({
   // badge unchanged for the overwhelming majority of recipes.
   // Read from the shared flag-chip registry, so the glyph and the term shown here are the
   // exact ones the builder's Flags row uses — one definition, no parallel if/else chain.
+  // Keyed on the two flag fields rather than the whole recipe: `recipe` is copy-on-write, so
+  // depending on it would rebuild this array (and invalidate the tooltip memo below) on every
+  // unrelated edit, for every chip in the list.
   const activeFlagChips = useMemo(
     () => activeRecipeFlagChips(recipe),
-    [recipe],
+    // Depending on `recipe` itself would defeat the memo (see the note above), so both
+    // exhaustive-deps rules are silenced for this one intentionally narrow dep list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- activeRecipeFlagChips reads exactly these two fields.
+    [recipe.ignoredBySafeguards, recipe.reworkGate],
   )
   const recipeFlagSuffix = activeFlagChips.length > 0
     ? NBSP + activeFlagChips.map((spec) => spec.glyph).join('')

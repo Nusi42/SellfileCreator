@@ -123,8 +123,7 @@ const parseFragment = (
   // Any diagnostic means the fragment is not clean DSL — reject it outright. Legacy
   // behaviour tags produce none: they are rewritten at SFC load and folded silently, so a
   // fragment still using an old spelling parses clean and stays editable as rows.
-  const blocking = diagnostics
-  if (blocking.length > 0 || !draft || draft.kind !== 'question') return null
+  if (diagnostics.length > 0 || !draft || draft.kind !== 'question') return null
   const option = draft.options[0]
   if (!option || option.body.kind !== 'structured') return null
   const isCross = hostDomain !== blockDomain

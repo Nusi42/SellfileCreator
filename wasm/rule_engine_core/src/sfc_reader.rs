@@ -476,7 +476,7 @@ pub struct ReadableRecipeParsed {
 /// The explicit `ReworkGate` field wins when present: a current build wrote it, so it must
 /// beat any stale legacy tag left in the same file. The legacy tag fallback below exists
 /// only for files written before the field existed — delete it, together with the
-/// LEGACY_TAGS_* constants, once the app reaches LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT.
+/// LEGACY_TAGS_* constants, once files that old no longer need to load.
 // serde's `rename` needs a literal, so the two flag keys above are spelled out rather than
 // referencing the generated constants. Pin them to the SSOT at compile time instead, so a
 // rename in shared/domain-constants.json fails the build here rather than silently
@@ -486,7 +486,46 @@ const _: () = {
     assert!(matches!(SFC_RECIPE_FIELD_REWORK_GATE.as_bytes(), b"ReworkGate"));
 };
 
-pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>) -> i64 {
+/// True when the SFC version string is at or below the given major.minor.patch ceiling.
+///
+/// Mirrors `sfcVersionAtMost` in `sfcIO.ts` exactly, including its two lenient rules: a
+/// pre-release / build-metadata suffix (`-dev`, `+build`) is stripped before comparison, and
+/// a missing or unparseable segment reads as 0 — so an arbitrary hand-written `Version`
+/// counts as OLD and still gets the migrations it most likely needs, rather than losing
+/// every comparison and being wrongly reported as new.
+fn sfc_version_at_most(version: Option<&str>, major: i64, minor: i64, patch: i64) -> bool {
+    // No version at all is the "unparseable is old" case.
+    let Some(version) = version else { return true };
+    // Drop a pre-release / build suffix so `1.0.41-dev` compares as `1.0.41`.
+    let core = version.split(['-', '+']).next().unwrap_or("");
+    // A non-numeric segment coerces to 0, matching the TS `Number.isFinite` fallback.
+    let mut segments = core.split('.').map(|s| s.parse::<i64>().unwrap_or(0));
+    let vmaj = segments.next().unwrap_or(0);
+    let vmin = segments.next().unwrap_or(0);
+    let vpatch = segments.next().unwrap_or(0);
+    if vmaj != major { return vmaj < major; }
+    if vmin != minor { return vmin < minor; }
+    vpatch <= patch
+}
+
+/// True when a file predates the recipe flags and may still encode behaviour as magic tags.
+///
+/// The window's ceiling is the last release that WROTE behaviour tags, read off the
+/// cross-language spec (`LEGACY_RECIPE_TAG_LAST_WRITING_VERSION`) rather than spelled out
+/// here — the TS loader gates on the very same constant, so the two readers cannot disagree
+/// about which files convert. Above the ceiling a legacy-looking tag is a deliberate user
+/// label and must survive as one.
+pub fn uses_legacy_behaviour_tags(version: Option<&str>) -> bool {
+    // Parse the ceiling from the shared constant; a malformed segment reads as 0, exactly
+    // as the version being compared does.
+    let mut ceiling = LEGACY_RECIPE_TAG_LAST_WRITING_VERSION.split('.').map(|s| s.parse::<i64>().unwrap_or(0));
+    let major = ceiling.next().unwrap_or(0);
+    let minor = ceiling.next().unwrap_or(0);
+    let patch = ceiling.next().unwrap_or(0);
+    sfc_version_at_most(version, major, minor, patch)
+}
+
+pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>, source_version: Option<&str>) -> i64 {
     // An explicit gate is authoritative. An unrecognized token (hand edit, or a gate from a
     // newer build) falls through to ORE_ANY rather than guessing a state.
     if let Some(gate) = gate {
@@ -497,6 +536,10 @@ pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>) -> i
         }
         return ORE_ANY;
     }
+    // Outside the legacy window the tags carry no behaviour: a current file stores the real
+    // gate key, so a legacy-looking tag there is a plain user label. Reading it as a gate
+    // here would make the native DLL disagree with the TS loader about the same file.
+    if !uses_legacy_behaviour_tags(source_version) { return ORE_ANY; }
     // No tags at all leaves the rule unconstrained.
     let Some(tags) = tags else { return ORE_ANY };
     // Track each side so a contradictory legacy pair can be detected.
@@ -615,7 +658,7 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     for (i, raw) in raw_recipes.iter().enumerate() {
         let recipe: ReadableRecipe = serde_json::from_value(raw.clone())
             .map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
-        let parsed = parse_readable_recipe(&recipe)?;
+        let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref())?;
         // Collect set IDs for allKnownSetIds.
         for &id in &parsed.artifact_set_ids {
             all_set_ids.insert(id);
@@ -657,7 +700,9 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 // Recipe normalisation
 // ---------------------------------------------------------------------------
 
-fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, String> {
+// `source_version` is the owning file's `Version`; it gates the legacy behaviour-tag
+// fallback so this reader converts exactly the files the TS loader converts.
+fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> Result<ReadableRecipeParsed, String> {
     // Determine export mode. `Separator: true` is the current marker; the
     // visibility label "Separator" is the legacy spelling (still accepted).
     let vis_raw = rec.visibility.as_deref()
@@ -840,7 +885,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
         artifact_set_ids,
         artifact_meta_set_names,
         // Resolve the chaos-ore tags once here so every downstream builder call agrees.
-        ore: resolve_chaos_ore_value(rec.rework_gate.as_deref(), rec.tags.as_deref()),
+        ore: resolve_chaos_ore_value(rec.rework_gate.as_deref(), rec.tags.as_deref(), source_version),
         early_keep_mode,
         auto_rarity_supplements_threshold,
     })

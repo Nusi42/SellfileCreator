@@ -71,6 +71,7 @@ import { normalizeTagList } from './tagHelpers'
 import { normalizeReworkGate, transcodeLegacyNoteTagSelectors, transcodeLegacyRecipeTags } from './recipeFlags'
 // SFC key names live in the cross-language SSOT so the Rust reader declares the same ones.
 import {
+  LEGACY_RECIPE_TAG_LAST_WRITING_VERSION,
   SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS,
   SFC_RECIPE_FIELD_REWORK_GATE,
 } from './generated/domainConstants'
@@ -129,16 +130,27 @@ function sfcVersionAtMost(version: string | undefined, major: number, minor: num
   return vpatch <= patch
 }
 
+/** The transcode window's ceiling, read off the cross-language spec rather than re-spelled
+ *  as digits here — the Rust SFC reader gates on the very same constant. Split once at module
+ *  load; a missing segment coerces to 0 exactly like `sfcVersionAtMost` treats one. */
+const LEGACY_TAG_CEILING = LEGACY_RECIPE_TAG_LAST_WRITING_VERSION.split('.')
+  .map((part) => Number(part) || 0)
+const LEGACY_TAG_CEIL_MAJOR = LEGACY_TAG_CEILING[0] ?? 0
+const LEGACY_TAG_CEIL_MINOR = LEGACY_TAG_CEILING[1] ?? 0
+const LEGACY_TAG_CEIL_PATCH = LEGACY_TAG_CEILING[2] ?? 0
+
 /**
  * True when a file predates the recipe flags and may still encode behaviour as magic tags.
  *
  * THE definition of the legacy-transcode window, so the recipe-tag pass and the note-selector
- * pass can never disagree about which files get converted. 1.0.41 is the last release that
- * wrote behaviour tags; anything newer already stores the flags, so a legacy spelling there is
- * a deliberate user label and must survive as one. A missing/unparseable Version reads as old,
- * which is what keeps hand-written files converting.
+ * pass can never disagree about which files get converted. The ceiling is the last release
+ * that wrote behaviour tags; anything newer already stores the flags, so a legacy spelling
+ * there is a deliberate user label and must survive as one. A missing/unparseable Version
+ * reads as old, which is what keeps hand-written files converting.
  */
-const usesLegacyBehaviourTags = (version: string | undefined): boolean => sfcVersionAtMost(version, 1, 0, 41)
+export const usesLegacyBehaviourTags = (version: string | undefined): boolean => (
+  sfcVersionAtMost(version, LEGACY_TAG_CEIL_MAJOR, LEGACY_TAG_CEIL_MINOR, LEGACY_TAG_CEIL_PATCH)
+)
 
 /** Convert legacy space-separated improvchance values to canonical comma-separated form.
  *  "improvchance = 25 35 50 65" → "improvchance = 25, 35, 50, 65" (1–4 values). */
@@ -559,8 +571,7 @@ export function normalizeRecipe(
   // Split the stored tags into surviving labels plus the flags older files encoded as magic
   // tags — but ONLY for files old enough to have written them. A current file already stores
   // the real flag keys, so a legacy-looking tag there is a deliberate user label and
-  // converting it would silently eat a name the user chose. See
-  // LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT for the removal plan.
+  // converting it would silently eat a name the user chose.
   const rawTagList = normalizeTagList(rec['Tags'] ?? rec['tags'])
   const transcodedTags = usesLegacyBehaviourTags(sourceVersion)
     ? transcodeLegacyRecipeTags(rawTagList)
@@ -1009,8 +1020,10 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
     }
     if (Array.isArray(parsed)) {
       const metas = metasetsForNames ?? []
+      // A bare array carries no file context, so the version reads as absent (= old) and the
+      // legacy transcode still runs — the same fallback normalizeRecipe documents.
       return parsed.map((raw) => {
-        const base = normalizeRecipe(raw)
+        const base = normalizeRecipe(raw, undefined, undefined)
         const metaIds = metas.length ? resolveMetaNames(raw, metas) : []
         return mergeMetasetNames(base, metas, metaIds)
       })
@@ -1020,14 +1033,17 @@ export function parseRecipesFromText(text: string, metasetsForNames?: Metaset[])
         ? (parsed['Recipes'] as unknown[])
         : (Array.isArray(parsed['Configs']) ? (parsed['Configs'] as unknown[]) : [])
       const metas = metasFromObj(parsed) ?? metasetsForNames ?? []
+      // A pasted SFC object carries its own Version; honour it exactly as parseSfcObject does,
+      // or a current-version paste would have its plain user labels eaten by the transcode.
+      const pastedVersion = typeof parsed['Version'] === 'string' ? parsed['Version'] : undefined
       if (recipes.length) {
         return recipes.map((raw) => {
-          const base = normalizeRecipe(raw)
+          const base = normalizeRecipe(raw, undefined, pastedVersion)
           const metaIds = metas.length ? resolveMetaNames(raw, metas) : []
           return mergeMetasetNames(base, metas, metaIds)
         })
       }
-      const base = normalizeRecipe(parsed)
+      const base = normalizeRecipe(parsed, undefined, pastedVersion)
       const metaIds = metas.length ? resolveMetaNames(parsed, metas) : []
       return [mergeMetasetNames(base, metas, metaIds)]
     }

@@ -85,10 +85,20 @@ export const isRecipeFlagKey = (key: string): key is RecipeFlagKey => (
  * recipe reloaded from disk, forcing a spurious rule rebuild. Returns a fresh object so
  * callers keep their copy-on-write discipline.
  */
-export const writeRecipeFlag = <R extends Partial<Pick<BuilderRecipe, RecipeFlagKey>>>(
+/** The value a given flag key accepts, so a gate can never be written into the boolean. */
+export type RecipeFlagValue<K extends RecipeFlagKey> = BuilderRecipe[K]
+
+/**
+ * `value` is correlated with `key`: `ignoredBySafeguards` accepts only a boolean, `reworkGate`
+ * only a gate token, so a gate can never be written into the boolean field. Callers that hold
+ * a loosely-typed value (the multi-edit apply path, whose `BuilderFieldValue` cannot be
+ * narrowed at the call site) coerce it once at the boundary rather than widening this to
+ * `unknown` for everyone.
+ */
+export const writeRecipeFlag = <R extends Partial<Pick<BuilderRecipe, RecipeFlagKey>>, K extends RecipeFlagKey>(
   recipe: R,
-  key: RecipeFlagKey,
-  value: unknown,
+  key: K,
+  value: RecipeFlagValue<K>,
 ): R => {
   const next = { ...recipe }
   // Truthy writes the value; every falsey state (false, undefined, 'any' already resolved
@@ -117,8 +127,8 @@ export const normalizeReworkGate = (value: unknown): ReworkGate | undefined => {
 //
 // Everything below exists only to keep files written before the flags existed working.
 // It is read-only: no writer ever emits these tags again. Delete this section, the
-// LEGACY_TAGS_* constants, and their spec block together once the app reaches
-// LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT.
+// LEGACY_TAGS_* constants, and their spec block together once files old enough to carry
+// behaviour tags no longer need to load.
 // ---------------------------------------------------------------------------
 
 // Build the lookup sets once, normalized through the same grammar the tag list uses, so a
@@ -172,10 +182,13 @@ export interface TranscodedRecipeTags {
 /**
  * Split a legacy tag list into the flags it was encoding plus the labels that survive.
  *
- * Runs unconditionally on load rather than behind a version check: hand-written and
- * third-party `.sfc` files carry arbitrary (or missing) `Version` strings, so gating on the
- * version would silently drop the semantics of a file that simply failed to declare itself.
- * The removal constant governs when we delete this code, not when it stops firing.
+ * Runs only for files inside the legacy window — see `usesLegacyBehaviourTags` in `sfcIO.ts`,
+ * which owns that decision and is the ONLY thing that should call this. A file above the
+ * window already stores the real flag keys, so a legacy-looking tag there is a deliberate
+ * user label; converting it would silently eat a name the user chose. Hand-written and
+ * third-party files carry arbitrary or missing `Version` strings, and those read as old, so
+ * they still convert. `LEGACY_RECIPE_TAG_LAST_WRITING_VERSION` governs which files it fires
+ * for; there is no scheduled removal version — the code goes when such files stop mattering.
  *
  * A file carrying both rework spellings is contradictory. `reworked` wins, preserving the
  * precedence the tag-era resolver documented, so such a file keeps loading the same way.

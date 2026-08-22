@@ -14,7 +14,7 @@
  */
 import type { BuilderRecipe } from '../lib/hsfBuilder'
 import type { I18nKey } from '../lib/i18n'
-import { isIgnoredBySafeguards } from '../lib/recipeFlags'
+import { isIgnoredBySafeguards, type RecipeFlagKey, type RecipeFlagValue } from '../lib/recipeFlags'
 import {
   GLYPH_IGNORED_BY_SAFEGUARDS,
   GLYPH_REWORK_NOT_REWORKED,
@@ -26,6 +26,17 @@ import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../lib/generated
 export interface RecipeFlagChipSpec {
   /** Stable id, used for React keys and for routing a toggle back to its writer. */
   id: 'ignoredBySafeguards' | 'reworked' | 'notReworked'
+  /**
+   * The recipe field this chip reads and writes. Both rework chips name `reworkGate`, which
+   * is what makes them mutually exclusive. Carried here so no surface has to re-derive the
+   * id→field mapping with its own ternary.
+   */
+  fieldKey: RecipeFlagKey
+  /**
+   * The value to WRITE when this chip is switched on; clearing always writes the absent-key
+   * default, so a toggle needs nothing beyond this and `fieldKey`.
+   */
+  onValue: RecipeFlagValue<RecipeFlagKey>
   /** The single character shown on the chip and appended to the Keep/Sell badge. */
   glyph: string
   /** Term naming this state; also the tooltip title on the builder chip. */
@@ -45,6 +56,8 @@ export interface RecipeFlagChipSpec {
 export const RECIPE_FLAG_CHIPS: readonly RecipeFlagChipSpec[] = [
   {
     id: 'ignoredBySafeguards',
+    fieldKey: 'ignoredBySafeguards',
+    onValue: true,
     glyph: GLYPH_IGNORED_BY_SAFEGUARDS,
     labelKey: 'builderIgnoredBySafeguards',
     hintKey: 'builderIgnoredBySafeguardsHint',
@@ -53,6 +66,8 @@ export const RECIPE_FLAG_CHIPS: readonly RecipeFlagChipSpec[] = [
   },
   {
     id: 'reworked',
+    fieldKey: 'reworkGate',
+    onValue: REWORK_GATE_REWORKED,
     glyph: GLYPH_REWORK_REWORKED,
     labelKey: 'builderReworkReworked',
     hintKey: 'builderReworkReworkedHint',
@@ -60,6 +75,8 @@ export const RECIPE_FLAG_CHIPS: readonly RecipeFlagChipSpec[] = [
   },
   {
     id: 'notReworked',
+    fieldKey: 'reworkGate',
+    onValue: REWORK_GATE_NOT_REWORKED,
     glyph: GLYPH_REWORK_NOT_REWORKED,
     labelKey: 'builderReworkNotReworked',
     hintKey: 'builderReworkNotReworkedHint',
