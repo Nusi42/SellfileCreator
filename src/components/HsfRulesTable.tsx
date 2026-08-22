@@ -39,6 +39,7 @@ import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { reworkGateForOreSentinel } from '../lib/recipeFlags'
 import { recipeFlagChipForReworkGate, type RecipeFlagChipSpec } from './recipeFlagChips'
+import { keepSellOutcome, type KeepSellOutcomePresentation } from './keepSellOutcome'
 import { useI18n, type TranslateFn } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { renderColoredStatText } from '../lib/renderColoredStatText'
@@ -1307,21 +1308,21 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
     colHeaderLabel(key)
   )
   const defaultCols = useMemo<ColConfig[]>(() => ([
-    { key: 'Idx', label: '#', width: 72, visible: true },
-    { key: 'RecipeIdx', label: 'Recipe', width: 64, visible: true },
+    { key: 'Idx', label: '#', width: 76, visible: true },
+    { key: 'RecipeIdx', label: 'Recipe', width: 59, visible: true },
     // Rule names are useful for audits but too wide for default dense preview layouts.
     { key: 'RuleName', label: 'Name', width: 180, visible: false },
     { key: 'Keep', label: 'Keep', width: 61, visible: false },
-    { key: 'Use', label: 'Use', width: 50, visible: false },
+    { key: 'Use', label: 'Use', width: 46, visible: false },
     { key: 'ArtifactSetNames', label: 'Sets', width: 140, visible: true },
     { key: 'ArtifactTypeNames', label: 'Slot', width: 90, visible: true },
     { key: 'RankRarity', label: 'Rank/Rarity', width: 160, visible: true },
-    { key: 'MainStatName', label: 'Main', width: 75, visible: true },
+    { key: 'MainStatName', label: 'Main', width: 76, visible: true },
     { key: 'LevelLabel', label: 'Level', width: 78, visible: true },
     // Default to hidden; users can opt-in via the header menu or auto mode.
-    { key: 'Faction', label: 'Faction', width: 50, visible: false, mode: 'auto' },
+    { key: 'Faction', label: 'Faction', width: 46, visible: false, mode: 'auto' },
     // Chaos-ore gate column: auto-shows only when some rule actually narrows it.
-    { key: 'Ore', label: 'Ore', width: 56, visible: false, mode: 'auto' },
+    { key: 'Ore', label: 'Ore', width: 46, visible: false, mode: 'auto' },
     { key: 'SubstatsSummary', label: 'Sub', width: 340, visible: true },
   ]), [])
   const [storedCols, setStoredCols] = useRulesTableColumnsPreference()
@@ -1668,6 +1669,9 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
               // Set by the Ore branch below; carries the glyph's term so the cell can name it
               // in a tooltip, the way the recipe chip spells its flag glyphs out.
               let oreFlagChip: RecipeFlagChipSpec | undefined
+              // Set by the Keep branch below, for the same reason as `oreFlagChip`: the glyph
+              // needs a tooltip naming it, which the presentation carries alongside the glyph.
+              let keepOutcome: KeepSellOutcomePresentation | undefined
               let recipeSpecialContent: React.ReactNode | null = null
               if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
               else if (c.key === 'RecipeIdx') {
@@ -1697,7 +1701,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                 }
               }
               else if (c.key === 'RuleName') value = previewRuleName
-              else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
+              // Show the shared keep/sell glyph rather than the word, so the outcome reads the
+              // same here as on a Gear Inspector card. The presentation also carries the term,
+              // which becomes the cell's tooltip below.
+              else if (c.key === 'Keep') keepOutcome = keepSellOutcome(Boolean(rule.Keep))
               else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
               else if (c.key === 'ArtifactTypeNames') {
                 value = getArtifactTypeLabel(rule)
@@ -1808,6 +1815,16 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                   <MarkdownTooltip markdown={tooltipTitle}>
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                       {slotIconsContent}
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              }
+              // Name the keep/sell glyph on hover, and tone it the way the inspector's badge does.
+              if (c.key === 'Keep' && keepOutcome) {
+                content = (
+                  <MarkdownTooltip markdown={t(keepOutcome.labelKey)}>
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: `${keepOutcome.tone}.main` }}>
+                      {keepOutcome.glyph}
                     </Box>
                   </MarkdownTooltip>
                 )

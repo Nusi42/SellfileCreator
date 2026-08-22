@@ -149,8 +149,6 @@ const overrides: Catalog = {
   gearInspectorSourceManual: "Manual",
   gearInspectorSourceEquippedCollection: "Coleção",
   gearInspectorSourceEquippedVault: "Cofre",
-  gearInspectorMatchKeep: "Manter",
-  gearInspectorMatchSell: "Vender",
   gearInspectorSummaryTotalLabel: "Total",
   gearInspectorMatchNoRule: "Sem regra",
   gearInspectorRuleTemplateTooltip: "Adicionar uma receita de manter ou vender com base neste item.",

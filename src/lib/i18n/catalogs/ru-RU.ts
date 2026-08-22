@@ -149,8 +149,6 @@ const overrides: Catalog = {
   gearInspectorSourceManual: "Ручная",
   gearInspectorSourceEquippedCollection: "Коллекция",
   gearInspectorSourceEquippedVault: "Хранилище",
-  gearInspectorMatchKeep: "Оставить",
-  gearInspectorMatchSell: "Продать",
   gearInspectorSummaryTotalLabel: "Всего",
   gearInspectorMatchNoRule: "Без правила",
   gearInspectorRuleTemplateTooltip: "Добавить рецепт для оставления или продажи на основе этого предмета.",

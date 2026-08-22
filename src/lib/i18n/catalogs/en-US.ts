@@ -149,8 +149,6 @@ const enUS: Catalog = {
   gearInspectorSourceManual: "Custom",
   gearInspectorSourceEquippedCollection: "Collection",
   gearInspectorSourceEquippedVault: "Vault",
-  gearInspectorMatchKeep: "Keep",
-  gearInspectorMatchSell: "Sell",
   gearInspectorSummaryTotalLabel: "Total",
   gearInspectorMatchNoRule: "Unmatched",
   gearInspectorRuleTemplateTooltip: "Create a keep or sell recipe based on this item.",

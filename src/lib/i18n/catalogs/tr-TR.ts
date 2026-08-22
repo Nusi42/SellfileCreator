@@ -149,8 +149,6 @@ const overrides: Catalog = {
   gearInspectorSourceManual: "Özel",
   gearInspectorSourceEquippedCollection: "Koleksiyon",
   gearInspectorSourceEquippedVault: "Kasada",
-  gearInspectorMatchKeep: "Tut",
-  gearInspectorMatchSell: "Sat",
   gearInspectorSummaryTotalLabel: "Toplam",
   gearInspectorMatchNoRule: "Eşleşme yok",
   gearInspectorRuleTemplateTooltip: "Bu eşyaya göre bir tutma veya satma reçetesi ekle.",

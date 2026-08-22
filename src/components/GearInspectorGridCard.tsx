@@ -11,7 +11,6 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material'
-import SellIcon from '@mui/icons-material/Sell'
 import { alpha, keyframes, useTheme, useColorScheme, type Theme } from '@mui/material/styles'
 import { adaptSubstatFgForScheme } from '../lib/themeCustomTokens'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
@@ -45,6 +44,7 @@ import type { GearInspectorContextGroup, GearInspectorSourceFilter } from '../li
 import { GearInspectorSummaryLabel } from './GearInspectorSummaryLabel'
 import { GearInspectorRuleReferenceChip } from './GearInspectorRuleReferenceChip'
 import { getGearInspectorMatchBorderColor, getGearInspectorMatchSurfaceColors } from './gearInspectorMatchStyles'
+import { keepSellOutcome } from './keepSellOutcome'
 import { ensureContrastOnBg, blendAlpha } from '../lib/colorUtils'
 import { resolveContrastSurfaceScheme, resolveCardChipBaseBg, resolveSchemePalette, schemeModeFromColorScheme, MYTHIC_SUBSTAT_BG_ALPHA, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA } from '../lib/themeCustomTokens'
 import { RULE_SOURCE_SAFEGUARDS } from '../lib/merge'
@@ -1035,18 +1035,23 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   // Ultra-dense 8-col shows only the ascension stat name, without the numeric value.
   const ascSummaryContent = isUltraDense ? ascLabelNode : ascSummary
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
-  const cardOutcome = match
+  // Resolve the outcome once, through the shared presentation, so the glyph and term shown here
+  // are the exact ones the sellfile preview's Keep column uses.
+  const matchKeeps = match ? match.keep !== false : false
+  const matchOutcome = match ? keepSellOutcome(matchKeeps) : undefined
+  const cardOutcome = matchOutcome
     ? {
-        tone: match.keep === false ? (theme.vars?.palette.error.main ?? theme.palette.error.main) : (theme.vars?.palette.success.main ?? theme.palette.success.main),
-        glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
-        label: match.keep === false ? t('gearInspectorMatchSell') : t('gearInspectorMatchKeep'),
+        // The presentation names a palette tone; the card needs the resolved colour value.
+        tone: theme.vars?.palette[matchOutcome.tone].main ?? theme.palette[matchOutcome.tone].main,
+        glyph: matchOutcome.glyph,
+        label: t(matchOutcome.labelKey),
         canJump: allowPrimaryMatchJump,
         ...(allowPrimaryMatchJump ? { onClick: handlePrimaryMatchClick } : {}),
         inactive: matchDetailsFrozen,
       }
     : undefined
   // Surface stable match metadata for automation without forcing DOM text scraping.
-  const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
+  const cardMatchOutcome = match ? (matchKeeps ? 'keep' : 'sell') : 'none'
   const cardMatchRecipeIdx = match?.recipeIdx != null ? String(match.recipeIdx) : 'none'
   // Outcome tint uses CSS channel tokens so colors adapt per scheme without isDark checks.
   const outcomeTintBg = (highlightKeepSell && match)
@@ -1194,13 +1199,13 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
       {/* Keep actions create a keep template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('gearInspectorMatchKeep'), (theme.vars?.palette.success.main ?? theme.palette.success.main))}
+          {renderRuleTemplateActionLabel(t('keepValueKeep'), (theme.vars?.palette.success.main ?? theme.palette.success.main))}
         </Box>
       </MenuItem>
       {/* Sell actions create a sell template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
-          {renderRuleTemplateActionLabel(t('gearInspectorMatchSell'), (theme.vars?.palette.error.main ?? theme.palette.error.main))}
+          {renderRuleTemplateActionLabel(t('keepValueSell'), (theme.vars?.palette.error.main ?? theme.palette.error.main))}
         </Box>
       </MenuItem>
     </Menu>

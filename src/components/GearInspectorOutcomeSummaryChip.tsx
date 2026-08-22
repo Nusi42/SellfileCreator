@@ -162,8 +162,8 @@ export default function GearInspectorOutcomeSummaryChip({
       ? [`${t('safeguardsToggleLabel')}: ${safeguards}`]
       : [
           `${t('gearInspectorSummaryTotalLabel')}: ${total}`,
-          `${t('gearInspectorMatchSell')}: ${sold}`,
-          `${t('gearInspectorMatchKeep')}: ${kept}`,
+          `${t('keepValueSell')}: ${sold}`,
+          `${t('keepValueKeep')}: ${kept}`,
           `${t('safeguardsToggleLabel')}: ${safeguards}`,
         ]
     return {

@@ -75,8 +75,8 @@ type GearDiffDeltaChipProps = {
 export function GearDiffDeltaChip({ delta }: GearDiffDeltaChipProps) {
   const { t } = useI18n()
   const tooltip = [
-    `${t('gearInspectorMatchSell')}: ${formatSigned(delta.sold)}`,
-    `${t('gearInspectorMatchKeep')}: ${formatSigned(delta.kept)}`,
+    `${t('keepValueSell')}: ${formatSigned(delta.sold)}`,
+    `${t('keepValueKeep')}: ${formatSigned(delta.kept)}`,
     `${t('safeguardsToggleLabel')}: ${formatSigned(delta.keptBySafeguards)}`,
   ].join(' / ')
   return (
