@@ -9,8 +9,20 @@ import type {
 } from '../types'
 import type { ArtifactSetSelectionEntry } from '../gearSets/selection'
 import type { NameAppearance } from '../nameAppearance'
+// Wire tokens for the rework gate come from the cross-language SSOT so TS and Rust agree.
+import type { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../generated/domainConstants'
 
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
+
+/**
+ * Rework state a recipe restricts its rules to, or absent for "does not care".
+ *
+ * Derived from the generated wire tokens rather than re-spelled, so the union and the
+ * strings written into SFC files cannot drift. Only the two constrained states exist:
+ * "unconstrained" is the absence of the field, which is what makes the two states
+ * mutually exclusive by construction.
+ */
+export type ReworkGate = typeof REWORK_GATE_REWORKED | typeof REWORK_GATE_NOT_REWORKED
 
 export type Star = RankValue
 
@@ -19,8 +31,16 @@ export type Star = RankValue
 export interface BuilderRecipe {
   // Optional display name and foreground color for this recipe (saved in SFC).
   appearance?: NameAppearance
-  // Optional recipe overrides tags used to enable/disable recipes via note prompts.
+  // Free-form user labels. No tag carries app-defined behaviour — the two that used to
+  // are the explicit flags below — but a note's overrides DSL can still SELECT recipes by
+  // tag (`@tag=...`), which is how the bundled presets toggle whole groups.
   tags?: string[]
+  // Excludes this recipe's keeps from safeguard coverage checks. Absent/false = counted.
+  ignoredBySafeguards?: boolean
+  // Restricts every emitted rule to one rework state (whether a Chaos Ore was applied).
+  // Absent means the recipe does not care — the tri-state shape makes "both at once"
+  // unrepresentable, so no precedence rule is needed. Maps to the HSF `Ore` property.
+  reworkGate?: ReworkGate
   keep: boolean
   // Sellfile export mode. Separator recipes export only to SFC (no Sellfile rules).
   // 'disabled' keeps the recipe in exports but forces `Use: false` so RSL Helper ignores it.

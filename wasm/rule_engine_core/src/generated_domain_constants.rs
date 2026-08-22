@@ -34,10 +34,20 @@ pub const STAT_ID_ROLL_COUNT: i64 = 99;
 pub const ORE_ANY: i64 = -1;
 pub const ORE_NOT_ORED: i64 = 0;
 pub const ORE_ORED: i64 = 1;
-pub const ORE_TAG_ONLY: &str = "if_reworked";
-pub const ORE_TAG_IGNORE: &str = "if_not_reworked";
-pub const ORE_TAG_ONLY_LEGACY: &str = "only_for_chaos_ored";
-pub const ORE_TAG_IGNORE_LEGACY: &str = "ignore_for_chaos_ored";
+
+// SFC recipe keys for the behaviour-carrying recipe flags; written only when set.
+pub const SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS: &str = "IgnoredBySafeguards";
+pub const SFC_RECIPE_FIELD_REWORK_GATE: &str = "ReworkGate";
+// ReworkGate values; the key is absent when a recipe does not care about rework state.
+pub const REWORK_GATE_REWORKED: &str = "reworked";
+pub const REWORK_GATE_NOT_REWORKED: &str = "notReworked";
+
+// Legacy recipe tags, read-only: transcoded into the flags on load, never written again.
+// Delete these together with the transcode once the app reaches the removal version.
+pub const LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT: &str = "1.0.50";
+pub const LEGACY_TAGS_IGNORED_BY_SAFEGUARDS: &[&str] = &["ignore_by_safeguards", "ignore_keep_unique", "ignore_safeguard"];
+pub const LEGACY_TAGS_REWORKED: &[&str] = &["if_reworked", "only_for_chaos_ored"];
+pub const LEGACY_TAGS_NOT_REWORKED: &[&str] = &["if_not_reworked", "ignore_for_chaos_ored"];
 
 // Rarity code domain used by builder/rules generation.
 pub const RARITY_CODE_ANY: i64 = 0;

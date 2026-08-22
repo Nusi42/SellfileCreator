@@ -23,7 +23,9 @@ const spec = JSON.parse(rawSpec)
 const artifactType = spec.artifactType
 const statId = spec.statId
 const ore = spec.ore
-const oreTags = spec.oreTags
+const recipeFlagFields = spec.recipeFlagFields
+const reworkGate = spec.reworkGate
+const legacyRecipeTags = spec.legacyRecipeTags
 const rarityCode = spec.rarityCode
 const rankCode = spec.rankCode
 const rankValue = spec.rankValue
@@ -201,10 +203,20 @@ const tsLines = [
   `export const ORE_ANY = ${Number(ore.any)}`,
   `export const ORE_NOT_ORED = ${Number(ore.notOred)}`,
   `export const ORE_ORED = ${Number(ore.ored)}`,
-  `export const ORE_TAG_ONLY = ${asTsStringLiteral(oreTags.only)}`,
-  `export const ORE_TAG_IGNORE = ${asTsStringLiteral(oreTags.ignore)}`,
-  `export const ORE_TAG_ONLY_LEGACY = ${asTsStringLiteral(oreTags.legacyOnly)}`,
-  `export const ORE_TAG_IGNORE_LEGACY = ${asTsStringLiteral(oreTags.legacyIgnore)}`,
+  '',
+  '// SFC recipe keys for the behaviour-carrying recipe flags; written only when set.',
+  `export const SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS = ${asTsStringLiteral(recipeFlagFields.ignoredBySafeguards)}`,
+  `export const SFC_RECIPE_FIELD_REWORK_GATE = ${asTsStringLiteral(recipeFlagFields.reworkGate)}`,
+  '// ReworkGate values; the key is absent when a recipe does not care about rework state.',
+  `export const REWORK_GATE_REWORKED = ${asTsStringLiteral(reworkGate.reworked)}`,
+  `export const REWORK_GATE_NOT_REWORKED = ${asTsStringLiteral(reworkGate.notReworked)}`,
+  '',
+  '// Legacy recipe tags, read-only: transcoded into the flags on load, never written again.',
+  '// Delete these together with the transcode once the app reaches the removal version.',
+  `export const LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT = ${asTsStringLiteral(legacyRecipeTags.removeAtVersion)}`,
+  `export const LEGACY_TAGS_IGNORED_BY_SAFEGUARDS: readonly string[] = [${legacyRecipeTags.ignoredBySafeguards.map(asTsStringLiteral).join(', ')}]`,
+  `export const LEGACY_TAGS_REWORKED: readonly string[] = [${legacyRecipeTags.reworked.map(asTsStringLiteral).join(', ')}]`,
+  `export const LEGACY_TAGS_NOT_REWORKED: readonly string[] = [${legacyRecipeTags.notReworked.map(asTsStringLiteral).join(', ')}]`,
   '',
   '// Rarity code domain used by builder/rules generation.',
   `export const RARITY_CODE_ANY = ${Number(rarityCode.any)}`,
@@ -358,10 +370,20 @@ const rustLines = [
   `pub const ORE_ANY: i64 = ${Number(ore.any)};`,
   `pub const ORE_NOT_ORED: i64 = ${Number(ore.notOred)};`,
   `pub const ORE_ORED: i64 = ${Number(ore.ored)};`,
-  `pub const ORE_TAG_ONLY: &str = ${asRustStringLiteral(oreTags.only)};`,
-  `pub const ORE_TAG_IGNORE: &str = ${asRustStringLiteral(oreTags.ignore)};`,
-  `pub const ORE_TAG_ONLY_LEGACY: &str = ${asRustStringLiteral(oreTags.legacyOnly)};`,
-  `pub const ORE_TAG_IGNORE_LEGACY: &str = ${asRustStringLiteral(oreTags.legacyIgnore)};`,
+  '',
+  '// SFC recipe keys for the behaviour-carrying recipe flags; written only when set.',
+  `pub const SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS: &str = ${asRustStringLiteral(recipeFlagFields.ignoredBySafeguards)};`,
+  `pub const SFC_RECIPE_FIELD_REWORK_GATE: &str = ${asRustStringLiteral(recipeFlagFields.reworkGate)};`,
+  '// ReworkGate values; the key is absent when a recipe does not care about rework state.',
+  `pub const REWORK_GATE_REWORKED: &str = ${asRustStringLiteral(reworkGate.reworked)};`,
+  `pub const REWORK_GATE_NOT_REWORKED: &str = ${asRustStringLiteral(reworkGate.notReworked)};`,
+  '',
+  '// Legacy recipe tags, read-only: transcoded into the flags on load, never written again.',
+  '// Delete these together with the transcode once the app reaches the removal version.',
+  `pub const LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT: &str = ${asRustStringLiteral(legacyRecipeTags.removeAtVersion)};`,
+  `pub const LEGACY_TAGS_IGNORED_BY_SAFEGUARDS: &[&str] = &[${legacyRecipeTags.ignoredBySafeguards.map(asRustStringLiteral).join(', ')}];`,
+  `pub const LEGACY_TAGS_REWORKED: &[&str] = &[${legacyRecipeTags.reworked.map(asRustStringLiteral).join(', ')}];`,
+  `pub const LEGACY_TAGS_NOT_REWORKED: &[&str] = &[${legacyRecipeTags.notReworked.map(asRustStringLiteral).join(', ')}];`,
   '',
   '// Rarity code domain used by builder/rules generation.',
   `pub const RARITY_CODE_ANY: i64 = ${Number(rarityCode.any)};`,

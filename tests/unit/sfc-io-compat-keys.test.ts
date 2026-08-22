@@ -7,6 +7,12 @@ import { buildSfcPayload, parseSfcObject } from '../../src/lib/sfcIO.js'
 import { parseHsfFile } from '../../src/lib/hsfIO.js'
 import { defaultSubstatTargets, type BuilderRecipe } from '../../src/lib/hsfBuilder.js'
 import { StatVariant } from '../../src/lib/types.js'
+import {
+  REWORK_GATE_NOT_REWORKED,
+  REWORK_GATE_REWORKED,
+  SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS,
+  SFC_RECIPE_FIELD_REWORK_GATE,
+} from '../../src/lib/generated/domainConstants.js'
 
 const buildRecipe = (name: string): BuilderRecipe => ({
   ...(name ? { appearance: { name } } : {}),
@@ -230,21 +236,23 @@ test('SFC round-trips every safeguard activation mode (incl. anticipateImproveme
   }
 })
 
-test('SFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip', () => {
+test('SFC parser lifts legacy behaviour tags onto the recipe flags', () => {
   const parsed = parseSfcObject(
     {
       Version: 'legacy-ignore-tag',
       Recipes: [
         {
           ...buildRecipe('Legacy Ignore Tag'),
-          Tags: ['ignore_keep_unique', 'speed'],
+          Tags: ['ignore_keep_unique', 'if_not_reworked', 'speed'],
         },
       ],
     },
     { metasets: [], substatTargets: defaultSubstatTargets() },
   )
-  // Read path should accept legacy ignore tag aliases.
-  assert.deepEqual(parsed.recipes[0]?.tags, ['ignore_by_safeguards', 'speed'])
+  // The behaviour tags become fields; only the user's own label survives as a tag.
+  assert.deepEqual(parsed.recipes[0]?.tags, ['speed'])
+  assert.equal(parsed.recipes[0]?.ignoredBySafeguards, true)
+  assert.equal(parsed.recipes[0]?.reworkGate, REWORK_GATE_NOT_REWORKED)
 
   const payload = buildSfcPayload({
     version: 'roundtrip-ignore-tag',
@@ -254,25 +262,47 @@ test('SFC parser canonicalizes legacy safeguard-ignore recipe tags on roundtrip'
   }) as Record<string, unknown>
   const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
   assert(recipe, 'expected exported recipe')
-  // Write path should emit only canonical safeguard-ignore tags.
-  assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
+  // The write path emits the flags and never re-emits the legacy tags.
+  assert.deepEqual(recipe['Tags'], ['speed'])
+  assert.equal(recipe[SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS], true)
+  assert.equal(recipe[SFC_RECIPE_FIELD_REWORK_GATE], REWORK_GATE_NOT_REWORKED)
 })
 
-test('SFC writer canonicalizes legacy safeguard-ignore aliases from runtime recipe state', () => {
-  const legacyTaggedRecipe = {
-    ...buildRecipe('Legacy Writer Alias'),
-    tags: ['ignore_keep_unique', 'speed'],
-  }
+test('SFC omits the recipe flags entirely when they are not set', () => {
+  // Omission is the backward-compatibility guarantee: a recipe that uses neither flag
+  // must serialize exactly as it did before the flags existed.
   const payload = buildSfcPayload({
-    version: 'writer-legacy-ignore-tag',
+    version: 'no-flags',
     metasets: [],
     substatTargets: defaultSubstatTargets(),
-    recipes: [legacyTaggedRecipe],
+    recipes: [{ ...buildRecipe('Plain'), tags: ['speed'] }],
   }) as Record<string, unknown>
   const recipe = ((payload['Recipes'] as unknown[])?.[0] ?? null) as Record<string, unknown> | null
   assert(recipe, 'expected exported recipe')
-  // Write boundary should emit canonical wording even for legacy runtime aliases.
-  assert.deepEqual(recipe['Tags'], ['ignore_by_safeguards', 'speed'])
+  assert.equal(SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS in recipe, false, 'no ignore key')
+  assert.equal(SFC_RECIPE_FIELD_REWORK_GATE in recipe, false, 'no gate key')
+})
+
+test('an explicit recipe flag key wins over a stale legacy tag in the same file', () => {
+  // A current build writes the flag; a hand-merged file could still carry the old tag.
+  // The explicit key is authoritative so the newer intent is not overridden.
+  const parsed = parseSfcObject(
+    {
+      Version: 'mixed',
+      Recipes: [
+        {
+          ...buildRecipe('Mixed'),
+          Tags: ['if_not_reworked'],
+          [SFC_RECIPE_FIELD_REWORK_GATE]: REWORK_GATE_REWORKED,
+        },
+      ],
+    },
+    { metasets: [], substatTargets: defaultSubstatTargets() },
+  )
+  assert.equal(parsed.recipes[0]?.reworkGate, REWORK_GATE_REWORKED)
+  // The legacy tag is still stripped from the label list either way. An empty tag list is
+  // dropped entirely by the loader, so the recipe carries no `tags` key at all.
+  assert.equal(parsed.recipes[0]?.tags, undefined)
 })
 
 test('SFC round-trip preserves not:true rollBounds for substat', () => {

@@ -224,8 +224,9 @@ import type { MultiEditArrayPatch } from '../lib/recipeMultiEditDraft'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
 import { useSafeguardMultiEditSummary } from './builderPanel/useSafeguardMultiEditSummary'
 import { resolveSafeguardActivationTextColor } from './safeguardSummaryParts'
-import { normalizeTagValue, summarizeTagPresence, canonicalTagTokens, mergeTagsWithReworkExclusivity, reworkTagToClearForMultiEdit, type TagVocabulary } from '../lib/tagHelpers'
+import { normalizeTagValue, summarizeTagPresence, canonicalTagTokens, mergeTags, type TagVocabulary } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
+import { BuilderGlyphToggleChip } from './BuilderGlyphToggleChip'
 import { useShowTagsChipsPreference } from '../state/builderPreferences'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -1162,10 +1163,9 @@ export default function SafeguardBuilderPanel({
     )
   }
 
-  // One glyph-only toggle chip: the visible label is just the glyph (the same glyph the
-  // rule-chip mode badge shows), so the full label + hint live in the tooltip. Shared by the
-  // three ignore toggles AND the four group scope toggles — state/handlers come in as params, so
-  // the two rows are pixel-identical by construction.
+  // Bind the shared glyph toggle chip to this panel's override-badge renderer. The chip
+  // itself lives in BuilderGlyphToggleChip so the recipe panel's flag row is identical by
+  // construction; only the badge (which is safeguard-overrides specific) is supplied here.
   const renderGlyphToggleChip = ({ glyph, label, hint, active, mixed, overrideActive, storedOn, effectiveOn, onToggle }: {
     glyph: string
     label: string
@@ -1177,38 +1177,18 @@ export default function SafeguardBuilderPanel({
     effectiveOn: boolean
     onToggle: () => void
   }) => (
-    <Box key={glyph} sx={{ position: 'relative' }}>
-      <MarkdownTooltip markdown={`**${label}**\n\n${hint}`}>
-        <Chip
-          size="small"
-          variant="filled"
-          label={glyph}
-          aria-label={label}
-          aria-pressed={active}
-          clickable
-          onClick={onToggle}
-          sx={{
-            // Green when enabled OR mixed — base matches recipe builder flex chip.
-            ...builderStatusChipSx(active || mixed, { dimDisabled: true }),
-            // Keep the lone glyph centred with a stable near-square footprint.
-            minWidth: 28,
-            '& .MuiChip-label': { px: 0.75 },
-            // Full mixed overlay: dashed border + hatched gradient + muted text,
-            // identical to the flex chip pattern in RecipeBuilderPanel.
-            ...(mixed ? {
-              borderStyle: 'dashed',
-              borderColor: mixedBorderColor,
-              color: mixedTextColor,
-              backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-            } : {}),
-          }}
-        />
-      </MarkdownTooltip>
-      {/* Override badge: shown when a safeguard-overrides block flips this toggle. */}
-      {overrideActive && renderSafeguardOverrideBadge(
+    <BuilderGlyphToggleChip
+      key={glyph}
+      glyph={glyph}
+      label={label}
+      hint={hint}
+      active={active}
+      mixed={mixed}
+      onToggle={onToggle}
+      overrideBadge={overrideActive ? renderSafeguardOverrideBadge(
         buildSafeguardOverrideBadgeTooltip(storedOn ? 'on' : 'off', effectiveOn ? 'on' : 'off'),
-      )}
-    </Box>
+      ) : undefined}
+    />
   )
 
   const setRuleCombination = (updater: (combination: SafeguardRule['combination']) => SafeguardRule['combination']) => {
@@ -1684,12 +1664,6 @@ export default function SafeguardBuilderPanel({
     tokens.forEach((tag) => {
       const baseState = getTagBaseState(tag)
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
-      // The two rework tags are mutually exclusive: adding one clears the other across
-      // the whole selection, mirroring the single-edit path above.
-      const opposite = reworkTagToClearForMultiEdit(tag, target)
-      if (opposite) {
-        nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
-      }
     })
     multiEdit.updateField('tags', {
       value: (multiTagsField?.value as string[]) ?? [],
@@ -1710,21 +1684,21 @@ export default function SafeguardBuilderPanel({
     if (multiEditActive) {
       stageTagPatch(normalizedAdds, 'all')
     } else {
-      // Merge into the current tag list and enforce rework-tag mutual exclusivity through
-      // the shared helper — the single definition both builder panels use.
+      // Merge into the current tag list through the shared helper — the single
+      // definition both builder panels use.
       updateRule((prev) => ({
         ...prev,
-        tags: mergeTagsWithReworkExclusivity(prev.tags ?? [], normalizedAdds),
+        tags: mergeTags(prev.tags ?? [], normalizedAdds),
       }))
     }
     setTagsDraft('')
   }, [multiEditActive, stageTagPatch, tagsDraft, updateRule])
   // Tags currently applied, for the picker's toggle state (the union in multi-edit).
-  // Canonicalized so it compares like-for-like against the vocabulary: a rule storing a
-  // legacy spelling must not be offered its own tag again under the current name.
+  // Normalized so it compares like-for-like against the vocabulary: a rule storing a
+  // loose spelling must not be offered its own tag again.
   const selectedTagSet = useMemo(() => canonicalTagTokens(tagDisplay), [tagDisplay])
-  // Adding from the picker reuses the same write paths as typed input, so exclusivity and
-  // multi-edit patching behave identically either way.
+  // Adding from the picker reuses the same write paths as typed input, so de-duplication
+  // and multi-edit patching behave identically either way.
   const addTagFromPicker = useCallback((tag: string) => {
     if (multiEditActive) {
       stageTagPatch([tag], 'all')
@@ -1732,7 +1706,7 @@ export default function SafeguardBuilderPanel({
     }
     updateRule((prev) => ({
       ...prev,
-      tags: mergeTagsWithReworkExclusivity(prev.tags ?? [], [tag]),
+      tags: mergeTags(prev.tags ?? [], [tag]),
     }))
   }, [multiEditActive, stageTagPatch, updateRule])
   // Remove a single tag from the rule or from all selected rules via patch.
@@ -2723,12 +2697,10 @@ ${t('safeguardsGroupModeHint')}` : ruleModeScopeTooltip}>
                     so the exact spelling never has to be recalled. */}
                 <BuilderTagPicker
                   vocabulary={tagVocabulary.tags}
-                  appKnown={tagVocabulary.appKnown}
                   selected={selectedTagSet}
                   onAdd={addTagFromPicker}
                   label={t('builderTagsPickerLabel')}
                   emptyLabel={t('builderTagsPickerEmpty')}
-                  appKnownHint={t('builderTagsPickerAppKnownHint')}
                 />
               </Stack>
             </Box>

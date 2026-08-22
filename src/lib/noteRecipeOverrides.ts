@@ -21,6 +21,18 @@ import { arraysEqual } from './array'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL, SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 import { normalizeTagValue } from './tagHelpers'
+// Behaviour-flag SSOT: the DSL field tokens and the read-side flag accessor. Imported so
+// the grammar spells the two flags exactly once, beside the fields they write.
+import {
+  DSL_FIELD_IGNORED_BY_SAFEGUARDS,
+  DSL_FIELD_REWORK_GATE,
+  isIgnoredBySafeguards,
+  legacyRecipeFlagForTagToken,
+  type LegacyRecipeFlag,
+} from './recipeFlags'
+// Wire tokens for the tri-state gate — the same strings the SFC payload and HSF export use.
+import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from './generated/domainConstants'
+import type { ReworkGate } from './hsfBuilder/types'
 import {
   type Token,
   type DiagnosticSpan,
@@ -131,6 +143,16 @@ export const NOTE_RECIPE_OVERRIDES_EXPORT_VALS = ['active', 'disabled', 'toggle'
 export const NOTE_RECIPE_OVERRIDES_KEEP_VALS = ['early', 'late'] as const
 /** Accepted `action=` values — flips the recipe's Keep/Sell flag (mirrors `export=`'s toggle shape). */
 export const NOTE_RECIPE_OVERRIDES_ACTION_VALS = ['keep', 'sell', 'toggle'] as const
+/**
+ * Accepted `reworkgate=` values — the two wire gates plus `any`, which CLEARS the gate.
+ *
+ * `any` is spelled the way `rank=any` / `rarity=any` already spell "unconstrained", so the
+ * DSL reads consistently; the wire tokens are imported rather than re-typed. Per-field SSOT
+ * for the parse branches, the enum diagnostic, the editor dropdown, and the highlighter.
+ */
+export const NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS = [
+  REWORK_GATE_REWORKED, REWORK_GATE_NOT_REWORKED, 'any',
+] as const
 /** Accepted `autolate=` rarity-threshold values (per-field SSOT for parse + diagnostics). */
 export const NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS = ['uncommon', 'rare', 'epic'] as const
 /** Enumerated string values for non-numeric fields (export=, keep=, flex=), composed from
@@ -139,7 +161,8 @@ export const NOTE_RECIPE_OVERRIDES_ENUM_VALS = [
   ...NOTE_RECIPE_OVERRIDES_EXPORT_VALS,  // export=
   ...NOTE_RECIPE_OVERRIDES_KEEP_VALS,    // keep=
   ...NOTE_RECIPE_OVERRIDES_ACTION_VALS,  // action=  (keep/sell/toggle; 'keep'/'toggle' shared with above)
-  ...NOTE_OVERRIDES_BOOLEAN_KEYWORDS,    // flex=
+  ...NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS,  // reworkgate=  (reworked/notReworked/any)
+  ...NOTE_OVERRIDES_BOOLEAN_KEYWORDS,    // flex= and ignoredbysafeguards=
 ] as const
 /** Artifact slot names accepted by the DSL `slots=` assignment field (SSOT from ArtifactType). */
 export const NOTE_RECIPE_OVERRIDES_SLOT_NAMES = Object.keys(ArtifactType) as readonly string[]
@@ -162,6 +185,9 @@ export const NOTE_RECIPE_OVERRIDES_LOGIC_KEYWORDS = NOTE_OVERRIDES_LOGIC_KEYWORD
 // Add a new field here to make it available in both @term conditions and rule assignments.
 const TERM_AND_ASSIGNMENT_FIELDS = [
   'rank', 'rarity', 'minrolls', 'lockedminrolls', 'minsubstats', 'flex', 'substatmin', 'minima',
+  // The two behaviour flags. Spelled through the recipeFlags SSOT so the grammar, the
+  // legacy-tag rewrite, and the serializer can never disagree on the token.
+  DSL_FIELD_IGNORED_BY_SAFEGUARDS, DSL_FIELD_REWORK_GATE,
 ] as const
 /** Field names valid on the left-hand side of assignment blocks. */
 export const NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS = [
@@ -188,6 +214,11 @@ export type RecipeOverridesSelector =
   | { kind: 'lockedMinRolls'; op: TagOverrideOp; value: number }
   | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
   | { kind: 'flex'; value: boolean }
+  // Behaviour flags. `ignoredBySafeguards` is a plain boolean: absent on the recipe means false.
+  | { kind: 'ignoredBySafeguards'; value: boolean }
+  // The gate is tri-state on the recipe, so the SELECTOR needs a third value to ask for
+  // "no gate at all" — 'any' matches exactly the recipes whose field is absent.
+  | { kind: 'reworkGate'; value: ReworkGate | 'any' }
   // substatmin conditions — match per-recipe substat roll-minimum bounds.
   | { kind: 'substatMin'; op: TagOverrideOp; value: number }
   | { kind: 'substatMinField'; op: TagOverrideOp; variant: StatVariant; value: number }
@@ -212,6 +243,10 @@ export type RecipeOverridesOperation =
   | { kind: 'lockedMinRequiredRolls'; value: number | null; ast?: NoteCountAstNode }
   | { kind: 'minSubstats'; value: number | null; ast?: NoteCountAstNode }
   | { kind: 'flex'; value: boolean }
+  // Behaviour-flag writes. Clearing (false / 'any') OMITS the field rather than storing a
+  // falsey value, so a recipe an override never touched re-serializes byte-identically.
+  | { kind: 'ignoredBySafeguards'; value: boolean }
+  | { kind: 'reworkGate'; value: ReworkGate | 'any' }
   | { kind: 'substatMinAll'; value: number }
   | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
   | { kind: 'minimaAnyRank'; value: Star }
@@ -253,6 +288,9 @@ export const RECIPE_OVERRIDES_OP_FIELD: Record<RecipeOverridesOperation['kind'],
   lockedMinRequiredRolls: 'lockedminrolls',
   minSubstats: 'minsubstats',
   flex: 'flex',
+  // Tokens come from the flag SSOT, never re-spelled here.
+  ignoredBySafeguards: DSL_FIELD_IGNORED_BY_SAFEGUARDS,
+  reworkGate: DSL_FIELD_REWORK_GATE,
   substatMinAll: 'substatmin',
   substatMinVariant: 'substatmin',
   minimaAnyRank: 'minima',
@@ -282,6 +320,9 @@ export const RECIPE_OVERRIDES_SELECTOR_TOKEN: Record<RecipeOverridesSelector['ki
   lockedMinRolls: 'lockedminrolls',
   minSubstats: 'minsubstats',
   flex: 'flex',
+  // Same field tokens as the assignment side — one grammar word per flag.
+  ignoredBySafeguards: DSL_FIELD_IGNORED_BY_SAFEGUARDS,
+  reworkGate: DSL_FIELD_REWORK_GATE,
   substatMin: 'substatmin',
   substatMinField: 'substatmin',
   minimaAny: 'minima',
@@ -328,6 +369,9 @@ export function formatRecipeOverridesOpValue(op: RecipeOverridesOperation): stri
     case 'lockedMinRequiredRolls':
     case 'minSubstats': return op.value != null ? String(op.value) : '$count'
     case 'flex': return String(op.value)
+    // Boolean flag reads like `flex`; the gate shows its own token ('any' = cleared).
+    case 'ignoredBySafeguards': return String(op.value)
+    case 'reworkGate': return op.value
     case 'substatMinAll': return String(op.value)
     case 'substatMinVariant': return `${overridesStatKey(op.variant)}=${op.value}`
     case 'minimaAnyRank': return String(op.value)
@@ -380,6 +424,9 @@ export function formatRecipeOverridesSelector(sel: RecipeOverridesSelector): str
     case 'lockedMinRolls':  return `lockedminrolls${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'minSubstats':     return `minsubstats${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'flex':            return `flex=${sel.value}`
+    // Field tokens from the flag SSOT; values print as authored ('any' = "has no gate").
+    case 'ignoredBySafeguards': return `${DSL_FIELD_IGNORED_BY_SAFEGUARDS}=${sel.value}`
+    case 'reworkGate':          return `${DSL_FIELD_REWORK_GATE}=${sel.value}`
     case 'substatMin':      return `substatmin${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'substatMinField': return `substatmin.${overridesStatKey(sel.variant)}${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
     case 'minimaAny':       return `minima${SELECTOR_OP_SYMBOL[sel.op]}${sel.value}`
@@ -1182,6 +1229,74 @@ const ARTIFACT_TYPE_NAME_MAP = new Map<string, ArtifactTypeId>(
   Object.entries(ArtifactType).map(([name, id]) => [name.toLowerCase(), id as ArtifactTypeId]),
 )
 
+/**
+ * Coerce a `reworkgate=` value token into the gate it names, or null when it is not one.
+ *
+ * Case-insensitive because the DSL is: the wire token is camelCase (`notReworked`) but a
+ * note author types whatever reads naturally, and every other enumerated field here lowers
+ * before comparing. One definition, shared by the selector branch, the assignment branch,
+ * and the visual editor's round-trip through the same grammar.
+ */
+const parseReworkGateValue = (raw: string): ReworkGate | 'any' | null => {
+  const lowered = raw.trim().toLowerCase()
+  // Match against the accepted-value SSOT so a token can never drift from the diagnostic.
+  const hit = NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS.find((value) => value.toLowerCase() === lowered)
+  return hit ?? null
+}
+
+/** The replacement DSL text a legacy behaviour tag folds onto — one definition, used by the
+ *  deprecation diagnostic below so the message always names DSL the parser really accepts. */
+const legacyRecipeFlagReplacementText = (legacy: LegacyRecipeFlag): string => (
+  legacy.kind === 'ignoredBySafeguards'
+    // The legacy tag only ever meant "on"; there was no tag for the false side.
+    ? `${DSL_FIELD_IGNORED_BY_SAFEGUARDS}=${NOTE_OVERRIDES_BOOLEAN_KEYWORDS[0]}`
+    : `${DSL_FIELD_REWORK_GATE}=${legacy.gate}`
+)
+
+/**
+ * Flag a legacy behaviour tag as deprecated WITHOUT rejecting it.
+ *
+ * Deliberately a diagnostic and not an error: the note still parses and still applies, so an
+ * old preset keeps working untouched — the span only tells the editor to underline the old
+ * spelling and offer the replacement. Same collector shape as `reportUnknownField`, whose
+ * lenient-parse contract this extends to the tag→flag transcode window.
+ *
+ * One knock-on worth knowing: the visual editor's fragment parser rejects any text that
+ * produces a diagnostic, so a block still using the legacy spelling shows as raw DSL rather
+ * than as editable rows. That is the desired nudge — the row would re-serialize to the new
+ * spelling anyway, and showing it unchanged would hide the deprecation from the author.
+ */
+/**
+ * Marker every deprecation-only diagnostic carries.
+ *
+ * The `DiagnosticSpan` shape has no severity field, so consumers that treat any diagnostic
+ * as "this fragment is broken" would misread a deprecation. Rather than widen the shape for
+ * one case, deprecations are tagged with this token and recognized through
+ * `isDeprecationDiagnostic` — one definition, so no consumer hand-rolls the check.
+ */
+const DEPRECATION_DIAGNOSTIC_MARKER = 'is deprecated —'
+
+/** True when a diagnostic only reports a deprecated spelling, not a parse failure. */
+export const isDeprecationDiagnostic = (diagnostic: DiagnosticSpan): boolean => (
+  diagnostic.message.includes(DEPRECATION_DIAGNOSTIC_MARKER)
+)
+
+const reportDeprecatedLegacyFlagTag = (
+  legacy: LegacyRecipeFlag,
+  valueToken: Token,
+  diags: DiagnosticSpan[] | undefined,
+  blockOffset: number,
+): void => {
+  // No collector means this is a plain parse; the fold still happened either way.
+  if (!diags) return
+  const from = blockOffset + valueToken.index
+  diags.push({
+    from,
+    to: from + valueToken.value.length,
+    message: `'tag=${valueToken.value}' ${DEPRECATION_DIAGNOSTIC_MARKER} use '${legacyRecipeFlagReplacementText(legacy)}' instead`,
+  })
+}
+
 const parseSelectorTokens = (
   tokens: Token[],
   absoluteOffset = 0,
@@ -1245,6 +1360,16 @@ const parseSelectorTokens = (
       cursor.next()
       const normalized = normalizeTagValue(valueToken.value)
       if (!normalized) return null
+      // A tag that used to CARRY behaviour is now a field. Fold it onto the flag condition so
+      // notes written before the flags existed keep selecting what their author meant — the
+      // tags themselves no longer survive load, so a `tag=` term here would match nothing.
+      const legacy = legacyRecipeFlagForTagToken(normalized)
+      if (legacy) {
+        reportDeprecatedLegacyFlagTag(legacy, valueToken, diags, absoluteOffset)
+        return legacy.kind === 'ignoredBySafeguards'
+          ? { kind: 'ignoredBySafeguards', value: true }
+          : { kind: 'reworkGate', value: legacy.gate }
+      }
       return { kind: 'tag', mode: 'eq', values: [normalized] }
     }
     if (keyword === 'rank' || keyword === 'rarity' || keyword === 'minrolls' || keyword === 'lockedminrolls' || keyword === 'minsubstats') {
@@ -1296,6 +1421,35 @@ const parseSelectorTokens = (
       const parsed = parseOverridesBooleanValue(valueToken.value)
       if (parsed == null) return null
       return { kind: 'flex', value: parsed }
+    }
+    // ── Behaviour-flag conditions ────────────────────────────────────────────
+    // Both take the same `field (= | :) value` shape as `flex`: a flag is a state, not a
+    // magnitude, so neither offers the >=/<= comparators the numeric fields do.
+    if (keyword === DSL_FIELD_IGNORED_BY_SAFEGUARDS) {
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol' || (opToken.value !== '=' && opToken.value !== ':')) return null
+      cursor.next()
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
+      cursor.next()
+      // Shared on/off/true/false vocabulary — the same keywords `flex` accepts.
+      const parsed = parseOverridesBooleanValue(valueToken.value)
+      if (parsed == null) return null
+      return { kind: 'ignoredBySafeguards', value: parsed }
+    }
+    if (keyword === DSL_FIELD_REWORK_GATE) {
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol' || (opToken.value !== '=' && opToken.value !== ':')) return null
+      cursor.next()
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
+      cursor.next()
+      // 'any' selects the ungated recipes, which is why the selector carries a third value.
+      const gate = parseReworkGateValue(valueToken.value)
+      if (gate == null) return null
+      return { kind: 'reworkGate', value: gate }
     }
     // Note: the tokenizer treats '.' as part of word tokens, so 'substatmin.SPD' and
     // 'minima.5.SPD' arrive as single word tokens.  Plain 'substatmin' is matched by
@@ -1683,6 +1837,27 @@ const parseOperations = (
         reportInvalidEnumValue('flex', valueToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset); continue
       }
       operations.push({ kind: 'flex', value: parsed })
+      continue
+    }
+    // ── Behaviour-flag assignments ──────────────────────────────────────────
+    if (field === DSL_FIELD_IGNORED_BY_SAFEGUARDS) {
+      if (op !== 'eq') continue
+      const parsed = parseOverridesBooleanValue(valueRaw)
+      if (parsed == null) {
+        // Same enum diagnostic `flex` raises, so a typo surfaces instead of no-opping.
+        reportInvalidEnumValue(DSL_FIELD_IGNORED_BY_SAFEGUARDS, valueToken, NOTE_OVERRIDES_BOOLEAN_KEYWORDS, diags, absoluteOffset); continue
+      }
+      operations.push({ kind: 'ignoredBySafeguards', value: parsed })
+      continue
+    }
+    if (field === DSL_FIELD_REWORK_GATE) {
+      if (op !== 'eq') continue
+      const gate = parseReworkGateValue(valueRaw)
+      if (gate == null) {
+        reportInvalidEnumValue(DSL_FIELD_REWORK_GATE, valueToken, NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS, diags, absoluteOffset); continue
+      }
+      // 'any' reaches the apply step as a CLEAR — see the omit-when-falsey note there.
+      operations.push({ kind: 'reworkGate', value: gate })
       continue
     }
     const minimaField = parseMinimaField(field)
@@ -2942,6 +3117,14 @@ const matchesSelector = (
       return compareNumeric(resolveEffectiveMinCount(recipe), selector.op, selector.value)
     case 'flex':
       return Boolean(recipe.autoSubstatFlex) === selector.value
+    case 'ignoredBySafeguards':
+      // Read through the flag SSOT so "absent means false" is decided in exactly one place.
+      return isIgnoredBySafeguards(recipe) === selector.value
+    case 'reworkGate':
+      // 'any' asks for the recipes with NO gate; the two concrete values compare directly.
+      return selector.value === 'any'
+        ? recipe.reworkGate === undefined
+        : recipe.reworkGate === selector.value
     case 'substatMin': {
       // Match if ANY active substat satisfies the min-bound condition (absent entry → 0).
       const active = new Set<number>()
@@ -3125,6 +3308,11 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let nextLockedMinRequiredRolls: number | undefined = recipe.lockedMinRequiredRolls
   let nextMinCount = recipe.minCount
   let nextFlex = recipe.autoSubstatFlex
+  // Behaviour flags. Both track the RESOLVED state (not the raw op value) so a later block
+  // overwriting an earlier one composes the same way every other scalar field here does.
+  let nextIgnoredBySafeguards = isIgnoredBySafeguards(recipe)
+  // undefined is a real state ("no gate"), which is what `reworkgate=any` resolves to.
+  let nextReworkGate: ReworkGate | undefined = recipe.reworkGate
   const substatMinByVariant = new Map<number, number>()
   let substatMinAll: number | null = null
   let appliedMode = false
@@ -3138,6 +3326,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   let appliedLockedMin = false
   let appliedMinCount = false
   let appliedFlex = false
+  let appliedIgnoredBySafeguards = false
+  let appliedReworkGate = false
   let appliedSubstatMin = false
   const rollTargetsByVariant = new Map<StatVariant, SubstatRollTargetEntry>()
   let appliedRollTargets = false
@@ -3225,6 +3415,17 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
         appliedFlex = true
         return
       }
+      if (op.kind === 'ignoredBySafeguards') {
+        nextIgnoredBySafeguards = op.value
+        appliedIgnoredBySafeguards = true
+        return
+      }
+      if (op.kind === 'reworkGate') {
+        // 'any' is the CLEAR: it resolves to "no gate", which the write step omits entirely.
+        nextReworkGate = op.value === 'any' ? undefined : op.value
+        appliedReworkGate = true
+        return
+      }
       if (op.kind === 'substatMinAll') {
         substatMinAll = op.value
         appliedSubstatMin = true
@@ -3264,6 +3465,10 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== recipe.lockedMinRequiredRolls
   const minCountChanged = appliedMinCount && nextMinCount !== recipe.minCount
   const flexChanged = appliedFlex && nextFlex !== recipe.autoSubstatFlex
+  // Compare against the RESOLVED current state, so writing the value a recipe already holds
+  // (including "absent") is correctly detected as no change and skips the clone entirely.
+  const ignoredBySafeguardsChanged = appliedIgnoredBySafeguards && nextIgnoredBySafeguards !== isIgnoredBySafeguards(recipe)
+  const reworkGateChanged = appliedReworkGate && nextReworkGate !== recipe.reworkGate
   // Detect whether any list operation was applied.
   const artifactTypesChanged    = artifactTypesOps.length    > 0
   const substatsChanged         = substatsOps.length         > 0
@@ -3281,6 +3486,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     && !lockedMinChanged
     && !minCountChanged
     && !flexChanged
+    && !ignoredBySafeguardsChanged
+    && !reworkGateChanged
     && !appliedSubstatMin
     && !appliedRollTargets
     && !artifactTypesChanged
@@ -3320,6 +3527,18 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
     next.autoMinCount = false
   }
   if (appliedFlex) next.autoSubstatFlex = nextFlex
+  // Both flags OMIT their falsey state rather than storing it: `ignoredBySafeguards: false`
+  // and `reworkGate: undefined` are the absent-field defaults, so clearing must delete the
+  // key — otherwise a recipe an override merely touched would no longer round-trip byte-
+  // identically through SFC save/load.
+  if (appliedIgnoredBySafeguards) {
+    if (nextIgnoredBySafeguards) next.ignoredBySafeguards = true
+    else delete next.ignoredBySafeguards
+  }
+  if (appliedReworkGate) {
+    if (nextReworkGate) next.reworkGate = nextReworkGate
+    else delete next.reworkGate
+  }
   if (appliedSubstatMin) {
     next = applySubstatMinOverrides(next, substatMinAll, substatMinByVariant)
   }

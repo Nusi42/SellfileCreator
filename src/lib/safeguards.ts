@@ -38,7 +38,8 @@ import { normalizeRecipeName } from './ruleRecipeIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import type { SafeguardWasmCountMode } from './wasm/generated/rust-types/SafeguardWasmCountMode'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
-import { hasIgnoreSafeguardTag, normalizeTagList } from './tagHelpers'
+import { normalizeTagList } from './tagHelpers'
+import { isIgnoredBySafeguards } from './recipeFlags'
 import type { NameAppearance } from './nameAppearance'
 import { readAppearanceFromRecord } from './nameAppearance'
 import type {
@@ -106,14 +107,12 @@ const ALL_FACTION_IDS = Object.freeze(
 )
 
 export const buildIgnoreSafeguardRecipeIndices = (recipes: readonly BuilderRecipe[]): ReadonlySet<number> => {
-  // Track indices so we can skip only tagged recipes during detection.
+  // Track indices so we can skip only flagged recipes during detection.
   const ignored = new Set<number>()
   // Maintain index alignment with rule-building recipe order.
   for (let idx = 0; idx < recipes.length; idx += 1) {
-    // Read the tags directly from the builder recipe.
-    const tags = recipes[idx]?.tags
-    // Only add when the ignore tag is present.
-    if (hasIgnoreSafeguardTag(tags)) {
+    // Only add when the recipe opts out of safeguard coverage.
+    if (isIgnoredBySafeguards(recipes[idx])) {
       ignored.add(idx)
     }
   }

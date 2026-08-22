@@ -259,6 +259,10 @@ export const GLYPH_FOR_ALL = '∀'        // "every" indicator for empty (any) s
 export const GLYPH_IGNORE_PREVIOUS = '»'    // right double angle — skip/bypass previous safeguard results
 export const GLYPH_IGNORE_COLLECTION = '♛'  // crown — ignore gear on collection champions
 export const GLYPH_IGNORE_VAULT = '⌂'       // house/building — ignore gear in vault
+// Recipe behaviour-flag chip glyphs — shown on the recipe builder's flag toggle chips.
+export const GLYPH_IGNORED_BY_SAFEGUARDS = '⊘'   // circled slash — this recipe's keeps are not counted by safeguards
+export const GLYPH_REWORK_REWORKED = '⟳'         // clockwise arrows — only gear a Chaos Ore was applied to
+export const GLYPH_REWORK_NOT_REWORKED = '⊙'     // circled dot — only gear that was never reworked
 export const GLYPH_WEIGHT_BY_RANK = '⚖'  // scales (no VS-16) — shown in main-stat subgroup when weightMainStatByRank is on
 export const GLYPH_IMPROVEMENT_CHANCE = '↑'     // up arrow — improvement-chance threshold chip
 // Substat match chip glyphs — one per mode option.

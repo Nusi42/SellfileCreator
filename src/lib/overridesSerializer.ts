@@ -243,6 +243,11 @@ const emitRecipeSelTerm = (sel: RecipeOverridesSelector): string => {
     case 'lockedMinRolls': return `lockedminrolls${OP_SYMBOL[sel.op]}${sel.value}`
     case 'minSubstats': return `minsubstats${OP_SYMBOL[sel.op]}${sel.value}`
     case 'flex': return `flex=${sel.value ? 'on' : 'off'}`
+    // Behaviour flags: flat comparison terms (the recipe selector grammar has no parens, and
+    // a flag is a state anyway). Field tokens come from the shared selector-token map.
+    case 'ignoredBySafeguards': return `${RECIPE_OVERRIDES_SELECTOR_TOKEN[sel.kind]}=${sel.value ? 'on' : 'off'}`
+    // The gate's three values are already the DSL spelling (including 'any' for "no gate").
+    case 'reworkGate': return `${RECIPE_OVERRIDES_SELECTOR_TOKEN[sel.kind]}=${sel.value}`
     case 'substatMin': return `substatmin${OP_SYMBOL[sel.op]}${sel.value}`
     case 'substatMinField': return `substatmin.${statVariantToKey(sel.variant)}${OP_SYMBOL[sel.op]}${sel.value}`
     case 'minimaAny': return `minima.any${OP_SYMBOL[sel.op]}${sel.value}`
@@ -337,6 +342,10 @@ export function serializeRecipeOperation(op: RecipeOverridesOperation): string {
     case 'lockedMinRequiredRolls':
     case 'minSubstats': return emitNumericOrExpr(field, op.value, op.ast)
     case 'flex': return `${field}=${op.value ? 'on' : 'off'}`
+    // Behaviour flags — same on/off and gate spellings the selector terms above emit, so a
+    // block that reads a flag and one that writes it look identical in the note.
+    case 'ignoredBySafeguards': return `${field}=${op.value ? 'on' : 'off'}`
+    case 'reworkGate': return `${field}=${op.value}`
     case 'substatMinAll': return `${field}=${op.value}`
     case 'substatMinVariant': return `${field}.${statVariantToKey(op.variant)}=${op.value}`
     case 'minimaAnyRank': return `${field}.any=${op.value}`

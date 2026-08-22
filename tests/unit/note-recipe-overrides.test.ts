@@ -11,7 +11,13 @@ import {
   type RecipeOverridesOperation,
   type RecipeOverridesSelector,
 } from '../../src/lib/noteRecipeOverrides.js'
+// Canonical (round-trip) emitters + the editor's single-term parsers — the read side of
+// the same grammar, so a term can be pinned as emit→parse identity rather than by text.
+import { serializeRecipeOperation, serializeRecipeSelector } from '../../src/lib/overridesSerializer.js'
+import { parseOperationText, parseSelectorText } from '../../src/lib/overridesEditorModel.js'
 import { createFactoryBuilderDefaults } from '../../src/lib/builderDefaults.js'
+// Rework-gate wire tokens, so assertions compare against the SSOT rather than re-spelling.
+import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../../src/lib/generated/domainConstants.js'
 import type { SubstatTargetTable } from '../../src/lib/hsfBuilder/types.js'
 import { variantFromLabel } from '../../src/lib/types.js'
 
@@ -1115,14 +1121,14 @@ test('action=sell flips recipe.keep to false on a matching recipe', () => {
     '<!-- recipe-overrides',
     'q "Sell chaos?"',
     'cb "Keep" * id=mk {}',
-    'cb "Sell" id=ms { @tag=ignore_by_safeguards { action=sell } }',
+    'cb "Sell" id=ms { @tag=chaos { action=sell } }',
     '-->',
   ].join('\n')
   const q = resolveRecipeOverridesTags(note).questions[0]!
   const sellId = q.options.find((o) => o.token === 'ms')!.id
   const { instructions } = resolveRecipeOverridesTags(note, { [q.id]: [sellId] }, sellId)
   // rarityMode:'code' keeps the resolver off the WASM auto-rarity path.
-  const chaos = { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, tags: ['ignore_by_safeguards'] }
+  const chaos = { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, tags: ['chaos'] }
   assert.equal(resolveRecipeOverridesEffectiveRecipe(chaos, instructions).keep, false)
   // A recipe without the tag is untouched.
   const other = { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, tags: ['other'] }
@@ -1199,6 +1205,141 @@ test('a single (radio) keep/sell question with needs= gates the keep option', ()
   assert.equal(keep.isDefault, true)
   assert.equal(keep.requiresOptionIds.length, 1)
   assert.equal(keep.requiresDisabledState, 'off')
+})
+
+// ── Behaviour flags: ignoredbysafeguards= / reworkgate= ─────────────────────
+// The two flags that used to be "magic" tags are first-class recipe FIELDS, and the
+// DSL registers each as both a condition and an assignment. These pin the four
+// couplings the compiler cannot: matching, applying, the omit-when-cleared write, and
+// the canonical round-trip — plus the legacy tag spelling still folding onto the flag.
+
+// Build the instruction list for a one-option note, with that option selected.
+const flagInstructions = (body: string) => {
+  const note = ['<!-- recipe-overrides', 'q "q"', `cb "o" * id=o { ${body} }`, '-->'].join('\n')
+  const q = resolveRecipeOverridesTags(note).questions[0]!
+  const oid = q.options[0]!.id
+  return resolveRecipeOverridesTags(note, { [q.id]: [oid] }, oid).instructions
+}
+// rarityMode:'code' keeps the resolver off the WASM auto-rarity path, as elsewhere here.
+const flagRecipe = (fields: Partial<{ ignoredBySafeguards: boolean; reworkGate: 'reworked' | 'notReworked' }>) => (
+  { ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, ...fields }
+)
+
+test('ignoredbysafeguards= selects on the flag and applies as an omit-when-false write', () => {
+  const instructions = flagInstructions('@ignoredbysafeguards=on { action=sell }')
+  // A flagged recipe matches; an unflagged one (field absent) does not.
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({ ignoredBySafeguards: true }), instructions).keep, false)
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({}), instructions).keep, true)
+  // Setting the flag writes `true`; the recipe had no field at all before.
+  const set = resolveRecipeOverridesEffectiveRecipe(flagRecipe({}), flagInstructions('@all { ignoredbysafeguards=on }'))
+  assert.equal(set.ignoredBySafeguards, true)
+  // Clearing DELETES the key rather than storing false, so an untouched recipe stays
+  // byte-identical on save — `in` is the assertion that distinguishes the two.
+  const cleared = resolveRecipeOverridesEffectiveRecipe(flagRecipe({ ignoredBySafeguards: true }), flagInstructions('@all { ignoredbysafeguards=off }'))
+  assert.equal('ignoredBySafeguards' in cleared, false, 'clearing must omit the field, not store false')
+})
+
+test('reworkgate= is tri-state: two gates plus any, which selects and clears "no gate"', () => {
+  const reworked = flagInstructions('@reworkgate=reworked { action=sell }')
+  // Each gate value matches only its own state.
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({ reworkGate: 'reworked' }), reworked).keep, false)
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({ reworkGate: 'notReworked' }), reworked).keep, true)
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({}), reworked).keep, true)
+  // `any` is the "has no gate" condition — the third value the tri-state field needs.
+  const ungated = flagInstructions('@reworkgate=any { action=sell }')
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({}), ungated).keep, false)
+  assert.equal(resolveRecipeOverridesEffectiveRecipe(flagRecipe({ reworkGate: 'reworked' }), ungated).keep, true)
+  // Assignment sets the named gate…
+  const set = resolveRecipeOverridesEffectiveRecipe(flagRecipe({}), flagInstructions('@all { reworkgate=notReworked }'))
+  assert.equal(set.reworkGate, 'notReworked')
+  // …and `any` CLEARS it by deleting the key (same omit contract as the boolean).
+  const cleared = resolveRecipeOverridesEffectiveRecipe(flagRecipe({ reworkGate: 'reworked' }), flagInstructions('@all { reworkgate=any }'))
+  assert.equal('reworkGate' in cleared, false, 'reworkgate=any must omit the field, not store a value')
+})
+
+test('behaviour-flag conditions and assignments round-trip through the canonical serializer', () => {
+  // Both directions of every flag value, emitted and re-parsed through the real grammar.
+  const selectors: RecipeOverridesSelector[] = [
+    { kind: 'ignoredBySafeguards', value: true },
+    { kind: 'ignoredBySafeguards', value: false },
+    { kind: 'reworkGate', value: 'reworked' },
+    { kind: 'reworkGate', value: 'notReworked' },
+    { kind: 'reworkGate', value: 'any' },
+  ]
+  for (const selector of selectors) {
+    const text = serializeRecipeSelector(selector)
+    // The emitted term must parse back to an identical AST (no lossy display sugar).
+    assert.deepEqual(parseSelectorText('recipe', 'recipe', text), selector, `${text} must round-trip`)
+  }
+  const operations: RecipeOverridesOperation[] = [
+    { kind: 'ignoredBySafeguards', value: true },
+    { kind: 'ignoredBySafeguards', value: false },
+    { kind: 'reworkGate', value: 'reworked' },
+    { kind: 'reworkGate', value: 'notReworked' },
+    { kind: 'reworkGate', value: 'any' },
+  ]
+  for (const op of operations) {
+    const text = serializeRecipeOperation(op)
+    assert.deepEqual(parseOperationText('recipe', 'recipe', text), op, `${text} must round-trip`)
+  }
+})
+
+test('legacy behaviour tags still parse — folded onto the flag with a deprecation diagnostic', () => {
+  // Every shipped legacy spelling, and the flag condition it must fold onto.
+  const cases: Array<[string, RecipeOverridesSelector]> = [
+    ['ignore_by_safeguards', { kind: 'ignoredBySafeguards', value: true }],
+    ['ignore_keep_unique', { kind: 'ignoredBySafeguards', value: true }],
+    ['if_reworked', { kind: 'reworkGate', value: 'reworked' }],
+    ['only_for_chaos_ored', { kind: 'reworkGate', value: 'reworked' }],
+    ['if_not_reworked', { kind: 'reworkGate', value: 'notReworked' }],
+    ['ignore_for_chaos_ored', { kind: 'reworkGate', value: 'notReworked' }],
+  ]
+  for (const [tag, expected] of cases) {
+    // The old `tag=` spelling parses into the NEW selector kind, not a tag selector.
+    // Asserted through the real note parse, not the editor's fragment parser: the latter
+    // rejects anything carrying a diagnostic, and a deprecated spelling carries one.
+    assert.deepEqual(flagInstructions(`@tag=${tag} { action=sell }`)[0]?.selector, expected, `tag=${tag} must fold onto the flag`)
+    // …and it is a DEPRECATION, not an error: the parse succeeded above, and the span
+    // names the replacement so the editor can offer it.
+    const ds: { from: number; to: number; message: string }[] = []
+    collectRecipeOverridesDiagnostics(`<!-- recipe-overrides q "q" cb "o" id=o { @tag=${tag} { action=sell } } -->`, 0, ds)
+    const hit = ds.find((d) => d.message.includes(tag))
+    assert.ok(hit, `expected a deprecation diagnostic for tag=${tag}`)
+    assert.match(hit.message, /deprecated/, 'the diagnostic must read as a deprecation, not a rejection')
+    assert.match(hit.message, /ignoredbysafeguards=|reworkgate=/, 'the diagnostic must name the replacement DSL')
+  }
+  // A plain label is untouched — only the behaviour spellings fold.
+  assert.deepEqual(parseSelectorText('recipe', 'recipe', 'tag=chaos'), { kind: 'tag', mode: 'eq', values: ['chaos'] })
+})
+
+test('a legacy behaviour tag stays editable in the visual editor', () => {
+  // The visual editor drops an option to verbatim raw DSL whenever a diagnostic lands
+  // inside it, because a diagnostic normally means "we did not understand this". A
+  // deprecation is the opposite: the parser understood it and already folded it onto the
+  // current spelling, so the structured model represents it exactly. Without the
+  // deprecation exemption, every legacy block — including the one in the shipped preset —
+  // would render as an uneditable blob of text purely because it uses an old tag name.
+  for (const [text, expected] of [
+    ['tag=ignore_by_safeguards', { kind: 'ignoredBySafeguards', value: true }],
+    ['tag=if_reworked', { kind: 'reworkGate', value: REWORK_GATE_REWORKED }],
+    ['tag=if_not_reworked', { kind: 'reworkGate', value: REWORK_GATE_NOT_REWORKED }],
+    // Pre-rename spelling folds the same way.
+    ['tag=only_for_chaos_ored', { kind: 'reworkGate', value: REWORK_GATE_REWORKED }],
+  ] as const) {
+    assert.deepEqual(parseSelectorText('recipe', 'recipe', text), expected, `${text} must stay editable`)
+  }
+  // The exemption is narrow: genuinely unparseable DSL is still rejected outright, so a
+  // typo cannot silently become an editable row that re-serializes to something else.
+  assert.equal(parseSelectorText('recipe', 'recipe', 'nonsensefield=7'), null)
+  assert.equal(parseSelectorText('recipe', 'recipe', 'reworkgate=someday'), null)
+})
+
+test('a bogus behaviour-flag value emits an enum diagnostic on the assignment side', () => {
+  for (const [body, field] of [['ignoredbysafeguards=maybe', 'ignoredbysafeguards'], ['reworkgate=someday', 'reworkgate']] as const) {
+    const ds: { from: number; to: number; message: string }[] = []
+    collectRecipeOverridesDiagnostics(`<!-- recipe-overrides q "q" cb "o" id=o { @all { ${body} } } -->`, 0, ds)
+    assert.ok(ds.some((d) => d.message.includes(field)), `expected a ${field}= enum diagnostic`)
+  }
 })
 
 export {}

@@ -29,12 +29,22 @@
     "notOred": 0,
     "ored": 1
   },
-  "_comment_oreTags": "Canonical recipe tags that select the Ore gate, plus the pre-rename spellings kept as read-only aliases so recipes saved before the rename keep working. They are mutually exclusive per recipe: the editors drop one when the other is set. If a loaded file somehow carries both, if_reworked wins.",
-  "oreTags": {
-    "only": "if_reworked",
-    "ignore": "if_not_reworked",
-    "legacyOnly": "only_for_chaos_ored",
-    "legacyIgnore": "ignore_for_chaos_ored"
+  "_comment_recipeFlagFields": "SFC recipe keys for the two behaviour-carrying recipe flags. Both are written ONLY when set, so a recipe leaving them at their default re-serializes byte-identically. Declared here because wasm/rule_engine_core/src/sfc_reader.rs is deny_unknown_fields: a key written by TS but undeclared in Rust breaks the native reader.",
+  "recipeFlagFields": {
+    "ignoredBySafeguards": "IgnoredBySafeguards",
+    "reworkGate": "ReworkGate"
+  },
+  "_comment_reworkGate": "Values of the recipe ReworkGate field, which selects the HSF Ore gate. Tri-state by construction: the key is absent when the recipe does not care about rework state, so a recipe can never claim both states at once and no precedence rule is needed.",
+  "reworkGate": {
+    "reworked": "reworked",
+    "notReworked": "notReworked"
+  },
+  "_comment_legacyRecipeTags": "Recipe tags that carried app behaviour before the flags above existed. READ-ONLY: on load they are transcoded into the fields and stripped from the tag list, and nothing writes them again. Each family lists every spelling we have shipped, canonical first. Delete this block, its generated constants, and the transcode once the app reaches removeAtVersion.",
+  "legacyRecipeTags": {
+    "removeAtVersion": "1.0.50",
+    "ignoredBySafeguards": ["ignore_by_safeguards", "ignore_keep_unique", "ignore_safeguard"],
+    "reworked": ["if_reworked", "only_for_chaos_ored"],
+    "notReworked": ["if_not_reworked", "ignore_for_chaos_ored"]
   },
   "rarityCode": {
     "any": 0,

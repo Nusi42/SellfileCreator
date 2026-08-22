@@ -3,7 +3,6 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { warmupAppShell } from './app-warmup'
-import { APP_KNOWN_TAGS } from '../../src/lib/tagHelpers'
 import { TAG_FLYOUT_WIDTH_PX } from '../../src/components/BuilderTagChips'
 
 // Boot the shell once so each test only pays for navigation, not a cold compile.
@@ -38,20 +37,38 @@ const pickerChip = (page: import('@playwright/test').Page, tag: string) =>
     .filter({ hasText: new RegExp(`^${tag}$`) })
     .filter({ hasNot: page.locator('.MuiChip-deleteIcon') })
 
-// The app-known tags must always be offered on an empty document — that is the whole point
-// of seeding them into the vocabulary rather than only listing what the user already typed.
-test('the tags picker offers every app-known tag on a fresh document', async ({ page }) => {
+// Tag used to seed the document's vocabulary. Nothing is seeded by default any more —
+// tags are purely the user's own labels — so each test that needs a picker entry types
+// one first, which is also how a real user reaches this state.
+const SEED_TAG = 'my_label'
+
+// Type a tag into the open flyout's draft field so it joins the document vocabulary.
+const applyTagViaDraft = async (page: import('@playwright/test').Page, tag: string): Promise<void> => {
+  await tagsFlyout(page).getByRole('textbox').first().fill(tag)
+  await page.keyboard.press('Enter')
+  // The tag becomes an applied chip (applied chips carry a delete icon).
+  await expect(
+    tagsFlyout(page).locator('.MuiChip-root', { hasText: tag })
+      .filter({ has: page.locator('.MuiChip-deleteIcon') })
+      .first(),
+  ).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+}
+
+// A fresh document has no tags at all, so the picker offers nothing. This pins the
+// replacement for the old "every app-known tag is offered" contract: the vocabulary is now
+// exactly what the user has typed, with nothing seeded behind their back.
+test('the tags picker offers nothing on a fresh document', async ({ page }) => {
   await openTagsFlyout(page)
-  for (const tag of APP_KNOWN_TAGS) {
-    await expect(pickerChip(page, tag).first())
-      .toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  }
+  await expect(tagsFlyout(page).getByText('No other tags used in this document', { exact: true }))
+    .toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 })
 
 // The flyout must stay a predictable size regardless of how many tags exist: both the
 // applied chip list and the picker are bounded and scroll instead of growing the popover.
 test('the tags flyout stays bounded in both axes', async ({ page }) => {
   await openTagsFlyout(page)
+  // Seed a tag so there is at least one chip to measure a bounded container against.
+  await applyTagViaDraft(page, SEED_TAG)
 
   // Find the scrollable list container for each chip by walking UP from the chip: every
   // chip sits inside an ellipsis-tooltip wrapper, so the chip's direct parent is not the
@@ -99,7 +116,21 @@ test('the tags flyout stays bounded in both axes', async ({ page }) => {
 test('picking a tag applies it and removes it from the picker', async ({ page }) => {
   await openTagsFlyout(page)
 
-  const target = APP_KNOWN_TAGS[0]!
+  // The vocabulary is purely usage-derived now, so a tag only stays offerable while some
+  // OTHER entry still carries it. Commit a recipe holding the tag, then clear it from the
+  // draft: the committed recipe keeps it in the vocabulary, and the draft no longer has it,
+  // which is exactly the "offered but unapplied" state this test needs.
+  const target = SEED_TAG
+  await applyTagViaDraft(page, target)
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /Add as New Recipe|Apply as Recipe/ }).first().click()
+  await openTagsFlyout(page)
+  await tagsFlyout(page).locator('.MuiChip-root', { hasText: target })
+    .filter({ has: page.locator('.MuiChip-deleteIcon') })
+    .first().locator('.MuiChip-deleteIcon').click()
+  await expect(pickerChip(page, target).first())
+    .toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+
   await pickerChip(page, target).first().click()
 
   // It now renders as an applied chip (applied chips carry a delete icon).

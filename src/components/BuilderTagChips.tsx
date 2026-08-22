@@ -211,8 +211,8 @@ export function BuilderTagChipStrip({ tags, mixedTagSet, mixedTagChipSx, multiEd
 // small screens still shrink normally.
 //
 // The width is DERIVED from the content rather than picked by eye: the flyout should fit
-// exactly three `ignore_by_safeguards` chips on one row — that is the longest app-known tag,
-// so three of them is a good worst-case row. Measured in-browser at the small chip size:
+// exactly three chips of a long tag (~20 characters, the reference width below) on one row,
+// which is a good worst-case row. Measured in-browser at the small chip size:
 // a chip renders 131.5px, the flex gap is 4px (gap: 0.5 => 4px), and the popover contributes
 // 26px of horizontal chrome (12px padding per side + 1px border per side).
 const TAG_CHIP_REFERENCE_WIDTH_PX = 131.5
@@ -296,20 +296,16 @@ export function BuilderTagChipList({ tags, mixedTagSet, mixedTagChipSx, multiEdi
 }
 
 export interface BuilderTagPickerProps {
-  /** Candidate tags in display order: app-known tags first, then the user's own. */
+  /** Candidate tags in display order (every tag used anywhere in the document). */
   vocabulary: readonly string[]
-  /** Tags the app itself gives meaning to; rendered with a hint so they stand out. */
-  appKnown: ReadonlySet<string>
   /** Tags already on the current selection — filtered out, since adding them is a no-op. */
   selected: ReadonlySet<string>
   /** Add a tag to the current recipe/safeguard (or the whole multi-edit selection). */
   onAdd: (tag: string) => void
   /** Section heading, e.g. "Unused tags". */
   label: string
-  /** Shown when every candidate tag is already applied. */
+  /** Shown when there is no tag left to offer. */
   emptyLabel: string
-  /** Tooltip text explaining that these tags change behavior. */
-  appKnownHint: string
 }
 
 /**
@@ -322,7 +318,7 @@ export interface BuilderTagPickerProps {
  * picker stays purely additive rather than duplicating that state as a toggle.
  */
 export function BuilderTagPicker({
-  vocabulary, appKnown, selected, onAdd, label, emptyLabel, appKnownHint,
+  vocabulary, selected, onAdd, label, emptyLabel,
 }: BuilderTagPickerProps) {
   const tagChipSx = useTagChipSx()
   // Applied tags are shown (and removed) in the chip list above, so offering them here
@@ -355,11 +351,9 @@ export function BuilderTagPicker({
           }}
         >
           {unusedTags.map((tag) => {
-            // App-known tags carry behavior, so flag them in the tooltip.
-            const isAppKnown = appKnown.has(tag)
-            const title = isAppKnown ? `${tag} — ${appKnownHint}` : tag
+            // Every tag is a plain user label, so the tooltip is just the tag itself.
             return (
-              <EllipsisTooltip key={tag} title={title}>
+              <EllipsisTooltip key={tag} title={tag}>
                 <Chip
                   size="small"
                   variant="outlined"
@@ -371,8 +365,6 @@ export function BuilderTagPicker({
                     // Long tags ellipsize rather than widening the row; the EllipsisTooltip
                     // wrapper already surfaces the full text on hover.
                     { maxWidth: TAG_PICKER_CHIP_MAX_WIDTH_PX } as SystemStyleObject<Theme>,
-                    // App-known tags get a dashed border to mark them as behavioral.
-                    ...(isAppKnown ? [{ borderStyle: 'dashed' } as SystemStyleObject<Theme>] : []),
                     { cursor: 'pointer' } as SystemStyleObject<Theme>,
                   ]}
                 />

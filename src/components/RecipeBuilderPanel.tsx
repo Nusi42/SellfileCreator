@@ -14,7 +14,11 @@ import { StatLabel } from './StatLabel'
 import { SlotTintControlScope } from '../lib/slotTintContext'
 import { useStatControlColorMap } from '../lib/statColorContext'
 import { variantToSub } from '../lib/hsfTypes'
-import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_IGNORED_BY_SAFEGUARDS, GLYPH_REWORK_REWORKED, GLYPH_REWORK_NOT_REWORKED } from '../lib/constants'
+// Recipe behaviour-flag wire tokens + the shared glyph chip the flag row renders.
+import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../lib/generated/domainConstants'
+import type { ReworkGate } from '../lib/hsfBuilder'
+import { BuilderGlyphToggleChip } from './BuilderGlyphToggleChip'
 import { reserveScrollbarGutterSpace, visibleScrollbarTrack } from '../lib/scrollbar'
 import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
@@ -124,7 +128,7 @@ import {
   applyMultiEditFieldsToRecipe,
   getDirtyBuilderFieldKeys,
 } from '../lib/recipeMultiEditDraft'
-import { canonicalTagTokens, mergeTagList, mergeTagsWithReworkExclusivity, normalizeTagValue, reworkTagToClearForMultiEdit, summarizeTagPresence, type TagVocabulary } from '../lib/tagHelpers'
+import { canonicalTagTokens, mergeTagList, mergeTags, normalizeTagValue, summarizeTagPresence, type TagVocabulary } from '../lib/tagHelpers'
 import { BuilderTagChipStrip, BuilderTagChipList, BuilderTagPicker, TAG_FLYOUT_WIDTH_PX } from './BuilderTagChips'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
@@ -1944,6 +1948,63 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     () => (multiEditActive ? (tagPresence?.all ?? []) : tagsValue),
     [multiEditActive, tagPresence, tagsValue],
   )
+  // ── Recipe behaviour flags ────────────────────────────────────────────────
+  // The two flags that change which gear a recipe acts on. Each chip resolves to
+  // on/off/mixed exactly like the flex chip: single-edit reads the recipe, multi-edit
+  // aggregates the selection and then lets any staged patch win.
+  //
+  // resolveFlagState is shared by all three chips so the aggregation rule has one
+  // definition — the chips differ only in which value they read out of a recipe.
+  const resolveFlagState = useCallback(<K extends 'ignoredBySafeguards' | 'reworkGate'>(
+    key: K,
+    isOn: (recipe: BuilderRecipe) => boolean,
+  ): 'on' | 'off' | 'mixed' => {
+    // Single edit: the recipe's own value is the whole story.
+    if (!multiEditActive || !multiSourceRecipes) return isOn(recipe) ? 'on' : 'off'
+    // A staged patch reflects the user's pending intent, so it outranks the aggregate.
+    const staged = multiFields?.[key]
+    if (staged?.status === 'common') return isOn({ ...recipe, [key]: staged.value } as BuilderRecipe) ? 'on' : 'off'
+    if (staged?.status === 'mixed') return 'mixed'
+    // Otherwise aggregate: all-on and all-off are definite, anything else is mixed.
+    const onCount = multiSourceRecipes.filter(isOn).length
+    if (onCount === multiSourceRecipes.length) return 'on'
+    return onCount === 0 ? 'off' : 'mixed'
+  }, [multiEditActive, multiSourceRecipes, multiFields, recipe])
+
+  // Writing the safeguard-ignore flag: multi-edit stages a patch for the whole selection,
+  // single edit writes straight onto the recipe. Both go through here so they cannot diverge.
+  const commitIgnoredBySafeguards = useCallback((value: boolean) => {
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('ignoredBySafeguards', { value, status: 'common' })
+      return
+    }
+    // Omit rather than store false, so an untouched recipe stays byte-identical on save —
+    // the SFC writer only emits this key when it is set.
+    const next = { ...recipe }
+    if (value) next.ignoredBySafeguards = true
+    else delete next.ignoredBySafeguards
+    onChange(next)
+  }, [multiEditActive, multiEdit, onChange, recipe])
+
+  // Writing the rework gate. Clicking the active chip clears the gate (back to "any"),
+  // which is why the caller passes undefined rather than a second boolean.
+  const commitReworkGate = useCallback((value: ReworkGate | undefined) => {
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('reworkGate', { value, status: 'common' })
+      return
+    }
+    const next = { ...recipe }
+    if (value) next.reworkGate = value
+    else delete next.reworkGate
+    onChange(next)
+  }, [multiEditActive, multiEdit, onChange, recipe])
+
+  // The three chip states. The two rework chips are mutually exclusive by construction:
+  // they read the same tri-state field, so turning one on necessarily turns the other off.
+  const ignoredBySafeguardsState = resolveFlagState('ignoredBySafeguards', (r) => r.ignoredBySafeguards === true)
+  const reworkedState = resolveFlagState('reworkGate', (r) => r.reworkGate === REWORK_GATE_REWORKED)
+  const notReworkedState = resolveFlagState('reworkGate', (r) => r.reworkGate === REWORK_GATE_NOT_REWORKED)
+
   // Keep the tags label stable for the tooltip + button text.
   const tagsButtonLabel = t('builderTagsLabel')
   // Treat any visible tags as an "active" state for the button color.
@@ -2034,12 +2095,6 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       // Use the current base state so toggles reflect the mixed/common baseline.
       const baseState = getTagBaseState(tag)
       nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
-      // The two rework tags are mutually exclusive: adding one clears the other on every
-      // selected recipe, matching the single-edit behavior in commitTags.
-      const opposite = reworkTagToClearForMultiEdit(tag, target)
-      if (opposite) {
-        nextPatch = computeStringPatchToggle(nextPatch, opposite, getTagBaseState(opposite), 'none')
-      }
     })
     // Persist the patch without clobbering the underlying tag values.
     multiEdit.updateField('tags', {
@@ -2059,9 +2114,9 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       seen.add(normalizedTag)
       normalized.push(normalizedTag)
     })
-    // Enforce rework-tag mutual exclusivity via the shared helper, so typing, picking, and
-    // pasting a tag can never disagree about de-duplication or which rework tag survives.
-    const deduped = mergeTagsWithReworkExclusivity([], normalized)
+    // De-dupe via the shared helper, so typing, picking, and pasting a tag can never
+    // disagree about the result.
+    const deduped = mergeTags([], normalized)
     // Route updates through multi-edit patches when active.
     if (multiEditActive) {
       stageTagPatch(deduped, 'all')
@@ -6395,6 +6450,44 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 </ToggleButtonGroup>
               </Box>
             </Box>
+            {/* Behaviour flags — compact two-line group mirroring the safeguard panel's
+                Ignore chips: a caption above one row of glyph-only chips, with the full
+                label + hint in each chip's tooltip. Sits left of Tags because these change
+                what the recipe DOES, whereas tags are just labels. */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, ml: 1, flex: '0 0 auto' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+                {t('builderFlagsGroupLabel')}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <BuilderGlyphToggleChip
+                  glyph={GLYPH_IGNORED_BY_SAFEGUARDS}
+                  label={t('builderIgnoredBySafeguards')}
+                  hint={t('builderIgnoredBySafeguardsHint')}
+                  active={ignoredBySafeguardsState === 'on'}
+                  mixed={ignoredBySafeguardsState === 'mixed'}
+                  // Mixed resolves to "on" so one click makes the whole selection agree.
+                  onToggle={() => commitIgnoredBySafeguards(ignoredBySafeguardsState !== 'on')}
+                />
+                <BuilderGlyphToggleChip
+                  glyph={GLYPH_REWORK_REWORKED}
+                  label={t('builderReworkReworked')}
+                  hint={t('builderReworkReworkedHint')}
+                  active={reworkedState === 'on'}
+                  mixed={reworkedState === 'mixed'}
+                  // Clicking the active chip clears the gate; the field is tri-state, so
+                  // selecting one state inherently deselects the other.
+                  onToggle={() => commitReworkGate(reworkedState === 'on' ? undefined : REWORK_GATE_REWORKED)}
+                />
+                <BuilderGlyphToggleChip
+                  glyph={GLYPH_REWORK_NOT_REWORKED}
+                  label={t('builderReworkNotReworked')}
+                  hint={t('builderReworkNotReworkedHint')}
+                  active={notReworkedState === 'on'}
+                  mixed={notReworkedState === 'mixed'}
+                  onToggle={() => commitReworkGate(notReworkedState === 'on' ? undefined : REWORK_GATE_NOT_REWORKED)}
+                />
+              </Box>
+            </Box>
             {/* Tags sit next to export mode to reinforce the enable/disable connection. */}
             {/* flex + minWidth let the chip strip measure against real remaining width
                 instead of sizing to content and clipping at the paper border. */}
@@ -6504,15 +6597,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       }}
                     />
                     {/* Pick from tags already used anywhere in the document so the exact
-                        spelling never has to be recalled; app-known tags are always offered. */}
+                        spelling never has to be recalled. */}
                     <BuilderTagPicker
                       vocabulary={tagVocabulary.tags}
-                      appKnown={tagVocabulary.appKnown}
                       selected={selectedTagSet}
                       onAdd={addTagFromPicker}
                       label={t('builderTagsPickerLabel')}
                       emptyLabel={t('builderTagsPickerEmpty')}
-                      appKnownHint={t('builderTagsPickerAppKnownHint')}
                     />
                   </Stack>
                 </Box>

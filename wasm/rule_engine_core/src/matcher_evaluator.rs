@@ -1204,35 +1204,63 @@ mod tests {
         assert_eq!(prepare_rule(raw).gate.ore, ORE_ANY);
     }
 
-    // ---- Tag → Ore resolution (mirror of resolveChaosOreTagValue in tagHelpers.ts) ----
+    // ---- Rework gate → Ore resolution ----
+    // Mirror of oreSentinelForRecipe + transcodeLegacyRecipeTags in recipeFlags.ts.
+    // Keep these cases in step with tests/unit/recipe-flags.test.ts: the two readers must
+    // agree, or the native DLL and the app disagree about which gear a recipe matches.
 
-    // Convenience wrapper so each case reads as a list of tag spellings.
+    // Convenience wrappers so each case reads as either a gate or a list of tag spellings.
+    fn resolve_gate(gate: &str) -> i64 {
+        crate::sfc_reader::resolve_chaos_ore_value(Some(gate), None)
+    }
     fn resolve_tags(tags: &[&str]) -> i64 {
         let owned: Vec<String> = tags.iter().map(|s| (*s).to_string()).collect();
-        crate::sfc_reader::resolve_chaos_ore_tag_value(Some(&owned))
+        crate::sfc_reader::resolve_chaos_ore_value(None, Some(&owned))
     }
 
     #[test]
-    fn chaos_ore_tags_resolve_to_expected_sentinels() {
+    fn rework_gate_resolves_to_expected_sentinels() {
+        // No gate and no tags leaves the rule unconstrained.
+        assert_eq!(crate::sfc_reader::resolve_chaos_ore_value(None, None), ORE_ANY);
+        // Each gate selects its own sentinel.
+        assert_eq!(resolve_gate(REWORK_GATE_REWORKED), ORE_ORED);
+        assert_eq!(resolve_gate(REWORK_GATE_NOT_REWORKED), ORE_NOT_ORED);
+        // An unrecognized gate (hand edit, or a newer build) degrades to unconstrained
+        // rather than guessing a state.
+        assert_eq!(resolve_gate("someFutureGate"), ORE_ANY);
+    }
+
+    #[test]
+    fn legacy_recipe_tags_still_resolve_to_expected_sentinels() {
         // No tags, and unrelated tags, leave the rule unconstrained.
-        assert_eq!(crate::sfc_reader::resolve_chaos_ore_tag_value(None), ORE_ANY);
         assert_eq!(resolve_tags(&[]), ORE_ANY);
         assert_eq!(resolve_tags(&["ignore_by_safeguards"]), ORE_ANY);
-        // Each tag selects its own sentinel.
-        assert_eq!(resolve_tags(&[ORE_TAG_ONLY]), ORE_ORED);
-        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE]), ORE_NOT_ORED);
+        // Each canonical spelling selects its own sentinel.
+        assert_eq!(resolve_tags(&["if_reworked"]), ORE_ORED);
+        assert_eq!(resolve_tags(&["if_not_reworked"]), ORE_NOT_ORED);
         // Normalization mirrors the TS tag grammar (trim + case-insensitive).
         assert_eq!(resolve_tags(&["  IF_Reworked  "]), ORE_ORED);
         // Pre-rename spellings must keep resolving; a recipe saved before the rename
         // otherwise loses its rework constraint without any warning.
-        assert_eq!(resolve_tags(&[ORE_TAG_ONLY_LEGACY]), ORE_ORED);
-        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE_LEGACY]), ORE_NOT_ORED);
-        assert_eq!(resolve_tags(&["ignore_by_safeguards", ORE_TAG_IGNORE_LEGACY, "ore5epic"]), ORE_NOT_ORED);
+        assert_eq!(resolve_tags(&["only_for_chaos_ored"]), ORE_ORED);
+        assert_eq!(resolve_tags(&["ignore_for_chaos_ored"]), ORE_NOT_ORED);
+        assert_eq!(resolve_tags(&["ignore_by_safeguards", "ignore_for_chaos_ored", "ore5epic"]), ORE_NOT_ORED);
         // Coexisting with other tags does not change the outcome.
-        assert_eq!(resolve_tags(&["ignore_by_safeguards", ORE_TAG_ONLY]), ORE_ORED);
-        // Both tags at once: if_reworked wins, regardless of order in the list.
-        assert_eq!(resolve_tags(&[ORE_TAG_ONLY, ORE_TAG_IGNORE]), ORE_ORED);
-        assert_eq!(resolve_tags(&[ORE_TAG_IGNORE, ORE_TAG_ONLY]), ORE_ORED);
+        assert_eq!(resolve_tags(&["ignore_by_safeguards", "if_reworked"]), ORE_ORED);
+        // Both tags at once: reworked wins, regardless of order in the list.
+        assert_eq!(resolve_tags(&["if_reworked", "if_not_reworked"]), ORE_ORED);
+        assert_eq!(resolve_tags(&["if_not_reworked", "if_reworked"]), ORE_ORED);
+    }
+
+    #[test]
+    fn an_explicit_gate_beats_a_stale_legacy_tag() {
+        // A current build wrote the gate; a hand-merged file could still carry the old tag.
+        // The gate is authoritative so the newer intent is not overridden.
+        let tags: Vec<String> = vec!["if_not_reworked".to_string()];
+        assert_eq!(
+            crate::sfc_reader::resolve_chaos_ore_value(Some(REWORK_GATE_REWORKED), Some(&tags)),
+            ORE_ORED,
+        );
     }
 }
 

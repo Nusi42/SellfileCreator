@@ -63,6 +63,13 @@ import {
 // the sequence, not of any single entry.
 import { normalizeSafeguardGroups } from './safeguardGroups'
 import { normalizeTagList } from './tagHelpers'
+// Recipe behaviour flags plus the legacy tag transcode that keeps older files loading.
+import { normalizeReworkGate, transcodeLegacyNoteTagSelectors, transcodeLegacyRecipeTags } from './recipeFlags'
+// SFC key names live in the cross-language SSOT so the Rust reader declares the same ones.
+import {
+  SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS,
+  SFC_RECIPE_FIELD_REWORK_GATE,
+} from './generated/domainConstants'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
@@ -84,10 +91,13 @@ import {
 // Normalize opening markers at the SFC boundary so runtime/editor state stays canonical.
 const NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX = /<!--(\s*)keep-uniques\b/gi
 
-// Canonicalize all known legacy note marker aliases at SFC IO boundaries.
+// Canonicalize all known legacy note aliases at SFC IO boundaries: the marker wording,
+// plus the behaviour-tag selectors that predate the recipe flags.
 const canonicalizeLegacyNoteMarkers = (note: string): string => (
-  canonicalizeNoteRecipeOverridesMarkers(note)
-    .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards')
+  transcodeLegacyNoteTagSelectors(
+    canonicalizeNoteRecipeOverridesMarkers(note)
+      .replace(NOTE_LEGACY_SAFEGUARDS_MARKER_OPEN_REGEX, '<!--$1safeguards'),
+  )
 )
 
 /** True when the SFC version string is at or below the given major.minor.patch ceiling.
@@ -511,10 +521,24 @@ export function normalizeRecipe(input: unknown, runtimeNameMap?: Map<string, num
 
   // Resolve appearance from the current nested form or legacy flat fields (incl. [#RRGGBB]).
   const baseAppearance = readAppearanceFromRecord(rec)
+  // Split the stored tags into surviving labels plus the flags older files encoded as
+  // magic tags. Runs for every file: a hand-written or third-party .sfc can carry any
+  // Version string (or none), so gating this on the version would silently drop the
+  // author's intent. See LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT for the removal plan.
+  const transcodedTags = transcodeLegacyRecipeTags(normalizeTagList(rec['Tags'] ?? rec['tags']))
+  // Explicit flag keys are authoritative when present — a current build wrote them, so
+  // they must beat anything a leftover legacy tag in the same file implied.
+  const ignoredBySafeguards = typeof rec[SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS] === 'boolean'
+    ? Boolean(rec[SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS])
+    : transcodedTags.ignoredBySafeguards === true
+  const reworkGate = normalizeReworkGate(rec[SFC_RECIPE_FIELD_REWORK_GATE]) ?? transcodedTags.reworkGate
   const baseRecipe: BuilderRecipe = {
     ...(baseAppearance ? { appearance: baseAppearance } : {}),
-    // Normalize tag metadata from either "Tags" or legacy "tags".
-    tags: normalizeTagList(rec['Tags'] ?? rec['tags']) ?? [],
+    // Tags keep only the user's own labels; behaviour moved to the two flags below.
+    tags: transcodedTags.tags,
+    // Both flags are omitted unless set, so an untouched recipe round-trips unchanged.
+    ...(ignoredBySafeguards ? { ignoredBySafeguards: true as const } : {}),
+    ...(reworkGate ? { reworkGate } : {}),
     keep: Boolean((rec['keep'] ?? true) as boolean),
     exportMode,
     // Prefer explicit min/max window when present; validated below and assigned into opt
@@ -822,13 +846,18 @@ export function buildReadableRecipe(recipe: BuilderRecipe, metasets: Metaset[]) 
   }
   const exportModeLabel = exportMode === 'disabled' ? 'Disabled' : 'Active'
   const readableTargets = rollTargetsToReadable((recipe as BuilderRecipe).substatRollTargetsV)
-  // Canonicalize tags for SFC output (includes legacy safeguard-ignore aliases).
+  // Canonicalize tags for SFC output. Legacy behaviour tags were transcoded away on load,
+  // so nothing here ever re-emits them.
   const tags = normalizeTagList(recipe.tags) ?? []
   return {
     // Appearance is persisted as a nested record and spread first so it leads the entry.
     ...appearancePersistField(recipe.appearance),
     // Emit tags only when non-empty to keep payloads clean.
     ...(tags.length > 0 ? { Tags: tags } : {}),
+    // Behaviour flags are written only when set, so a recipe that leaves them at their
+    // default re-serializes byte-identically to a file written before they existed.
+    ...(recipe.ignoredBySafeguards ? { [SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS]: true as const } : {}),
+    ...(recipe.reworkGate ? { [SFC_RECIPE_FIELD_REWORK_GATE]: recipe.reworkGate } : {}),
     keep: recipe.keep,
     SellfileVisibility: exportModeLabel,
     // For readability in SFC/clipboard, render Auto or explicit labels. "Any" when code is 0.

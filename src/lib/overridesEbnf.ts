@@ -41,8 +41,11 @@ import {
   NOTE_RECIPE_OVERRIDES_KEEP_VALS,
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
   NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
+  NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
 } from './noteRecipeOverrides'
+// Behaviour-flag field tokens, so the reference names them exactly as the parser does.
+import { DSL_FIELD_IGNORED_BY_SAFEGUARDS, DSL_FIELD_REWORK_GATE } from './recipeFlags'
 import {
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
   NOTE_SAFEGUARD_OVERRIDES_ASSIGNMENT_FIELDS,
@@ -171,8 +174,10 @@ ${wrapAltRule('field', [
   ...NOTE_RECIPE_OVERRIDES_ASSIGNMENT_FIELDS.map(quoteTok),
   '"substatmin." statKey', '"minima.any"', '"minima." starKey "." statKey',
 ])}
-value         := exportVal | keepVal | actionVal | autolateVal | flexVal | rankVal | lvlVal | rarityName | number | string
+value         := exportVal | keepVal | actionVal | autolateVal | flexVal | reworkGateVal | rankVal | lvlVal | rarityName | number | string
 exportVal     := ${alt(NOTE_RECIPE_OVERRIDES_EXPORT_VALS)}
+reworkGateVal := ${alt(NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS)}
+                 // "any" CLEARS the gate (as a condition: matches the ungated recipes)
 keepVal       := ${alt(NOTE_RECIPE_OVERRIDES_KEEP_VALS)}
 actionVal     := ${alt(NOTE_RECIPE_OVERRIDES_ACTION_VALS)}
 autolateVal   := ${alt(NOTE_RECIPE_OVERRIDES_AUTOLATE_VALS)}
@@ -197,6 +202,8 @@ term          := "tag" ("=" | ":") token | "tag" ("in" "[" tokenList "]" | "any"
              | "rank" "=" rankVal | "rank" (">=" | "<=") rankNum | "rarity" ("=" | ">=" | "<=") rarityName
              | "minrolls" ("=" | ">=" | "<=") number | "lockedminrolls" ("=" | ">=" | "<=") number
              | "minsubstats" ("=" | ">=" | "<=") number | "flex" ("=" | ":") flexVal
+             | ${quoteTok(DSL_FIELD_IGNORED_BY_SAFEGUARDS)} ("=" | ":") flexVal
+             | ${quoteTok(DSL_FIELD_REWORK_GATE)} ("=" | ":") reworkGateVal
              | "substatmin" ("=" | ">=" | "<=") number | "substatmin." statKey ("=" | ">=" | "<=") number
              | "minima.any" ("=" | ">=" | "<=") number | "minima." starKey "." statKey ("=" | ">=" | "<=") number
 ${RECIPE_ASSIGNMENT_LINES}

@@ -23,7 +23,9 @@ import {
   factionI18nKey,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+import { GLYPH_IGNORED_BY_SAFEGUARDS, GLYPH_KEEP_MODE_EARLY, GLYPH_KEEP_MODE_LATE, GLYPH_REWORK_NOT_REWORKED, GLYPH_REWORK_REWORKED, NBSP, RECIPE_CHIP_CONTROL_BUTTON_SIZE_PX, RECIPE_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
+// Rework-gate wire tokens, so the chip compares against the same values the file stores.
+import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from '../lib/generated/domainConstants'
 import { CircledDigitBadge } from './CircledDigitBadge'
 import { engineAppliedTargetValue, normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/recipeNormalization'
@@ -151,6 +153,27 @@ function RecipeChip({
   )
   // Build compact summary without redundant labels; act is rendered separately
   const actText = recipe.keep ? t('keepValueKeep') : t('keepValueSell')
+  // Behaviour-flag glyphs shown after Keep/Sell, exactly as the safeguard chips show their
+  // ignore flags after the mode badge — same glyphs as the builder's flag chips, so the two
+  // surfaces read as one vocabulary. Omitted entirely when no flag is set, which keeps the
+  // badge unchanged for the overwhelming majority of recipes.
+  const recipeFlagGlyphs = useMemo(() => {
+    const parts: string[] = []
+    if (recipe.ignoredBySafeguards === true) parts.push(GLYPH_IGNORED_BY_SAFEGUARDS)
+    if (recipe.reworkGate === REWORK_GATE_REWORKED) parts.push(GLYPH_REWORK_REWORKED)
+    else if (recipe.reworkGate === REWORK_GATE_NOT_REWORKED) parts.push(GLYPH_REWORK_NOT_REWORKED)
+    return parts
+  }, [recipe.ignoredBySafeguards, recipe.reworkGate])
+  const recipeFlagSuffix = recipeFlagGlyphs.length > 0 ? NBSP + recipeFlagGlyphs.join('') : ''
+  // Spell the active flags out for the badge tooltip, so the glyphs are discoverable
+  // without having to open the builder. One label per set flag, in chip order.
+  const recipeFlagTooltip = useMemo(() => {
+    const labels: string[] = []
+    if (recipe.ignoredBySafeguards === true) labels.push(t('builderIgnoredBySafeguards'))
+    if (recipe.reworkGate === REWORK_GATE_REWORKED) labels.push(t('builderReworkReworked'))
+    else if (recipe.reworkGate === REWORK_GATE_NOT_REWORKED) labels.push(t('builderReworkNotReworked'))
+    return labels.join('\n\n')
+  }, [recipe.ignoredBySafeguards, recipe.reworkGate, t])
   const tooltipSuppressed = hideTooltip
   const tooltipListenerProps = tooltipSuppressed
     ? {
@@ -306,7 +329,20 @@ function RecipeChip({
             }}
           >
             {`${index + 1}. `}
-            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
+            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>
+              {actText}
+              {/* Flag glyphs ride inside the Keep/Sell badge, kept on one line so they can
+                  never wrap away from the word they qualify. Their own tooltip names them. */}
+              {recipeFlagSuffix ? (
+                <MarkdownTooltip
+                  markdown={recipeFlagTooltip}
+                  {...(tooltipListenerProps ?? {})}
+                  {...(tooltipForceClosedProps ?? {})}
+                >
+                  <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{recipeFlagSuffix}</Box>
+                </MarkdownTooltip>
+              ) : null}
+            </Box>
             {nameDecoration.displayName ? (
               <Box
                 component="span"

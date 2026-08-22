@@ -280,9 +280,7 @@
       "appearance": {
         "name": "Anomalous"
       },
-      "Tags": [
-        "ignore_by_safeguards"
-      ],
+      "IgnoredBySafeguards": true,
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "Any",
@@ -10226,10 +10224,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6mythical"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10318,10 +10316,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6mythical"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10418,10 +10416,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6legendary"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10510,10 +10508,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6legendary"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10610,10 +10608,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6epic"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10702,10 +10700,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6epic"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -10802,10 +10800,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5mythical"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -10889,10 +10887,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5mythical"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -10984,10 +10982,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5legendary"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -11071,10 +11069,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5legendary"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -11166,10 +11164,10 @@
         "fgColor": "#FF22FF"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5epic"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -11253,10 +11251,10 @@
         "fgColor": "#FF3300"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore5epic"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "5★",
@@ -11348,10 +11346,10 @@
         "fgColor": "#88FF00"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6legendary_allsets"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -11432,10 +11430,10 @@
         "fgColor": "#88FF00"
       },
       "Tags": [
-        "if_not_reworked",
-        "ignore_by_safeguards",
         "ore6legendary_allsets"
       ],
+      "IgnoredBySafeguards": true,
+      "ReworkGate": "notReworked",
       "keep": true,
       "SellfileVisibility": "Active",
       "Rank": "6★",
@@ -20412,7 +20410,7 @@
     "  single \"Yes, sell them all\"",
     "     \"[[de]]Ja, alle verkaufen\"",
     "     \"Sell the weak `Chaos Ore` pieces you were keeping. Anything you were already selling stays sold.\"",
-    "     \"[[de]]Verkauft die schwachen `Chaos-Erz`-Teile, die du behalten hast. Was du ohnehin verkauft hättest, bleibt verkauft.\" id=ore_chaos_master_sell { @tag=ignore_by_safeguards { action=sell } }",
+    "     \"[[de]]Verkauft die schwachen `Chaos-Erz`-Teile, die du behalten hast. Was du ohnehin verkauft hättest, bleibt verkauft.\" id=ore_chaos_master_sell { @ignoredbysafeguards=on { action=sell } }",
     "--><br>",
     "<!-- /collapse -->",
     "<!-- collapse -->",

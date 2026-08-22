@@ -33,10 +33,20 @@ export const STAT_ID_ROLL_COUNT = 99
 export const ORE_ANY = -1
 export const ORE_NOT_ORED = 0
 export const ORE_ORED = 1
-export const ORE_TAG_ONLY = "if_reworked"
-export const ORE_TAG_IGNORE = "if_not_reworked"
-export const ORE_TAG_ONLY_LEGACY = "only_for_chaos_ored"
-export const ORE_TAG_IGNORE_LEGACY = "ignore_for_chaos_ored"
+
+// SFC recipe keys for the behaviour-carrying recipe flags; written only when set.
+export const SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS = "IgnoredBySafeguards"
+export const SFC_RECIPE_FIELD_REWORK_GATE = "ReworkGate"
+// ReworkGate values; the key is absent when a recipe does not care about rework state.
+export const REWORK_GATE_REWORKED = "reworked"
+export const REWORK_GATE_NOT_REWORKED = "notReworked"
+
+// Legacy recipe tags, read-only: transcoded into the flags on load, never written again.
+// Delete these together with the transcode once the app reaches the removal version.
+export const LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT = "1.0.50"
+export const LEGACY_TAGS_IGNORED_BY_SAFEGUARDS: readonly string[] = ["ignore_by_safeguards", "ignore_keep_unique", "ignore_safeguard"]
+export const LEGACY_TAGS_REWORKED: readonly string[] = ["if_reworked", "only_for_chaos_ored"]
+export const LEGACY_TAGS_NOT_REWORKED: readonly string[] = ["if_not_reworked", "ignore_for_chaos_ored"]
 
 // Rarity code domain used by builder/rules generation.
 export const RARITY_CODE_ANY = 0

@@ -6,7 +6,6 @@ import {
   compareVariants,
 } from './types'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
-import { describeSemanticTags } from './tagHelpers'
 
 const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
@@ -172,14 +171,10 @@ export function buildCanonicalRecipeSnapshot(recipe: BuilderRecipe): BuilderReci
   push('artifactSets', sortedSetEntries)
   push('artifactMetaSets', sortStrings(recipe.artifactMetaSets))
   push('earlyKeepMode', recipe.earlyKeepMode === 'late' ? 'late' : 'early')
-  // Tags are excluded wholesale via IGNORED_KEYS because most are free-form user labels.
-  // The few that carry app-driven meaning must still affect the fingerprint, or toggling
-  // one serves stale cached rules. describeSemanticTags is the SSOT registry of those
-  // tags, so a newly added behavior-carrying tag joins the cache key automatically
-  // instead of relying on someone remembering to push it here.
-  for (const [key, value] of Object.entries(describeSemanticTags(recipe.tags))) {
-    push(key, value)
-  }
+  // Tags are excluded wholesale via IGNORED_KEYS: they are free-form user labels that
+  // never change the generated rules, so renaming one must not rebuild every rule.
+  // The two behaviours that DO change rules are explicit recipe fields now, and the
+  // generic key sweep below picks them up automatically — no tag-derived contribution.
 
   const knownKeys = new Set(entries.map(([key]) => key))
 

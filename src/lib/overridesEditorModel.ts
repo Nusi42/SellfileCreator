@@ -49,9 +49,15 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD,
   NOTE_RECIPE_OVERRIDES_MIN_SUBSTATS_MAX,
   NOTE_RECIPE_OVERRIDES_RARITY_NAMES,
+  NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS,
   NOTE_RECIPE_OVERRIDES_SELECTOR_FIELDS,
   NOTE_RECIPE_OVERRIDES_SLOT_NAMES,
+  isDeprecationDiagnostic,
 } from './noteRecipeOverrides'
+// Behaviour-flag field tokens + the gate's wire values, so the widget metadata spells them
+// exactly as the grammar does (the metadata Records are keyed BY these tokens).
+import { DSL_FIELD_IGNORED_BY_SAFEGUARDS, DSL_FIELD_REWORK_GATE } from './recipeFlags'
+import { REWORK_GATE_NOT_REWORKED, REWORK_GATE_REWORKED } from './generated/domainConstants'
 import {
   type SafeguardOverridesOperation,
   NOTE_SAFEGUARD_OVERRIDES_ACTIVATION_VALS,
@@ -115,8 +121,12 @@ const parseFragment = (
 ): DraftSelectorBlock | null => {
   const raw = buildFragmentBlock(hostDomain, blockDomain, selectorText, operationsText)
   const { draft, diagnostics } = parseOverridesBlockDraft(raw)
-  // Any diagnostic means the fragment is not clean DSL — reject it outright.
-  if (diagnostics.length > 0 || !draft || draft.kind !== 'question') return null
+  // Any diagnostic means the fragment is not clean DSL — reject it outright. Deprecations
+  // are the exception: the fragment parsed fine and already folded onto the current
+  // spelling, so rejecting it would drop a legacy block to raw-DSL display even though the
+  // editor can represent it perfectly (and would re-serialize it canonically on save).
+  const blocking = diagnostics.filter((diagnostic) => !isDeprecationDiagnostic(diagnostic))
+  if (blocking.length > 0 || !draft || draft.kind !== 'question') return null
   const option = draft.options[0]
   if (!option || option.body.kind !== 'structured') return null
   const isCross = hostDomain !== blockDomain
@@ -317,6 +327,13 @@ const AUTOLATE_VALUE_LABEL_KEYS = pickValueLabelKeys(RARITY_VALUE_LABEL_KEYS, NO
 const BOOL_VALUE_LABEL_KEYS = {
   on: 'commonOn', off: 'commonOff',
 } satisfies Record<(typeof BOOL_VALS)[number], I18nKey>
+// reworkgate= values: the two gates reuse the recipe panel's own chip terms, and 'any' takes
+// the shared "unconstrained" term the rank/rarity vocabularies already use for that state.
+const REWORK_GATE_VALUE_LABEL_KEYS = {
+  [REWORK_GATE_REWORKED]: 'builderReworkReworked',
+  [REWORK_GATE_NOT_REWORKED]: 'builderReworkNotReworked',
+  any: 'any',
+} satisfies Record<(typeof NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS)[number], I18nKey>
 // substatmatch: numeric thresholds display as numbers; only the keyword gets a term.
 const SUBSTAT_MATCH_VALUE_LABEL_KEYS: Readonly<Partial<Record<(typeof NOTE_SAFEGUARD_OVERRIDES_SUBSTAT_MATCH_VALS)[number], I18nKey>>> = {
   persubstat: 'safeguardsSubstatRequirementPer',
@@ -417,6 +434,13 @@ const RECIPE_OPERATION_TERM_META: Record<RecipeAssignmentField, OperationTermOpt
   lockedminrolls: [numberOp('lockedminrolls', 'tutLockedMinRollsTitle', ROLL_COUNT_RANGE)],
   minsubstats: [numberOp('minsubstats', 'builderRequiredSubstats', MIN_SUBSTATS_RANGE)],
   flex: [boolOp('flex', 'tutSectionFlexLabel')],
+  // Behaviour flags. The boolean one is an ordinary on/off chip; the gate is a three-value
+  // enum whose labels reuse the builder's own flag terms, so the DSL editor and the recipe
+  // panel name the same state identically.
+  [DSL_FIELD_IGNORED_BY_SAFEGUARDS]: [boolOp(DSL_FIELD_IGNORED_BY_SAFEGUARDS, 'builderIgnoredBySafeguards')],
+  [DSL_FIELD_REWORK_GATE]: [enumOp(DSL_FIELD_REWORK_GATE, NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS, 'noteOverridesEditorFieldReworkGate', {
+    valueLabelKeys: REWORK_GATE_VALUE_LABEL_KEYS,
+  })],
   substatmin: [
     numberOp('substatmin', 'builderSubstatMenuMinRolls', ROLL_COUNT_RANGE),
     { id: 'substatmin.stat', field: 'substatmin', ops: EQ_ONLY, widget: 'number', choices: null, stat: true, star: false, example: '2', labelKey: 'builderSubstatMenuMinRolls', range: ROLL_COUNT_RANGE },
@@ -788,6 +812,11 @@ export function selectorLeafToView(leaf: AnyOverridesSelector): SelectorTermView
     case 'minimaAny': return { kind: 'compare', field: 'minima.any', op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'minimaField': return { kind: 'compare', field: `minima.${leaf.star}.${statVariantToKey(leaf.variant)}`, op: OP_VIEW[leaf.op], value: String(leaf.value) }
     case 'flex': return { kind: 'flex', value: leaf.value ? 'on' : 'off' }
+    // Behaviour flags ride the GENERIC compare row (like rarity/action), not a bespoke view:
+    // the field/value pair is all the widget needs, and `ops: []` keeps the op picker hidden.
+    // `=` is the only comparator the grammar accepts for either, so it is not a choice here.
+    case 'ignoredBySafeguards': return { kind: 'compare', field: DSL_FIELD_IGNORED_BY_SAFEGUARDS, op: '=', value: leaf.value ? BOOL_VALS[0] : BOOL_VALS[1] }
+    case 'reworkGate': return { kind: 'compare', field: DSL_FIELD_REWORK_GATE, op: '=', value: leaf.value }
     default: return null
   }
 }
@@ -888,6 +917,11 @@ const RECIPE_SELECTOR_TERM_META: Record<RecipeSelectorField, SelectorTermOption[
   lockedminrolls: [numericTermOption('lockedminrolls', 'tutLockedMinRollsTitle', ROLL_COUNT_RANGE)],
   minsubstats: [numericTermOption('minsubstats', 'builderRequiredSubstats', MIN_SUBSTATS_RANGE)],
   flex: [{ id: 'flex', token: 'flex', labelKey: 'tutSectionFlexLabel', ops: [], value: 'choice', choices: BOOL_VALS, valueLabelKeys: BOOL_VALUE_LABEL_KEYS, stat: false, star: false }],
+  // Condition twins of the two assignment entries above — same vocabularies and labels, so a
+  // user reads and writes a flag through one wording. `ops: []` because a flag is a state:
+  // there is nothing for >=/<= to order, exactly as `flex` decided.
+  [DSL_FIELD_IGNORED_BY_SAFEGUARDS]: [{ id: DSL_FIELD_IGNORED_BY_SAFEGUARDS, token: DSL_FIELD_IGNORED_BY_SAFEGUARDS, labelKey: 'builderIgnoredBySafeguards', ops: [], value: 'choice', choices: BOOL_VALS, valueLabelKeys: BOOL_VALUE_LABEL_KEYS, stat: false, star: false }],
+  [DSL_FIELD_REWORK_GATE]: [{ id: DSL_FIELD_REWORK_GATE, token: DSL_FIELD_REWORK_GATE, labelKey: 'noteOverridesEditorFieldReworkGate', ops: [], value: 'choice', choices: NOTE_RECIPE_OVERRIDES_REWORK_GATE_VALS, valueLabelKeys: REWORK_GATE_VALUE_LABEL_KEYS, stat: false, star: false }],
   substatmin: [
     numericTermOption('substatmin', 'builderSubstatMenuMinRolls', ROLL_COUNT_RANGE),
     { id: 'substatmin.stat', token: 'substatmin.', labelKey: 'builderSubstatMenuMinRolls', ops: ALL_COMPARE_OPS, value: 'number', choices: null, stat: true, star: false, range: ROLL_COUNT_RANGE },

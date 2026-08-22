@@ -244,6 +244,13 @@ pub struct ReadableRecipe {
     pub appearance: Option<ReadableAppearance>,
     #[serde(default, rename = "Tags", alias = "tags")]
     pub tags: Option<Vec<String>>,
+    // Recipe behaviour flags, written only when set. `deny_unknown_fields` is on, so these
+    // MUST be declared here even though only the gate is read: a key TS writes but Rust
+    // does not know breaks the native reader for every current file.
+    #[serde(default, rename = "IgnoredBySafeguards")]
+    pub ignored_by_safeguards: Option<bool>,
+    #[serde(default, rename = "ReworkGate")]
+    pub rework_gate: Option<String>,
     // Keep vs sell decision
     #[serde(default, rename = "keep")]
     pub keep: Option<bool>,
@@ -448,45 +455,65 @@ pub struct ReadableRecipeParsed {
     pub artifact_type_ids:  Vec<i64>,
     pub artifact_set_ids:   Vec<i64>,         // included set IDs
     pub artifact_meta_set_names: Vec<String>,
-    // Rework gate resolved from the recipe tags (ORE_ANY when untagged).
+    // Rework gate resolved from the recipe field, or a legacy tag (ORE_ANY when ungated).
     pub ore:                i64,
     pub early_keep_mode:    String,           // "early" | "late"
     pub auto_rarity_supplements_threshold: Option<String>,
 }
 
-/// Resolve a recipe tag list into the HSF `Ore` sentinel.
+/// Resolve a recipe's rework gate into the HSF `Ore` sentinel.
 ///
-/// Mirror of `resolveChaosOreTagValue` in src/lib/tagHelpers.ts. The tag spellings and the
-/// sentinels both come from shared/domain-constants.json, so those cannot drift. What IS
-/// duplicated is the precedence rule below AND a minimal form of the tag grammar: TS runs
-/// `normalizeTagValue` (trim, lowercase, reject whitespace, enforce TAG_TOKEN_REGEX) while
-/// this side only trims and lowercases. That is sufficient because a token failing the TS
-/// grammar can never equal one of the four Ore spellings anyway — but any change to the tag
-/// grammar that affects those spellings must be mirrored here. The shared test vectors in
-/// matcher_evaluator.rs pin the two implementations to identical behaviour.
+/// Mirror of `oreSentinelForRecipe` + `transcodeLegacyRecipeTags` in src/lib/recipeFlags.ts.
+/// The field name, the gate tokens, the legacy tag spellings and the sentinels all come from
+/// shared/domain-constants.json, so none of those can drift. What IS duplicated is the
+/// precedence below AND a minimal form of the tag grammar: TS runs `normalizeTagValue`
+/// (trim, lowercase, reject whitespace, enforce TAG_TOKEN_REGEX) while this side only trims
+/// and lowercases. That is sufficient because a token failing the TS grammar can never equal
+/// one of the legacy spellings anyway — but any change to the tag grammar affecting those
+/// spellings must be mirrored here. The shared test vectors in matcher_evaluator.rs pin the
+/// two implementations to identical behaviour.
 ///
-/// The two tags are mutually exclusive per recipe (the editors drop one when the other is
-/// added), so "both set" should not occur. A hand-edited or legacy file can still carry both;
-/// in that case ORE_TAG_ONLY (if_reworked) wins.
-pub fn resolve_chaos_ore_tag_value(tags: Option<&[String]>) -> i64 {
+/// The explicit `ReworkGate` field wins when present: a current build wrote it, so it must
+/// beat any stale legacy tag left in the same file. The legacy tag fallback below exists
+/// only for files written before the field existed — delete it, together with the
+/// LEGACY_TAGS_* constants, once the app reaches LEGACY_RECIPE_TAG_TRANSCODE_REMOVE_AT.
+// serde's `rename` needs a literal, so the two flag keys above are spelled out rather than
+// referencing the generated constants. Pin them to the SSOT at compile time instead, so a
+// rename in shared/domain-constants.json fails the build here rather than silently
+// producing a reader that ignores the field.
+const _: () = {
+    assert!(matches!(SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS.as_bytes(), b"IgnoredBySafeguards"));
+    assert!(matches!(SFC_RECIPE_FIELD_REWORK_GATE.as_bytes(), b"ReworkGate"));
+};
+
+pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>) -> i64 {
+    // An explicit gate is authoritative. An unrecognized token (hand edit, or a gate from a
+    // newer build) falls through to ORE_ANY rather than guessing a state.
+    if let Some(gate) = gate {
+        if gate == REWORK_GATE_REWORKED {
+            return ORE_ORED;
+        } else if gate == REWORK_GATE_NOT_REWORKED {
+            return ORE_NOT_ORED;
+        }
+        return ORE_ANY;
+    }
     // No tags at all leaves the rule unconstrained.
     let Some(tags) = tags else { return ORE_ANY };
-    // Track each side so a contradictory pair can be detected.
+    // Track each side so a contradictory legacy pair can be detected.
     let mut wants_ored = false;
     let mut wants_not_ored = false;
     for raw in tags {
         // Match the TS tag grammar: trim padding, compare case-insensitively.
         let normalized = raw.trim().to_lowercase();
-        // Record which of the two rework tags this entry is. The *_LEGACY spellings are
-        // the pre-rename names; recipes saved before the rename must keep gating the same
-        // way instead of silently losing the constraint.
-        if normalized == ORE_TAG_ONLY || normalized == ORE_TAG_ONLY_LEGACY {
+        // Every shipped spelling of each family, so a pre-rename file keeps its constraint
+        // instead of silently losing it.
+        if LEGACY_TAGS_REWORKED.iter().any(|t| *t == normalized) {
             wants_ored = true;
-        } else if normalized == ORE_TAG_IGNORE || normalized == ORE_TAG_IGNORE_LEGACY {
+        } else if LEGACY_TAGS_NOT_REWORKED.iter().any(|t| *t == normalized) {
             wants_not_ored = true;
         }
     }
-    // if_reworked wins when a file carries both tags.
+    // "reworked" wins when a legacy file carries both, matching the TS transcode.
     match (wants_ored, wants_not_ored) {
         (true, _) => ORE_ORED,
         (false, true) => ORE_NOT_ORED,
@@ -819,7 +846,7 @@ fn parse_readable_recipe(rec: &ReadableRecipe) -> Result<ReadableRecipeParsed, S
         artifact_set_ids,
         artifact_meta_set_names,
         // Resolve the chaos-ore tags once here so every downstream builder call agrees.
-        ore: resolve_chaos_ore_tag_value(rec.tags.as_deref()),
+        ore: resolve_chaos_ore_value(rec.rework_gate.as_deref(), rec.tags.as_deref()),
         early_keep_mode,
         auto_rarity_supplements_threshold,
     })

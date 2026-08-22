@@ -20,6 +20,9 @@ export const BUILDER_FIELD_KEYS = [
   'appearanceName',   // maps to recipe.appearance?.name ?? ''
   'appearanceFgColor', // maps to recipe.appearance?.fgColor
   'tags',
+  // Behaviour flags: plain values, so they need no patch shape (same as `keep` below).
+  'ignoredBySafeguards',
+  'reworkGate',
   'keep',
   'exportMode',
   'rankCode',

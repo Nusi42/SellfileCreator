@@ -34,6 +34,7 @@ import {
   NOTE_RECIPE_OVERRIDES_MARKER_KEYWORD_PATTERN,
   parseRecipeSelectorBlock,
   parseRecipeSelectorBlockCross,
+  isDeprecationDiagnostic,
 } from './noteRecipeOverrides'
 import {
   type SafeguardOverridesOperation,
@@ -263,10 +264,17 @@ const toDraftOption = (
   // Prefer the structured model; degrade to verbatim raw when the source is suspect
   // (diagnostics inside the option) or the round-trip gate fails. Raw needs the
   // body span; without it the structured form is the only representation we have.
+  //
+  // Deprecation diagnostics do NOT make a source suspect: the parser understood the text
+  // and already folded it onto the current spelling, so the structured model represents it
+  // exactly. Treating them as suspect would drop a whole option to raw display just because
+  // it still uses an old tag name — and the round-trip gate below is the real correctness
+  // check, since it re-serializes and compares.
+  const blockingDiags = diags.filter((diag) => !isDeprecationDiagnostic(diag))
   let body: DraftOptionBody = structured
   const canExtractRaw = option.bodyFrom != null && option.sourceTo != null
   if (canExtractRaw
-    && (overlapsSpan(diags, option.sourceFrom, option.sourceTo) || !structuredBodyRoundTrips(domain, structured, option))) {
+    && (overlapsSpan(blockingDiags, option.sourceFrom, option.sourceTo) || !structuredBodyRoundTrips(domain, structured, option))) {
     body = { kind: 'raw', text: rawBlock.slice(option.bodyFrom!, option.sourceTo!) }
   }
   return {

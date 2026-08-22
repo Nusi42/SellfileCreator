@@ -3,176 +3,100 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
+// Tags are free-form user labels: nothing in the app reads meaning out of them. These
+// tests cover only the mechanical guarantees (grammar, de-duplication, ordering).
+// Behaviour that used to ride on magic tags is covered by recipe-flags.test.ts.
 import {
-  REWORK_EXCLUDE_TAG,
-  REWORK_ONLY_TAG,
-  SAFEGUARD_IGNORE_TAG,
-  hasIgnoreSafeguardTag,
-  applyReworkTagExclusivity,
-  isChaosOreConstrained,
-  isReworkTag,
+  buildTagVocabulary,
+  canonicalTagTokens,
+  mergeTagList,
+  mergeTags,
   normalizeTagList,
-  oppositeReworkTag,
-  resolveChaosOreTagValue,
+  normalizeTagValue,
+  summarizeTagPresence,
 } from '../../src/lib/tagHelpers.js'
-import { ORE_ANY, ORE_NOT_ORED, ORE_ORED } from '../../src/lib/generated/domainConstants.js'
 
-test('normalizeTagList rewrites legacy safeguard-ignore aliases to canonical tag', () => {
-  // Mixed alias inputs should collapse into one canonical safeguard-ignore tag.
-  const normalized = normalizeTagList([
-    'ignore_keep_unique',
-    'ignore_safeguard',
-    'ignore_by_safeguards',
-  ])
-  // Export/write paths should always emit the new canonical token only.
-  assert.deepEqual(normalized, [SAFEGUARD_IGNORE_TAG])
+test('normalizeTagValue enforces the shared tag grammar', () => {
+  // Case folds and padding is trimmed so matching is deterministic.
+  assert.equal(normalizeTagValue('  Speed  '), 'speed')
+  // Tags must stay a single token.
+  assert.equal(normalizeTagValue('two words'), null)
+  // Empty and non-string inputs collapse to null rather than throwing.
+  assert.equal(normalizeTagValue(''), null)
+  assert.equal(normalizeTagValue('   '), null)
+  // A tag may not start with a digit, but may contain one.
+  assert.equal(normalizeTagValue('1st'), null)
+  assert.equal(normalizeTagValue('tier1'), 'tier1')
+  // Unicode letters are allowed so non-English labels work.
+  assert.equal(normalizeTagValue('Schnell'), 'schnell')
 })
 
-test('hasIgnoreSafeguardTag accepts legacy and canonical safeguard-ignore tags', () => {
-  // Legacy files may still carry the old keep-unique wording.
-  assert.equal(hasIgnoreSafeguardTag(['ignore_keep_unique']), true)
-  // Transitional snapshots may carry the intermediate safeguard wording.
-  assert.equal(hasIgnoreSafeguardTag(['ignore_safeguard']), true)
-  // New files should use the canonical tag.
-  assert.equal(hasIgnoreSafeguardTag([SAFEGUARD_IGNORE_TAG]), true)
+test('normalizeTagList normalizes, de-dupes, and preserves order', () => {
+  // Order follows first appearance; later duplicates collapse.
+  assert.deepEqual(normalizeTagList(['speed', 'SPEED', 'crit']), ['speed', 'crit'])
+  // Non-string and malformed entries are dropped from written payloads.
+  assert.deepEqual(normalizeTagList(['speed', 42, 'two words', '']), ['speed'])
+  // An empty result reports undefined so callers can omit the key entirely.
+  assert.equal(normalizeTagList([]), undefined)
+  assert.equal(normalizeTagList(['   ']), undefined)
+  // Non-arrays are rejected outright.
+  assert.equal(normalizeTagList('speed'), undefined)
 })
 
-test('normalizeTagList keeps unrelated tags while canonicalizing safeguard-ignore aliases', () => {
-  // Preserve insertion order for non-special tags.
-  const normalized = normalizeTagList([
-    'speed',
-    'ignore_keep_unique',
-    'faction_wars',
-  ])
-  // Only the special alias should be rewritten.
-  assert.deepEqual(normalized, ['speed', SAFEGUARD_IGNORE_TAG, 'faction_wars'])
-})
-
-test('resolveChaosOreTagValue leaves untagged recipes unconstrained', () => {
-  // Nullish and empty lists must behave exactly as before this feature existed.
-  assert.equal(resolveChaosOreTagValue(undefined), ORE_ANY)
-  assert.equal(resolveChaosOreTagValue(null), ORE_ANY)
-  assert.equal(resolveChaosOreTagValue([]), ORE_ANY)
-  // Unrelated tags must not accidentally gate a rule on chaos-ore state.
-  assert.equal(resolveChaosOreTagValue(['speed', SAFEGUARD_IGNORE_TAG]), ORE_ANY)
-})
-
-test('resolveChaosOreTagValue maps each chaos-ore tag to its sentinel', () => {
-  // if_reworked narrows to gear that has been reworked.
-  assert.equal(resolveChaosOreTagValue([REWORK_ONLY_TAG]), ORE_ORED)
-  // if_not_reworked narrows to gear that has never been reworked.
-  assert.equal(resolveChaosOreTagValue([REWORK_EXCLUDE_TAG]), ORE_NOT_ORED)
-  // Sitting alongside other tags does not change the resolution.
-  assert.equal(resolveChaosOreTagValue([SAFEGUARD_IGNORE_TAG, REWORK_ONLY_TAG]), ORE_ORED)
-})
-
-test('resolveChaosOreTagValue normalizes loose tag spellings', () => {
-  // Tag matching is trimmed and case-insensitive, like the rest of the tag grammar.
-  assert.equal(resolveChaosOreTagValue(['  IF_Reworked  ']), ORE_ORED)
-})
-
-test('if_reworked wins when a loaded file carries both tags', () => {
-  // The editors keep the pair mutually exclusive, so this is the legacy/hand-edited case.
-  // Order in the list must not change the winner.
-  assert.equal(resolveChaosOreTagValue([REWORK_ONLY_TAG, REWORK_EXCLUDE_TAG]), ORE_ORED)
-  assert.equal(resolveChaosOreTagValue([REWORK_EXCLUDE_TAG, REWORK_ONLY_TAG]), ORE_ORED)
-})
-
-test('isReworkTag recognizes only the two rework tags', () => {
-  assert.equal(isReworkTag(REWORK_ONLY_TAG), true)
-  assert.equal(isReworkTag(REWORK_EXCLUDE_TAG), true)
-  // Loose spellings still resolve through the shared tag grammar.
-  assert.equal(isReworkTag('  IF_NOT_Reworked '), true)
-  // Everything else is an ordinary tag.
-  assert.equal(isReworkTag(SAFEGUARD_IGNORE_TAG), false)
-  assert.equal(isReworkTag('speed'), false)
-})
-
-test('oppositeReworkTag pairs the two tags and ignores everything else', () => {
-  assert.equal(oppositeReworkTag(REWORK_ONLY_TAG), REWORK_EXCLUDE_TAG)
-  assert.equal(oppositeReworkTag(REWORK_EXCLUDE_TAG), REWORK_ONLY_TAG)
-  assert.equal(oppositeReworkTag('speed'), null)
-})
-
-test('applyReworkTagExclusivity drops the opposite tag when one is added', () => {
-  // Adding if_reworked evicts if_not_reworked, and vice versa.
-  assert.deepEqual(applyReworkTagExclusivity([REWORK_EXCLUDE_TAG], REWORK_ONLY_TAG), [])
-  assert.deepEqual(applyReworkTagExclusivity([REWORK_ONLY_TAG], REWORK_EXCLUDE_TAG), [])
-  // Unrelated tags are preserved, in order.
+test('normalizeTagList no longer rewrites any tag', () => {
+  // Tokens that used to be canonicalized into other tokens are now ordinary labels:
+  // the load transcode strips the behavioural ones, so anything reaching here is a label
+  // and must survive verbatim rather than being folded onto some other spelling.
+  assert.deepEqual(normalizeTagList(['ignore_keep_unique']), ['ignore_keep_unique'])
+  assert.deepEqual(normalizeTagList(['only_for_chaos_ored']), ['only_for_chaos_ored'])
   assert.deepEqual(
-    applyReworkTagExclusivity(['speed', REWORK_EXCLUDE_TAG, 'faction_wars'], REWORK_ONLY_TAG),
-    ['speed', 'faction_wars'],
-  )
-  // Adding a non-rework tag evicts nothing.
-  assert.deepEqual(
-    applyReworkTagExclusivity([REWORK_ONLY_TAG], SAFEGUARD_IGNORE_TAG),
-    [REWORK_ONLY_TAG],
-  )
-  // Re-adding the same tag does not remove itself.
-  assert.deepEqual(applyReworkTagExclusivity([REWORK_ONLY_TAG], REWORK_ONLY_TAG), [REWORK_ONLY_TAG])
-})
-
-test('isChaosOreConstrained only reports the two narrowing states', () => {
-  // Drives the preview column's auto-visibility, so the sentinel must not count.
-  assert.equal(isChaosOreConstrained(ORE_ORED), true)
-  assert.equal(isChaosOreConstrained(ORE_NOT_ORED), true)
-  assert.equal(isChaosOreConstrained(ORE_ANY), false)
-  assert.equal(isChaosOreConstrained(undefined), false)
-  assert.equal(isChaosOreConstrained(null), false)
-})
-
-test('chaos-ore tags survive tag-list normalization unchanged', () => {
-  // These are already canonical tokens; normalization must not rewrite or drop them.
-  assert.deepEqual(normalizeTagList([REWORK_ONLY_TAG]), [REWORK_ONLY_TAG])
-  assert.deepEqual(normalizeTagList([REWORK_EXCLUDE_TAG]), [REWORK_EXCLUDE_TAG])
-  // The safeguard-ignore tag is orthogonal and must coexist with them.
-  assert.equal(hasIgnoreSafeguardTag([SAFEGUARD_IGNORE_TAG, REWORK_ONLY_TAG]), true)
-})
-
-// --- Pre-rename ("legacy") rework tag spellings ---
-//
-// The rework tags were renamed from only_for_chaos_ored / ignore_for_chaos_ored to
-// if_reworked / if_not_reworked. Recipes saved before that rename still carry the old
-// spellings; without alias handling they resolve to ORE_ANY and their rules silently
-// stop gating on rework state — the rule set still exports, just with the constraint
-// quietly dropped. These pin the aliases so that cannot regress.
-
-test('legacy rework tag spellings still resolve to their sentinels', () => {
-  // The exact tag list from a recipe saved before the rename.
-  assert.equal(
-    resolveChaosOreTagValue(['ignore_by_safeguards', 'ignore_for_chaos_ored', 'ore5epic']),
-    ORE_NOT_ORED,
-  )
-  assert.equal(resolveChaosOreTagValue(['only_for_chaos_ored']), ORE_ORED)
-  // Loose spellings of the legacy tags normalize like any other tag.
-  assert.equal(resolveChaosOreTagValue(['  IGNORE_For_Chaos_Ored  ']), ORE_NOT_ORED)
-})
-
-test('normalizeTagList rewrites legacy rework spellings to the current tags', () => {
-  // Saving a loaded file heals it: old spellings are written back as the new names.
-  assert.deepEqual(normalizeTagList(['only_for_chaos_ored']), [REWORK_ONLY_TAG])
-  assert.deepEqual(normalizeTagList(['ignore_for_chaos_ored']), [REWORK_EXCLUDE_TAG])
-  // Unrelated tags keep their position around the rewritten one.
-  assert.deepEqual(
-    normalizeTagList(['ignore_by_safeguards', 'ignore_for_chaos_ored', 'ore5epic']),
-    [SAFEGUARD_IGNORE_TAG, REWORK_EXCLUDE_TAG, 'ore5epic'],
+    normalizeTagList(['speed', 'ignore_safeguard', 'faction_wars']),
+    ['speed', 'ignore_safeguard', 'faction_wars'],
   )
 })
 
-test('legacy rework spellings participate in mutual exclusivity', () => {
-  // A legacy tag counts as a rework tag for the editors.
-  assert.equal(isReworkTag('ignore_for_chaos_ored'), true)
-  assert.equal(isReworkTag('only_for_chaos_ored'), true)
-  // Its opposite resolves to the CURRENT spelling of the counterpart.
-  assert.equal(oppositeReworkTag('ignore_for_chaos_ored'), REWORK_ONLY_TAG)
-  // Adding the new canonical tag must evict the LEGACY spelling of its opposite,
-  // otherwise a recipe could end up holding one of each spelling.
-  assert.deepEqual(
-    applyReworkTagExclusivity(['speed', 'ignore_for_chaos_ored'], REWORK_ONLY_TAG),
-    ['speed'],
-  )
-  assert.deepEqual(
-    applyReworkTagExclusivity(['only_for_chaos_ored'], REWORK_EXCLUDE_TAG),
-    [],
-  )
+test('mergeTags appends without duplicating', () => {
+  // Existing tags keep their order, new ones follow.
+  assert.deepEqual(mergeTags(['speed'], ['crit']), ['speed', 'crit'])
+  // Re-adding an existing tag is a no-op rather than a duplicate.
+  assert.deepEqual(mergeTags(['speed'], ['speed']), ['speed'])
+  // Duplicates inside the additions collapse too.
+  assert.deepEqual(mergeTags([], ['a', 'a', 'b']), ['a', 'b'])
+})
+
+test('mergeTagList preserves base ordering', () => {
+  assert.deepEqual(mergeTagList(['b', 'a'], ['c', 'a']), ['b', 'a', 'c'])
+})
+
+test('canonicalTagTokens normalizes both sides of a picker comparison', () => {
+  // The picker compares applied tags against the vocabulary; a loosely-spelled stored
+  // tag must compare equal to its normalized form or it would be offered twice.
+  assert.deepEqual([...canonicalTagTokens(['Speed', 'speed'])], ['speed'])
+  // Malformed entries simply drop out.
+  assert.deepEqual([...canonicalTagTokens(['two words', 'crit'])], ['crit'])
+  // Nullish input is tolerated.
+  assert.deepEqual([...canonicalTagTokens(undefined)], [])
+})
+
+test('buildTagVocabulary lists the document tags with usage counts', () => {
+  const { tags, counts } = buildTagVocabulary([['speed', 'crit'], ['speed'], null, undefined])
+  // Sorted for stable rendering.
+  assert.deepEqual(tags, ['crit', 'speed'])
+  assert.equal(counts['speed'], 2)
+  assert.equal(counts['crit'], 1)
+})
+
+test('buildTagVocabulary counts each tag once per entry', () => {
+  // A repeated tag within one recipe must not inflate its count.
+  const { counts } = buildTagVocabulary([['speed', 'speed']])
+  assert.equal(counts['speed'], 1)
+})
+
+test('summarizeTagPresence splits common from mixed tags', () => {
+  const summary = summarizeTagPresence([['a', 'b'], ['a']])
+  assert.equal(summary.total, 2)
+  // Present in every list.
+  assert.deepEqual(summary.common, ['a'])
+  // Present in some but not all.
+  assert.deepEqual(summary.mixed, ['b'])
 })
