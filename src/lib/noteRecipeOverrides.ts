@@ -3086,6 +3086,23 @@ const applySubstatMinOverrides = (
   return { ...recipe, substatRollBoundsV: bounds }
 }
 
+/**
+ * Apply one list-mutation op to a plain value list: remove first, then append the adds that
+ * are not already present (so a re-added entry keeps its original position).
+ *
+ * ONE definition for every plain list field — artifactTypes, substatsV, mainStatsV and
+ * artifactMetaSets all fold identically, and writing the four bodies out separately meant a
+ * semantic fix had to land in four places or the fields would answer differently for the
+ * same DSL. `artifactSets` is deliberately NOT routed here: its entries carry an `excluded`
+ * flag, so it folds through an id-keyed map instead of bare equality.
+ */
+const foldMutateList = <T,>(base: readonly T[], add: readonly T[], remove: readonly T[]): T[] => {
+  const removeSet = new Set(remove)
+  const kept = base.filter((v) => !removeSet.has(v))
+  const existing = new Set(kept)
+  return [...kept, ...add.filter((v) => !existing.has(v))]
+}
+
 // Resolve a recipe with all recipe overrides applied.
 const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   recipe: BuilderRecipe,
@@ -3333,15 +3350,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   // Apply list operations last so they do not interact with normalizers above.
   if (artifactTypesChanged) {
     for (const op of artifactTypesOps) {
-      if (op.mode === 'replace') {
-        next.artifactTypes = op.values
-      } else {
-        // Remove first, then append new entries that are not already present.
-        const removeSet = new Set(op.remove)
-        const base = (next.artifactTypes ?? []).filter((id) => !removeSet.has(id))
-        const existing = new Set(base)
-        next.artifactTypes = [...base, ...op.add.filter((id) => !existing.has(id))]
-      }
+      if (op.mode === 'replace') next.artifactTypes = op.values
+      else next.artifactTypes = foldMutateList(next.artifactTypes ?? [], op.add, op.remove)
     }
     // Mirror the builder's cascade when slots change:
     // 1. Clear faction when the new slot set includes artifact (artifact + faction is invalid).
@@ -3365,28 +3375,16 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   }
   if (substatsChanged) {
     for (const op of substatsOps) {
-      if (op.mode === 'replace') {
-        next.substatsV = op.variants
-      } else {
-        const removeSet = new Set(op.remove)
-        const base = (next.substatsV ?? []).filter((v) => !removeSet.has(v))
-        const existing = new Set(base)
-        next.substatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
-      }
+      if (op.mode === 'replace') next.substatsV = op.variants
+      else next.substatsV = foldMutateList(next.substatsV ?? [], op.add, op.remove)
     }
     // Cascade: fixedSubstatsV, substatRollBoundsV, and minCount depend on substatsV.
     Object.assign(next, pruneSubstatDependents(next, next.substatsV ?? []))
   }
   if (mainStatsChanged) {
     for (const op of mainStatsOps) {
-      if (op.mode === 'replace') {
-        next.mainStatsV = op.variants
-      } else {
-        const removeSet = new Set(op.remove)
-        const base = (next.mainStatsV ?? []).filter((v) => !removeSet.has(v))
-        const existing = new Set(base)
-        next.mainStatsV = [...base, ...op.add.filter((v) => !existing.has(v))]
-      }
+      if (op.mode === 'replace') next.mainStatsV = op.variants
+      else next.mainStatsV = foldMutateList(next.mainStatsV ?? [], op.add, op.remove)
     }
   }
   if (artifactSetsChanged) {
@@ -3407,14 +3405,8 @@ const resolveRecipeOverridesEffectiveRecipeWithInstructions = (
   }
   if (artifactMetaSetsChanged) {
     for (const op of artifactMetaSetsOps) {
-      if (op.mode === 'replace') {
-        next.artifactMetaSets = op.names
-      } else {
-        const removeSet = new Set(op.remove)
-        const base = (next.artifactMetaSets ?? []).filter((n) => !removeSet.has(n))
-        const existing = new Set(base)
-        next.artifactMetaSets = [...base, ...op.add.filter((n) => !existing.has(n))]
-      }
+      if (op.mode === 'replace') next.artifactMetaSets = op.names
+      else next.artifactMetaSets = foldMutateList(next.artifactMetaSets ?? [], op.add, op.remove)
     }
   }
   return next

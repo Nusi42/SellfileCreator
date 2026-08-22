@@ -562,6 +562,21 @@ type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 
 const NOTE_SET_ICON_PX = 14 as const
 
 /**
+ * The icon inside a set run. As a flex item its own `verticalAlign` is inert, so the optical
+ * centering is done here: `alignSelf` centres it on the flex line and a small POSITIVE `top`
+ * nudges the square glyph down off the text baseline onto the x-height, which is where the
+ * eye expects it next to lowercase text.
+ */
+const NOTE_SET_ICON_IMAGE_SX = {
+  mr: 0.375,
+  // Centre the glyph on the flex line rather than hanging it off the baseline.
+  alignSelf: 'center',
+  position: 'relative',
+  // ~x-height/2 for the 14px icon against caption text; keeps the glyph optically centered.
+  top: '0.09em',
+} as const
+
+/**
  * Wrapper for one rendered `{set:Name}` run (icon + name) sitting inside running text.
  *
  * The run must read as ordinary words: its NAME sits on the surrounding baseline and the
@@ -578,19 +593,6 @@ const NOTE_SET_ICON_PX = 14 as const
  * SetIcon's own `verticalAlign: 'middle'` does NOT participate here — it becomes a flex
  * item, where vertical-align is inert — so its placement is set by NOTE_SET_ICON_IMAGE_SX.
  */
-/**
- * The icon inside a set run. As a flex item its own `verticalAlign` is inert, so the optical
- * centering is done here: a small negative baseline offset drops the square glyph from the
- * text baseline onto the x-height, which is where the eye expects it next to lowercase text.
- */
-const NOTE_SET_ICON_IMAGE_SX = {
-  mr: 0.375,
-  // ~x-height/2 for the 14px icon against caption text; keeps the glyph optically centered.
-  alignSelf: 'center',
-  position: 'relative',
-  top: '0.09em',
-} as const
-
 const NOTE_SET_ICON_RUN_SX = {
   display: 'inline-flex',
   alignItems: 'baseline',
@@ -804,29 +806,32 @@ function NoteSetIconRuns({ text, keyPrefix }: { text: string; keyPrefix: string 
   const { t } = useI18n()
   // Fast path: most runs carry no token, so skip the split and keep the plain string.
   if (!hasNoteSetIconToken(text)) return text
-  // Keys are the running character offset plus the segment content. The offset is derived
-  // by slicing the ALREADY-parsed prefix rather than accumulated in a loop variable (the
-  // React compiler rejects reassigning a captured local during render), and it disambiguates
-  // repeats like `{set:Speed}/{set:Speed}` that a content-only key would collide on.
+  // Keys are the segment's running character offset plus its content, which disambiguates
+  // repeats like `{set:Speed}/{set:Speed}` that a content-only key would collide on. The
+  // offsets are accumulated in ONE pass here (rather than re-derived per segment by slicing
+  // the parsed prefix, which was quadratic) and the reduce keeps the accumulator local, so
+  // nothing captured is reassigned during render.
   const segments = splitNoteSetIconSegments(text)
-  const lengthOf = (seg: NoteSetIconSegment): number => (seg.kind === 'text' ? seg.text.length : seg.name.length)
-  const offsetAt = (index: number): number => segments.slice(0, index).reduce((sum, seg) => sum + lengthOf(seg), 0)
-  return segments.map((seg, index) => {
-    const at = offsetAt(index)
-    return seg.kind === 'text'
-      ? <Fragment key={`${keyPrefix}-t${at}-${seg.text}`}>{seg.text}</Fragment>
+  const keyed = segments.reduce<{ at: number; items: Array<{ seg: NoteSetIconSegment; key: string }> }>(
+    (acc, seg) => {
+      const text_ = seg.kind === 'text' ? seg.text : seg.name
+      acc.items.push({ seg, key: `${keyPrefix}-${seg.kind === 'text' ? 't' : 's'}${acc.at}-${text_}` })
+      return { at: acc.at + text_.length, items: acc.items }
+    },
+    { at: 0, items: [] },
+  ).items
+  return keyed.map(({ seg, key }) => (
+    seg.kind === 'text'
+      ? <Fragment key={key}>{seg.text}</Fragment>
       : (
-        <Box
-          key={`${keyPrefix}-s${at}-${seg.setId}`}
-          component="span"
-          sx={NOTE_SET_ICON_RUN_SX}
-        >
-          {/* Sized to the surrounding caption text rather than the menu default. */}
-          <SetIcon setId={seg.setId} size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />
+        <Box key={key} component="span" sx={NOTE_SET_ICON_RUN_SX}>
+          {/* Sized to the surrounding caption text rather than the menu default. Decorative:
+              the localized name sits right beside it, so an alt would just repeat it. */}
+          <SetIcon setId={seg.setId} label="" size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />
           {getLocalizedGearSetName(seg.setId, t)}
         </Box>
       )
-  })
+  ))
 }
 
 function renderQuestionOptionLabel(
@@ -1465,7 +1470,8 @@ function NoteSetIconInline(props: Record<string, unknown>): JSX.Element {
   const setId = Number(rawId)
   return (
     <Box component="span" sx={NOTE_SET_ICON_RUN_SX}>
-      {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />}
+      {/* Decorative: the label right beside it already names the set, so alt stays empty. */}
+      {Number.isFinite(setId) && <SetIcon setId={setId as ArtifactSetId} label="" size={NOTE_SET_ICON_PX} sx={NOTE_SET_ICON_IMAGE_SX} />}
       {Number.isFinite(setId) ? getLocalizedGearSetName(setId as ArtifactSetId, t) : name}
     </Box>
   )
@@ -1485,7 +1491,9 @@ function NoteSetIconInline(props: Record<string, unknown>): JSX.Element {
  */
 const rehypeSetIconTokens: Pluggable = () => (tree: unknown) => {
   const LITERAL_TAGS = new Set(['code', 'pre'])
-  const visit = (node: Record<string, unknown>, parentTag: string | null): void => {
+  // Only the node's OWN tag gates the skip — a <code>/<pre> subtree is short-circuited when
+  // the recursion reaches it, so no ancestor tag needs threading through.
+  const visit = (node: Record<string, unknown>): void => {
     const children = node['children']
     if (!Array.isArray(children)) return
     const tagName = typeof node['tagName'] === 'string' ? node['tagName'] : null
@@ -1496,7 +1504,7 @@ const rehypeSetIconTokens: Pluggable = () => (tree: unknown) => {
       const rec = child as Record<string, unknown>
       const isText = rec?.['type'] === 'text' && typeof rec['value'] === 'string'
       // Recurse into elements; only text nodes can carry the token.
-      if (!isText) { visit(rec, tagName); next.push(child); continue }
+      if (!isText) { visit(rec); next.push(child); continue }
       const value = rec['value'] as string
       if (!hasNoteSetIconToken(value)) { next.push(child); continue }
       for (const seg of splitNoteSetIconSegments(value)) {
@@ -1511,9 +1519,8 @@ const rehypeSetIconTokens: Pluggable = () => (tree: unknown) => {
       }
     }
     node['children'] = next
-    void parentTag
   }
-  visit(tree as Record<string, unknown>, null)
+  visit(tree as Record<string, unknown>)
 }
 
 // Wrap <!-- if-no-endpoint --> … <!-- /if-no-endpoint --> ranges in a <div> tagged with
@@ -1741,7 +1748,6 @@ const rehypeSafeguardOverridesComments: Pluggable = () => {
     transform(tree)
   }
 }
-
 
 function collectRecipeIds(text: string, recipes: BuilderRecipe[]): Set<number> {
   const used = new Set<number>()

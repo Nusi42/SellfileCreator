@@ -16,7 +16,7 @@
 import { artifactSetIdByName } from './safeguards'
 import { artifactSetName, type ArtifactSetId } from './types'
 
-/** Token keyword — the part before the colon. Exported so the serializer/highlighter agree. */
+/** Token keyword — the part before the colon. The single spelling every consumer builds on. */
 export const NOTE_SET_ICON_TOKEN_KEYWORD = 'set'
 
 /**
