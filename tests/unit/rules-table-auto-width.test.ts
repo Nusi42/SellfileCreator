@@ -6,6 +6,8 @@ import {
   emptyContentExtent,
   extendWithIcons,
   extendWithIconTextPair,
+  extendWithPx,
+  measureHeaderPx,
   extendWithText,
   isAutoWidth,
   resolvePending,
@@ -147,4 +149,24 @@ test('extendWithIconTextPair keeps the widest pair, not the last', () => {
   extendWithIconTextPair(extent, 2, 1)
   assert.equal(extent.maxPairIcons, 2)
   assert.equal(extent.maxPairChars, 1)
+})
+
+test('extendWithPx folds a pixel width in alongside the character-count terms', () => {
+  const extent = emptyContentExtent()
+  // A header measured in its own proportional font arrives as pixels, not characters.
+  extendWithPx(extent, 300)
+  assert.equal(
+    widthForExtent(extent, 0),
+    300 + RULES_TABLE_CELL_PADDING_X_TOTAL_PX,
+  )
+  // A wider pixel value wins; a narrower one must not shrink it.
+  extendWithPx(extent, 120)
+  assert.equal(extent.maxPx, 300)
+})
+
+test('measureHeaderPx returns 0 without a sample element', () => {
+  // No live header (first paint) must not throw — the column falls back to content width.
+  assert.equal(measureHeaderPx('Rank/Rarity', null), 0)
+  // Empty label measures as nothing regardless.
+  assert.equal(measureHeaderPx('', null), 0)
 })

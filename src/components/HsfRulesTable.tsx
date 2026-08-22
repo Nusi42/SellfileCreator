@@ -53,6 +53,8 @@ import {
   emptyContentExtent,
   extendWithIcons,
   extendWithIconTextPair,
+  extendWithPx,
+  measureHeaderPx,
   extendWithText,
   considerByCount,
   resolvePending,
@@ -1558,7 +1560,13 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
       const extents = new Map<string, ColumnContentExtent>()
       for (const key of autoColKeys) extents.set(key, emptyContentExtent())
       // The header must always fit, so seed each extent with its own label before the rows.
-      for (const key of autoColKeys) extendWithText(extents.get(key)!, colHeaderLabel(key as ColKey))
+      // Headers render in the proportional UI font, not the body's monospace, so their width is
+      // NOT a character count — measure each label against a live header cell's computed font
+      // and fold the result in as pixels.
+      const headerSample = headerRef.current?.querySelector('th') ?? null
+      for (const key of autoColKeys) {
+        extendWithPx(extents.get(key)!, measureHeaderPx(colHeaderLabel(key as ColKey), headerSample))
+      }
       // Ordinal columns are sized by the LARGEST ordinal, which is a property of the row count
       // rather than of any single rule — so they are folded in here, in constant time, instead
       // of being compared once per row inside the walk below.
@@ -2421,7 +2429,13 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
           stickyHeader
           sx={{
             tableLayout: 'fixed',
+            // Fill the port when the columns fit, but grow to their true total when they do not.
+            // `width: 100%` alone pins the table to the port under `table-layout: fixed`, which
+            // demotes the per-column widths to mere proportions: every column is squeezed to fit,
+            // header and body cells disagree on where the boundaries are, and the table reports
+            // no overflow to scroll. minWidth is what makes a too-wide column set real.
             width: '100%',
+            minWidth: needHScroll ? `${totalVisibleWidth}px` : undefined,
             // Tighten the inter-column gutter in both wrap modes: MUI's small-size default of 6px
             // per side reads as loose here. Header and body cells share the value so a column's
             // heading stays aligned with the data under it.
@@ -2474,6 +2488,10 @@ export function HsfRulesTable({ rules, recipeNames = [], recipeFgColors = [], on
                     onDragStart={() => onHeaderDragStart(realIdx)}
                     onDragOver={onHeaderDragOver}
                     onDrop={() => onHeaderDrop(realIdx)}
+                    // Headers deliberately keep the proportional UI font (the body is monospace),
+                    // so the heading row reads as chrome rather than data. The auto-width
+                    // measurer therefore cannot size a header by character count — it measures
+                    // the label in this exact font instead (`measureHeaderPx`).
                     sx={{ width: c.width, fontWeight: 600, fontSize: FONT_SIZE_BASE_PX, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>

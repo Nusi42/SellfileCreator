@@ -46,6 +46,11 @@ export interface ColumnContentExtent {
   /** Most icons any single row draws, for icon columns. */
   maxIcons: number
   /**
+   * Largest width already known in pixels — the header label, measured in its own proportional
+   * font. Kept apart from `maxChars` because that one is in monospace characters.
+   */
+  maxPx: number
+  /**
    * Largest combined icon+text footprint seen in a single cell, for a column that draws both
    * at once. See `extendWithIconTextPair`; zero for every ordinary column.
    */
@@ -64,7 +69,7 @@ export interface ColumnContentExtent {
 
 /** An empty extent, so callers can fold rows onto it without a null branch. */
 export const emptyContentExtent = (): ColumnContentExtent => (
-  { maxChars: 0, maxIcons: 0, maxPairIcons: 0, maxPairChars: 0, pendingCount: -1, pendingRows: [] }
+  { maxChars: 0, maxIcons: 0, maxPx: 0, maxPairIcons: 0, maxPairChars: 0, pendingCount: -1, pendingRows: [] }
 )
 
 /**
@@ -78,6 +83,40 @@ export const extendWithText = (extent: ColumnContentExtent, text: string): void 
 /** Widen an extent to cover one more row's icon count. Mutates, for the same reason. */
 export const extendWithIcons = (extent: ColumnContentExtent, count: number): void => {
   if (count > extent.maxIcons) extent.maxIcons = count
+}
+
+/**
+ * Widen an extent by a width already known in PIXELS.
+ *
+ * Everything else in this module works in character counts, which only means anything in the
+ * body's monospace face. Column headings deliberately render in the proportional UI font, so
+ * their width has to be measured directly (see `measureHeaderPx`) and folded in as pixels.
+ */
+export const extendWithPx = (extent: ColumnContentExtent, px: number): void => {
+  if (px > extent.maxPx) extent.maxPx = px
+}
+
+/**
+ * Measure a header label in the font the header actually renders in.
+ *
+ * The heading row uses the proportional UI font at weight 600, and that font is themeable at
+ * runtime — so rather than hardcode a family, this reads the computed style off a live header
+ * cell and measures against it. `sampleEl` is any rendered `th`; without one (first paint, no
+ * canvas) it returns 0 and the column simply falls back to its content width.
+ */
+export const measureHeaderPx = (text: string, sampleEl: Element | null): number => {
+  if (!text) return 0
+  const ctx = getMeasureContext()
+  if (!ctx || !sampleEl) return 0
+  const style = getComputedStyle(sampleEl)
+  // Compose the shorthand the canvas expects; weight matters as much as family here.
+  const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  const previous = ctx.font
+  ctx.font = font
+  const width = ctx.measureText(text).width
+  // Restore the body-font context so the monospace advance cache stays valid.
+  ctx.font = previous
+  return width
 }
 
 /**
@@ -242,5 +281,6 @@ export const widthForExtent = (extent: ColumnContentExtent, iconStepPx: number):
   const pairPx = extent.maxPairIcons > 0
     ? extent.maxPairIcons * iconStepPx + extent.maxPairChars * advancePx
     : 0
-  return finishWidth(Math.max(iconsPx, textPx, pairPx))
+  // The header term is already in pixels; the rest convert from character counts.
+  return finishWidth(Math.max(iconsPx, textPx, pairPx, extent.maxPx))
 }
