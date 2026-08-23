@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.43 — 2026-08-23
+English:
+- **Fixed: RSL Helper running on a custom port could keep getting contacted on the old or default port after you launched it** — an earlier improvement that remembers your connection between sessions didn't pick up the port from the launch link; the app now reads it correctly, and a link without a port no longer overwrites the port you already had saved.
+
+Deutsch:
+- **Behoben: RSL Helper auf einem abweichenden Port konnte nach dem Start weiterhin über den alten oder den Standard-Port angesprochen werden** — eine frühere Verbesserung, die sich die Verbindung zwischen den Sitzungen merkt, übernahm den Port aus dem Start-Link bisher nicht; die App liest ihn jetzt korrekt aus, und ein Link ohne Port überschreibt den bereits gespeicherten Port nicht mehr.
+
 ## v1.0.42 — 2026-08-22
 English:
 - **New: Safeguard groups — several safeguards sharing one Required Count** — until now every safeguard counted on its own, so two rules that were really describing the same promise kept twice as much gear as you wanted: one wants 3 good rings, another wants 2, and you end up with 5.
