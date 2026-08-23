@@ -191,6 +191,7 @@ import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPre
 import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { createPresetId } from './state/presetUtils'
 import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPreference'
+import { useBuilderSplitterRatio } from './state/builderSplitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
@@ -1012,6 +1013,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     sideBySideMinPaperHeightPx,
     isSideBySide,
     scheduleMeasurement,
+    builderFormPaperRef,
+    builderSplitUsableHeightPx,
+    builderSplitNaturalRatio,
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
   // Persisted split ratio (0.0–1.0) for the draggable splitter. Only active in side-by-side mode.
   // Absolute left/right px are derived below from the measured container width so panels scale
@@ -1263,6 +1267,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // pipeline matching is always computed regardless.
   const [previewMode, setPreviewMode] = usePreviewModePreference()
   const [builderMode, setBuilderMode] = useBuilderModePreference()
+  // Persisted split between the builder-form paper and the chip-list paper, stored per builder
+  // mode (the two forms have very different natural heights). null = never dragged in this mode,
+  // which keeps the form at its natural height and lets the chip list take the rest.
+  const [builderSplitRatio, setBuilderSplitRatio] = useBuilderSplitterRatio(builderMode)
+  // Committing a builder split re-measures: the chip list's height budget just changed, and the
+  // chips panel sizes itself from that measurement.
+  const handleBuilderSplitResize = useCallback((ratio: number | null) => {
+    setBuilderSplitRatio(ratio)
+    scheduleMeasurement()
+  }, [setBuilderSplitRatio, scheduleMeasurement])
   // Re-measure the builder Paper min-height whenever the mode switches.
   // The recipe chips ResizeObserver only fires when the chips container itself resizes;
   // hiding it (switching to safeguard mode) does not trigger a resize, so the stale
@@ -9662,9 +9676,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         >
         <BuilderColumn
           paperRef={leftPaperRef}
+          formPaperRef={builderFormPaperRef}
           sideBySideMinPaperHeightPx={sideBySideMinPaperHeightPx}
           forceSideBySide={forceSideBySideLayout}
           widthPx={isSideBySide ? splitterLeftPx : undefined}
+          isSideBySide={isSideBySide}
+          splitRatio={builderSplitRatio}
+          splitFallbackRatio={builderSplitNaturalRatio}
+          splitUsableHeightPx={builderSplitUsableHeightPx}
+          onSplitResize={handleBuilderSplitResize}
           title={builderModeToggle}
           substatTargets={substatTargetsElement}
           builderPanel={

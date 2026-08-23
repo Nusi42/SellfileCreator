@@ -281,7 +281,10 @@ function RecipeChipsPanel(props: {
         sx={(theme) => {
           const gutterPadding = theme.spacing(1)
           return {
-            mt: 2,
+            // No top margin: the list is the first child of its own paper, so the paper's own
+            // padding is the whole inset. (This was the gap below the form back when the form and
+            // the chips shared a single paper.)
+            mt: 0,
             display: 'flex',
             // Stack full-width chips vertically; no wrap logic needed.
             flexDirection: 'column',

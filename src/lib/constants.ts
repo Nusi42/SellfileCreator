@@ -460,6 +460,17 @@ export const BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX = 12
 // dominates the available space when both panels are visible.
 export const BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX = 150
 
+// ── Builder column vertical splitter (builder form paper / chips paper) ──
+// The builder column is two stacked Papers separated by a draggable horizontal handle.
+// Storage key holds a per-builder-mode map of split ratios; see state/builderSplitterPreference.ts.
+export const BUILDER_SPLITTER_STORAGE_KEY = 'sellfileCreator.layout.builderSplitterRatio.v1'
+// Floor for the TOP (builder form) paper. Below this the form's own controls start clipping,
+// so the drag stops here rather than letting the user collapse the form entirely.
+export const BUILDER_SPLITTER_MIN_TOP_PX = 120
+// Floor for the BOTTOM (chips) paper. Matches the safeguard chip-list floor so a dragged
+// split can never leave less room than the automatic measurement path already guarantees.
+export const BUILDER_SPLITTER_MIN_BOTTOM_PX = BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX
+
 // Shared UI transitions
 export const UI_BG_TRANSITION = 'background-color 220ms ease-in-out 60ms'
 // Immediate hover-danger background transition (no delay) used for red-tint

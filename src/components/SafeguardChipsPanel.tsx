@@ -1224,7 +1224,9 @@ export default function SafeguardChipsPanel({
         // the empty area; chip-level right-clicks stop propagation before reaching here.
         onContextMenu={(event) => openRuleMenu(event, -1)}
         sx={(themeInner) => ({
-          mt: 1,
+          // No top margin — the list is the first child of its own paper and the paper's padding
+          // is the whole inset. Matches RecipeChipsPanel so both builder modes inset identically.
+          mt: 0,
           display: 'flex',
           flexDirection: 'column',
           width: '100%',

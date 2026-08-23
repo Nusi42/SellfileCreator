@@ -9,6 +9,7 @@ import {
   SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
 } from '../lib/constants'
 import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
+import { isSplitterDragActive } from './useSplitterDrag'
 
 const isSyntheticResizeEvent = (event?: Event): boolean => Boolean(event && event.type === 'resize' && event.isTrusted === false)
 
@@ -38,6 +39,15 @@ export type BuilderPreviewLayout = {
   previewPaperHeightPx: number | null
   previewPaperHeightStyle: string | undefined
   sideBySideMinPaperHeightPx: string | undefined
+  // Ref for the builder column's TOP paper (the rule form). Measured so the builder splitter can
+  // start a drag from the form's natural height instead of jumping to an arbitrary ratio.
+  builderFormPaperRef: React.MutableRefObject<HTMLDivElement | null>
+  // Height budget (CSS px) the builder column's two papers share, or null outside side-by-side.
+  // This is the same value sideBySideMinPaperHeightPx expresses as a CSS length.
+  builderSplitUsableHeightPx: number | null
+  // Where the split naturally falls today: form height / total budget. Used as the drag start
+  // value while the user has not dragged in the active builder mode.
+  builderSplitNaturalRatio: number
   // Trigger a re-measurement of the builder Paper min-height from current DOM state.
   // Call this whenever the builder content changes in a way that the chips ResizeObserver
   // may not detect (e.g. switching builderMode hides the recipe chips container).
@@ -91,7 +101,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     measure()
     let ro: ResizeObserver | null = null
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => measure())
+      // Skip mid-gesture notifications: a splitter drag resizes these elements on every mousemove
+      // and mouseup re-measures from the final sizes anyway.
+      ro = new ResizeObserver(() => { if (!isSplitterDragActive()) measure() })
       ro.observe(el)
     }
     const onWin: EventListener = (event) => {
@@ -102,6 +114,34 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     return () => {
       if (ro) ro.disconnect()
       window.removeEventListener('resize', onWin)
+    }
+  }, [])
+
+  // ── Builder form paper (the column's TOP paper) ──
+  // Measured only to derive the natural split ratio; the column's own height (leftHeight above)
+  // remains the value the preview column mirrors.
+  const builderFormPaperRef = useRef<HTMLDivElement | null>(null)
+  const [builderFormHeight, setBuilderFormHeight] = useState<number>(0)
+  const setBuilderFormHeightRef = useRef(setBuilderFormHeight)
+  useEffect(() => { setBuilderFormHeightRef.current = setBuilderFormHeight }, [setBuilderFormHeight])
+
+  useEffect(() => {
+    const el = builderFormPaperRef.current
+    if (!el) return
+    const measure = () => {
+      try {
+        setBuilderFormHeightRef.current(el.offsetHeight)
+      } catch {}
+    }
+    measure()
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      // The drag resizes this paper directly; measuring per move would re-render mid-gesture.
+      ro = new ResizeObserver(() => { if (!isSplitterDragActive()) measure() })
+      ro.observe(el)
+    }
+    return () => {
+      if (ro) ro.disconnect()
     }
   }, [])
 
@@ -245,6 +285,8 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
       }
       observer = new ResizeObserver(() => {
         if (!isSideBySideRef.current) return
+        // A splitter drag resizes the chips container continuously; the commit re-measures.
+        if (isSplitterDragActive()) return
         scheduleChipsMeasurement()
       })
       observer.observe(container)
@@ -415,7 +457,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
         frame = window.requestAnimationFrame(attach)
         return
       }
-      observer = new ResizeObserver(() => { runSafeguardChipsMeasurement() })
+      observer = new ResizeObserver(() => { if (!isSplitterDragActive()) runSafeguardChipsMeasurement() })
       observer.observe(container)
     }
     attach()
@@ -467,6 +509,22 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     () => (sideBySideMinPaperHeight > 0 ? `${sideBySideMinPaperHeight}px` : undefined),
     [sideBySideMinPaperHeight],
   )
+
+  // The builder column's two papers divide exactly the budget the column is locked to. Outside
+  // side-by-side there is no fixed budget (both papers grow with content), hence null.
+  const builderSplitUsableHeightPx = useMemo(
+    () => (isSideBySide && sideBySideMinPaperHeight > 0 ? sideBySideMinPaperHeight : null),
+    [isSideBySide, sideBySideMinPaperHeight],
+  )
+
+  // Where the split sits before any drag: the form's share of the budget. Falls back to an even
+  // split only when neither height has been measured yet, so a drag started in that window still
+  // has a sane reference.
+  const builderSplitNaturalRatio = useMemo(() => {
+    if (!builderSplitUsableHeightPx || builderFormHeight <= 0) return 0.5
+    const raw = builderFormHeight / builderSplitUsableHeightPx
+    return Math.max(0, Math.min(1, raw))
+  }, [builderFormHeight, builderSplitUsableHeightPx])
   const previewPaperHeightStyle = useMemo(() => (previewPaperHeightPx ? `${previewPaperHeightPx}px` : undefined), [previewPaperHeightPx])
 
   return {
@@ -480,6 +538,9 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     previewPaperHeightPx,
     previewPaperHeightStyle,
     sideBySideMinPaperHeightPx,
+    builderFormPaperRef,
+    builderSplitUsableHeightPx,
+    builderSplitNaturalRatio,
     // Delegates to the chips measurement path so callers (e.g. App.tsx on builderMode
     // change) can force a recalculation without coupling to internal implementation.
     scheduleMeasurement: scheduleChipsMeasurement,

@@ -90,6 +90,7 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | Gear Inspector single-select mode | `sellfileCreator.gearInspector.singleSelectMode.v1` | (GearInspectorItemsGrid raw) |
 | Sets display order | `sellfileCreator.setsOrder.v1` | `state/setsOrderPreference.ts` |
 | Layout splitter ratio | `sellfileCreator.layout.splitterRatio.v1` | `state/splitterPreference.ts` |
+| Builder column split ratio (per builder mode) | `sellfileCreator.layout.builderSplitterRatio.v1` | `state/builderSplitterPreference.ts` |
 | Note panel size/state | `sellfileCreator.notePanel.v1` | (App.tsx raw) |
 
 ### Preset / customization libraries (reusable — must stay shared)
