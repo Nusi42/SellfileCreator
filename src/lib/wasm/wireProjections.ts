@@ -217,9 +217,22 @@ export const expandSafeguardSnapshotFromWire = (wire: SafeguardWasmSnapshotOutWi
 })
 
 // Project app-domain SafeguardDetectionSnapshot → wire form for WASM input.
-// Used when sending a prior detection result back in the computeMergedRules payload.
-// rule_id (ri) is omitted; WASM falls back to hash-based entry lookup.
+// Used when sending a prior detection result back in the computeMergedRules payload —
+// this projection is MERGE-DIRECTED, so it carries only what merge-time rule emission
+// (build_safeguard_rules_core) actually consumes. rule_id (ri) is omitted; WASM falls
+// back to hash-based entry lookup.
 function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): SafeguardWasmEntryOut {
+  // Merge-time keep-rule emission skips every artifact whose itemKey is not in item_keys
+  // ("artifacts may include kept items for UI display; keep-rule emission must not use it"),
+  // so only the at-risk subset needs to cross the boundary. The FULL per-entry lists run to
+  // hundreds of thousands of rows on large accounts (~78 MiB of snapshot JSON per merge),
+  // and re-serializing that slightly-growing payload into WASM on every endpoint push is
+  // exactly the talc-fragmentation ratchet documented in docs/technical/pipeline-memory.md
+  // ("Merge payload slimming") — the filter keeps the payload proportional to the protected
+  // set instead of the whole inventory. Relative order is preserved, so emitted rules are
+  // byte-identical to projecting the full list.
+  const protectedKeys = new Set(entry.itemKeys)
+  const atRiskArtifacts = entry.artifacts.filter((artifact) => protectedKeys.has(artifact.itemKey))
   return {
     h: entry.hash,
     co: bridgeMirrorShape<SafeguardWasmCombination, SafeguardCombination>(entry.combination),
@@ -236,12 +249,14 @@ function projectSafeguardEntryForWire(entry: SafeguardDetectionEntry): Safeguard
     d: entry.deficit,
     cbe: entry.coveredByExisting,
     ik: entry.itemKeys,
-    ar: bridgeMirrorShapes<SafeguardWasmArtifactOut, SafeguardDetectionArtifact>(entry.artifacts),
+    ar: bridgeMirrorShapes<SafeguardWasmArtifactOut, SafeguardDetectionArtifact>(atRiskArtifacts),
     // Count + fingerprint only — the engine rehydrates the actual placeholder objects
     // from its resident store, validated by the snapshot-level pid below.
     plc: entry.placeholderCount,
     plf: entry.placeholderFingerprint,
-    ca: entry.candidates ?? [],
+    // Candidates are UI-only ranking data (flyout/candidate lists); merge-time emission
+    // never reads them, so the merge payload sends none.
+    ca: [],
   }
 }
 

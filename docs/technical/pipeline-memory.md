@@ -122,6 +122,23 @@ Secondary contributors (not the root cause):
    (`HSF_EXPORT_CONTENT_TYPE` SSOT in hsfIO); the dev capture queue got coalescing
    backpressure (see packet-capture.md — newest frame per method always kept, so a
    replayed capture still ends on the latest state).
+6. **Merge payload slimming — snapshot artifacts filtered to the at-risk subset**
+   *(implemented)*. The leak regressed after safeguard groups shipped in the
+   lategame preset: detection entries' UI-facing `artifacts` lists grew to ~219k rows
+   across 155 entries (~78 MiB of snapshot JSON), and every final merge re-serialized
+   that slightly-growing payload JS→WASM (`sd` in the cached-merge envelope). talc could
+   never reuse the previous, slightly-too-small hole, so linear memory ratcheted in
+   ~78 MB grows (+466 MB over 15 reveal rounds in `endpoint-incremental-updates.spec.ts`).
+   Fix in `projectSafeguardEntryForWire` (`src/lib/wasm/wireProjections.ts`), the SSOT
+   projection behind ALL merge-directed snapshot sends (`computeMergedRulesCached…`,
+   `mergeCachedRulesAndConfigure…`, `buildSafeguardRules…`): merge-time emission
+   (`build_safeguard_rules_core`) provably skips every artifact whose itemKey is not in
+   `item_keys` and never reads `candidates`, so the wire form now carries only the
+   at-risk (`item_keys`-filtered) artifact subset and an empty candidate list — the
+   payload scales with the protected set, not the inventory. The WASM→JS direction is
+   untouched (the UI needs the full lists); emitted rules are byte-identical (order
+   preserved, skipped rows were skipped anyway). `repro:incremental-growth` (20 rounds):
+   +467 MB → +34 MB one-time settle, flat from round 1.
 
 ## Measured outcome
 
