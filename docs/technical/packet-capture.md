@@ -3,7 +3,7 @@
 A developer tool for recording real WebSocket traffic between RSL Helper and Sellfile
 Creator to disk, so out-of-order endpoint merge/restore behaviour can be debugged and
 replayed against fixtures. This is **not** part of the WebSocket protocol contract — for
-the wire format see [WebSocket Protocol (JSON-RPC)](websocket-jsonrpc.md). This note covers
+the wire format see [WebSocket Protocol (JSON-RPC)](../../userDocs/websocket-jsonrpc.md). This note covers
 the implementation: how it is wired into the app, the dev-server middleware, the on-disk
 layout, and how a recording is promoted into a committed fixture or fed to the replay
 harness.
@@ -79,7 +79,7 @@ The committed reference session lives directly in `docs/orig/sampleLog/` (same
 the order in which RSL Helper emitted the packet). The current sample (captured
 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6,
 `lastUsed` ×2, and `ArtifactByHeroID` ×1. (Not referenced from the user-facing
-`websocket-jsonrpc.md` — `docs/orig/` is not shipped.)
+`userDocs/websocket-jsonrpc.md` — `docs/orig/` is not shipped.)
 
 ### Outbound frame shape
 

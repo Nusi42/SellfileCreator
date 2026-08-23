@@ -25,10 +25,6 @@ const WATCH_INCLUDED_ROOT_FILE_PATTERNS: readonly RegExp[] = [
   /^package\.json$/,
   /^vite\.config\.ts$/,
   /^tsconfig(?:\..+)?\.json$/,
-  // Root README*.md are bundled into the Help dialog via import.meta.glob (HelpDialog.tsx),
-  // so edits must trigger HMR. Covers README.md and localized variants (README.de.md,
-  // README.pt-BR.md, …).
-  /^README(?:\.[^/]+)?\.md$/,
 ]
 
 // Restrict non-root directory watching to code + runtime assets consumed by the app.
@@ -39,6 +35,10 @@ const WATCH_INCLUDED_TOP_LEVEL_DIRS = new Set<string>([
   // Bundled preset `.sfc` files are imported via `?raw` (HeaderActions, sfcPresetMatch),
   // so edits to them must trigger HMR just like source — watch the directory.
   'presets',
+  // userDocs/README*.md are bundled into the Help dialog via import.meta.glob (HelpDialog.tsx),
+  // so edits must trigger HMR. Covers README.md and localized variants (README.de.md,
+  // README.pt-BR.md, …).
+  'userDocs',
 ])
 
 // Vite plugin code under scripts/vite affects bundling/hot reload behavior directly.

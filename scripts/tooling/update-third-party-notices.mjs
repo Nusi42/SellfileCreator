@@ -10,6 +10,11 @@ const LICENSE_SOURCES = {
   ISC: 'node_modules/eslint-import-resolver-typescript/LICENSE'
 };
 
+// User-facing documents (READMEs, history, notices) live here; the notices file is shipped
+// from this folder verbatim, so it must not mention repository internals.
+const USER_DOCS_DIR = 'userDocs';
+const NOTICES_FILE_NAME = 'THIRD_PARTY_NOTICES.txt';
+
 const scriptPath = fileURLToPath(import.meta.url);
 // Resolve repo root from scripts/tooling.
 const repoRoot = path.resolve(path.join(path.dirname(scriptPath), '..', '..'));
@@ -111,7 +116,8 @@ function readLicenseText(key) {
   return fs.readFileSync(resolved, 'utf8').trim();
 }
 
-const header = `# Third-Party Notices\n\nThis file enumerates the third-party packages that are bundled into Sellfile Creator distributions.\nIt is generated automatically by scripts/tooling/update-third-party-notices.mjs during release builds\nso every archive carries the up-to-date attribution data.`;
+// Plain-language header: the file is read by end users, so it names no internal tooling.
+const header = `# Third-Party Notices\n\nThis file lists the third-party packages that are bundled into Sellfile Creator.\nIt is generated automatically with every release so the attribution data is always current.`;
 
 const tableLines = [
   '| Package | Version | License | Homepage |',
@@ -161,7 +167,10 @@ for (const key of sectionOrder) {
 }
 
 const output = bodyLines.join('\n').trimEnd() + '\n';
-fs.writeFileSync(path.join(repoRoot, 'THIRD_PARTY_NOTICES.txt'), output, 'utf8');
+// The notices file is a user-facing document, so it lives with the other shipped docs.
+const outputDir = path.join(repoRoot, USER_DOCS_DIR);
+fs.mkdirSync(outputDir, { recursive: true });
+fs.writeFileSync(path.join(outputDir, NOTICES_FILE_NAME), output, 'utf8');
 
 function readPackageLicenseFile(pkgDir) {
   const candidates = [

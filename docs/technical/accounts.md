@@ -261,7 +261,7 @@ it, reusing the existing selective-import machinery instead of forking merge log
 | 2 | `playerId` stamped on notifications + consumed on requests | Inbound ownership verification (adopt / match / drop-with-toast, see `classifyInboundAccountId`), per-account sellfile saves on the Helper side. |
 
 All three phases' handling is implemented in SFC now; phases 1–2 activate purely by what
-arrives. The wire contract lives in [websocket-jsonrpc.md](websocket-jsonrpc.md).
+arrives. The wire contract lives in [websocket-jsonrpc.md](../../userDocs/websocket-jsonrpc.md) (user-facing, under `userDocs/`).
 
 ## Background auto-push for non-active accounts
 

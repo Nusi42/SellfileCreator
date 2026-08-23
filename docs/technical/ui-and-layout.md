@@ -9,7 +9,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - Catalog files (non-English):
   - Each catalog lives in `src/lib/i18n/catalogs/<lang>.ts` and exports `const overrides: Catalog = { ... }; export default overrides` (overrides only; no English duplication).
   - `src/lib/i18n.tsx` merges every override over the English source catalog at runtime so any missing key falls back to English automatically.
-- README translations live at the repo root as `README.<lang>.md` (e.g., `README.de.md`). The Help dialog pulls them via Vite glob imports when present.
+- README translations live in `userDocs/` as `README.<lang>.md` (e.g., `userDocs/README.de.md`), next to the English `README.md`. The Help dialog pulls them via a Vite glob import when present — adding a file there is all it takes to ship a new translation.
 - Shipped languages:
   - Localized: `de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pt-BR`, `pt-PT`, `ru-RU`, `uk-UA`, `tr-TR` — provide partial/complete overrides layered over English.
 - Vocabulary must stay consistent with the game and the existing UI. Reuse the terminology already present (e.g., “Recipe”) rather than inventing new phrases, and keep wording simple so non-expert users can follow along. Raid Shadow Legends terminology is allowed whenever it helps clarity. Apply this rule to every surface: catalogs, README translations, tutorials, cheat sheets, tooltips, and any other strings.
@@ -27,7 +27,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   Sellfile Creator"), in the trademark disclaimer, and in README content the Help dialog
   parses by heading text.
   - The **README files are the exception**: they ship as standalone documents (distributed
-    to users, read on GitHub) *and* render as the in-app Help screen, so they keep saying
+    to users as text files in the release zip) *and* render as the in-app Help screen, so they keep saying
     "RSL Helper" on disk and are adapted at render time by `adaptReadmeForDisplay`
     (`lib/readmeClientName.ts`). That module protects four categories from rewriting — the
     `.hsf` format name ("RSL Helper Sellfile", in every language's word order), the trademark
@@ -64,8 +64,8 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 ### Localization alignment workflow
 
 - README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Gear Inspector preview, Safeguards defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, recipe management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
-- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg ‘^##’ README.md` / `rg ‘^##’ README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and recipe-management paragraphs stay parallel.
-- README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
+- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg ‘^##’ userDocs/README.md` / `rg ‘^##’ userDocs/README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and recipe-management paragraphs stay parallel.
+- `userDocs/README.md` and all README translations (`userDocs/README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, never mention internals (closed source), explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
 - All `Recipe`-building, `Filter`, `Gear-Sets`, and `Safeguards` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
 - Locale-specific notes should live as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`).
 - **Whenever you do translation/terminology work, update this doc in the same change.** A pass that resolves new terms, settles a loanword, or localizes preset prose for a language must leave its findings behind — extend the glossary below (adding a per-language table when none exists) and the catalog loanword comment — so the next pass starts from the decisions, not from scratch.

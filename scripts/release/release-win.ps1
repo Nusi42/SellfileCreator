@@ -34,7 +34,9 @@ function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [str
   $raw = Get-Content -Raw -LiteralPath $SourcePath
   if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
   $lines = $raw -split "\r?\n"
-  if ($lines.Length -gt 0 -and $lines[0].StartsWith('# RSL Helper Sellfile Creator')) {
+  # Match the app title in its current ("Sellfile Creator for RSL Helper") and legacy
+  # ("RSL Helper Sellfile Creator") forms — the same pair the Help dialog strips at render.
+  if ($lines.Length -gt 0 -and ($lines[0].StartsWith('# Sellfile Creator for RSL Helper') -or $lines[0].StartsWith('# RSL Helper Sellfile Creator'))) {
     $badge = "###### v$VersionLabel"
     if ($lines.Length -gt 1 -and $lines[1].StartsWith('###### v')) {
       $lines[1] = $badge
@@ -88,7 +90,10 @@ try {
     $versionLabel = $releaseVersion
     $archiveName = "SellfileCreator_v$packageLabel.zip"
   }
-  $archivePath = Join-Path $RepoRoot $archiveName
+  # Archives land in releases/ (gitignored) so build output never clutters the repo root.
+  $releasesDir = Join-Path $RepoRoot 'releases'
+  if (-not (Test-Path -LiteralPath $releasesDir)) { New-Item -ItemType Directory -Path $releasesDir | Out-Null }
+  $archivePath = Join-Path $releasesDir $archiveName
 
   # Ask upfront — before any slow steps — so the user isn't blocked mid-run.
   $runTests = $true
@@ -194,22 +199,28 @@ try {
   # Stage files with requested names (no subdirectories in archive)
   Copy-Item -LiteralPath $builtIndex -Destination (Join-Path $staging 'SellfileCreator.html') -Force
 
+  # Every user-facing document (READMEs, HISTORY, notices, protocol doc) is sourced from
+  # userDocs/. Only the SOURCE location changed — the archive layout below stays as it was.
+  $userDocsDir = Join-Path $RepoRoot 'userDocs'
+  if (-not (Test-Path -LiteralPath $userDocsDir)) { throw "User docs folder not found: $userDocsDir" }
+
   # Stage README files (English + localized variants) with version badge
-  $readmeSrc = Join-Path $RepoRoot 'README.md'
+  $readmeSrc = Join-Path $userDocsDir 'README.md'
+  if (-not (Test-Path -LiteralPath $readmeSrc)) { throw "README not found: $readmeSrc" }
   Convert-ReadmeToTxt -SourcePath $readmeSrc -DestinationPath (Join-Path $staging 'README.txt') -VersionLabel $versionLabel
-  $localizedReadmes = Get-ChildItem -LiteralPath $RepoRoot -Filter 'README.*.md' -File | Where-Object { $_.Name -ne 'README.md' }
+  $localizedReadmes = Get-ChildItem -LiteralPath $userDocsDir -Filter 'README.*.md' -File | Where-Object { $_.Name -ne 'README.md' }
   foreach ($file in $localizedReadmes) {
     $destName = "{0}.txt" -f $file.BaseName
     Convert-ReadmeToTxt -SourcePath $file.FullName -DestinationPath (Join-Path $staging $destName) -VersionLabel $versionLabel
   }
 
   # Include release history at the root of the archive (source is Markdown; shipped as .txt for end users)
-  $historySrc = Join-Path $RepoRoot 'docs\HISTORY.md'
+  $historySrc = Join-Path $userDocsDir 'HISTORY.md'
   if (-not (Test-Path -LiteralPath $historySrc)) { throw "Release history not found: $historySrc" }
   Copy-Item -LiteralPath $historySrc -Destination (Join-Path $staging 'HISTORY.txt') -Force
 
-  # Include third-party notices to satisfy attribution requirements
-  $noticesSrc = Join-Path $RepoRoot 'THIRD_PARTY_NOTICES.txt'
+  # Include third-party notices to satisfy attribution requirements (generated into userDocs/ above)
+  $noticesSrc = Join-Path $userDocsDir 'THIRD_PARTY_NOTICES.txt'
   if (-not (Test-Path -LiteralPath $noticesSrc)) { throw "Third-party notices file not found: $noticesSrc" }
   Copy-Item -LiteralPath $noticesSrc -Destination (Join-Path $staging 'THIRD_PARTY_NOTICES.txt') -Force
 
@@ -290,11 +301,12 @@ try {
     }
   }
 
+  # Integrator-facing protocol docs ship under dev/ (sourced from userDocs/, same as the READMEs).
   $protocolDocs = @(
-    'docs\\technical\\websocket-jsonrpc.md'
+    'websocket-jsonrpc.md'
   )
   foreach ($docPath in $protocolDocs) {
-    $docSrc = Join-Path $RepoRoot $docPath
+    $docSrc = Join-Path $userDocsDir $docPath
     if (Test-Path $docSrc) {
       $docName = Split-Path -Leaf $docSrc
       Copy-Item -LiteralPath $docSrc -Destination (Join-Path $devDir $docName) -Force
@@ -385,7 +397,7 @@ public static class Crc32Helper {
   $crcText = $crcLines -join "`n"
   Write-TextUtf8NoBom -Path (Join-Path $staging 'CRC.txt') -Text $crcText
 
-  # Create archive in repo root. Use staging as cwd so entries have no subdir paths.
+  # Create archive in releases/. Use staging as cwd so entries have no subdir paths.
   Write-Host "Creating archive: $archivePath"
   Push-Location $staging
   try {

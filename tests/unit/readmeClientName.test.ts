@@ -8,6 +8,9 @@ import { dirname, join } from 'node:path'
 import { adaptReadmeClientReferences } from '../../src/lib/readmeClientName.js'
 import { DEFAULT_CLIENT_NAME } from '../../src/lib/runtimeConfig.js'
 
+// User-facing docs (the shipped READMEs among them) live in this folder under the repo root.
+const USER_DOCS_DIR = 'userDocs'
+
 // The runner compiles specs into tmp/tsc/… before executing them, so the repo root is NOT a
 // fixed number of levels above this file. Walk up until package.json is found instead — a
 // hardcoded '../..' silently resolves into the temp tree and makes every check below pass
@@ -15,7 +18,7 @@ import { DEFAULT_CLIENT_NAME } from '../../src/lib/runtimeConfig.js'
 const findRepoRoot = (): string => {
   let dir = dirname(fileURLToPath(import.meta.url))
   for (let i = 0; i < 10; i += 1) {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'README.md'))) return dir
+    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, USER_DOCS_DIR, 'README.md'))) return dir
     const parent = dirname(dir)
     if (parent === dir) break
     dir = parent
@@ -24,12 +27,14 @@ const findRepoRoot = (): string => {
 }
 
 const REPO_ROOT = findRepoRoot()
-const README_FILES = readdirSync(REPO_ROOT).filter((f) => /^README(\..+)?\.md$/.test(f)).sort()
+// Absolute path of the user-docs folder — every README read below resolves against it.
+const USER_DOCS_ROOT = join(REPO_ROOT, USER_DOCS_DIR)
+const README_FILES = readdirSync(USER_DOCS_ROOT).filter((f) => /^README(\..+)?\.md$/.test(f)).sort()
 // A name that appears nowhere in the READMEs, so a match can only come from substitution
 // (the author's name would collide with the credits lines).
 const CLIENT = 'ZzClientZz'
 
-const readReadme = (file: string): string => readFileSync(join(REPO_ROOT, file), 'utf8')
+const readReadme = (file: string): string => readFileSync(join(USER_DOCS_ROOT, file), 'utf8')
 
 test('README files exist and mention the default client', () => {
   // Guards the guard: if the glob stops matching, every check below would vacuously pass.
@@ -40,8 +45,8 @@ test('README files exist and mention the default client', () => {
 })
 
 test('the shipped README files are never modified — substitution is render-only', () => {
-  // The READMEs are distributed as-is and read on GitHub, so they must keep saying
-  // "RSL Helper" on disk. This asserts the source text itself still does.
+  // The READMEs are distributed as-is (as text files in the release zip), so they must keep
+  // saying "RSL Helper" on disk. This asserts the source text itself still does.
   for (const file of README_FILES) {
     assert.ok(
       readReadme(file).includes(DEFAULT_CLIENT_NAME),

@@ -9,7 +9,7 @@ cd "$REPO_ROOT"
 
 PROMPT_MAIN="docs/CREATE-RELEASE-NOTES.md"
 PROMPT_WORKER="docs/CREATE-RELEASE-NOTES-WORKER.md"
-HISTORY_PATH="docs/HISTORY.md"
+HISTORY_PATH="userDocs/HISTORY.md"
 CHECKLIST_PATH="PRE-RELEASE-CHECKLIST.md"
 TEMP_BASE="docs/.release-notes"
 
@@ -111,7 +111,7 @@ ensure_history_entry() {
   local version="$1"
   parse_history_versions
   if ! version_in_history "$version"; then
-    echo "docs/HISTORY.md is still missing v${version} after the Claude run. Review the output and fix manually." >&2
+    echo "${HISTORY_PATH} is still missing v${version} after the Claude run. Review the output and fix manually." >&2
     exit 1
   fi
 }
@@ -354,7 +354,7 @@ EOF
 EOF
   )
 
-  echo "  Reducer — consolidating ${total} bullet files into docs/HISTORY.md." >&2
+  echo "  Reducer — consolidating ${total} bullet files into ${HISTORY_PATH}." >&2
   run_claude "$PROMPT_MAIN" "$REDUCER_MODEL" "$reducer_context" \
     "TARGET_VERSION=$version" \
     "COMMIT_RANGE=$range" \
@@ -516,4 +516,4 @@ else
   fi
 fi
 
-echo "Release-notes workflow finished. Review docs/HISTORY.md and PRE-RELEASE-CHECKLIST.md." >&2
+echo "Release-notes workflow finished. Review ${HISTORY_PATH} and PRE-RELEASE-CHECKLIST.md." >&2

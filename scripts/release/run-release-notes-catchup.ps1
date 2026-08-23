@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Scans a branch for release commits (subject exactly `vX.Y.Z`), finds which ones
-  are missing from docs/HISTORY.md, and drives Claude to write the missing
+  are missing from userDocs/HISTORY.md, and drives Claude to write the missing
   entries — plus the in-progress entry for the current package.json version.
 
   Small releases run single-pass; large ones fan out to map workers (bounded diff
@@ -73,7 +73,7 @@ try {
 
   $PromptMain = 'docs/CREATE-RELEASE-NOTES.md'
   $PromptWorker = 'docs/CREATE-RELEASE-NOTES-WORKER.md'
-  $HistoryPath = 'docs/HISTORY.md'
+  $HistoryPath = 'userDocs/HISTORY.md'
   $ChecklistPath = 'PRE-RELEASE-CHECKLIST.md'
   $TempBase = 'docs/.release-notes'
 
@@ -311,7 +311,7 @@ try {
     param([string]$Version)
     Update-HistoryVersions
     if (-not (Test-VersionInHistory $Version)) {
-      throw "docs/HISTORY.md is still missing v$Version after the Claude run. Review the output and fix manually."
+      throw "$HistoryPath is still missing v$Version after the Claude run. Review the output and fix manually."
     }
   }
 
@@ -528,7 +528,7 @@ try {
       '- Checklist file: <empty — workers already populated PRE-RELEASE-CHECKLIST data>'
     ) -join "`n"
 
-    Write-Host "  Reducer — consolidating $total bullet files into docs/HISTORY.md."
+    Write-Host "  Reducer — consolidating $total bullet files into $HistoryPath."
     Invoke-Claude -PromptPath $PromptMain -Model $ReducerModel -Context $reducerContext -EnvVars @{
       TARGET_VERSION = $Version
       COMMIT_RANGE   = $Range
@@ -677,7 +677,7 @@ try {
     }
   }
 
-  Write-Host 'Release-notes workflow finished. Review docs/HISTORY.md and PRE-RELEASE-CHECKLIST.md.'
+  Write-Host "Release-notes workflow finished. Review $HistoryPath and PRE-RELEASE-CHECKLIST.md."
 
 } finally {
   Pop-Location

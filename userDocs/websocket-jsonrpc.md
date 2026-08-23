@@ -133,11 +133,8 @@ payload (`artifacts`, `champions`, `inboxArtifacts`, `lastUsed`, `ArtifactByHero
 are all accepted, so a sender need not know or match Sellfile Creator's preferred spelling.
 
 The examples below use the canonical casing, which is what RSL Helper sends and what new
-clients should prefer — but a casing mismatch is never a silent data loss. Collection lookups
-route through one case-folding helper (`resolveEventCollection` in
-[`src/lib/externalCommands.ts`](../../src/lib/externalCommands.ts)); before that they compared
-literal strings against a hand-maintained alias list, so an unlisted spelling degraded a
-populated collection to an empty one without any error.
+clients should prefer — but a casing mismatch is never a silent data loss: every spelling of
+a known key is folded to the same collection before the payload is read.
 
 ## Methods
 
@@ -354,7 +351,7 @@ Equipped and stored gear from the main inventory.
 
 Gear sitting in the inbox (not yet moved to inventory). Same row schema as `artifacts`.
 
-This notification appears in **two observed shapes**, and the importer accepts both:
+This notification appears in **two observed shapes**, and Sellfile Creator accepts both:
 
 1. **Flat shape** — `inboxArtifacts` is a plain array of ArtifactLog rows (identical to
    `artifacts`).
@@ -421,7 +418,7 @@ used as-is, and envelopes are flattened to their nested rows.
 Champion roster. Provides display names and equipped-slot context.
 
 **Params**
-- `champions` (array of champion rows) — fields consumed by the importer:
+- `champions` (array of champion rows) — fields Sellfile Creator reads:
 
   | WS field | Maps to SQL column | Used for |
   |---|---|---|

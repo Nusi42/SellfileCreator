@@ -4,7 +4,7 @@
  * Negotiated protocol features of the connected client (SSOT).
  *
  * A client announces what it supports by sending a `capabilities` notification as its first
- * answer to `requestSfcSync` (see docs/technical/websocket-jsonrpc.md). Until such a packet
+ * answer to `requestSfcSync` (see userDocs/websocket-jsonrpc.md). Until such a packet
  * arrives — and for every client that never sends one, RSL Helper included — the session
  * runs on DEFAULT_CLIENT_CAPABILITIES, which is exactly today's behavior. That makes the
  * handshake purely additive: no client has to opt in to the standard flow.

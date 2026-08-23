@@ -2,11 +2,11 @@
 
 ## Help Dialog
 
-- Rendering: `src/components/HelpDialog.tsx` renders the top-level `README.md` (imported as a raw string via `README.md?raw`) using `@uiw/react-md-editor`'s Markdown preview with `rehype-sanitize` for safety.
+- Rendering: `src/components/HelpDialog.tsx` renders `userDocs/README.md` (or the matching `userDocs/README.<lang>.md`, imported as raw strings via a Vite `?raw` glob) using `@uiw/react-md-editor`'s Markdown preview with `rehype-sanitize` for safety.
 - First-run gating: On mount, `App` compares `localStorage.getItem(README_SEEN_VERSION_KEY)` with `APP_VERSION`. If they differ, the Help dialog opens. When the dialog closes, the app writes the current `APP_VERSION` to `README_SEEN_VERSION_KEY` to avoid reopening until the version changes.
 - UX: A clearly labeled Help button sits to the right of the three top-right caption lines in the header and opens the Help dialog on demand.
 - Constants: `README_SEEN_VERSION_KEY = 'sellfileCreator.readme.seen.version'` lives in `src/lib/constants.ts` and centralizes the storage key.
-- Style: `README.md` is strictly user-facing. Keep language simple and practical (ELI5 level), similar to tooltips/tutorial copy. Avoid phrasing that suggests AI authorship. Using Raid: Shadow Legends terminology is okay where it helps players.
+- Style: `userDocs/README.md` is strictly user-facing. Keep language simple and practical (ELI5 level), similar to tooltips/tutorial copy. Avoid phrasing that suggests AI authorship. Using Raid: Shadow Legends terminology is okay where it helps players. The app is closed source, so the README (like everything in `userDocs/`) must never mention file paths, module names, or other internals — see [User-facing docs](../TECHNICAL.md#user-facing-docs-userdocs).
 
 ## Tutorial Coach
 

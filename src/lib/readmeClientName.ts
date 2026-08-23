@@ -3,8 +3,8 @@
  *
  * Adapt the README's client references for the Help dialog (SSOT).
  *
- * The README files ship BOTH as standalone documents (distributed to users as-is, and read
- * on GitHub) and as the in-app Help/README screen. They must keep saying "RSL Helper" on
+ * The README files (userDocs/README*.md) ship BOTH as standalone documents (distributed to
+ * users as-is in the release zip) and as the in-app Help/README screen. They must keep saying "RSL Helper" on
  * disk, so the substitution happens at RENDER time only — the same place HelpDialog already
  * strips the H1 and injects the version badge. Nothing here writes to a file.
  *

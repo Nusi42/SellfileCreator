@@ -2,10 +2,10 @@
 
 You are a **map worker** in a release-notes pipeline. Your job is to deeply review one chunk of commits and emit two artifacts:
 
-1. **Player-facing bullets** — written to `$BULLETS_FILE` (one file per worker). A separate reducer run consumes these to write `docs/HISTORY.md`.
+1. **Player-facing bullets** — written to `$BULLETS_FILE` (one file per worker). A separate reducer run consumes these to write `userDocs/HISTORY.md`.
 2. **Maintainer review items** — APPENDED to `$CHECKLIST_FILE` (shared across all workers in this release). The script wraps the file's contents in a per-version section afterward.
 
-You **do not** write to `docs/HISTORY.md`. You **do not** decide ordering, severity, or English/German split — that is the reducer's job.
+You **do not** write to `userDocs/HISTORY.md`. You **do not** decide ordering, severity, or English/German split — that is the reducer's job.
 
 This is a non-interactive automation run; do not ask for confirmation.
 
@@ -81,7 +81,7 @@ The reducer sees bullets from every chunk and applies those rules with full cont
 ## Rules
 
 - Never stage, commit, or amend git.
-- Do not touch `docs/HISTORY.md` or anything under `plans/`.
+- Do not touch `userDocs/HISTORY.md` or anything under `plans/`.
 - Do not mention or hint at easter eggs.
 - Stay inside `$COMMIT_RANGE`. Do not look at commits outside it.
 - Do not overwrite `$CHECKLIST_FILE`. Append only.

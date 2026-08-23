@@ -1,6 +1,6 @@
 # Release Notes Prompt
 
-Update `docs/HISTORY.md` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
+Update `userDocs/HISTORY.md` with the entry for `v$TARGET_VERSION`. This is a non-interactive automation run; do not ask for confirmation. If something is ambiguous, state your assumption in one line and proceed.
 
 The script that invokes you is `scripts/release/run-release-notes-catchup.sh` (or its PowerShell twin `run-release-notes-catchup.ps1` on Windows — the two are equivalent). It calls you in one of two modes:
 - **Single-pass** — one Claude run handles a release whose changed-line total fits the budget. `BULLETS_DIR` is empty; you read commits directly.
@@ -24,13 +24,13 @@ If an **"Additional instruction from the maintainer for this run"** section foll
 ## Workflow
 
 ### 1. Re-read baseline docs
-- `CLAUDE.md` and the top of `docs/HISTORY.md` so your tone, structure, and ordering match prior releases.
+- `CLAUDE.md` and the top of `userDocs/HISTORY.md` so your tone, structure, and ordering match prior releases.
 
 ### 2. Gather the changes
 - **Single-pass mode** (`BULLETS_DIR` empty): run `git log --reverse --stat "$COMMIT_RANGE"` to get the overview, then `git show <hash>` on every commit that might affect what players or release operators experience. Treat commit messages as introductory — open the diff. Some commits run thousands of lines; budget your reading. Skip large binary diffs and `examples/` unless they directly change shipping behavior.
 - **Reducer mode** (`BULLETS_DIR` set): read every `*.bullets.md` file in that directory. Each bullet ends with a short hash in parens for dedupe. Do not re-run `git show` — workers already inspected those commits. Only fall back to git if a bullet is too vague to convert into a player-facing note.
 
-### 3. Compose the entry in `docs/HISTORY.md`
+### 3. Compose the entry in `userDocs/HISTORY.md`
 
 The file is UTF-8 with BOM, ordered newest → oldest. Honor `RELEASE_STATUS`:
 - `new-entry`: insert a new section at the top (under any existing file header).
@@ -85,7 +85,7 @@ If you find no concerns, leave `$CHECKLIST_FILE` untouched.
 - Drop fixes for features added in the same release window.
 - Do not mention or hint at easter eggs.
 - One bullet per distinct change. Do not collapse unrelated improvements into a single line. Break long sentences instead of writing paragraphs.
-- Honor One Definition Rule and other CLAUDE.md guidelines if you ever need to edit code-adjacent files (you usually do not — this run only touches `docs/HISTORY.md` and the checklist).
+- Honor One Definition Rule and other CLAUDE.md guidelines if you ever need to edit code-adjacent files (you usually do not — this run only touches `userDocs/HISTORY.md` and the checklist).
 
 ## Quality check before reporting back
 

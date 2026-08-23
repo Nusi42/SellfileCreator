@@ -10,9 +10,10 @@ import ThemeEditorMenu from './ThemeEditorMenu'
 
 // README content is bundled at build time per language. We render it read-only.
 // English README is required; localized variants are optional.
-// Use Vite's glob import to include whatever README.*.md files exist at build time.
+// The user-facing docs live under userDocs/ (README.*.md, HISTORY.md, protocol doc, notices);
+// Vite's glob import includes whatever README.*.md files exist there at build time.
 // Values are raw Markdown strings.
-const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
+const README_FILES = import.meta.glob('../../userDocs/README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
 import { useClientNameSeq, useI18n, useLanguageOptions } from '../lib/i18n'
 // Render-time client-name adaptation for the README (the shipped files stay literal).
@@ -51,7 +52,8 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   const readmeForLang = React.useMemo(() => {
     // Prefer an exact lang match (e.g., README.pt-BR.md), then fall back to the base language (README.pt.md), finally English.
     const base = lang.split('-')[0]
-    const pathFor = (suffix: string) => `../../README${suffix}.md`
+    // Keys of README_FILES are the glob-relative paths, so build the lookup key the same way.
+    const pathFor = (suffix: string) => `../../userDocs/README${suffix}.md`
     const englishPath = pathFor('')
     const candidates: Array<string | null> = []
     if (lang !== 'empty') candidates.push(pathFor(`.${lang}`))

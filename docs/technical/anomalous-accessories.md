@@ -71,7 +71,7 @@ exports.
 #### `variantId` — the authoritative anomalous flag
 
 The `artifacts` / `inboxArtifacts` wire rows carry a `variantId` field (see
-[WebSocket Protocol](websocket-jsonrpc.md#artifactlog-row-schema)). It is `0` on ordinary
+[WebSocket Protocol](../../userDocs/websocket-jsonrpc.md#artifactlog-row-schema)). It is `0` on ordinary
 gear and `1` on anomalous accessories. **This is the item's own "is anomalous" flag, and
 the only reliable way to detect one.**
 

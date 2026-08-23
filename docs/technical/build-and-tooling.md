@@ -35,9 +35,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
 - `npm run test:all` — run unit/integration plus Chromium Playwright
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
-- `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in repo root
+- `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in `releases/` (gitignored)
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
-- `npm run release-notes:catchup` — back-fill `docs/HISTORY.md` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
+- `npm run release-notes:catchup` — back-fill `userDocs/HISTORY.md` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
 - `npm run release-notes:catchup:win` — PowerShell equivalent of the above for Windows, with named parameters (`-All`, `-Note`, `-Branch`, `-Date`). `-Note "<text>"` injects a maintainer instruction into every prompt of the run.
 
 ### Scripts Layout
@@ -196,7 +196,7 @@ release bundle, which previously still contained `capturePackets`/`logWasmHeap` 
 
 The launch URL params (`?endpoint=` + `#endpoint=` alias, `&simple`, `playerid`, `playerName`,
 `clientName`) and the export→`uploadSellfile` behavior are the SSOT of
-[WebSocket Protocol](websocket-jsonrpc.md#launch-url).
+[WebSocket Protocol](../../userDocs/websocket-jsonrpc.md#launch-url).
 The launch reads `endpoint` into `window.__APP_CONFIG__` (`pushEndpoint` for the session), then
 migrates it into the persisted connect preference + port before stripping it from the address bar.
 
@@ -352,7 +352,7 @@ and is not accepted: each `sfc_generate` call is a stateless one-shot over a com
 `NativeInput`, so the caller supplies current equips in the `champions` slot-map and
 there is no live stream to go stale. (The app does consume `ArtifactByHeroID`, because
 its equips must stay fresh between `champions` pushes — see
-[WebSocket Protocol](websocket-jsonrpc.md#artifactbyheroid).)
+[WebSocket Protocol](../../userDocs/websocket-jsonrpc.md#artifactbyheroid).)
 
 **Internal pipeline** (per call to `sfc_generate`)
 
@@ -504,29 +504,31 @@ Coding patterns adopted during the refactor (required for PRs):
 
 ## Release Packaging (Windows)
 
-- Uses native Windows `Compress-Archive` to create ZIP files with predictable metadata (no PowerShell community modules).
+- Uses native Windows `Compress-Archive` to create ZIP files with predictable metadata (no PowerShell community modules). The archive is written to `releases/SellfileCreator_v<version>.zip` (folder created on demand, gitignored); the bare built HTML is additionally copied to `old_releases/` for auditing.
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
-- Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`).
+- **All user-facing documents are sourced from `userDocs/`** (READMEs, `HISTORY.md`, the generated `THIRD_PARTY_NOTICES.txt`, `websocket-jsonrpc.md`) — see [User-facing docs](../TECHNICAL.md#user-facing-docs-userdocs). The script fails fast when the folder or the English README is missing.
+- Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `userDocs/websocket-jsonrpc.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
 - Preset sellfiles are generated at build time by `scripts/tooling/gen-release-hsf.mjs` from `presets/lategame.sfc` using the recipe-overrides DSL — the `lategame` and `endgame` preset tokens select the respective account-level override, and the script applies them through the same `computeMergedRules` path the app uses. The script is self-contained: it reuses `tmp/tsc/tests` when already present (production builds, which run `test:unit` first) and compiles it on-demand otherwise (dev builds that skip the test suite).
 - An optional `presets/<preset>.patch.json` file can declaratively alter the base preset before generation (drop a metaset entry, soft-disable a safeguard, edit the embedded Note). The patch applier (`scripts/tooling/apply-preset-patch.mjs`, `src/lib/presetPatch.ts`) runs before `gen-release-hsf.mjs` when a patch file is detected. Schema and worked examples live in [`presets/PATCHES.md`](../../presets/PATCHES.md).
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`
-  - `README.txt` — converted from `README.md` (UTF-8 BOM; injects the version badge)
-  - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
-  - `HISTORY.txt` — copied from `docs/HISTORY.md` so the release bundle ships with the full changelog
+  - `README.txt` — converted from `userDocs/README.md` (UTF-8 BOM; injects the version badge)
+  - `README.<lang>.txt` — localized README variants (`userDocs/README.<lang>.md`) converted to UTF-8 BOM text
+  - `HISTORY.txt` — copied from `userDocs/HISTORY.md` so the release bundle ships with the full changelog
+  - `THIRD_PARTY_NOTICES.txt` — copied from `userDocs/THIRD_PARTY_NOTICES.txt`, which `npm run generate:third-party-notices` (run by the release script) regenerates from the runtime dependencies
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
   - `Sellfiles/Midgame_Lategame_Endgame_Sample.sfc` — copied from `presets/lategame.sfc` (with any `presets/lategame.patch.json` applied)
   - `Sellfiles/lategame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `lategame` recipe-override preset applied
   - `Sellfiles/endgame-sellfile.hsf` — generated at build time from `lategame.sfc` with the `endgame` recipe-override preset applied
   - `Sellfiles/Beginner_Sample.sfc` — copied from `presets/beginner.sfc` as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
-  - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
+  - `dev/` — optional helper folder with the WebSocket watcher scripts and the protocol doc (`userDocs/websocket-jsonrpc.md`) when available
 
 ## Project Structure
 
 - `src/App.tsx`: Main UI — orchestrates builder, recipes, metasets, Substat Target Values (`substatTargets`), autosave, preview.
-- `src/components/HelpDialog.tsx`: In-app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80% of the dialog while preserving aspect ratio.
+- `src/components/HelpDialog.tsx`: In-app Help/README viewer. Bundles `userDocs/README*.md` (via a Vite `?raw` glob) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80% of the dialog while preserving aspect ratio.
 - `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customRecipes`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `logicHubDialogTab`, `safeguardRules`, `safeguardsEnabled`, `selectedRecipeIdx`, `sfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
@@ -602,7 +604,7 @@ Localization status
 
 ## Release Notes Workflow
 
-Release history lives in `docs/HISTORY.md` (UTF-8 with BOM). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). Only `docs/HISTORY.md` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
+Release history lives in `userDocs/HISTORY.md` (UTF-8 with BOM; user-facing — plain language, no internals). Claude orchestration follows two prompts: `docs/CREATE-RELEASE-NOTES.md` (single-pass + reducer role) and `docs/CREATE-RELEASE-NOTES-WORKER.md` (map-worker role). Only `userDocs/HISTORY.md` and `PRE-RELEASE-CHECKLIST.md` change during a run; plan files, commits, and artefact directories are untouched.
 
 Two equivalent drivers exist, so either shell works — keep them in sync when changing behaviour:
 
@@ -617,8 +619,8 @@ Both accept the same environment overrides and drive Claude identically. The Pow
 
 The script picks a mode per release based on the total changed lines (numstat add+delete) in the commit range:
 
-- **Single-pass** (≤ `RELEASE_NOTES_SINGLE_PASS_LINES`, default 5000): one Claude run reads the diffs directly, writes the bilingual entry to `docs/HISTORY.md`, and appends maintainer review items to a per-release scratch file.
-- **Map-reduce** (above the threshold): commits are split into chunks of at most `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500). A worker Claude run handles each chunk, emitting a `chunk-NNN.bullets.md` file with player-facing bullets and appending maintainer concerns directly to a shared scratch file. A final reducer run consolidates the bullet files into `docs/HISTORY.md`. Workers default to Haiku; reducer/single-pass default to Sonnet — override with `RELEASE_NOTES_WORKER_MODEL` and `RELEASE_NOTES_REDUCER_MODEL` (set either to empty string to inherit the CLI default).
+- **Single-pass** (≤ `RELEASE_NOTES_SINGLE_PASS_LINES`, default 5000): one Claude run reads the diffs directly, writes the bilingual entry to `userDocs/HISTORY.md`, and appends maintainer review items to a per-release scratch file.
+- **Map-reduce** (above the threshold): commits are split into chunks of at most `RELEASE_NOTES_WORKER_LINES` changed lines (default 3500). A worker Claude run handles each chunk, emitting a `chunk-NNN.bullets.md` file with player-facing bullets and appending maintainer concerns directly to a shared scratch file. A final reducer run consolidates the bullet files into `userDocs/HISTORY.md`. Workers default to Haiku; reducer/single-pass default to Sonnet — override with `RELEASE_NOTES_WORKER_MODEL` and `RELEASE_NOTES_REDUCER_MODEL` (set either to empty string to inherit the CLI default).
 
 Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on success). After every release the script mechanically prepends the collected maintainer items to `PRE-RELEASE-CHECKLIST.md` under a new `## v<version> — <date>` heading, keeping that file newest-first.
 
@@ -635,6 +637,6 @@ Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on s
 
    The note supplements the prompt documents rather than overriding them — the rules in `docs/CREATE-RELEASE-NOTES.md` (no easter eggs, no dev-only features, plain language) still apply. Omitting `-Note` produces byte-identical prompt input to the bash driver.
 2. **Review the checklist** — Skim `PRE-RELEASE-CHECKLIST.md` for items the run flagged (unfinished cleanups, drifted docs, suspect regressions, schema concerns). Act on them or delete them; the file is intentionally a working document, not an archive.
-3. **Gate the release** — Before packaging, confirm `docs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
+3. **Gate the release** — Before packaging, confirm `userDocs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
 
 Claude inspects diffs, not just commit messages — some commits run thousands of lines, which is why the chunker budgets by changed lines rather than commit count. Large asset updates under `examples/` are skipped unless they change player-facing behaviour. The final notes list English bullets first, then German translations covering the same points.
