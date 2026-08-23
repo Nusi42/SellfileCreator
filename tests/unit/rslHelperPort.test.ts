@@ -5,6 +5,10 @@ import test from 'node:test'
 import {
   parseRslHelperPort,
   extractRslHelperPortFromEndpoint,
+  getRslHelperPort,
+  setRslHelperPort,
+  subscribeRslHelperPort,
+  RSL_HELPER_DEFAULT_PORT,
   RSL_HELPER_PORT_MIN,
   RSL_HELPER_PORT_MAX,
 } from '../../src/lib/externalWsProtocol.js'
@@ -60,4 +64,45 @@ test('extractRslHelperPortFromEndpoint returns null for unusable endpoints', () 
   assert.equal(extractRslHelperPortFromEndpoint('not a url'), null)
   assert.equal(extractRslHelperPortFromEndpoint(''), null)
   assert.equal(extractRslHelperPortFromEndpoint('http://localhost:8080/'), null)
+})
+
+test('setRslHelperPort notifies subscribers only on a committed change', () => {
+  // Minimal window.localStorage stub (same per-case install pattern as
+  // clientCapabilities.test.ts) — the port helpers reach storage via safeStorage.
+  const globals = globalThis as { window?: unknown }
+  const previousWindow = globals.window
+  const store = new Map<string, string>()
+  globals.window = {
+    localStorage: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v) },
+      removeItem: (k: string) => { store.delete(k) },
+    },
+  }
+  try {
+    let notifications = 0
+    const unsubscribe = subscribeRslHelperPort(() => { notifications += 1 })
+    // A real change (default → new) persists and notifies exactly once.
+    setRslHelperPort(9099)
+    assert.equal(getRslHelperPort(), 9099)
+    assert.equal(notifications, 1)
+    // Committing the SAME port is a no-op: App must not tear down a healthy connection.
+    setRslHelperPort(9099)
+    assert.equal(notifications, 1)
+    // Invalid values are ignored by the writer, so they never notify either.
+    setRslHelperPort(0)
+    assert.equal(getRslHelperPort(), 9099)
+    assert.equal(notifications, 1)
+    // Returning to the default clears the key but is still a change → notifies.
+    setRslHelperPort(RSL_HELPER_DEFAULT_PORT)
+    assert.equal(getRslHelperPort(), RSL_HELPER_DEFAULT_PORT)
+    assert.equal(notifications, 2)
+    // After unsubscribe, further changes are silent.
+    unsubscribe()
+    setRslHelperPort(9100)
+    assert.equal(notifications, 2)
+  } finally {
+    if (previousWindow === undefined) delete globals.window
+    else globals.window = previousWindow
+  }
 })

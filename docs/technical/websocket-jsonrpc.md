@@ -29,9 +29,10 @@ file:///path/to/SellfileCreator.html?endpoint=ws://localhost:9099/&clientName=Ge
   scheme is rejected and the param ignored. **Always spell the port out** — a URL with no
   explicit port (`ws://localhost/`) carries no port information and leaves the stored port
   untouched, rather than falling back to the scheme's implied 80/443. Users can also set the
-  port by right-clicking the connect button, but an `endpoint` that names a port wins: it
-  overwrites the stored value permanently, so it applies to every later start too, including
-  ones launched with no `endpoint` at all.
+  port from the connect button's right-click popout (a committed change re-targets a live
+  connection), but an `endpoint` that names a port wins: it overwrites the stored value
+  permanently, so it applies to every later start too, including ones launched with no
+  `endpoint` at all.
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
 - `clientName` — optional; the display name of the connecting application. Sellfile Creator
   substitutes it wherever the UI names the client it talks to ("Connect to …", "Push …

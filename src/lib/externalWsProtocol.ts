@@ -129,16 +129,35 @@ export const parseRslHelperPort = (raw: string | number | null | undefined): num
 export const getRslHelperPort = (): number =>
   parseRslHelperPort(safeGetItem(RSL_HELPER_PORT_STORAGE_KEY)) ?? RSL_HELPER_DEFAULT_PORT
 
+// Subscribers notified when setRslHelperPort commits a DIFFERENT effective port.
+// Registered beside the writer (the port SSOT) so every caller — the config popout, the
+// launch-param migration — reaches the same notification without prop-threading; App.tsx
+// consumes it via useSyncExternalStore to re-derive the live WebSocket endpoint, which is
+// what makes an already-open connection reconnect on the new port.
+const rslHelperPortListeners = new Set<() => void>()
+
+// Subscribe to committed port changes; returns the unsubscribe (useSyncExternalStore shape).
+export const subscribeRslHelperPort = (listener: () => void): (() => void) => {
+  rslHelperPortListeners.add(listener)
+  return () => { rslHelperPortListeners.delete(listener) }
+}
+
 // Persist the port, clearing the key when it is the default so storage stays clean.
 // Invalid values are ignored rather than written, so the stored value is always readable.
 // safeSetItem/safeRemoveItem keep an opaque-origin (incognito file://) launch from throwing.
 export const setRslHelperPort = (port: number): void => {
   const valid = parseRslHelperPort(port)
   if (valid === null) return
+  // Capture before writing so only a REAL change notifies (a same-port commit is a no-op —
+  // notifying would pointlessly tear down and reopen a healthy connection).
+  const previous = getRslHelperPort()
   if (valid === RSL_HELPER_DEFAULT_PORT) {
     safeRemoveItem(RSL_HELPER_PORT_STORAGE_KEY)
   } else {
     safeSetItem(RSL_HELPER_PORT_STORAGE_KEY, String(valid))
+  }
+  if (valid !== previous) {
+    for (const listener of rslHelperPortListeners) listener()
   }
 }
 

@@ -8,7 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
-import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type ReactNode } from 'react'
+import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
@@ -31,6 +31,7 @@ import {
   AUTOSAVE_SIMPLE_EXPERT_MODE_KEY,
   getRslHelperConnectEnabled,
   getRslHelperPort,
+  subscribeRslHelperPort,
   extractRslHelperPortFromEndpoint,
   // Aliased so the React state setter can follow the setX naming convention without conflict.
   setRslHelperConnectEnabled as persistRslHelperConnectEnabled,
@@ -3856,10 +3857,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return getRslHelperConnectEnabled()
   })
-  // Derive the WebSocket endpoint from the toggle state; re-reads port from localStorage when enabled.
+  // Reactive view of the persisted port — the port popout's OK commit notifies through the
+  // writer's subscription (externalWsProtocol SSOT), so a committed change reaches this memo
+  // without prop-threading through every RslHelperConnectButton instance.
+  const rslHelperPort = useSyncExternalStore(subscribeRslHelperPort, getRslHelperPort)
+  // Derive the WebSocket endpoint from the toggle state + committed port. A port change while
+  // connected produces a NEW endpoint string, which useExternalCommands' socket effect treats
+  // as teardown + reconnect — exactly the "apply and reconnect" the port popout's OK promises.
   const pushEndpoint = useMemo(
-    () => (rslHelperConnectEnabled ? buildRslHelperWsEndpoint(getRslHelperPort()) : undefined),
-    [rslHelperConnectEnabled]
+    () => (rslHelperConnectEnabled ? buildRslHelperWsEndpoint(rslHelperPort) : undefined),
+    [rslHelperConnectEnabled, rslHelperPort]
   )
   const [pushEndpointReachable, setPushEndpointReachable] = useState(() => Boolean(pushEndpoint))
   const updatePushEndpointReachable = useCallback((next: boolean) => {
