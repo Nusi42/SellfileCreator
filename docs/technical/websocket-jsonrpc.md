@@ -123,6 +123,21 @@ carries two optional params:
     stamped with that account's identity;
   - identity matches no known account → the packet is dropped with a user-facing toast.
 
+## Param name casing
+
+Param names are matched **case-insensitively**, for both scalar fields (`playerId`,
+`playerName`, `clientName`, `rowNumber`) and the collection keys that name a notification's
+payload (`artifacts`, `champions`, `inboxArtifacts`, `lastUsed`, `ArtifactByHeroID`,
+`capabilities`). `{"inboxArtifacts": …}`, `{"inboxartifacts": …}` and `{"InboxArtifacts": …}`
+are all accepted, so a sender need not know or match Sellfile Creator's preferred spelling.
+
+The examples below use the canonical casing, which is what RSL Helper sends and what new
+clients should prefer — but a casing mismatch is never a silent data loss. Collection lookups
+route through one case-folding helper (`resolveEventCollection` in
+[`src/lib/externalCommands.ts`](../../src/lib/externalCommands.ts)); before that they compared
+literal strings against a hand-maintained alias list, so an unlisted spelling degraded a
+populated collection to an empty one without any error.
+
 ## Methods
 
 ### uploadSellfile

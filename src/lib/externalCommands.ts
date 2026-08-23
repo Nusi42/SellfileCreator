@@ -9,6 +9,10 @@ type UnknownRecord = Record<string, unknown>
 
 type CaseInsensitiveLookup = {
   get: (...keys: string[]) => unknown
+  // Presence check that survives an explicit `null` value, which `get` alone cannot
+  // express. Collection lookups need it to tell "key absent" (fall back to the payload
+  // root) apart from "key present but empty".
+  has: (...keys: string[]) => boolean
 }
 
 const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLookup => {
@@ -26,6 +30,7 @@ const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLook
       }
       return undefined
     },
+    has: (...keys: string[]) => keys.some((key) => map.has(key.toLowerCase())),
   }
 }
 
@@ -161,7 +166,13 @@ const toNumber = (value: unknown): number | null => {
  * Resolve the collection a per-type gear event carries. The collection normally lives
  * under a named key (`{ champions: [...] }`) but some senders publish the bare array at
  * the payload root, so the root is used as a fallback **only when the key is genuinely
- * absent** (`undefined`).
+ * absent**.
+ *
+ * Key matching is case-insensitive, via the same lookup every scalar field uses: senders
+ * disagree on casing (`inboxArtifacts` vs `inboxartifacts`, `ArtifactByHeroID` vs
+ * `artifactByHeroID`), and folding case here removes the hand-maintained alias lists that
+ * previously had to enumerate each spelling — and that silently missed the ones they
+ * forgot, degrading a populated collection to empty.
  *
  * An explicit `null` value (e.g. `{ champions: null }`, observed from RSL Helper at
  * startup before game data is loaded) is treated as an empty collection — NOT a signal
@@ -172,17 +183,15 @@ const toNumber = (value: unknown): number | null => {
  * SSOT: every per-type branch routes its collection lookup through here.
  */
 const resolveEventCollection = (
-  record: UnknownRecord,
+  lookup: CaseInsensitiveLookup,
   payload: unknown,
-  ...keys: readonly string[]
+  key: string,
 ): unknown => {
-  for (const key of keys) {
-    // `in` distinguishes "key present (even if null)" from "key absent".
-    if (key in record) {
-      const value = record[key]
-      // Explicit null → empty collection; do not fall through to the payload root.
-      return value === null ? [] : value
-    }
+  // `has` distinguishes "key present (even if null)" from "key absent".
+  if (lookup.has(key)) {
+    const value = lookup.get(key)
+    // Explicit null → empty collection; do not fall through to the payload root.
+    return value === null ? [] : value
   }
   // No named key present at all — the bare array may be the payload itself.
   return payload
@@ -232,7 +241,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   // ignored in exactly one place rather than rejected here.
   if (normalized === 'capabilities') {
     // Accept the same shapes the gear feeds do: a named key, or a bare array as the payload.
-    const rawList = resolveEventCollection(payloadRecord, payload, 'capabilities')
+    const rawList = resolveEventCollection(lookup, payload, 'capabilities')
     // Non-array (or absent) means "announced nothing" — still a valid handshake, and
     // distinct from never sending the packet at all.
     const capabilities = Array.isArray(rawList)
@@ -254,7 +263,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Params carry ArtifactLog-style rows: { artifacts: ArtifactLog[] }.
     // The endpoint switched to the ArtifactLog shape (kindId/rankId/rarityId),
     // so we delegate to the ArtifactLog parser instead of the raw DB row parser.
-    const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'artifacts'), null)
+    const rows = parseArtifactLogArray(resolveEventCollection(lookup, payload, 'artifacts'), null)
     const command: GearDbArtifactsCommand = { kind: 'gearDbArtifacts', artifacts: rows, playerId, playerName }
     return command
   }
@@ -262,7 +271,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // Params key matches the method name: { champions: GearDbChampionRow[] }.
     // Read the raw array once — champion rows carry an `artifacts` slot map that
     // must be inverted before parseChampionRow strips those extra fields.
-    const rawArray = resolveEventCollection(payloadRecord, payload, 'champions')
+    const rawArray = resolveEventCollection(lookup, payload, 'champions')
     const equippedByArtifact = buildEquippedByArtifactMap(rawArray)
     const rows = parseChampionArray(rawArray)
     const command: GearDbChampionsCommand = { kind: 'gearDbChampions', champions: rows, equippedByArtifact, playerId, playerName }
@@ -271,14 +280,14 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
   if (normalized === 'inboxartifacts') {
     // Params carry ArtifactLog-style rows: { inboxArtifacts: ArtifactLog[] }.
     // Mirrors the artifacts branch — same schema change applies to inbox items.
-    // Also check lowercase variant for protocol flexibility.
-    const rows = parseArtifactLogArray(resolveEventCollection(payloadRecord, payload, 'inboxArtifacts', 'inboxartifacts'), null)
+    // Casing variants (inboxartifacts, InboxArtifacts) resolve via resolveEventCollection.
+    const rows = parseArtifactLogArray(resolveEventCollection(lookup, payload, 'inboxArtifacts'), null)
     const command: GearDbInboxArtifactsCommand = { kind: 'gearDbInboxArtifacts', inboxArtifacts: rows, playerId, playerName }
     return command
   }
   if (normalized === 'lastused') {
     // Params key matches the method name: { lastUsed: GearDbLastUsedRow[] }.
-    const rows = parseLastUsedArray(resolveEventCollection(payloadRecord, payload, 'lastUsed', 'lastused'))
+    const rows = parseLastUsedArray(resolveEventCollection(lookup, payload, 'lastUsed'))
     const command: GearDbLastUsedCommand = { kind: 'gearDbLastUsed', lastUsed: rows, playerId, playerName }
     return command
   }
@@ -289,7 +298,7 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     // just when a champion changes (vault move, level, ascension), whereas moving gear
     // between champions pushes `ArtifactByHeroID` + `artifacts` alone. Consuming it keeps
     // cID correct instead of showing stale equips until the next champions packet.
-    const rawMap = resolveEventCollection(payloadRecord, payload, 'ArtifactByHeroID', 'artifactByHeroID')
+    const rawMap = resolveEventCollection(lookup, payload, 'ArtifactByHeroID')
     const equippedByArtifact = buildEquippedByArtifactFromHeroMap(rawMap)
     const command: GearDbEquippedCommand = { kind: 'gearDbEquipped', equippedByArtifact, playerId, playerName }
     return command

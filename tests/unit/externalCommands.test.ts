@@ -2,6 +2,7 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
 
+import { CAPABILITY_SFC_FILE_AS_SELLFILE } from '../../src/lib/clientCapabilities.js'
 import { normalizeExternalEvent } from '../../src/lib/externalCommands.js'
 
 const baseArtifactLogRow = {
@@ -208,6 +209,53 @@ test('ArtifactByHeroID event with null param yields empty equip map', () => {
   assert.equal(command.kind, 'gearDbEquipped')
   if (command.kind !== 'gearDbEquipped') return
   assert.equal(command.equippedByArtifact.size, 0, 'null param must produce empty map')
+})
+
+// Collection keys are matched case-insensitively, like every scalar field. Senders
+// disagree on casing, and a missed spelling used to degrade a populated collection to
+// empty rather than failing loudly — so each collection branch is pinned here.
+test('collection keys resolve regardless of casing', () => {
+  const artifacts = normalizeExternalEvent('artifacts', { Artifacts: [baseArtifactLogRow] })
+  assert(artifacts, 'expected command for capitalized artifacts key')
+  if (artifacts.kind !== 'gearDbArtifacts') return
+  assert.equal(artifacts.artifacts.length, 1, 'capitalized Artifacts must still parse')
+
+  const inbox = normalizeExternalEvent('inboxArtifacts', { inboxartifacts: [baseArtifactLogRow] })
+  assert(inbox, 'expected command for lowercased inbox key')
+  if (inbox.kind !== 'gearDbInboxArtifacts') return
+  assert.equal(inbox.inboxArtifacts.length, 1, 'lowercased inboxartifacts must still parse')
+
+  // The all-lowercase spelling the old hand-maintained alias list did not enumerate.
+  const equipped = normalizeExternalEvent('ArtifactByHeroID', {
+    artifactbyheroid: { '601': { '1': 8001 } },
+  })
+  assert(equipped, 'expected command for lowercased hero-map key')
+  if (equipped.kind !== 'gearDbEquipped') return
+  assert.equal(equipped.equippedByArtifact.get(8001), 601, 'lowercased key must still map equips')
+})
+
+test('capabilities handshake reads a capitalized key', () => {
+  const command = normalizeExternalEvent('capabilities', { Capabilities: [CAPABILITY_SFC_FILE_AS_SELLFILE] })
+  assert(command, 'expected command')
+  assert.equal(command.kind, 'clientCapabilities')
+  if (command.kind !== 'clientCapabilities') return
+  // Previously this degraded to [] — the payload root is not an array, so the
+  // Array.isArray guard swallowed the announcement silently.
+  assert.deepEqual(command.capabilities, [CAPABILITY_SFC_FILE_AS_SELLFILE])
+})
+
+// The root-array fallback must stay reachable, and an explicit null must still mean
+// "empty collection" rather than "fall back to the payload object".
+test('case-insensitive keys preserve absent-vs-null collection semantics', () => {
+  const root = normalizeExternalEvent('champions', [{ id: 77, typeId: 770 }])
+  assert(root, 'expected command for bare root array')
+  if (root.kind !== 'gearDbChampions') return
+  assert.equal(root.champions.length, 1, 'absent key must fall back to the payload root')
+
+  const nulled = normalizeExternalEvent('champions', { Champions: null })
+  assert(nulled, 'expected command for null collection')
+  if (nulled.kind !== 'gearDbChampions') return
+  assert.equal(nulled.champions.length, 0, 'explicit null must yield an empty collection')
 })
 
 export {}
