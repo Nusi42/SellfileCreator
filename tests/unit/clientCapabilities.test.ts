@@ -33,35 +33,24 @@ import {
 } from '../../src/lib/externalWsProtocol.js'
 import { normalizeExternalEvent } from '../../src/lib/externalCommands.js'
 import { localizeNoteProse, localizeNoteProseWithSourceMap } from '../../src/lib/noteOverridesParser.js'
+import { withLocalStorageStub } from './helpers/localStorageStub.js'
 
-// Minimal localStorage + window stubs: the name readers touch window.location.href and the
-// storage helpers, nothing else. Installed per case so state never leaks between tests.
+// Storage + window stubs (shared helper) plus the module-state resets the name readers need:
+// they touch window.location.href and the storage helpers, nothing else. Installed per case
+// so state never leaks between tests.
 const withEnvironment = (href: string, body: () => void): void => {
-  const globals = globalThis as { window?: unknown; localStorage?: unknown }
-  const previousWindow = globals.window
-  const previousStorage = globals.localStorage
-  const store = new Map<string, string>()
-  const storage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => { store.set(k, v) },
-    removeItem: (k: string) => { store.delete(k) },
-  }
-  globals.window = { location: { href }, localStorage: storage }
-  globals.localStorage = storage
-  __resetRuntimeConfigForTests()
-  __resetClientNameForTests()
-  resetClientCapabilities()
-  try {
-    body()
-  } finally {
-    if (previousWindow === undefined) delete globals.window
-    else globals.window = previousWindow
-    if (previousStorage === undefined) delete globals.localStorage
-    else globals.localStorage = previousStorage
+  withLocalStorageStub(() => {
     __resetRuntimeConfigForTests()
     __resetClientNameForTests()
     resetClientCapabilities()
-  }
+    try {
+      body()
+    } finally {
+      __resetRuntimeConfigForTests()
+      __resetClientNameForTests()
+      resetClientCapabilities()
+    }
+  }, { location: { href } })
 }
 
 const BASE = 'file:///C:/app/SellfileCreator.html'

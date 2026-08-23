@@ -17,6 +17,7 @@
  * at module scope and the migration is guaranteed to have run first.
  */
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
+import { createListenerSet } from './listenerSet'
 import { getPlayerIdParam, getPlayerNameParam, getRuntimeConfig, stashSimpleModeForSession } from './runtimeConfig'
 import { getTabActiveAccountId, setTabActiveAccountId } from './activeAccountSession'
 
@@ -182,18 +183,16 @@ let registryCache: SfcAccountRegistry | null = null
 let activeAccountIdForSession: string | null = null
 // Monotonic snapshot version so useSyncExternalStore gets a cheap referential signal.
 let registryVersion = 0
-const listeners = new Set<() => void>()
+const listeners = createListenerSet()
 
+// Bump the version stamp, then fan out to subscribers.
 const notify = (): void => {
   registryVersion += 1
-  for (const listener of listeners) listener()
+  listeners.notify()
 }
 
 // Subscribe to registry changes; returns the unsubscribe function.
-export const subscribeAccounts = (listener: () => void): (() => void) => {
-  listeners.add(listener)
-  return () => { listeners.delete(listener) }
-}
+export const subscribeAccounts = listeners.subscribe
 
 // Cheap version stamp for useSyncExternalStore getSnapshot.
 export const getAccountsVersion = (): number => {

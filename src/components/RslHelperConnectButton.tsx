@@ -7,7 +7,7 @@
  * Left-click toggles the connection. Right-click opens a ContextMenuPaper popout for port
  * configuration, consistent with all other right-click surfaces in the app.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Box, Button, CircularProgress, IconButton, Popover, TextField } from '@mui/material'
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -19,9 +19,11 @@ import MarkdownTooltip from './MarkdownTooltip'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
 import {
+  clampRslHelperPort,
   getRslHelperPort,
   parseRslHelperPort,
   setRslHelperPort as persistRslHelperPort,
+  subscribeRslHelperPort,
   RSL_HELPER_PORT_MIN,
   RSL_HELPER_PORT_MAX,
 } from '../lib/externalWsProtocol'
@@ -29,7 +31,7 @@ import {
 // Debounced live-apply interval for the port field: long enough that normal typing does
 // not commit intermediate ports (each commit can re-target a live connection), short
 // enough that the connection state reacts soon after the user stops typing.
-const RSL_HELPER_PORT_COMMIT_DEBOUNCE_MS = 800
+const RSL_HELPER_PORT_COMMIT_DEBOUNCE_MS = 800 as const
 
 export type RslHelperConnectButtonProps = {
   // Whether the user has toggled the connection on.
@@ -51,9 +53,10 @@ export default function RslHelperConnectButton({
 }: RslHelperConnectButtonProps) {
   const { t } = useI18n()
 
-  // Port read from localStorage on mount; refreshed on every popout open and commit so it
-  // always mirrors the port in use (other button instances can commit in between).
-  const [port, setPort] = useState<number>(() => getRslHelperPort())
+  // The committed port, read through the writer's subscription (externalWsProtocol SSOT) so
+  // every button instance (header, HelpDialog, NoteDialog) mirrors the port in use without
+  // a local copy that could drift when another instance commits.
+  const port = useSyncExternalStore(subscribeRslHelperPort, getRslHelperPort)
 
   // Anchor element stored in state so Popover receives a stable non-ref value during render.
   // (Accessing ref.current during render is forbidden by the react-hooks/refs lint rule.)
@@ -72,32 +75,35 @@ export default function RslHelperConnectButton({
   // Port in force when the popout opened — the Esc cancel restores it even when a
   // debounced live-apply already committed a newer value mid-edit.
   const portAtOpenRef = useRef(port)
-  // Pending debounced live-apply; null when nothing is scheduled.
-  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const clearCommitTimer = useCallback(() => {
-    if (commitTimerRef.current !== null) {
-      clearTimeout(commitTimerRef.current)
-      commitTimerRef.current = null
-    }
+  // Pending debounced live-apply (timer + the valid port it will commit); null when nothing
+  // is scheduled. The value rides along so a flush can commit it without re-parsing.
+  const pendingCommitRef = useRef<{ timer: ReturnType<typeof setTimeout>; port: number } | null>(null)
+  // Drop the scheduled live-apply without committing it.
+  const clearPendingCommit = useCallback(() => {
+    if (pendingCommitRef.current === null) return
+    clearTimeout(pendingCommitRef.current.timer)
+    pendingCommitRef.current = null
   }, [])
-  // Never leave a live-apply timer running past unmount — it would commit a dead draft.
-  useEffect(() => clearCommitTimer, [clearCommitTimer])
-
-  // Single commit definition: persist + mirror into local state. The shared writer notifies
-  // App's endpoint subscription, so an already-open connection reconnects on the committed
-  // port; committing an unchanged port is a no-op there.
-  const commitPort = (next: number) => {
-    // Shared writer: clears the key on the default port and is storage-throw safe.
-    persistRslHelperPort(next)
-    setPort(next)
-  }
+  // Commit the scheduled live-apply NOW instead of waiting out the debounce (no-op when
+  // nothing is pending — so the blur that follows an Esc cancel stays inert).
+  const flushPendingCommit = useCallback(() => {
+    const pending = pendingCommitRef.current
+    if (pending === null) return
+    clearPendingCommit()
+    // Shared writer: clears the key on the default port, is storage-throw safe, and
+    // notifies App's endpoint subscription so a live connection re-targets.
+    persistRslHelperPort(pending.port)
+  }, [clearPendingCommit])
+  // Unmount (e.g. the HelpDialog closing within the debounce) is an ordinary dismissal like
+  // the outside click, so a pending live-apply is flushed rather than lost.
+  useEffect(() => flushPendingCommit, [flushPendingCommit])
 
   // Commit-and-close for every ordinary dismissal (outside click, the X-close, Enter).
   // An invalid draft cannot be committed — it is discarded, and the last valid commit
   // (or the pre-open port) stays in force.
   const commitAndClosePopover = () => {
-    clearCommitTimer()
-    if (parsedDraft !== null) commitPort(parsedDraft)
+    clearPendingCommit()
+    if (parsedDraft !== null) persistRslHelperPort(parsedDraft)
     closePopover()
   }
 
@@ -105,8 +111,8 @@ export default function RslHelperConnectButton({
   // fired mid-edit — the port in force when the popout opened is restored (the writer
   // no-ops when nothing was committed).
   const cancelPopover = () => {
-    clearCommitTimer()
-    commitPort(portAtOpenRef.current)
+    clearPendingCommit()
+    persistRslHelperPort(portAtOpenRef.current)
     closePopover()
   }
 
@@ -132,44 +138,31 @@ export default function RslHelperConnectButton({
   const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     connectHint.onOpen()
-    // Re-read storage (not local state) each open: another button instance (HelpDialog /
-    // NoteDialog render their own copies) may have committed a port since this one mounted,
-    // and a cancelled edit must never resurface — the draft always starts at the port in use.
-    const current = getRslHelperPort()
-    portAtOpenRef.current = current
-    setPort(current)
-    setDraft(String(current))
+    // The draft always starts at the port in use (a cancelled edit must never resurface),
+    // and the Esc rollback target is captured at the same moment.
+    portAtOpenRef.current = port
+    setDraft(String(port))
     setPopoverAnchor(e.currentTarget)
   }
 
   // Draft edit shared by typing and the spinner. A valid value schedules a debounced
   // live-apply, so the port takes effect (and a live connection re-targets) shortly after
   // the user stops typing — no close needed; Esc still rolls it back. An invalid
-  // intermediate only cancels the pending apply; it is never committed. The former
-  // apply-on-every-keystroke behavior reconnected on each digit typed.
+  // intermediate only cancels the pending apply; it is never committed (each commit can
+  // re-target a live connection, so intermediate digits must not reach the writer).
   const applyDraftValue = (raw: string) => {
     setDraft(raw)
-    clearCommitTimer()
+    clearPendingCommit()
     const n = parseRslHelperPort(raw)
     if (n === null) return
-    commitTimerRef.current = setTimeout(() => {
-      commitTimerRef.current = null
-      commitPort(n)
-    }, RSL_HELPER_PORT_COMMIT_DEBOUNCE_MS)
+    const timer = setTimeout(flushPendingCommit, RSL_HELPER_PORT_COMMIT_DEBOUNCE_MS)
+    pendingCommitRef.current = { timer, port: n }
   }
   const handlePortChange = (e: React.ChangeEvent<HTMLInputElement>) => applyDraftValue(e.target.value)
   // Spinner steps edit the draft too; an invalid draft steps from the committed port.
   const stepPort = (delta: number) => {
     const base = parsedDraft ?? port
-    applyDraftValue(String(Math.min(RSL_HELPER_PORT_MAX, Math.max(RSL_HELPER_PORT_MIN, base + delta))))
-  }
-
-  // Blur flushes a PENDING live-apply immediately; it never commits on its own, so the
-  // blur that follows an Esc cancel (timer already cleared) stays inert.
-  const flushPendingCommit = () => {
-    if (commitTimerRef.current === null) return
-    clearCommitTimer()
-    if (parsedDraft !== null) commitPort(parsedDraft)
+    applyDraftValue(String(clampRslHelperPort(base + delta)))
   }
 
   // Label text changes with state.
@@ -266,7 +259,7 @@ export default function RslHelperConnectButton({
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{
           paper: {
-            // eslint-disable-next-line react-hooks/refs -- commitAndClosePopover reads the debounce-timer ref, but ContextMenuPaper only invokes onRequestClose from the X-close click (event time), never during render
+            // eslint-disable-next-line react-hooks/refs -- commitAndClosePopover reaches the pending-commit ref, but ContextMenuPaper only invokes onRequestClose from the X-close click (event time), never during render
             ...buildContextMenuPaperSlotProps({
               component: ContextMenuPaper,
               contextMenuGuard,
@@ -304,6 +297,7 @@ export default function RslHelperConnectButton({
           }}
           value={draft}
           onChange={handlePortChange}
+          // Blur flushes a pending live-apply immediately; inert when nothing is pending.
           onBlur={flushPendingCommit}
           onKeyDown={(e) => { if (e.key === 'Enter') commitAndClosePopover() }}
           error={draft.trim() !== '' && parsedDraft === null}

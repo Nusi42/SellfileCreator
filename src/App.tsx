@@ -3857,13 +3857,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return getRslHelperConnectEnabled()
   })
-  // Reactive view of the persisted port — the port popout's OK commit notifies through the
-  // writer's subscription (externalWsProtocol SSOT), so a committed change reaches this memo
-  // without prop-threading through every RslHelperConnectButton instance.
+  // Reactive view of the persisted port — every port popout commit (debounced live-apply,
+  // Enter, blur, close) notifies through the writer's subscription (externalWsProtocol SSOT),
+  // so a committed change reaches this memo without prop-threading through every
+  // RslHelperConnectButton instance.
   const rslHelperPort = useSyncExternalStore(subscribeRslHelperPort, getRslHelperPort)
   // Derive the WebSocket endpoint from the toggle state + committed port. A port change while
   // connected produces a NEW endpoint string, which useExternalCommands' socket effect treats
-  // as teardown + reconnect — exactly the "apply and reconnect" the port popout's OK promises.
+  // as teardown + reconnect — the "live-apply re-targets the connection" the popout promises.
   const pushEndpoint = useMemo(
     () => (rslHelperConnectEnabled ? buildRslHelperWsEndpoint(rslHelperPort) : undefined),
     [rslHelperConnectEnabled, rslHelperPort]

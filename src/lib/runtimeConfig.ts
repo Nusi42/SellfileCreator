@@ -1,5 +1,6 @@
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 import { ALLOW_TEST_HOOKS } from './testHooks'
+import { createListenerSet } from './listenerSet'
 
 export type RuntimeConfig = {
   pushEndpoint?: string
@@ -319,13 +320,10 @@ let clientNameOverride: string | null = null
 // Subscribers notified when the effective client name changes. The i18n provider listens so
 // every `{client}` string re-renders: `t` is memoized, so without an explicit invalidation a
 // mid-session rename would leave memoized subtrees showing the old name.
-const clientNameListeners = new Set<() => void>()
+const clientNameListeners = createListenerSet()
 
 // Subscribe to client-name changes; returns an unsubscribe function.
-export function subscribeClientName(listener: () => void): () => void {
-  clientNameListeners.add(listener)
-  return () => { clientNameListeners.delete(listener) }
-}
+export const subscribeClientName = clientNameListeners.subscribe
 
 // Adopt a client name learned at runtime (the `capabilities` packet). Persists it so the
 // NEXT launch paints it immediately. Returns true when the effective name actually changed,
@@ -337,7 +335,7 @@ export function adoptClientName(raw: unknown): boolean {
   clientNameOverride = normalized
   persistClientName(normalized)
   if (before === normalized) return false
-  for (const listener of clientNameListeners) listener()
+  clientNameListeners.notify()
   return true
 }
 

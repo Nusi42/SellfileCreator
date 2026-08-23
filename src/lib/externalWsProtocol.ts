@@ -1,5 +1,6 @@
 import type { ExternalCommand } from './externalCommands'
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
+import { createListenerSet } from './listenerSet'
 import { resolveAccountScopedKey } from './accounts'
 // Shared WebSocket-scheme predicate, so the port extractor below accepts exactly the schemes
 // the launch-param sanitizer does.
@@ -125,6 +126,12 @@ export const parseRslHelperPort = (raw: string | number | null | undefined): num
   return parsed >= RSL_HELPER_PORT_MIN && parsed <= RSL_HELPER_PORT_MAX ? parsed : null
 }
 
+// Clamp an arbitrary integer into the valid port range. Used by the popout's spinner so a
+// step past either bound lands ON the bound; parseRslHelperPort (reject, don't clamp) stays
+// the rule for typed/stored input — both share the same two bound constants.
+export const clampRslHelperPort = (port: number): number =>
+  Math.min(RSL_HELPER_PORT_MAX, Math.max(RSL_HELPER_PORT_MIN, port))
+
 // Read the persisted port from localStorage, falling back to the default.
 export const getRslHelperPort = (): number =>
   parseRslHelperPort(safeGetItem(RSL_HELPER_PORT_STORAGE_KEY)) ?? RSL_HELPER_DEFAULT_PORT
@@ -134,13 +141,10 @@ export const getRslHelperPort = (): number =>
 // launch-param migration — reaches the same notification without prop-threading; App.tsx
 // consumes it via useSyncExternalStore to re-derive the live WebSocket endpoint, which is
 // what makes an already-open connection reconnect on the new port.
-const rslHelperPortListeners = new Set<() => void>()
+const rslHelperPortListeners = createListenerSet()
 
 // Subscribe to committed port changes; returns the unsubscribe (useSyncExternalStore shape).
-export const subscribeRslHelperPort = (listener: () => void): (() => void) => {
-  rslHelperPortListeners.add(listener)
-  return () => { rslHelperPortListeners.delete(listener) }
-}
+export const subscribeRslHelperPort = rslHelperPortListeners.subscribe
 
 // Persist the port, clearing the key when it is the default so storage stays clean.
 // Invalid values are ignored rather than written, so the stored value is always readable.
@@ -156,9 +160,7 @@ export const setRslHelperPort = (port: number): void => {
   } else {
     safeSetItem(RSL_HELPER_PORT_STORAGE_KEY, String(valid))
   }
-  if (valid !== previous) {
-    for (const listener of rslHelperPortListeners) listener()
-  }
+  if (valid !== previous) rslHelperPortListeners.notify()
 }
 
 // Build the deep-link URL that opens the app pre-connected to a local RSL Helper instance.

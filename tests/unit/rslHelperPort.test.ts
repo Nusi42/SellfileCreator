@@ -12,6 +12,7 @@ import {
   RSL_HELPER_PORT_MIN,
   RSL_HELPER_PORT_MAX,
 } from '../../src/lib/externalWsProtocol.js'
+import { withLocalStorageStub } from './helpers/localStorageStub.js'
 import { isWebSocketProtocol } from '../../src/lib/runtimeConfig.js'
 
 test('parseRslHelperPort accepts the valid TCP range and rejects everything else', () => {
@@ -67,19 +68,8 @@ test('extractRslHelperPortFromEndpoint returns null for unusable endpoints', () 
 })
 
 test('setRslHelperPort notifies subscribers only on a committed change', () => {
-  // Minimal window.localStorage stub (same per-case install pattern as
-  // clientCapabilities.test.ts) — the port helpers reach storage via safeStorage.
-  const globals = globalThis as { window?: unknown }
-  const previousWindow = globals.window
-  const store = new Map<string, string>()
-  globals.window = {
-    localStorage: {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => { store.set(k, v) },
-      removeItem: (k: string) => { store.delete(k) },
-    },
-  }
-  try {
+  // The port helpers reach storage via safeStorage, so a window.localStorage stub is needed.
+  withLocalStorageStub(() => {
     let notifications = 0
     const unsubscribe = subscribeRslHelperPort(() => { notifications += 1 })
     // A real change (default → new) persists and notifies exactly once.
@@ -101,8 +91,5 @@ test('setRslHelperPort notifies subscribers only on a committed change', () => {
     unsubscribe()
     setRslHelperPort(9100)
     assert.equal(notifications, 2)
-  } finally {
-    if (previousWindow === undefined) delete globals.window
-    else globals.window = previousWindow
-  }
+  })
 })
