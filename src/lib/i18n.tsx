@@ -123,6 +123,21 @@ function safeGetLanguage(): Language {
   }
 }
 
+/**
+ * A counter that increments whenever the connected client is renamed.
+ *
+ * The client name lives in module state (runtimeConfig), which React cannot observe — so any
+ * memo whose output depends on it must list this value to be rebuilt. Add it to the dep
+ * array and `void` it in the body; it is a cache-buster, never a value to read. Used by `t`
+ * (every `{client}` catalog string) and by the Help dialog's README transform, both of which
+ * would otherwise keep rendering the name the client had when they first ran.
+ */
+export function useClientNameSeq(): number {
+  const [seq, setSeq] = React.useState(0)
+  React.useEffect(() => subscribeClientName(() => setSeq((s) => s + 1)), [])
+  return seq
+}
+
 export type I18nContextValue = {
   lang: Language
   setLang: (lang: Language) => void
@@ -176,11 +191,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setLang((langCode as Language) || DEFAULT_LANGUAGE)
   }, [])
 
-  // Bump on every client rename so `t` (and with it every memoized subtree holding a
-  // `{client}` string) is rebuilt. The name can arrive mid-session over the socket, long
-  // after these strings were first rendered.
-  const [clientNameSeq, setClientNameSeq] = React.useState(0)
-  React.useEffect(() => subscribeClientName(() => setClientNameSeq((s) => s + 1)), [])
+  const clientNameSeq = useClientNameSeq()
 
   const t = React.useCallback((key: I18nKey, params?: Record<string, string | number>) => {
     // Read here so the linter sees the dependency: the value is unused, but the client name

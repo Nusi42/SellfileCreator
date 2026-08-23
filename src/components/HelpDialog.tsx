@@ -14,7 +14,9 @@ import ThemeEditorMenu from './ThemeEditorMenu'
 // Values are raw Markdown strings.
 const README_FILES = import.meta.glob('../../README*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>
 import { APP_VERSION } from '../version'
-import { useI18n, useLanguageOptions } from '../lib/i18n'
+import { useClientNameSeq, useI18n, useLanguageOptions } from '../lib/i18n'
+// Render-time client-name adaptation for the README (the shipped files stay literal).
+import { adaptReadmeForDisplay } from '../lib/readmeClientName'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_HEADER_META_PX, NOTE_DIALOG_LG_WIDTH_PX } from '../lib/constants'
 import { GOLD_TITLE_COMPOSITE_OPT_OUT_SX } from '../lib/goldSkin'
 import { appZoomCompensatedLength } from '../lib/sideBySideZoom'
@@ -37,6 +39,8 @@ const getFaviconLinkHref = (): string | undefined => {
 export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMode, connectEnabled, pushEndpointReachable, onToggleConnect, colorBlindMode, setColorBlindMode, onOpenManageColors }: { open: boolean; onClose: () => void; onStartTutorial?: () => void; firstRunMode?: boolean; connectEnabled?: boolean; pushEndpointReachable?: boolean; onToggleConnect?: () => void; colorBlindMode?: ColorBlindMode; setColorBlindMode?: (m: ColorBlindMode) => void; onOpenManageColors?: () => void }) {
   const rehypePluginsSafe = [rehypeSanitize as unknown as Pluggable]
   const { lang, setLang, t } = useI18n()
+  // Rebuilds the README memo when a client names itself mid-session (see useClientNameSeq).
+  const clientNameSeq = useClientNameSeq()
   const languageOptions = useLanguageOptions()
   const paperBackgroundImage = React.useMemo(() => {
     const decorativeLayer = 'radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0))'
@@ -70,6 +74,10 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
   // so the markdown H1 would be a duplicate. We detect the app title on line 0 and drop it
   // (plus the badge on line 1 if present) so the markdown starts with the first real section.
   const readmeWithVersion = React.useMemo(() => {
+    // Read so the linter sees the dependency: the value is unused, but adaptReadmeForDisplay
+    // pulls the client name from module state, which the rule cannot see. The counter is what
+    // tells React this memo is stale after a mid-session rename.
+    void clientNameSeq
     try {
       // Strip UTF-8 BOM if present — README files begin with U+FEFF which would
       // otherwise prevent the leading `# ` H1 detection from matching.
@@ -82,13 +90,13 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
         // Both the current and legacy app name are matched to handle cached/old README content.
         // Also drop a version badge that a prior build may have injected on line 1.
         const startIdx = (lines[1] ?? '').startsWith('###### v') ? 2 : 1
-        return lines.slice(startIdx).join('\n')
+        return adaptReadmeForDisplay(lines.slice(startIdx).join('\n'))
       }
-      return text
+      return adaptReadmeForDisplay(text)
     } catch {
       return String(readmeForLang)
     }
-  }, [readmeForLang])
+  }, [readmeForLang, clientNameSeq])
 
   // Periodic, varying highlight for the "Start Tutorial" button.
   // Why: Draw gentle attention on first runs without being repetitive or distracting.

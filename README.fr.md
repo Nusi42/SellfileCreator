@@ -330,13 +330,12 @@ Ouvrez « Outils » et passez sur l'onglet **Analyse d’équipement** pour un a
 
 Sellfile Creator peut conserver des documents séparés (recettes, protections, note, équipement) pour plusieurs comptes de jeu. Le sélecteur de comptes se trouve dans la barre supérieure (et dans la boîte de dialogue de la vue simple) : cliquez pour changer de compte ou en créer, et utilisez l’icône d’engrenage à côté d’un compte pour ouvrir le gestionnaire de comptes. Vous pouvez y renommer un compte, choisir sa couleur d’accent, saisir l’identifiant de compte RSL Helper auquel il appartient, activer ou désactiver l’envoi automatique par compte, marquer un compte comme destination par défaut des données arrivant sans identifiant, décider si les données d’équipement reçues sont enregistrées sur cet appareil, et supprimer un compte avec toutes ses données. Maintenez Maj en choisissant un compte dans le sélecteur pour fusionner le document actuel dans ce compte.
 
-**Comment se passe la transition :**
+**Comment les comptes sont associés :**
 
-- Après la mise à jour, toutes vos données existantes vivent simplement dans un compte nommé « Default » — rien ne change pour vous.
-- La prise en charge des comptes est déployée par étapes, en coordination avec RSL Helper ; certaines parties ne sont donc pas encore pleinement actives.
-- Pour l’instant, RSL Helper n’indique pas encore à Sellfile Creator quel compte de jeu il envoie. Ces données vont à votre compte actif — ou au compte que vous avez marqué comme « compte par défaut pour les données sans identifiant » dans le gestionnaire.
-- Dès que RSL Helper transmettra l’identifiant de compte au lancement de Sellfile Creator, votre compte « Default » existant sera automatiquement lié à cet identifiant — vos données suivent tout simplement. Un second compte de jeu recevra alors son propre compte Sellfile Creator, vierge.
-- Dès que RSL Helper étiquettera aussi ses paquets de données avec l’identifiant de compte, tout sera routé automatiquement : les données d’un autre compte ne se mélangent jamais à celui sur lequel vous travaillez, et si cet autre compte a l’envoi automatique activé, son sellfile est reconstruit et renvoyé en arrière-plan.
+- Après la mise à jour, toutes vos données existantes se trouvent dans un compte nommé « Default » — rien ne change pour vous.
+- RSL Helper indique à Sellfile Creator quel compte de jeu il ouvre : votre compte « Default » est donc automatiquement lié à cet identifiant et vos données suivent. Un deuxième compte de jeu obtient son propre compte Sellfile Creator.
+- RSL Helper marque aussi ses paquets de données avec l'identifiant du compte, donc tout est routé automatiquement : les données d'un autre compte ne se mélangent jamais à celui sur lequel vous travaillez, et si cet autre compte a l'envoi automatique activé, son Sellfile est reconstruit et renvoyé en arrière-plan.
+- Les données qui arrivent sans identifiant de compte vont à votre compte actif — ou au compte que vous avez marqué comme « par défaut pour les données sans identifiant » dans le gestionnaire.
 
 ## Exemples
 

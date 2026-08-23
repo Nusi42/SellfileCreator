@@ -323,13 +323,12 @@ Hinweise:
 
 Sellfile Creator kann getrennte Dokumente (Rezepte, Safeguards, Notiz, Ausrüstung) für mehrere Spielkonten verwalten. Der Kontoumschalter sitzt in der oberen Leiste (und im Dialog der einfachen Ansicht): Klicken zum Wechseln oder Anlegen von Konten; das Zahnrad neben einem Konto öffnet die Kontoverwaltung. Dort lassen sich Konten umbenennen, die Akzentfarbe wählen, die zugehörige RSL-Helper-Konto-ID eintragen, Auto-Push pro Konto ein- oder ausschalten, ein Konto als Standard für Daten ohne Konto-ID markieren, das Speichern empfangener Ausrüstungsdaten auf diesem Gerät abschalten sowie ein Konto samt aller Daten löschen. Mit gedrückter Shift-Taste beim Auswählen eines Kontos wird das aktuelle Dokument in dieses Konto gemergt.
 
-**So läuft der Übergang ab:**
+**Wie Konten zugeordnet werden:**
 
 - Nach dem Update liegen alle vorhandenen Daten einfach in einem Konto namens „Default" — für dich ändert sich nichts.
-- Die Kontenunterstützung wird schrittweise zusammen mit RSL Helper eingeführt; Teile davon sind daher noch nicht voll aktiv.
-- Im Moment teilt RSL Helper dem Sellfile Creator noch nicht mit, welches Spielkonto es sendet. Diese Daten gehen an dein aktives Konto — oder an das Konto, das du in der Verwaltung als „Standard für Daten ohne Konto-ID" markiert hast.
-- Sobald RSL Helper beim Start des Sellfile Creators die Konto-ID übergibt, wird dein bestehendes „Default"-Konto automatisch mit dieser ID verknüpft — deine Daten ziehen einfach mit. Ein zweites Spielkonto bekommt dann ein eigenes, frisches Konto im Sellfile Creator.
-- Sobald RSL Helper auch seine Datenpakete mit der Konto-ID versieht, läuft alles automatisch: Daten eines anderen Kontos mischen sich nie in das Konto, an dem du gerade arbeitest, und hat das andere Konto Auto-Push aktiviert, wird sein Sellfile im Hintergrund neu erstellt und zurückgesendet.
+- RSL Helper teilt dem Sellfile Creator mit, welches Spielkonto es öffnet. Dein bestehendes „Default"-Konto wird automatisch mit dieser ID verknüpft — deine Daten ziehen einfach mit. Ein zweites Spielkonto bekommt ein eigenes, frisches Konto im Sellfile Creator.
+- RSL Helper kennzeichnet auch seine Datenpakete mit der Konto-ID, sodass alles automatisch zugeordnet wird: Daten für ein anderes Konto vermischen sich nie mit dem, an dem du gerade arbeitest, und wenn für dieses andere Konto Auto-Push aktiv ist, wird sein Sellfile im Hintergrund neu gebaut und zurückgesendet.
+- Daten ohne Konto-ID gehen an dein aktives Konto — oder an das Konto, das du im Manager als „Standard für Daten ohne Konto-ID" markiert hast.
 
 ## Beispiele
 

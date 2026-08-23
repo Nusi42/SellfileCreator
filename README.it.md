@@ -313,13 +313,12 @@ Apri "Strumenti" e passa alla scheda **Analisi Equipaggiamento** per una panoram
 
 Sellfile Creator può mantenere documenti separati (ricette, salvaguardie, nota, equipaggiamento) per più account di gioco. Il selettore degli account si trova nella barra superiore (e nella finestra della vista semplice): fai clic per cambiare account o crearne di nuovi, e usa l’icona dell’ingranaggio accanto a un account per aprire il gestore degli account. Lì puoi rinominare un account, sceglierne il colore d’accento, inserire l’id account di RSL Helper a cui appartiene, attivare o disattivare l’invio automatico per account, contrassegnare un account come predefinito per i dati che arrivano senza id, decidere se i dati dell’equipaggiamento ricevuti vengono salvati su questo dispositivo ed eliminare un account con tutti i suoi dati. Tieni premuto Shift mentre scegli un account nel selettore per unire il documento corrente in quell’account.
 
-**Come avviene la transizione:**
+**Come vengono associati gli account:**
 
-- Dopo l’aggiornamento, tutti i tuoi dati esistenti vivono semplicemente in un account chiamato "Default" — per te non cambia nulla.
-- Il supporto agli account viene introdotto a tappe insieme a RSL Helper, quindi alcune parti non sono ancora pienamente attive.
-- Per ora RSL Helper non dice ancora a Sellfile Creator quale account di gioco sta inviando. Quei dati vanno al tuo account attivo — o all’account che hai contrassegnato come "predefinito per i dati senza id account" nel gestore.
-- Non appena RSL Helper passerà l’id account all’avvio di Sellfile Creator, il tuo account "Default" esistente verrà collegato automaticamente a quell’id — i tuoi dati lo seguono e basta. Un secondo account di gioco riceverà poi un proprio account Sellfile Creator nuovo.
-- Quando RSL Helper etichetterà anche i suoi pacchetti di dati con l’id account, tutto verrà instradato automaticamente: i dati di un altro account non si mescolano mai a quello su cui stai lavorando e, se quell’altro account ha l’invio automatico attivo, il suo sellfile viene ricostruito e rispedito in background.
+- Dopo l'aggiornamento, tutti i tuoi dati esistenti si trovano in un account chiamato «Default» — per te non cambia nulla.
+- RSL Helper comunica a Sellfile Creator quale account di gioco sta aprendo, quindi il tuo account «Default» viene collegato automaticamente a quell'id e i tuoi dati lo seguono. Un secondo account di gioco riceve un proprio account Sellfile Creator.
+- RSL Helper contrassegna anche i suoi pacchetti di dati con l'id dell'account, così tutto viene instradato automaticamente: i dati di un altro account non si mescolano mai con quello su cui stai lavorando e, se quell'altro account ha l'invio automatico attivo, il suo Sellfile viene ricostruito e inviato in background.
+- I dati che arrivano senza id account vanno al tuo account attivo — o all'account che hai contrassegnato come «predefinito per i dati senza id account» nel gestore.
 
 ## Esempi
 

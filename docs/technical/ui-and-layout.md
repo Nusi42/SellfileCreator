@@ -26,6 +26,16 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   "RSL Helper" is still correct in *comments*, in the app's own product name ("RSL Helper
   Sellfile Creator"), in the trademark disclaimer, and in README content the Help dialog
   parses by heading text.
+  - The **README files are the exception**: they ship as standalone documents (distributed
+    to users, read on GitHub) *and* render as the in-app Help screen, so they keep saying
+    "RSL Helper" on disk and are adapted at render time by `adaptReadmeForDisplay`
+    (`lib/readmeClientName.ts`). That module protects four categories from rewriting — the
+    `.hsf` format name ("RSL Helper Sellfile", in every language's word order), the trademark
+    disclaimer, the Farbstoff credit, and literal identifiers (backticked filenames, link
+    targets, the H1 the Help dialog matches on) — because renaming those would be wrong, not
+    merely inconsistent. **A change-detector test pins the adapted/preserved count for every
+    README**: adding or editing an "RSL Helper" mention fails `readmeClientName.test.ts` on
+    purpose, so someone must classify the new sentence rather than let the regexes pick.
   - The same `{client}` token also works in **authored note prose** (the shipped
     `presets/*.sfc`), expanded by `localizeNoteProse`. Documents on disk keep the placeholder
     — nothing rewrites saved user content — so a preset reads correctly under any client.

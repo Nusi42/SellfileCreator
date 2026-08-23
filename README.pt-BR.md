@@ -323,13 +323,12 @@ Abra «Ferramentas» e vá para a aba **Análise de Equipamentos** para uma vis�
 
 O Sellfile Creator pode manter documentos separados (receitas, salvaguardas, nota, equipamento) para várias contas do jogo. O seletor de contas fica na barra superior (e no diálogo da visão simples): clique para trocar de conta ou criar novas, e use o ícone de engrenagem ao lado de uma conta para abrir o gerenciador de contas. Lá você pode renomear uma conta, escolher sua cor de destaque, informar o id de conta do RSL Helper ao qual ela pertence, ligar ou desligar o envio automático por conta, marcar uma conta como padrão para dados que chegam sem id, decidir se os dados de equipamento recebidos são salvos neste dispositivo e excluir uma conta com todos os seus dados. Segure Shift ao escolher uma conta no seletor para mesclar o documento atual nela.
 
-**Como funciona a transição:**
+**Como as contas são associadas:**
 
-- Após atualizar, todos os seus dados existentes passam a viver em uma conta chamada "Default" — nada muda para você.
-- O suporte a contas está sendo lançado em etapas junto com o RSL Helper, então parte dele ainda não está totalmente ativa.
-- Por enquanto, o RSL Helper ainda não informa ao Sellfile Creator qual conta do jogo está enviando. Esses dados vão para a sua conta ativa — ou para a conta que você marcou como "padrão para dados sem id de conta" no gerenciador.
-- Assim que o RSL Helper passar o id da conta ao abrir o Sellfile Creator, sua conta "Default" existente será vinculada automaticamente a esse id — seus dados simplesmente a acompanham. Uma segunda conta do jogo ganha então sua própria conta nova no Sellfile Creator.
-- Quando o RSL Helper também etiquetar seus pacotes de dados com o id da conta, tudo será roteado automaticamente: dados de outra conta nunca se misturam à conta em que você está trabalhando e, se essa outra conta tiver o envio automático ligado, o sellfile dela é reconstruído e enviado de volta em segundo plano.
+- Depois de atualizar, todos os seus dados existentes ficam em uma conta chamada «Default» — nada muda para você.
+- O RSL Helper informa ao Sellfile Creator qual conta de jogo está abrindo, então sua conta «Default» é vinculada automaticamente a esse id e seus dados acompanham. Uma segunda conta de jogo recebe sua própria conta no Sellfile Creator.
+- O RSL Helper também marca seus pacotes de dados com o id da conta, então tudo é roteado automaticamente: os dados de outra conta nunca se misturam com aquela em que você está trabalhando e, se essa outra conta tiver o envio automático ativado, seu Sellfile é reconstruído e enviado em segundo plano.
+- Os dados que chegam sem id de conta vão para sua conta ativa — ou para a conta que você marcou como «padrão para dados sem id de conta» no gerenciador.
 
 ## Exemplos
 
