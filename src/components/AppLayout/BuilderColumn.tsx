@@ -1,9 +1,16 @@
 import { Box, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
-import { SIDE_BY_SIDE_NATIVE_MEDIA_QUERY } from '../../lib/constants'
+import { splitExtentByRatio } from '../../hooks/useSplitterDrag'
+import {
+  BUILDER_SPLITTER_MIN_BOTTOM_PX,
+  BUILDER_SPLITTER_MIN_TOP_PX,
+  GRID_COLUMN_GAP_PX,
+  SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
+} from '../../lib/constants'
 import { GoldCornerOrnaments, GOLD_CORNER_HOST_SX } from '../GoldCornerOrnament'
 import { BuilderSplitter, BUILDER_SPLITTER_BOTTOM_VAR, BUILDER_SPLITTER_TOP_VAR } from './BuilderSplitter'
+import { SPLITTER_LEFT_VAR } from './SideBySideSplitter'
 
 /**
  * BuilderColumn renders the builder-side layout as TWO stacked papers separated by a draggable
@@ -91,8 +98,18 @@ export function BuilderColumn({
   // The fallback is the natural split (form at content height) until the user drags, and the
   // committed split afterwards. `natural` resolves to `auto`, so an undragged column lays out
   // exactly as it did before it was split.
+  //
+  // The committed case goes through splitExtentByRatio — the same conversion the drag itself
+  // used — so the height rendered on reload (when no CSS variable is set yet) is exactly the
+  // height the gesture wrote, floors and handle gap included, rather than a px short or over.
   const naturalTopFallback = splitRatio != null
-    ? `${Math.round(splitRatio * (splitUsableHeightPx ?? 0))}px`
+    ? `${splitExtentByRatio({
+        ratio: splitRatio,
+        extentPx: splitUsableHeightPx ?? 0,
+        gapPx: GRID_COLUMN_GAP_PX,
+        minLeadingPx: BUILDER_SPLITTER_MIN_TOP_PX,
+        minTrailingPx: BUILDER_SPLITTER_MIN_BOTTOM_PX,
+      }).leadingPx}px`
     : 'auto'
   const topHeight = canSplit ? `var(${BUILDER_SPLITTER_TOP_VAR}, ${naturalTopFallback})` : undefined
   // The bottom paper always takes the remainder, so its fallback is simply "fill what is left".
@@ -121,7 +138,7 @@ export function BuilderColumn({
         // width updates without any React re-render. widthPx (the committed value) serves as the
         // fallback for the initial render and the single re-render after mouseup.
         // The 50% fallback covers the flash-guard window before the CSS var is first written.
-        width: forceSideBySide ? `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})` : '100%',
+        width: forceSideBySide ? `var(${SPLITTER_LEFT_VAR}, ${widthPx != null ? `${widthPx}px` : '50%'})` : '100%',
         maxWidth: 'none',
         mx: 0,
         // In forced side-by-side (zoom) mode, lock the column to exactly the available viewport
@@ -136,7 +153,7 @@ export function BuilderColumn({
         [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
           mx: 0,
           // CSS variable carries live drag updates; 50% fallback covers the flash-guard window.
-          width: `var(--splitter-left-width, ${widthPx != null ? `${widthPx}px` : '50%'})`,
+          width: `var(${SPLITTER_LEFT_VAR}, ${widthPx != null ? `${widthPx}px` : '50%'})`,
           ...(sideBySideMinPaperHeightPx
             ? { minHeight: sideBySideMinPaperHeightPx, maxHeight: sideBySideMinPaperHeightPx, overflowY: 'hidden' }
             : {}),
@@ -153,7 +170,11 @@ export function BuilderColumn({
           // resolves to `auto` (natural content height) until the user drags. The form scrolls
           // internally once a drag gives it less room than it wants.
           flex: '0 0 auto',
-          ...(topHeight ? { height: topHeight, overflowY: 'auto' } : {}),
+          // The scroll lives on the inner Box, not here: the gold corners are absolutely
+          // positioned against this paper, so making the paper itself the scroll container would
+          // scroll the ornaments off the top edge as soon as a drag shortened the form. Same
+          // shape as the bottom paper (overflow hidden here, scroll inside).
+          ...(topHeight ? { height: topHeight, overflow: 'hidden' } : {}),
           // Border overrides: reduce visual "frame" on edges that should feel open.
           // SBS left column — remove the leftmost edge; the inner (right) border stays.
           // Non-SBS full-width — remove left/right edges.
@@ -175,8 +196,10 @@ export function BuilderColumn({
         data-tour-id="builder.core"
       >
         <GoldCornerOrnaments />
-        <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 2 }}>
+        {/* Owns the scroll so the ornaments above stay pinned to the paper's frame. minHeight:0
+            lets it shrink inside the fixed-height paper instead of forcing the paper to grow. */}
+        <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', columnGap: 1, mb: 2, flexShrink: 0 }}>
             {typeof title === 'string' ? (
               <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
                 {title}

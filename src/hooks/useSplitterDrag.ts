@@ -29,6 +29,35 @@ import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 
 export type SplitterDragAxis = 'horizontal' | 'vertical'
 
+/**
+ * Split a container extent at `ratio`, honouring both absolute px floors.
+ *
+ * SSOT for the ratio→px conversion. The drag writes the result to the CSS variables, and any
+ * component that renders a committed ratio as a fallback height/width must resolve it the SAME
+ * way — including subtracting the handle's own extent from the container first. Deriving the
+ * fallback independently makes the pre-drag (and post-reload) size differ from the size the
+ * gesture actually produced, by `gapPx * ratio`.
+ */
+export function splitExtentByRatio({
+  ratio,
+  extentPx,
+  gapPx,
+  minLeadingPx,
+  minTrailingPx,
+}: {
+  ratio: number
+  /** Full container extent along the drag axis, handle included. */
+  extentPx: number
+  gapPx: number
+  minLeadingPx: number
+  minTrailingPx: number
+}): { leadingPx: number; trailingPx: number; usablePx: number } {
+  // The handle sits between the panels, so it is not theirs to divide.
+  const usablePx = Math.max(0, extentPx - gapPx)
+  const leadingPx = Math.max(minLeadingPx, Math.min(usablePx - minTrailingPx, Math.round(ratio * usablePx)))
+  return { leadingPx, trailingPx: usablePx - leadingPx, usablePx }
+}
+
 // ── Active-gesture flag ──
 // A splitter drag resizes real elements on every mousemove, and those elements are watched by the
 // ResizeObservers in useBuilderPreviewLayout. Left alone, each move would trigger a measurement →
@@ -137,11 +166,9 @@ export function useSplitterDrag({
     const baseExtent = overrideExtent != null && overrideExtent > 0 ? overrideExtent : measuredExtent
     const usableAtStart = Math.max(0, baseExtent - gapPx)
 
-    /** Split the usable extent at `r`, honouring both absolute px floors. */
-    const ratioToPx = (r: number): { leadingPx: number; trailingPx: number } => {
-      const leadingPx = Math.max(minLeadingPx, Math.min(usableAtStart - minTrailingPx, Math.round(r * usableAtStart)))
-      return { leadingPx, trailingPx: usableAtStart - leadingPx }
-    }
+    /** Split the usable extent at `r` — shared with the callers that render a committed ratio. */
+    const ratioToPx = (r: number): { leadingPx: number; trailingPx: number } =>
+      splitExtentByRatio({ ratio: r, extentPx: baseExtent, gapPx, minLeadingPx, minTrailingPx })
 
     /**
      * Seed both variables from the start ratio. A panel sized as var(--x, fallback) resolves to the
@@ -195,13 +222,22 @@ export function useSplitterDrag({
       onResizeLiveRef.current?.(trailingPx)
     }
 
-    const handleMouseUp = () => {
+    /**
+     * Detach the gesture's listeners and clear the suppression flag. Idempotent, because it runs
+     * from both mouseup and the window-blur safety net below and either may fire first.
+     */
+    const endGesture = () => {
       dragStartCoordRef.current = null
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('blur', handleWindowBlur)
       // Re-enable measurement BEFORE committing, so the observers that fire in response to the
       // commit see the final sizes and refresh the layout budget from them.
       splitterDragActive = false
+    }
+
+    const handleMouseUp = () => {
+      endGesture()
       // A click that never moved chose nothing — leave the current split (and, crucially, any
       // pending double-click reset) untouched.
       if (!dragMovedRef.current) return
@@ -209,8 +245,22 @@ export function useSplitterDrag({
       onResize(dragFinalRatioRef.current)
     }
 
+    /**
+     * Safety net for a gesture that never gets its mouseup: releasing the button outside the
+     * browser window (alt-tab, dragging onto another app) delivers no mouseup to the document.
+     * Without this the module-level splitterDragActive would stay true for the rest of the
+     * session and silently disable EVERY layout ResizeObserver in useBuilderPreviewLayout.
+     * The drag already wrote its px to the CSS variables, so commit what the user last saw.
+     */
+    function handleWindowBlur() {
+      const moved = dragMovedRef.current
+      endGesture()
+      if (moved) onResize(dragFinalRatioRef.current)
+    }
+
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('blur', handleWindowBlur)
   }, [axis, containerRef, forceSideBySide, gapPx, leadingVar, minLeadingPx, minTrailingPx, onResize, trailingVar])
 
   return { handleMouseDown }

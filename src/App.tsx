@@ -194,7 +194,7 @@ import { useSplitterRatio, SPLITTER_MIN_WIDTH_PX } from './state/splitterPrefere
 import { useBuilderSplitterRatio } from './state/builderSplitterPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
-import { SideBySideSplitter } from './components/AppLayout/SideBySideSplitter'
+import { SideBySideSplitter, SPLITTER_LEFT_VAR, SPLITTER_RIGHT_VAR } from './components/AppLayout/SideBySideSplitter'
 import { AppTitle } from './components/AppTitle'
 import UpdateNoticeLine from './components/UpdateNoticeLine'
 import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
@@ -1086,8 +1086,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useLayoutEffect(() => {
     const el = splitterContainerRef.current
     if (!el) return
-    el.style.setProperty('--splitter-left-width', `${splitterLeftPx}px`)
-    el.style.setProperty('--splitter-right-width', `${splitterRightPx}px`)
+    el.style.setProperty(SPLITTER_LEFT_VAR, `${splitterLeftPx}px`)
+    el.style.setProperty(SPLITTER_RIGHT_VAR, `${splitterRightPx}px`)
   }, [splitterLeftPx, splitterRightPx])
   // Width passed to the note panel so it aligns with the builder column and leaves the
   // gear inspector visible. splitterLeftPx is in the zoomed layout coordinate space; the
@@ -9730,7 +9730,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // splitterRightPx (the committed JS value) is the var's fallback for the single
           // re-render after mouseup and for non-side-by-side mode.
           width: isSideBySide
-            ? `var(--splitter-right-width, ${splitterRightPx}px)`
+            ? `var(${SPLITTER_RIGHT_VAR}, ${splitterRightPx}px)`
             : (forceSideBySideLayout ? PANEL_WIDTH_PX : '100%'),
           // Always fill the available container — no maxWidth cap in single-column either.
           maxWidth: 'none',
@@ -9754,7 +9754,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Use the var with a 50% fallback so the panel fills its half of the fluid container.
           [`@media ${SIDE_BY_SIDE_NATIVE_MEDIA_QUERY}`]: {
             mx: 0,
-            width: `var(--splitter-right-width, 50%)`,
+            width: `var(${SPLITTER_RIGHT_VAR}, 50%)`,
             height: previewPaperHeightStyle ?? 'auto',
             ...(previewPaperHeightStyle ? { minHeight: previewPaperHeightStyle } : {}),
             overflow: 'hidden',

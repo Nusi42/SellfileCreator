@@ -22,6 +22,15 @@ import { useSplitterDrag } from '../../hooks/useSplitterDrag'
 import { GRID_COLUMN_GAP_PX } from '../../lib/constants'
 import { SPLITTER_MIN_WIDTH_PX } from '../../state/splitterPreference'
 
+/**
+ * CSS custom properties the drag writes; App.tsx seeds them from the committed ratio and both
+ * columns read them for live resizing. Named here (rather than spelled inline at each of the
+ * half-dozen read/write sites) so the column splitter matches BuilderSplitter's convention and
+ * a rename cannot silently desynchronise a reader from the writer.
+ */
+export const SPLITTER_LEFT_VAR = '--splitter-left-width'
+export const SPLITTER_RIGHT_VAR = '--splitter-right-width'
+
 export type SideBySideSplitterProps = {
   /** Called once on mouseup with the final clamped split ratio (0.0–1.0). */
   onResize: (newRatio: number) => void
@@ -63,8 +72,8 @@ export function SideBySideSplitter({
     axis: 'horizontal',
     ratio,
     containerRef,
-    leadingVar: '--splitter-left-width',
-    trailingVar: '--splitter-right-width',
+    leadingVar: SPLITTER_LEFT_VAR,
+    trailingVar: SPLITTER_RIGHT_VAR,
     gapPx: GRID_COLUMN_GAP_PX,
     minLeadingPx: SPLITTER_MIN_WIDTH_PX,
     minTrailingPx: SPLITTER_MIN_WIDTH_PX,

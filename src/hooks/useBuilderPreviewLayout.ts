@@ -6,12 +6,39 @@ import {
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_BOTTOM_INSET_PX,
   BUILDER_RECIPE_CHIPS_SIDE_BY_SIDE_SAFE_GAP_PX,
   BUILDER_SAFEGUARD_CHIPS_MIN_HEIGHT_PX,
+  GRID_COLUMN_GAP_PX,
   SIDE_BY_SIDE_NATIVE_MEDIA_QUERY,
 } from '../lib/constants'
 import { getCurrentSideBySideZoom } from '../lib/sideBySideZoom'
 import { isSplitterDragActive } from './useSplitterDrag'
 
 const isSyntheticResizeEvent = (event?: Event): boolean => Boolean(event && event.type === 'resize' && event.isTrusted === false)
+
+/**
+ * Observe `el`'s offsetHeight and push it through `report` on every (non-drag) resize.
+ *
+ * SSOT for the two height probes below — the column wrapper and the builder form paper — which
+ * otherwise differ only in whether they also follow window resizes. Returns the observer teardown.
+ *
+ * Mid-gesture notifications are skipped for both: a splitter drag resizes these elements on every
+ * mousemove, and the mouseup commit re-measures from the final sizes anyway.
+ */
+function observeOffsetHeight(el: HTMLElement, report: (height: number) => void): { measure: () => void; disconnect: () => void } {
+  const measure = () => {
+    // offsetHeight can throw on a detached/zero-layout node in some engines; a failed probe just
+    // leaves the previous height standing rather than tearing the layout down.
+    try {
+      report(el.offsetHeight)
+    } catch {}
+  }
+  measure()
+  let ro: ResizeObserver | null = null
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => { if (!isSplitterDragActive()) measure() })
+    ro.observe(el)
+  }
+  return { measure, disconnect: () => { if (ro) ro.disconnect() } }
+}
 
 /**
  * useBuilderPreviewLayout
@@ -45,8 +72,8 @@ export type BuilderPreviewLayout = {
   // Height budget (CSS px) the builder column's two papers share, or null outside side-by-side.
   // This is the same value sideBySideMinPaperHeightPx expresses as a CSS length.
   builderSplitUsableHeightPx: number | null
-  // Where the split naturally falls today: form height / total budget. Used as the drag start
-  // value while the user has not dragged in the active builder mode.
+  // Where the split naturally falls today: form height / the extent the drag divides (the budget
+  // minus the handle). Used as the drag start value while the user has not dragged in this mode.
   builderSplitNaturalRatio: number
   // Trigger a re-measurement of the builder Paper min-height from current DOM state.
   // Call this whenever the builder content changes in a way that the chips ResizeObserver
@@ -93,26 +120,16 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   useEffect(() => {
     const el = leftPaperRef.current
     if (!el) return
-    const measure = () => {
-      try {
-        setLeftHeightRef.current(el.offsetHeight)
-      } catch {}
-    }
-    measure()
-    let ro: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      // Skip mid-gesture notifications: a splitter drag resizes these elements on every mousemove
-      // and mouseup re-measures from the final sizes anyway.
-      ro = new ResizeObserver(() => { if (!isSplitterDragActive()) measure() })
-      ro.observe(el)
-    }
+    const { measure, disconnect } = observeOffsetHeight(el, (h) => setLeftHeightRef.current(h))
+    // The column also tracks the window: a viewport change alters its budget without necessarily
+    // resizing the element itself first.
     const onWin: EventListener = (event) => {
       if (isSyntheticResizeEvent(event)) return
       measure()
     }
     window.addEventListener('resize', onWin)
     return () => {
-      if (ro) ro.disconnect()
+      disconnect()
       window.removeEventListener('resize', onWin)
     }
   }, [])
@@ -128,21 +145,10 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   useEffect(() => {
     const el = builderFormPaperRef.current
     if (!el) return
-    const measure = () => {
-      try {
-        setBuilderFormHeightRef.current(el.offsetHeight)
-      } catch {}
-    }
-    measure()
-    let ro: ResizeObserver | null = null
-    if (typeof ResizeObserver !== 'undefined') {
-      // The drag resizes this paper directly; measuring per move would re-render mid-gesture.
-      ro = new ResizeObserver(() => { if (!isSplitterDragActive()) measure() })
-      ro.observe(el)
-    }
-    return () => {
-      if (ro) ro.disconnect()
-    }
+    // No window listener here: the form paper's height only matters relative to the column budget,
+    // and the column probe above already re-measures on viewport changes.
+    const { disconnect } = observeOffsetHeight(el, (h) => setBuilderFormHeightRef.current(h))
+    return disconnect
   }, [])
 
   const chipsContainerRef = useRef<HTMLDivElement | null>(null)
@@ -520,9 +526,16 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
   // Where the split sits before any drag: the form's share of the budget. Falls back to an even
   // split only when neither height has been measured yet, so a drag started in that window still
   // has a sane reference.
+  //
+  // The denominator is the budget MINUS the handle's own height, because that is the extent the
+  // drag divides (see splitExtentByRatio). Dividing by the full budget instead would understate
+  // the ratio, so grabbing the handle for the first time would jump the form upward by roughly
+  // GRID_COLUMN_GAP_PX * ratio instead of continuing from where the papers actually sit.
   const builderSplitNaturalRatio = useMemo(() => {
     if (!builderSplitUsableHeightPx || builderFormHeight <= 0) return 0.5
-    const raw = builderFormHeight / builderSplitUsableHeightPx
+    const divisible = builderSplitUsableHeightPx - GRID_COLUMN_GAP_PX
+    if (divisible <= 0) return 0.5
+    const raw = builderFormHeight / divisible
     return Math.max(0, Math.min(1, raw))
   }, [builderFormHeight, builderSplitUsableHeightPx])
   const previewPaperHeightStyle = useMemo(() => (previewPaperHeightPx ? `${previewPaperHeightPx}px` : undefined), [previewPaperHeightPx])
