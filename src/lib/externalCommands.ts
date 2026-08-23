@@ -42,6 +42,10 @@ export type ExternalCommand =
   | GearDbInboxArtifactsCommand
   | GearDbLastUsedCommand
   | GearDbEquippedCommand
+  // Capability handshake — the client announces what it supports and may name itself.
+  // Carries RAW tokens: validation against the known set happens in lib/clientCapabilities,
+  // so an unknown feature name reaches one place that knows how to ignore it.
+  | { kind: 'clientCapabilities'; capabilities: string[]; clientName: string | null }
 
 // Internal synthetic snapshot — accumulates per-type parts so downstream helpers
 // can process a complete four-table dataset from a single entry point.
@@ -218,6 +222,28 @@ export function normalizeExternalEvent(name: string, payload: unknown): External
     const command: { kind: 'selectRule'; rowNumber: number | null } = {
       kind: 'selectRule',
       rowNumber,
+    }
+    return command
+  }
+
+  // Capability handshake. The client announces its supported features — and optionally its
+  // display name — as the first answer to requestSfcSync. Tokens are passed through RAW;
+  // lib/clientCapabilities decides which are known, so an unrecognized feature name is
+  // ignored in exactly one place rather than rejected here.
+  if (normalized === 'capabilities') {
+    // Accept the same shapes the gear feeds do: a named key, or a bare array as the payload.
+    const rawList = resolveEventCollection(payloadRecord, payload, 'capabilities')
+    // Non-array (or absent) means "announced nothing" — still a valid handshake, and
+    // distinct from never sending the packet at all.
+    const capabilities = Array.isArray(rawList)
+      ? rawList.map(extractString).filter((token): token is string => token !== null)
+      : []
+    const command: { kind: 'clientCapabilities'; capabilities: string[]; clientName: string | null } = {
+      kind: 'clientCapabilities',
+      capabilities,
+      // A client connecting to an already-running app has no launch URL to name itself in,
+      // so the handshake may carry the name instead.
+      clientName: extractString(lookup.get('clientname')),
     }
     return command
   }

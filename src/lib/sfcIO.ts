@@ -1699,7 +1699,42 @@ export function buildSfcPayload(args: {
   }
 }
 
+// MIME type of every exported SFC payload — the download Blob and the endpoint push
+// envelope's contentType share this one definition (SSOT), mirroring HSF_EXPORT_CONTENT_TYPE.
+export const SFC_EXPORT_CONTENT_TYPE = 'application/json'
+
+/**
+ * Re-serialize an already-parsed document back into an SFC payload.
+ *
+ * Used by the SfcFileAsSellfile push path, which uploads the recipe DOCUMENT instead of a
+ * compiled sellfile: the background flow has a ParsedSfcResult (from an account's autosave)
+ * rather than the live builder state the interactive save path holds. Routing through
+ * buildSfcPayload keeps one writer for every .sfc we emit — file download, autosave, and
+ * push alike — so a field added there reaches all three.
+ *
+ * `version` is the APP_VERSION to stamp; the caller passes it because this module must not
+ * depend on the app's version constant.
+ */
+export function buildSfcPayloadFromParsed(parsed: ParsedSfcResult, version: string) {
+  return buildSfcPayload({
+    version,
+    metasets: parsed.metasets,
+    substatTargets: parsed.substatTargets,
+    recipes: parsed.recipes,
+    // Absent (null) keys are omitted rather than written as null, matching how the
+    // interactive save path spreads its optional fields.
+    ...(parsed.finalSellRemainder ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
+    ...(parsed.note ? { note: parsed.note } : {}),
+    ...(parsed.safeguardRules ? { safeguardRules: parsed.safeguardRules } : {}),
+    ...(parsed.safeguardsEnabled !== null ? { safeguardsEnabled: parsed.safeguardsEnabled } : {}),
+    recipesEnabled: parsed.recipesEnabled,
+    ...(parsed.noteRecipeOverridesAnswers ? { noteRecipeOverridesAnswers: parsed.noteRecipeOverridesAnswers } : {}),
+    ...(parsed.noteSafeguardOverridesAnswers ? { noteSafeguardOverridesAnswers: parsed.noteSafeguardOverridesAnswers } : {}),
+    noteOverridesDisabled: parsed.noteOverridesDisabled,
+  })
+}
+
 /** Convert an SFC payload object to a Blob ready to download. */
 export function sfcToBlob(payload: unknown): Blob {
-  return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  return new Blob([JSON.stringify(payload, null, 2)], { type: SFC_EXPORT_CONTENT_TYPE })
 }

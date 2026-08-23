@@ -194,10 +194,65 @@ release bundle, which previously still contained `capturePackets`/`logWasmHeap` 
 
 ### Runtime Launch Parameters
 
-The launch URL params (`?endpoint=` + `#endpoint=` alias, `&simple`, `playerid`, `playerName`)
-and the export→`uploadSellfile` behavior are the SSOT of [WebSocket Protocol](websocket-jsonrpc.md#launch-url).
+The launch URL params (`?endpoint=` + `#endpoint=` alias, `&simple`, `playerid`, `playerName`,
+`clientName`) and the export→`uploadSellfile` behavior are the SSOT of
+[WebSocket Protocol](websocket-jsonrpc.md#launch-url).
 The launch reads `endpoint` into `window.__APP_CONFIG__` (`pushEndpoint` for the session), then
 migrates it into the persisted connect preference + port before stripping it from the address bar.
+
+All param readers live in `runtimeConfig.ts`, which caches one parse per session
+(`getRuntimeConfig`); `__resetRuntimeConfigForTests` drops that cache so unit tests can vary
+`window.location`. Two shared readers keep the accepted spellings identical everywhere:
+`readStringParam` (query wins over hash, trimmed, blank → `undefined`) and `hasParam` (bare
+presence, so `?x`, `?x=1` and `?x=` all count). Params consumed once at startup are stripped
+from the address bar by `stripLaunchParamsFromUrl` (`accounts.ts`), which forces
+`getRuntimeConfig()` first so nothing is erased before it is read.
+
+**Client identity.** `clientName` names the connected application, and comes from two places:
+the launch param, or the `capabilities` handshake packet (a client attaching to an
+already-running app has no launch URL). Both route through `normalizeClientName` so a name is
+sanitized identically whichever way it arrives.
+
+- Precedence in `getClientName()`: a name learned this session → the launch param → the
+  persisted name (`CLIENT_NAME_STORAGE_KEY`) → `DEFAULT_CLIENT_NAME`. The name is persisted
+  because it must be right on the *first paint*, long before a socket exists — otherwise a
+  packet-named client would flash "RSL Helper" on every launch. A URL param always outranks a
+  remembered name.
+- Catalog strings never spell a client name — they carry the `{client}` placeholder, which
+  `i18n.tsx` expands for *every* key automatically (no call site passes it). Adding a UI
+  string that names the client means writing `{client}`, never the literal.
+- A mid-session rename must invalidate `t`, which is memoized: `subscribeClientName` notifies
+  the i18n provider, which bumps a counter in `t`'s dep array. Without it, memoized subtrees
+  would keep rendering the old name.
+
+**Capabilities** (`lib/clientCapabilities.ts`) are negotiated over the socket, not the URL —
+they belong to the CONNECTION, which is why the state lives here rather than in
+`runtimeConfig`. A client announces them in a `capabilities` notification sent as its first
+answer to `requestSfcSync`.
+
+- Inbound tokens are parsed RAW by `externalCommands.ts` and validated in exactly one place,
+  `isClientCapability`, against the `CLIENT_CAPABILITIES` enum — unknown tokens are dropped,
+  never fatal, so a newer client naming unheard-of features stays compatible.
+- `DEFAULT_CLIENT_CAPABILITIES` is **the RSL Helper baseline, not every known token.** RSL
+  Helper sends no handshake, so "nothing announced" must mean "whatever RSL Helper does".
+  Only add a capability there once RSL Helper itself ships it — otherwise every silent client
+  silently changes behavior. `SfcFileAsSellfile` is therefore excluded (RSL Helper has no
+  `uploadSfcFile` handler) and must be announced explicitly.
+- Internally, `null` (nothing announced → apply the default) and `[]` (announced, none of the
+  tokens are ours) are deliberately distinct states.
+- `resetClientCapabilities()` runs on socket close, so a reconnect to a *different* client
+  cannot inherit the previous one's features. The client name deliberately survives — it is a
+  UI label, not connection state.
+- The handshake is applied at the top of `handleExternalCommand` (`App.tsx`), before any
+  account/gear routing, so a client announcing features in the same burst as its first gear
+  packet has them in force before that gear can trigger a push. There is no waiting: a push
+  that happens before the packet arrives simply uses the default.
+- `resolveSellfileUploadTarget()` (`externalWsProtocol.ts`) is the single gate deciding
+  method + payload shape for both push sites — the interactive export in `App.tsx` and the
+  background per-account push. With `SfcFileAsSellfile` the background path re-serializes the
+  account's parsed autosave via `buildSfcPayloadFromParsed` and **skips the headless pipeline
+  entirely** (it only exists to compile an `.hsf` that path never sends); gear normalization
+  still runs, so the burst is persisted either way.
 
 - `scripts/watchers/run-db-watcher.ps1` demonstrates an external tool opening the packaged app via `Start-Process`, appending the encoded endpoint automatically, and hosting a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (default `exported-sellfile.hsf`, `-OutputPath` configurable). Targets PowerShell 7; `[R]` emits demo `selectRule` events, `[F]` forces a DB snapshot, and it can watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Gear Inspector refreshes without drag-and-drop.
 

@@ -7,6 +7,7 @@
  */
 import React from 'react'
 import { LANG_KEY, RULE_COUNT_LIMIT } from './constants'
+import { expandClientToken, subscribeClientName } from './runtimeConfig'
 import {
   DEFAULT_LANGUAGE,
   DEV_LANGUAGE_SET,
@@ -175,7 +176,17 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setLang((langCode as Language) || DEFAULT_LANGUAGE)
   }, [])
 
+  // Bump on every client rename so `t` (and with it every memoized subtree holding a
+  // `{client}` string) is rebuilt. The name can arrive mid-session over the socket, long
+  // after these strings were first rendered.
+  const [clientNameSeq, setClientNameSeq] = React.useState(0)
+  React.useEffect(() => subscribeClientName(() => setClientNameSeq((s) => s + 1)), [])
+
   const t = React.useCallback((key: I18nKey, params?: Record<string, string | number>) => {
+    // Read here so the linter sees the dependency: the value is unused, but the client name
+    // is pulled from module state inside expandClientToken, which the rule cannot see. The
+    // counter is what tells React this memo is stale after a mid-session rename.
+    void clientNameSeq
     const cat = runtimeCatalogs[lang] || CATALOGS[lang] || en
     let val = (cat[key] ?? en[key]) as string
     if (params) {
@@ -183,8 +194,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         val = val.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
       }
     }
-    return expandStatTokens(val, cat)
-  }, [lang, runtimeCatalogs])
+    return expandStatTokens(expandClientToken(val), cat)
+  }, [lang, runtimeCatalogs, clientNameSeq])
 
   const value = React.useMemo<I18nContextValue>(() => ({ lang, setLang: updateLang, t, registerRuntimeCatalog }), [lang, updateLang, t, registerRuntimeCatalog])
   return <I18nContext value={value}>{children}</I18nContext>

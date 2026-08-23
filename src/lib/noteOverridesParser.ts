@@ -9,6 +9,9 @@
  * stay in their own modules; only truly shared logic lives here.
  */
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
+// Shared {client} expansion, so authored note prose names the connected client like the
+// i18n catalogs do (SSOT: lib/runtimeConfig.ts).
+import { expandClientToken } from './runtimeConfig'
 import { statVariantToKey, type StatVariantLike } from './types'
 
 // ── Token types ───────────────────────────────────────────────────────────────
@@ -625,8 +628,18 @@ export const localizeNoteProseWithSourceMap = (
   return { text: out, segments }
 }
 
+/**
+ * Display form of {@link localizeNoteProseWithSourceMap}: resolves the prose-language groups
+ * AND expands the `{client}` placeholder, so authored note text names whichever client is
+ * connected instead of hardcoding one (see lib/i18n.tsx for the same placeholder in catalog
+ * strings). Documents on disk keep the placeholder — nothing rewrites saved user content.
+ *
+ * Deliberately NOT applied by the source-map form: substituting a name of a different length
+ * would shift every offset after it, breaking the editor's localized→raw mapping. That form
+ * feeds the editor's click-to-source sync; this one feeds read-only renders.
+ */
 export const localizeNoteProse = (note: string, lang: string): string =>
-  localizeNoteProseWithSourceMap(note, lang).text
+  expandClientToken(localizeNoteProseWithSourceMap(note, lang).text)
 
 /** Normalize tag-style tokens for id/exclusion usage. */
 export const normalizeQuestionToken = (raw: string): string | null => {

@@ -17,7 +17,7 @@
  * at module scope and the migration is guaranteed to have run first.
  */
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
-import { getPlayerIdParam, getPlayerNameParam, stashSimpleModeForSession } from './runtimeConfig'
+import { getPlayerIdParam, getPlayerNameParam, getRuntimeConfig, stashSimpleModeForSession } from './runtimeConfig'
 import { getTabActiveAccountId, setTabActiveAccountId } from './activeAccountSession'
 
 // ---------------------------------------------------------------------------
@@ -386,15 +386,21 @@ const migrateLegacyStorage = (): SfcAccountRegistry => {
 
 // Strip the consumed launch params from the address bar (mirrors the ?endpoint pattern in
 // App.tsx): ?playerid/?playerName so reloads and copied URLs don't replay a stale account
-// selection, and ?simple purely for cosmetics — but only after its session marker
-// verifiably persisted, because reloads (F5, account switch) must stay in simple mode.
+// selection, ?clientName for the same reason (getRuntimeConfig() caches its parse at
+// startup and persists the name, so the URL copy is spent the moment it is read), and
+// ?simple purely for cosmetics — but only after its session marker verifiably persisted,
+// because reloads (F5, account switch) must stay in simple mode.
 const stripLaunchParamsFromUrl = (): void => {
   if (typeof window === 'undefined') return
+  // Force the runtime config to parse BEFORE any param leaves the URL. Its cache is filled
+  // lazily on first read, and nothing guarantees a reader ran before this bootstrap — so
+  // without this, stripping could erase ?clientName before it was ever seen.
+  getRuntimeConfig()
   try {
     const cleanUrl = new URL(window.location.href)
     const params = cleanUrl.searchParams
     let changed = false
-    for (const key of ['playerid', 'playerName']) {
+    for (const key of ['playerid', 'playerName', 'clientName']) {
       if (params.has(key)) {
         params.delete(key)
         changed = true

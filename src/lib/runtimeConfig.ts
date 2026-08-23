@@ -1,3 +1,4 @@
+import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 import { ALLOW_TEST_HOOKS } from './testHooks'
 
 export type RuntimeConfig = {
@@ -11,6 +12,9 @@ export type RuntimeConfig = {
   // Optional human-readable account name (?playerName=…). Decorative only: it names a freshly
   // auto-created account and refreshes a non-customized name — never a lookup key.
   playerName?: string
+  // Display name of the connected client (?clientName=…), substituted into every UI string
+  // that names it. Absent when the launcher did not say — callers use DEFAULT_CLIENT_NAME.
+  clientName?: string
   // Dev-only: true when ?capturePackets is present. Streams raw inbound endpoint
   // packets to the dev server so they can be saved as sampleLog fixtures. Always
   // false in production builds — the flag is gated on import.meta.env.DEV.
@@ -24,6 +28,16 @@ export type RuntimeConfig = {
 }
 
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
+
+// Display name used for the connected client wherever the UI names it, when the launch URL
+// carries no ?clientName. RSL Helper is the reference client, so its name is the default.
+// SSOT for the `{client}` catalog placeholder — never spell the name inline in a string.
+export const DEFAULT_CLIENT_NAME = 'RSL Helper'
+
+// Longest a ?clientName may be before it is rejected. The name is interpolated into buttons
+// and tooltips, so an unbounded value would wreck the layout; a launcher sending something
+// this long is misusing the param rather than naming itself.
+export const CLIENT_NAME_MAX_LENGTH = 40
 
 // The only transports an RSL Helper endpoint may use. SSOT for both the launch-param scheme
 // gate below and the port extractor in externalWsProtocol.ts, so the two cannot drift on what
@@ -108,6 +122,31 @@ function readStringParam(name: string): string | undefined {
   return undefined
 }
 
+// Shared presence check for bare flag params: true when `name` appears at all — as ?name,
+// ?name=1, ?name=true, or even ?name= — in the query string or the hash fragment. Single
+// definition so every flag reader below accepts exactly the same spellings.
+function hasParam(name: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const currentUrl = new URL(window.location.href)
+    if (currentUrl.searchParams.has(name)) return true
+    if (currentUrl.hash && currentUrl.hash.length > 1) {
+      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
+      if (hashParams.has(name)) return true
+    }
+  } catch {
+    // ignore parsing issues — absent param is the safe fallback
+  }
+  return false
+}
+
+// Read ?clientName through the shared normalizer, so a URL-supplied name is sanitized
+// exactly like one arriving over the socket. Undefined when absent/blank, which makes
+// getClientName fall through to the stored name and then DEFAULT_CLIENT_NAME.
+function readClientName(): string | undefined {
+  return normalizeClientName(readStringParam('clientName')) ?? undefined
+}
+
 // sessionStorage marker keeping simple mode alive across same-tab reloads once the
 // ?simple param has been stripped from the address bar. SESSION-scoped on purpose: a
 // fresh launch (new WebView/tab) must again be told by RSL Helper's URL, while F5 and
@@ -128,18 +167,8 @@ export function stashSimpleModeForSession(): boolean {
 }
 
 function readSimpleMode(): boolean {
-  if (typeof window === 'undefined') return false
-  try {
-    const currentUrl = new URL(window.location.href)
-    // Accept ?simple, ?simple=true, ?simple=1, or ?simple= (any presence counts).
-    if (currentUrl.searchParams.has('simple')) return true
-    if (currentUrl.hash && currentUrl.hash.length > 1) {
-      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
-      if (hashParams.has('simple')) return true
-    }
-  } catch {
-    // ignore
-  }
+  // Accepts ?simple, ?simple=true, ?simple=1, or ?simple= (any presence counts).
+  if (hasParam('simple')) return true
   // No URL param: a same-tab reload after the param was stripped rides the session marker.
   try {
     if (window.sessionStorage.getItem(SIMPLE_MODE_SESSION_KEY) === '1') return true
@@ -163,19 +192,8 @@ const IS_DEV_BUILD: boolean = (() => {
 // scaffolding can never activate in a production build even if the param is present.
 function readCapturePackets(): boolean {
   if (!IS_DEV_BUILD) return false
-  if (typeof window === 'undefined') return false
-  try {
-    const currentUrl = new URL(window.location.href)
-    // Accept ?capturePackets, ?capturePackets=1, ?capturePackets=true, or bare presence.
-    if (currentUrl.searchParams.has('capturePackets')) return true
-    if (currentUrl.hash && currentUrl.hash.length > 1) {
-      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
-      if (hashParams.has('capturePackets')) return true
-    }
-  } catch {
-    // ignore
-  }
-  return false
+  // Accepts ?capturePackets, ?capturePackets=1, ?capturePackets=true, or bare presence.
+  return hasParam('capturePackets')
 }
 
 // Reads ?logWasmHeap (or #logWasmHeap), bare presence or =1/=true. This is a TEST-only
@@ -185,18 +203,7 @@ function readCapturePackets(): boolean {
 // ship. Only the TEST build (VITE_TEST_HOOKS=1) keeps it.
 function readLogWasmHeap(): boolean {
   if (!ALLOW_TEST_HOOKS) return false
-  if (typeof window === 'undefined') return false
-  try {
-    const currentUrl = new URL(window.location.href)
-    if (currentUrl.searchParams.has('logWasmHeap')) return true
-    if (currentUrl.hash && currentUrl.hash.length > 1) {
-      const hashParams = new URLSearchParams(currentUrl.hash.slice(1))
-      if (hashParams.has('logWasmHeap')) return true
-    }
-  } catch {
-    // ignore
-  }
-  return false
+  return hasParam('logWasmHeap')
 }
 
 function computeRuntimeConfig(): RuntimeConfig {
@@ -206,6 +213,13 @@ function computeRuntimeConfig(): RuntimeConfig {
   // `playerid` matches the game's own terminology; `playerName` mirrors the JSON-RPC param.
   const playerId = readStringParam('playerid')
   const playerName = readStringParam('playerName')
+  // Client identity. Optional: absent means the stored name, then DEFAULT_CLIENT_NAME (see
+  // getClientName below, the single place those fallbacks are applied). Protocol FEATURES
+  // are negotiated over the socket instead — see lib/clientCapabilities.ts.
+  const clientName = readClientName()
+  // Remember a URL-supplied name for the next launch: the param is stripped from the
+  // address bar right after startup, so without this a reload would forget who is connected.
+  if (clientName) persistClientName(clientName)
   // IS_DEV_BUILD resolves to a constant `false` in non-dev builds (see its definition),
   // so this is `false && …` → readCapturePackets() is dead and the packet-capture
   // dev tool (lib/packetCapture.ts) stays out of the release/test bundle. (capturePackets
@@ -217,6 +231,7 @@ function computeRuntimeConfig(): RuntimeConfig {
     ...(simple ? { simple } : {}),
     ...(playerId ? { playerId } : {}),
     ...(playerName ? { playerName } : {}),
+    ...(clientName ? { clientName } : {}),
     ...(capturePackets ? { capturePackets } : {}),
     ...(logWasmHeap ? { logWasmHeap } : {}),
   }
@@ -266,4 +281,101 @@ export function getCapturePackets(): boolean {
 // Always false in DEV/release (ALLOW_TEST_HOOKS folds false → readLogWasmHeap short-circuits).
 export function getLogWasmHeap(): boolean {
   return getRuntimeConfig().logWasmHeap ?? false
+}
+
+// localStorage key remembering the last client name we were told. The name can arrive over
+// the socket (the `capabilities` packet), which is far too late for the first paint — so the
+// last known name is persisted and used as the startup fallback. Without it, a client that
+// only names itself in the handshake would render as "RSL Helper" on every launch until
+// its packet lands, then visibly rename.
+export const CLIENT_NAME_STORAGE_KEY = 'sellfileCreator.clientName.v1'
+
+// Normalize any client name from any source (launch param or handshake packet): collapse
+// inner whitespace runs so a pasted multi-line value cannot wreck a tooltip, then clamp the
+// length. Returns null when the value carries no name. One definition, so a name arriving
+// over the socket is sanitized exactly like one from the URL.
+export function normalizeClientName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const collapsed = raw.replace(/\s+/g, ' ').trim()
+  if (!collapsed) return null
+  return collapsed.slice(0, CLIENT_NAME_MAX_LENGTH)
+}
+
+// Remember (or clear) the client name for the next launch's first paint. Writing the
+// default removes the key so storage stays clean and a later default-named client does not
+// inherit a stale custom name.
+export function persistClientName(name: string | null): void {
+  if (!name || name === DEFAULT_CLIENT_NAME) {
+    safeRemoveItem(CLIENT_NAME_STORAGE_KEY)
+    return
+  }
+  safeSetItem(CLIENT_NAME_STORAGE_KEY, name)
+}
+
+// The name currently in force, held in a module-level override so a handshake packet can
+// rename the client mid-session without re-parsing the launch URL.
+let clientNameOverride: string | null = null
+
+// Subscribers notified when the effective client name changes. The i18n provider listens so
+// every `{client}` string re-renders: `t` is memoized, so without an explicit invalidation a
+// mid-session rename would leave memoized subtrees showing the old name.
+const clientNameListeners = new Set<() => void>()
+
+// Subscribe to client-name changes; returns an unsubscribe function.
+export function subscribeClientName(listener: () => void): () => void {
+  clientNameListeners.add(listener)
+  return () => { clientNameListeners.delete(listener) }
+}
+
+// Adopt a client name learned at runtime (the `capabilities` packet). Persists it so the
+// NEXT launch paints it immediately. Returns true when the effective name actually changed,
+// letting the caller re-render only when there is something to re-render.
+export function adoptClientName(raw: unknown): boolean {
+  const normalized = normalizeClientName(raw)
+  if (!normalized) return false
+  const before = getClientName()
+  clientNameOverride = normalized
+  persistClientName(normalized)
+  if (before === normalized) return false
+  for (const listener of clientNameListeners) listener()
+  return true
+}
+
+// The name to show wherever the UI refers to the connected client. SSOT for the `{client}`
+// catalog placeholder: every user-visible mention resolves through here, so whatever names
+// the client renames all of them at once.
+//
+// Precedence: a name learned this session (handshake) → the launch URL → the name the last
+// session was told → RSL Helper. The stored value sits BELOW the launch param so an
+// explicit ?clientName always wins over a remembered one.
+export function getClientName(): string {
+  if (clientNameOverride) return clientNameOverride
+  const fromLaunch = getRuntimeConfig().clientName
+  if (fromLaunch) return fromLaunch
+  return normalizeClientName(safeGetItem(CLIENT_NAME_STORAGE_KEY)) ?? DEFAULT_CLIENT_NAME
+}
+
+// Test-only: drop the session override so specs can exercise adoption repeatedly.
+export function __resetClientNameForTests(): void {
+  clientNameOverride = null
+}
+
+// Placeholder standing in for the connected client's name. Used by i18n catalog strings AND
+// by authored note prose (presets), so both name whoever is actually connected instead of
+// hardcoding one client. SSOT — never spell a client name inline in displayed text.
+export const CLIENT_TOKEN = '{client}'
+// Global matcher for the token; the lib target predates String.replaceAll.
+const CLIENT_TOKEN_PATTERN = /\{client\}/g
+
+/**
+ * Expand `{client}` to the connected client's name.
+ *
+ * The indexOf guard skips the replace entirely for the vast majority of strings carrying no
+ * token. A FUNCTION replacement is used rather than a string one because a client name may
+ * contain `$&` or `$1`, which a string replacement would interpret as a pattern.
+ */
+export function expandClientToken(value: string): string {
+  if (!value || value.indexOf(CLIENT_TOKEN) === -1) return value
+  const name = getClientName()
+  return value.replace(CLIENT_TOKEN_PATTERN, () => name)
 }

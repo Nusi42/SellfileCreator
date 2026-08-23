@@ -189,9 +189,18 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
         const absH = Math.floor(Math.abs(offsetMin) / 60)
         const absM = Math.abs(offsetMin) % 60
         const offsetStr = absM > 0 ? `UTC${sign}${absH}:${pad(absM)}` : `UTC${sign}${absH}`
-        // Use innerHTML to render "for RSL Helper" at a smaller font size inline.
-        // All values are build-time constants or formatted Date output — no user input, XSS-safe.
-        wm.innerHTML = `${localTs} ${offsetStr} \u00b7 Sellfile Creator<span style="font-size:0.78em;opacity:0.85"> for RSL Helper</span> v${APP_VERSION}`
+        // Build the watermark with DOM nodes rather than innerHTML: the "for <client>"
+        // tagline names the connected client, which comes from a launch param or a handshake
+        // packet — untrusted input that must never be parsed as markup. textContent makes
+        // that structural instead of relying on an escape helper being applied correctly.
+        wm.replaceChildren()
+        wm.append(`${localTs} ${offsetStr} · Sellfile Creator`)
+        // The tagline sits at a smaller size inline, hence its own span.
+        const subtitle = document.createElement('span')
+        subtitle.style.fontSize = '0.78em'
+        subtitle.style.opacity = '0.85'
+        subtitle.textContent = ` ${t('appTitleSubtitle')}`
+        wm.append(subtitle, ` v${APP_VERSION}`)
         wm.style.display = 'block'
       }
       // Hide snapshot-excluded elements *before* measuring scrollHeight so they don't inflate
@@ -260,7 +269,7 @@ export function GearAnalyticsTabContent({ rows, improvementChanceByArtifactId, o
     } finally {
       setCopying(false)
     }
-  }, [canCopy, copying, theme])
+  }, [canCopy, copying, theme, t])
 
   // Coalesce the improvement-chance map to a stable empty Map so downstream memo deps don't
   // thrash on null↔Map transitions. Mirrors the GearInspectorItemsGrid pattern.

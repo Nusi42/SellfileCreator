@@ -4,6 +4,8 @@ import { resolveAccountScopedKey } from './accounts'
 // Shared WebSocket-scheme predicate, so the port extractor below accepts exactly the schemes
 // the launch-param sanitizer does.
 import { isWebSocketProtocol } from './runtimeConfig'
+// Negotiated feature set of the connected client — decides which upload method is used.
+import { CAPABILITY_SFC_FILE_AS_SELLFILE, hasClientCapability } from './clientCapabilities'
 
 // Default port for a locally running RSL Helper WebSocket server.
 export const RSL_HELPER_DEFAULT_PORT = 8080
@@ -161,10 +163,33 @@ export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 
 // Request method names double as shared identifiers across both protocol shapes.
 export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
+// Uploads the .sfc RECIPE DOCUMENT instead of the compiled .hsf sellfile. Sent in place of
+// uploadSellfile only when the client advertised the SfcFileAsSellfile capability — a client
+// that never asks for it must never receive this method (see lib/runtimeConfig.ts).
+export const EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE = 'uploadSfcFile'
 // Sends the current gear-inspector selection to RSL Helper; params: { artifactIds: number[] }.
 export const EXTERNAL_WS_METHOD_SELECT_ARTIFACTS = 'selectArtifacts'
 // Asks RSL Helper to push all its current datasets immediately after connection.
 export const EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC = 'requestSfcSync'
+
+// Which document the auto-push/export path uploads, and under which method.
+//
+// Default: the compiled .hsf sellfile via `uploadSellfile` — what RSL Helper expects.
+// With the SfcFileAsSellfile capability the client instead receives the .sfc RECIPE
+// DOCUMENT via `uploadSfcFile`, so it stores the editable source rather than the
+// compiled ruleset. SSOT for both push sites (the interactive export in App.tsx and the
+// background per-account push), so they can never disagree on method, filename, or type.
+export type SellfileUploadTarget = {
+  method: ExternalWsRequestMethod
+  // True when the payload must be the .sfc document instead of the compiled .hsf.
+  sfcDocument: boolean
+}
+
+export const resolveSellfileUploadTarget = (): SellfileUploadTarget => (
+  hasClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)
+    ? { method: EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE, sfcDocument: true }
+    : { method: EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, sfcDocument: false }
+)
 
 // Event names reuse the existing external command identifiers.
 export const EXTERNAL_WS_EVENT_SELECT_RULE = 'selectRule'
@@ -178,9 +203,14 @@ export const EXTERNAL_WS_EVENT_GEAR_DB_LAST_USED = 'lastUsed'
 // Equip-only feed: { championId: { slot: artifactId } }. Pushed on every gear move,
 // unlike `champions`, which RSL Helper only re-sends when a champion itself changes.
 export const EXTERNAL_WS_EVENT_GEAR_DB_EQUIPPED = 'ArtifactByHeroID'
+// Capability handshake: the client announces the protocol features it supports (and may
+// name itself) as its first answer to requestSfcSync. Optional — a client that never sends
+// it runs on the default feature set. See lib/clientCapabilities.ts.
+export const EXTERNAL_WS_EVENT_CAPABILITIES = 'capabilities'
 
 // Limit accepted event values so callers do not drift.
 export type ExternalWsEventName =
+  | typeof EXTERNAL_WS_EVENT_CAPABILITIES
   | typeof EXTERNAL_WS_EVENT_SELECT_RULE
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_ARTIFACTS
@@ -195,6 +225,7 @@ export type ExternalWsProtocol = typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
 // Limit accepted request method values so callers do not drift.
 export type ExternalWsRequestMethod =
   | typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
+  | typeof EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE
   | typeof EXTERNAL_WS_METHOD_SELECT_ARTIFACTS
   | typeof EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC
 

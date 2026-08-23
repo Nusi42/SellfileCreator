@@ -11,6 +11,14 @@ RSL Helper opens Sellfile Creator by navigating to the distributed HTML file wit
 file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&playerid=um12345678&playerName=MyMainAccount
 ```
 
+A different client can name itself in the URL (optional — the shape above stays valid).
+Protocol features are announced over the socket instead, via the
+[`capabilities`](#capabilities) notification:
+
+```
+file:///path/to/SellfileCreator.html?endpoint=ws://localhost:9099/&clientName=Gear%20Butler
+```
+
 - `endpoint` — WebSocket URL of the locally running RSL Helper server. No longer required for a
   connection: the connection is a persisted user preference (the robot toggle), so the app
   auto-connects on later loads without any param. On a launch that *does* carry `endpoint`, the
@@ -25,6 +33,16 @@ file:///path/to/SellfileCreator.html?endpoint=ws://localhost:8080/&simple&player
   overwrites the stored value permanently, so it applies to every later start too, including
   ones launched with no `endpoint` at all.
 - `&simple` — optional; activates Simple Mode (streamlined Note-dialog-only UI).
+- `clientName` — optional; the display name of the connecting application. Sellfile Creator
+  substitutes it wherever the UI names the client it talks to ("Connect to …", "Push …
+  Sellfile", auto-push tooltips). Defaults to `RSL Helper` when omitted. Names longer than
+  40 characters are truncated and internal whitespace runs collapse to single spaces, so the
+  text cannot break the surrounding buttons and tooltips. The
+  [`capabilities`](#capabilities) notification can carry the same name — useful when
+  connecting to an already-running app, which has no launch URL to name yourself in. The
+  last name received is remembered, so a later launch shows it from the first frame instead
+  of briefly reading "RSL Helper"; an explicit `clientName` in the URL always wins over the
+  remembered one.
 - `playerid` — optional; the game's Player ID for the account (e.g. `um12345678`). Routes the
   session to the matching Sellfile Creator account, binding or creating one as needed.
   Treated as an opaque string. Carries the same value the JSON-RPC `playerId` params use
@@ -126,6 +144,40 @@ required (an empty `{}` is accepted). A server may return
 instead — its `message` is shown to the user. The response `id` must equal the
 numeric request `id`.
 
+### uploadSfcFile
+
+Upload the **`.sfc` recipe document** — the editable source Sellfile Creator saves and
+loads — instead of the compiled `.hsf` sellfile.
+
+Sent **only** when the client announced the `SfcFileAsSellfile` capability (see
+[`capabilities`](#capabilities)), and then it
+fully **replaces** `uploadSellfile`: a client receives one or the other, never both. A client
+that does not name that capability never sees this method, so implementing it is optional.
+
+**Params**
+- `playerId` (string, optional): Player ID of the account the document belongs to (see Account stamping).
+- `playerName` (string, optional): the player's name.
+- `fileName` (string, optional): Suggested filename, ending in `.sfc`.
+- `contentType` (string, optional): MIME type (`application/json`).
+- `data` (object, required): The `.sfc` document as an inline JSON object — the same content
+  the app's "Save .sfc" button writes, byte-for-byte equivalent apart from formatting.
+
+**Result**
+
+Same contract as `uploadSellfile`: any response carrying a `result` counts as success;
+signal failure with an `error` object, whose `message` is shown to the user.
+
+**Request example**
+```json
+{"jsonrpc":"2.0","id":3,"method":"uploadSfcFile","params":{"fileName":"SellfileCreatorRecipes_20260223_1015.sfc","contentType":"application/json","data":{"Version":"1.0.43","Metasets":[],"Recipes":[]}}}
+```
+
+Note the payloads are **not** interchangeable: `.hsf` is the generated rule list RSL Helper
+consumes to sell gear, while `.sfc` is the recipe document that *produces* it. A client
+asking for `.sfc` is choosing to store the source, and gets no compiled ruleset.
+
+---
+
 ### requestSfcSync
 
 Ask RSL Helper to push all its current datasets. Sent automatically on every connection so the app receives a full snapshot without waiting for the next natural push cycle.
@@ -141,6 +193,10 @@ Ask RSL Helper to push all its current datasets. Sent automatically on every con
 
 RSL Helper responds by emitting its standard notifications in any order
 (`artifacts`, `inboxArtifacts`, `champions`, `lastUsed`, etc.).
+
+A client that supports the [`capabilities`](#capabilities) handshake should send that
+notification **first**, ahead of the gear notifications, so its announced features apply to
+everything that follows.
 
 **Request example**
 ```json
@@ -187,6 +243,44 @@ Servers may respond with a standard success for acknowledgement:
 ## Notifications
 
 These are pushed from the server to the browser.
+
+### capabilities
+
+Announce which protocol features this client supports. **Send it as the first answer to
+[`requestSfcSync`](#requestsfcsync)** — before any gear notification, so the features are in
+force by the time inbound data can trigger a push.
+
+Entirely optional. A client that never sends it — RSL Helper included — runs on the default
+feature set, which is the standard `uploadSellfile` behavior described below. So this
+handshake never has to be implemented just to keep working.
+
+**Params**
+- `capabilities` (array of strings): the feature tokens this client supports. Unknown tokens
+  are ignored rather than rejected, so naming a feature an older Sellfile Creator does not
+  know is safe. An empty array is a valid answer meaning "none of these".
+- `clientName` (string, optional): display name of this client, exactly as the
+  [`clientName`](#launch-url) launch param. Sending it here is the way to name yourself when
+  connecting to an already-running app.
+
+**Supported tokens**
+
+| Token | Effect |
+|---|---|
+| `SfcFileAsSellfile` | Push the **`.sfc` recipe document** via [`uploadSfcFile`](#uploadsfcfile) instead of the compiled `.hsf` sellfile via `uploadSellfile`. Use it when the client wants the editable source document rather than the generated ruleset. |
+
+**Example**
+```json
+{"jsonrpc":"2.0","method":"capabilities","params":{"capabilities":["SfcFileAsSellfile"],"clientName":"Gear Butler"}}
+```
+
+Two timing rules worth knowing:
+
+- **Announce before the first push.** Anything sent before the packet arrives uses the
+  default feature set. A client that announces `SfcFileAsSellfile` only after its first gear
+  burst may see that first upload arrive as an `.hsf`.
+- **Re-announce on every connection.** The feature set is dropped when the socket closes, so
+  a reconnect starts from the default again. (The client *name* is remembered instead — it
+  labels the UI even while disconnected.)
 
 ### selectRule
 

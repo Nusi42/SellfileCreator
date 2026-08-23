@@ -14,6 +14,7 @@ import {
   type ExternalWsResponse,
 } from '../lib/externalWsProtocol'
 import { normalizeExternalEvent, type ExternalCommand } from '../lib/externalCommands'
+import { resetClientCapabilities } from '../lib/clientCapabilities'
 import { buildAccountRpcParams } from '../lib/accounts'
 import { capturePacket, captureOutboundRequest } from '../lib/packetCapture'
 
@@ -299,6 +300,11 @@ export function useExternalCommands({
           // Resolve any pending requests with a consistent error message.
           clearPendingRequests('WebSocket closed')
           pendingBinaryMetaRef.current = null
+          // Forget the announced feature set: capabilities belong to the CONNECTION, so a
+          // reconnect to a different client must not inherit the previous one's. The next
+          // client re-announces (or stays on the default). The client NAME deliberately
+          // survives — it is persisted as the startup label, not connection state.
+          resetClientCapabilities()
           // Reconnect unless the hook is being torn down.
           if (closedRef.current) return
           // Keep both local and ref in sync for cleanup traceability.

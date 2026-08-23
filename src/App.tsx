@@ -20,7 +20,7 @@ import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
 import AccountSwitcher from './components/AccountSwitcher'
 import { GoldCornerOrnaments } from './components/GoldCornerOrnament'
 import {
-  EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
+  resolveSellfileUploadTarget,
   EXTERNAL_WS_METHOD_SELECT_ARTIFACTS,
   buildRslHelperWsEndpoint,
   getSimpleExpertMode,
@@ -46,7 +46,8 @@ import type {
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
+import { applyClientCapabilitiesPacket } from './lib/clientCapabilities'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -4346,6 +4347,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // display recipeNames — so these exported bytes match the worker's export-dirty fingerprint.
     buildHsfFileFromMerged(mergedRules, { recipeNames: exportRecipeNames })
   ), [mergedRules, exportRecipeNames])
+  // Serialize the LIVE document into an .sfc payload. One definition for both consumers —
+  // the "Save SFC" download and the SfcFileAsSellfile push — so a field can never reach the
+  // saved file but go missing from the pushed one.
+  const buildCurrentSfcPayload = useCallback(() => buildSfcPayload({
+    version: APP_VERSION,
+    metasets,
+    substatTargets,
+    recipes: customRecipes,
+    finalSellRemainder,
+    ...(sfcNote ? { note: sfcNote } : {}),
+    safeguardRules,
+    safeguardsEnabled,
+    recipesEnabled,
+    // Save the user's dynamic-overrides answers with the file so reopening it restores
+    // the same configured state instead of snapping back to the note's authored defaults.
+    noteRecipeOverridesAnswers,
+    noteSafeguardOverridesAnswers,
+    noteOverridesDisabled,
+  }), [
+    metasets, substatTargets, customRecipes, finalSellRemainder, sfcNote,
+    safeguardRules, safeguardsEnabled, recipesEnabled,
+    noteRecipeOverridesAnswers, noteSafeguardOverridesAnswers, noteOverridesDisabled,
+  ])
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so
@@ -6881,6 +6905,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Capture as a stable primitive so the useCallback dep array stays tight.
   const tutorialOpen = tutorial.tutorialOpen
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
+    // Capability handshake — handled before anything else so a client that announces its
+    // features in the same burst as its first gear packet has them in force by the time
+    // that gear triggers a push. Carries no account stamp, so it skips the routing below.
+    if (cmd.kind === 'clientCapabilities') {
+      // A rename re-renders the `{client}` strings via the i18n subscription inside
+      // applyClientCapabilitiesPacket; capabilities are read on demand at push time, so
+      // neither needs App state here.
+      applyClientCapabilitiesPacket(cmd)
+      return
+    }
     if (cmd.kind === 'selectRule') {
       if (cmd.rowNumber != null) {
         // External selectRule commands are explicit scroll intents.
@@ -8764,42 +8798,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // load is on its way — latching there would snapshot the void and hijack the
     // persisted variant. The autosave parse is trivial here (the doc is empty).
     if (sfcIsEmpty && loadAutosave(AUTOSAVE_KEY) === null) return
-    // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)).
-    customSfcSnapshotRef.current = JSON.stringify(buildSfcPayload({
-      version: APP_VERSION,
-      metasets,
-      substatTargets,
-      recipes: customRecipes,
-      finalSellRemainder,
-      ...(sfcNote ? { note: sfcNote } : {}),
-      safeguardRules,
-      safeguardsEnabled,
-      recipesEnabled,
-      // The latch stands in for the user's whole custom document, so it carries the
-      // overrides too — restoring "custom" must not drop their answers.
-      noteRecipeOverridesAnswers,
-      noteSafeguardOverridesAnswers,
-      noteOverridesDisabled,
-    }), null, 2)
+    // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)). Shares the
+    // document writer with "Save .sfc": the latch stands in for the user's whole custom
+    // document, so it must carry exactly the same fields — overrides included.
+    customSfcSnapshotRef.current = JSON.stringify(buildCurrentSfcPayload(), null, 2)
     setCustomAvailable(true)
     // A live custom setup (e.g. the user edited a preset) becomes the persisted
     // selection so a reload restores it rather than a preset.
     persistSimpleVariant('custom')
+    // buildCurrentSfcPayload stands in for the whole document: its own memo lists every
+    // field the snapshot serializes, so its identity changes exactly when the latch must
+    // be re-taken. Listing those fields again here would be the same dependency twice.
   }, [
     isSimpleView,
     simplePresetMatch,
     sfcIsEmpty,
-    metasets,
-    substatTargets,
-    customRecipes,
-    finalSellRemainder,
-    sfcNote,
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-    noteRecipeOverridesAnswers,
-    noteSafeguardOverridesAnswers,
-    noteOverridesDisabled,
+    buildCurrentSfcPayload,
   ])
 
   // Clear the latch and snapshot when leaving simple view (Go Expert / session
@@ -8825,34 +8839,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
   // so the shift-switch merge carry round-trips through the regular parse/normalize path.
-  const getAccountMergeSfcText = useCallback(() => JSON.stringify(buildSfcPayload({
-    version: APP_VERSION,
-    metasets,
-    substatTargets,
-    recipes: customRecipes,
-    finalSellRemainder,
-    ...(sfcNote ? { note: sfcNote } : {}),
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-    // Same writer as "Save .sfc" means the same override payload — the merge carry would
-    // otherwise silently reset the answers when switching accounts.
-    noteRecipeOverridesAnswers,
-    noteSafeguardOverridesAnswers,
-    noteOverridesDisabled,
-  }), null, 2), [
-    metasets,
-    substatTargets,
-    customRecipes,
-    finalSellRemainder,
-    sfcNote,
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-    noteRecipeOverridesAnswers,
-    noteSafeguardOverridesAnswers,
-    noteOverridesDisabled,
-  ])
+  const getAccountMergeSfcText = useCallback(
+    () => JSON.stringify(buildCurrentSfcPayload(), null, 2),
+    [buildCurrentSfcPayload],
+  )
 
   // One switcher component, two mount points (header + simple Note dialog) so both entry
   // points share behavior; the compact variant only changes the button chrome.
@@ -8909,23 +8899,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSelectFile={handleManualFileSelection}
       onSaveSfc={() => {
         persistRuntimeGearSetsNow()
-        const payload = buildSfcPayload({
-          version: APP_VERSION,
-          metasets,
-          substatTargets,
-          recipes: customRecipes,
-          finalSellRemainder,
-          ...(sfcNote ? { note: sfcNote } : {}),
-          safeguardRules,
-          safeguardsEnabled,
-          recipesEnabled,
-          // Save the user's dynamic-overrides answers with the file so reopening it restores
-          // the same configured state instead of snapping back to the note's authored defaults.
-          noteRecipeOverridesAnswers,
-          noteSafeguardOverridesAnswers,
-          noteOverridesDisabled,
-        })
-        const blob = sfcToBlob(payload)
+        const blob = sfcToBlob(buildCurrentSfcPayload())
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -9186,7 +9160,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const runSellfileExportNow = useCallback(async (forceLocal = false, silent = false) => {
     // Default export always serializes the active in-app ruleset.
     // Dedupe-by-default is already applied in the pre-safeguard pipeline.
-    const payload = buildExportPayload()
+    // Built lazily via a memo: the SfcFileAsSellfile push path uploads the .sfc document
+    // instead and must not pay to serialize an .hsf (multi-MB on large rule sets) it drops.
+    let payloadCache: ReturnType<typeof buildExportPayload> | null = null
+    const payloadOnce = () => (payloadCache ??= buildExportPayload())
     const filename = sellfileFilename()
     const outcomeToast = (successKey: 'toastSellfileSaved' | 'toastSellfilePushed') => {
       if (!silent) showToast(t(successKey))
@@ -9200,13 +9177,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
         // No Blob here: the push only needs the payload object + the shared content type;
         // materializing the download Blob would add a throwaway multi-MB pretty-print.
-        const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
+        // With the SfcFileAsSellfile capability the client wants the recipe DOCUMENT under
+        // `uploadSfcFile` instead of the compiled sellfile — same resolver the background
+        // push uses, so the two paths cannot disagree about what a client receives.
+        const uploadTarget = resolveSellfileUploadTarget()
+        const upload = uploadTarget.sfcDocument
+          ? { fileName: sfcFilename(), contentType: SFC_EXPORT_CONTENT_TYPE, data: buildCurrentSfcPayload() }
+          : { fileName: filename, contentType: HSF_EXPORT_CONTENT_TYPE, data: payloadOnce() }
+        const response = await sendExternalRequest(uploadTarget.method, {
           // Account stamp first so a phase-2 Helper can save sellfiles per game account;
           // pre-stamping versions ignore the extra params (confirmed harmless).
           ...buildAccountRpcParams(),
-          fileName: filename,
-          contentType: HSF_EXPORT_CONTENT_TYPE,
-          data: payload,
+          ...upload,
         })
         if (response.ok) {
           // A successful request proves endpoint reachability for later pushes.
@@ -9236,7 +9218,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Local export path mirrors prior behavior and keeps push optional. The Blob is
     // built only on this branch (the push path above sends the payload object).
-    const blob = hsfToBlob(payload)
+    const blob = hsfToBlob(payloadOnce())
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -9247,6 +9229,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     outcomeToast('toastSellfileSaved')
   }, [
     buildExportPayload,
+    buildCurrentSfcPayload,
     currentMergedRulesHash,
     pushExportEndpoint,
     sendExternalRequest,
@@ -9584,10 +9567,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 1, flex: 1, flexWrap: 'nowrap' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25, minWidth: 0 }}>
               <Typography variant="caption" data-allow-select={1 as const} data-allow-context={1 as const} sx={{ color: 'text.disabled', fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
-                v{APP_VERSION} — © Nusi㊷ - 2026 — Build and preview sell files for RSL Helper. Made by [STBL] Nusi㊷
+                v{APP_VERSION} — © Nusi㊷ - 2026 — {t('appFooterBlurb')} Made by [STBL] Nusi㊷
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
-                Unofficial, fan-made tool — not affiliated with Plarium, Raid: Shadow Legends, or RSL Helper. Trademarks belong to their owners.
+                {t('appFooterDisclaimer')}
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0, fontSize: `${FONT_SIZE_HEADER_META_PX}px`, lineHeight: 1.15, textAlign: 'right' }}>
                 Many thanks to [STBL] Nasgor for his invaluable contributions! — Remember: Bleibt Stabil!

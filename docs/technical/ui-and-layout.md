@@ -15,6 +15,23 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - Vocabulary must stay consistent with the game and the existing UI. Reuse the terminology already present (e.g., “Recipe”) rather than inventing new phrases, and keep wording simple so non-expert users can follow along. Raid Shadow Legends terminology is allowed whenever it helps clarity. Apply this rule to every surface: catalogs, README translations, tutorials, cheat sheets, tooltips, and any other strings.
 - Capitalization rules: treat buttons, tabs, chips, dialog titles, and other UI labels as Title Case (capitalize every principal word; keep short prepositions/articles such as “to”, “and”, “a” lowercase). Descriptive copy (tooltips, helper paragraphs, warnings, error messages) stays in sentence case with terminal punctuation. When a string mixes both (`X per slot × per set`), keep the label portion Title Case and the explanatory fragment sentence-case. Apply this consistently when adding keys to `en-US.ts`.
 - Inline stat names must use the canonical tokens. Wrap every stat mention with `[[stat:statSPD]]`, `[[stat:statCR]]`, etc. so the shared `stat*` translations remain the single source of truth and colored text always matches the configured stat palettes. When you append your own units (e.g., `+12%`), add the `|bare` modifier (`[[stat:statCR|bare]] +12%`) to strip the built-in `%` suffix before applying your own.
+- **Never write a client's name literally in a catalog string.** The connecting application
+  names itself — via the `?clientName=` launch param or the `capabilities` handshake packet,
+  and RSL Helper when neither says — so every mention uses the
+  `{client}` placeholder — `"Connect to {client}"`, not `"Connect to RSL Helper"`. `i18n.tsx`
+  expands it for *all* keys automatically, so no call site passes it and no `t()` signature
+  changes. Two consequences when authoring: phrase around it so any name fits (avoid "an
+  {client} database" — an article cannot agree with an unknown name), and translate the
+  surrounding words only, leaving the token itself untouched in every catalog. The literal
+  "RSL Helper" is still correct in *comments*, in the app's own product name ("RSL Helper
+  Sellfile Creator"), in the trademark disclaimer, and in README content the Help dialog
+  parses by heading text.
+  - The same `{client}` token also works in **authored note prose** (the shipped
+    `presets/*.sfc`), expanded by `localizeNoteProse`. Documents on disk keep the placeholder
+    — nothing rewrites saved user content — so a preset reads correctly under any client.
+    Note the deliberate split: only the *string* form expands. `localizeNoteProseWithSourceMap`
+    returns text verbatim, because its offsets index the raw draft behind the note editor and
+    substituting a different-length name would break click-to-source sync.
 - Runtime behavior:
   - Selected catalog overlays English. Precedence: runtime catalog (via `registerRuntimeCatalog`) → built-in `<lang>.ts` → English.
   - Dev-only audit language: `empty` renders all keys with empty strings to surface hardcoded text.

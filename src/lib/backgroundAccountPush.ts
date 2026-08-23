@@ -21,7 +21,7 @@
 import { isGearDbPartCommand } from './externalCommands'
 import type { ExternalCommand, GearDbRawSnapshotCommand } from './externalCommands'
 import {
-  EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
+  resolveSellfileUploadTarget,
   type ExternalWsRequestMethod,
   type ExternalWsResponse,
 } from './externalWsProtocol'
@@ -35,7 +35,7 @@ import {
   type SfcAccount,
 } from './accounts'
 import { loadAutosave, saveAutosave } from './autosave'
-import { parseSfcObject } from './sfcIO'
+import { buildSfcPayloadFromParsed, parseSfcObject, SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
 import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
@@ -52,8 +52,8 @@ import { GEAR_INSPECTOR_CUSTOM_ID_ALLOC_SEED, nextGearInspectorCustomItemId } fr
 // Type-only: the runner itself is injected (deps.runPipeline) so unit tests never load
 // the `?worker&inline` module — App passes runHeadlessRuleCachePipeline.
 import type { HeadlessPipelineOutcome, HeadlessPipelineParams } from './headlessRuleCachePipeline'
-import { buildHsfFileFromMerged } from './hsfIO'
-import { sellfileFilename } from './filenames'
+import { buildHsfFileFromMerged, HSF_EXPORT_CONTENT_TYPE } from './hsfIO'
+import { sellfileFilename, sfcFilename } from './filenames'
 import {
   getSellfileAutoPushForAccount,
   getSellfileDedupForAccount,
@@ -61,6 +61,7 @@ import {
   markSellfileLastPushForAccount,
 } from '../state/exportPreferences'
 import { getPersistEndpointGearForAccount } from '../state/gearDbPreferences'
+import { APP_VERSION } from '../version'
 
 // Per-type packets of one burst arrive within moments of each other; flush once the
 // stream has been quiet this long. Mirrors the live path's coalescing intent without
@@ -182,36 +183,53 @@ export const createBackgroundAccountPushService = (
         return { ...(item as GearInspectorItem), itemId: id }
       })
       const artifacts = buildPreviewArtifactsFromGearInspectorItems(items)
-      // 4. Full pipeline on a dedicated worker — safeguard detection + injection included.
-      const safeguardsEnabled = (doc.safeguardsEnabled ?? false) && view.effectiveSafeguardRules.length > 0
-      const result = await deps.runPipeline({
-        recipes: view.pipelineRecipes,
-        metasets: doc.metasets,
-        substatTargets: view.effectiveSubstatTargets,
-        // Autosaved documents carry no base .hsf file (that is transient session state).
-        hsf: null,
-        ...(doc.finalSellRemainder ? { finalSellRemainder: doc.finalSellRemainder } : {}),
-        safeguards: { enabled: safeguardsEnabled, rules: [...view.effectiveSafeguardRules], detection: null },
-        // The export transforms are per-account — read the TARGET account's dedup/omit so a
-        // background build for account X uses X's chosen transforms, not the active account's.
-        omitDisabledBeforeSafeguards: getSellfileOmitDisabledForAccount(account.id),
-        dedupeBeforeSafeguards: getSellfileDedupForAccount(account.id),
-        recipeModes: view.recipeModes,
-        artifacts,
-        computeImprovementChance: false,
-      })
-      // 5. Serialize with the shared writer and upload stamped with X's identity.
-      const payload = buildHsfFileFromMerged(result.mergedRules, {
-        recipeNames: view.exportRecipeNames,
-      })
-      const response = await deps.sendRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
+      // 4. Build the payload the connected client actually wants.
+      //
+      // Default: compile the sellfile on a dedicated worker (safeguard detection + injection
+      // included) and upload the .hsf. With SfcFileAsSellfile the client wants the recipe
+      // DOCUMENT instead — which the parsed autosave above already is — so re-serializing it
+      // skips the entire pipeline run: that work exists only to produce a .hsf nobody on
+      // this path will receive. Gear normalization above still ran, so step 6 persists the
+      // burst either way.
+      const uploadTarget = resolveSellfileUploadTarget()
+      const upload = uploadTarget.sfcDocument
+        ? {
+            fileName: sfcFilename(),
+            contentType: SFC_EXPORT_CONTENT_TYPE,
+            data: buildSfcPayloadFromParsed(doc, APP_VERSION),
+          }
+        : await (async () => {
+            const safeguardsEnabled = (doc.safeguardsEnabled ?? false) && view.effectiveSafeguardRules.length > 0
+            const result = await deps.runPipeline({
+              recipes: view.pipelineRecipes,
+              metasets: doc.metasets,
+              substatTargets: view.effectiveSubstatTargets,
+              // Autosaved documents carry no base .hsf file (that is transient session state).
+              hsf: null,
+              ...(doc.finalSellRemainder ? { finalSellRemainder: doc.finalSellRemainder } : {}),
+              safeguards: { enabled: safeguardsEnabled, rules: [...view.effectiveSafeguardRules], detection: null },
+              // The export transforms are per-account — read the TARGET account's dedup/omit so a
+              // background build for account X uses X's chosen transforms, not the active account's.
+              omitDisabledBeforeSafeguards: getSellfileOmitDisabledForAccount(account.id),
+              dedupeBeforeSafeguards: getSellfileDedupForAccount(account.id),
+              recipeModes: view.recipeModes,
+              artifacts,
+              computeImprovementChance: false,
+            })
+            // Serialize with the shared writer.
+            return {
+              fileName: sellfileFilename(),
+              contentType: HSF_EXPORT_CONTENT_TYPE,
+              data: buildHsfFileFromMerged(result.mergedRules, { recipeNames: view.exportRecipeNames }),
+            }
+          })()
+      // 5. Upload, stamped with X's identity.
+      const response = await deps.sendRequest(uploadTarget.method, {
         ...(account.helperAccountId ? { playerId: account.helperAccountId } : {}),
         // displayName IS the in-game player name (kept fresh from helper-sent names);
         // optional — an empty name is no identity and is omitted like the id.
         ...(account.displayName ? { playerName: account.displayName } : {}),
-        fileName: sellfileFilename(),
-        contentType: 'application/json',
-        data: payload,
+        ...upload,
       })
       if (!response.ok) throw new Error(response.error ?? 'upload rejected')
       // Record the success for the account menu's "Pushed <date>" summary line.
