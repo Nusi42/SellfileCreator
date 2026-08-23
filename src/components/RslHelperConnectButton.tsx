@@ -299,7 +299,15 @@ export default function RslHelperConnectButton({
           onChange={handlePortChange}
           // Blur flushes a pending live-apply immediately; inert when nothing is pending.
           onBlur={flushPendingCommit}
-          onKeyDown={(e) => { if (e.key === 'Enter') commitAndClosePopover() }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
+            // Swallow Enter's default activation: closing the popover restores focus to the
+            // anchor (the connect toggle) synchronously, and the browser's keypress-stage
+            // activation would then "click" it — toggling the connection off in the same
+            // keystroke that re-targeted it.
+            e.preventDefault()
+            commitAndClosePopover()
+          }}
           error={draft.trim() !== '' && parsedDraft === null}
           fullWidth
           variant="outlined"
