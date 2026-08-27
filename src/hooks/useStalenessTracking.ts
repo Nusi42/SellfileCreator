@@ -137,43 +137,59 @@ export function useStalenessTracking(
   // "it doesn't ramp up" symptom. Disarming only on the edge that uses it also keeps the
   // one-shot guarantee: the next genuine edit still stamps normally.
   const armedRecoveredSeqRef = useRef(sfcRecovery.seq)
+  //
+  // EVERY edge input is snapshotted HERE, in the effect body, and the updater below closes
+  // over those constants only. A state updater is DEFERRED: React may invoke it after the
+  // effect body has already run to completion, so any mutable ref the updater reads has
+  // been overwritten by then. Reading `prevSfcDirtyRef.current` inside the updater meant
+  // the rising edge arrived as `dirty=true, wasDirty=true` — "still dirty, no edge" — and
+  // the stamp stayed null forever: the dot appeared but could never age. Same reason the
+  // restore-grace and recovery flags are read here rather than inside.
   useEffect(() => {
+    const wasDirty = prevSfcDirtyRef.current
+    const restorePendingNow = sfcRestoredPendingRef.current
     const pendingRecovery = sfcRecovery.seq !== armedRecoveredSeqRef.current
     // A recovery only applies on the clean→dirty edge; until then it stays armed.
-    const recovering = pendingRecovery && sfcDirty && !prevSfcDirtyRef.current
+    const recovering = pendingRecovery && sfcDirty && !wasDirty
+    const recoveredStamp = recovering ? sfcRecovery.divergedAt : null
+    const now = Date.now()
     if (recovering) armedRecoveredSeqRef.current = sfcRecovery.seq
+    prevSfcDirtyRef.current = sfcDirty
     setSfcDirtySince((current) => {
       const { next, restorePending } = resolveDirtySince({
         dirty: sfcDirty,
-        wasDirty: prevSfcDirtyRef.current,
+        wasDirty,
         // A recovery adopts the stamp the restored body carries. It is preferred over
         // `current` because the standalone staleness key can legitimately be absent
         // (any transient clean render deletes it), while the body's stamp travels with
         // the content it describes and therefore survives.
-        current: recovering && sfcRecovery.divergedAt !== null ? sfcRecovery.divergedAt : current,
-        restorePending: sfcRestoredPendingRef.current,
+        current: recoveredStamp !== null ? recoveredStamp : current,
+        restorePending: restorePendingNow,
         keepStamp: recovering,
-        now: Date.now(),
+        now,
       })
       sfcRestoredPendingRef.current = restorePending
       return next
     })
-    prevSfcDirtyRef.current = sfcDirty
   }, [sfcDirty, sfcRecovery])
 
   useEffect(() => {
+    // Same deferred-updater rule as the SFC effect above: snapshot, then close over it.
+    const wasDirty = prevHsfDirtyRef.current
+    const restorePendingNow = hsfRestoredPendingRef.current
+    const now = Date.now()
+    prevHsfDirtyRef.current = hsfDirty
     setHsfDirtySince((current) => {
       const { next, restorePending } = resolveDirtySince({
         dirty: hsfDirty,
-        wasDirty: prevHsfDirtyRef.current,
+        wasDirty,
         current,
-        restorePending: hsfRestoredPendingRef.current,
-        now: Date.now(),
+        restorePending: restorePendingNow,
+        now,
       })
       hsfRestoredPendingRef.current = restorePending
       return next
     })
-    prevHsfDirtyRef.current = hsfDirty
   }, [hsfDirty])
   /* eslint-enable react-you-might-not-need-an-effect/no-derived-state,
      react-you-might-not-need-an-effect/no-event-handler */

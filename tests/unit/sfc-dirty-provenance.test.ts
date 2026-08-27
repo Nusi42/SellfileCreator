@@ -179,3 +179,32 @@ test('a recovery stays armed across the commit where dirty has not flipped yet',
   step(true, 1, diverged)                     // user edits
   assert.equal(cur, NOW_MS, 'a later edit stamps now')
 })
+
+// Regression: the edge effects passed `wasDirty` by reading a mutable ref from INSIDE the
+// setState updater. A state updater is DEFERRED — React invokes it after the effect body
+// has finished, by which point the body's trailing `prevDirtyRef.current = dirty` has
+// already overwritten it. The rising edge therefore arrived as dirty=true/wasDirty=true
+// ("still dirty, no edge"), so the stamp was never set: the dot appeared but had no age
+// and could never leave neutral, and the tick stayed parked because it is gated on the
+// stamp being non-null. The fix is to SNAPSHOT every edge input in the effect body and let
+// the updater close over those constants. This pins the consequence.
+test('a rising edge stamps even when the previous-dirty ref is mutated before the updater runs', () => {
+  const prevDirtyRef = { current: false }
+
+  // How the effect body must behave: snapshot first, then mutate, then defer.
+  const wasDirty = prevDirtyRef.current
+  const now = NOW_MS
+  prevDirtyRef.current = true // body mutates immediately, as it must for the next edge
+
+  // The updater runs LATER, closing over the snapshot rather than re-reading the ref.
+  const resolved = resolveDirtySince({
+    dirty: true, wasDirty, current: null, restorePending: false, keepStamp: false, now,
+  })
+  assert.equal(resolved.next, NOW_MS, 'the edge must stamp; reading the ref here would yield null')
+
+  // Proof the old shape was broken: re-reading the mutated ref loses the edge entirely.
+  const viaMutatedRef = resolveDirtySince({
+    dirty: true, wasDirty: prevDirtyRef.current, current: null, restorePending: false, keepStamp: false, now,
+  })
+  assert.equal(viaMutatedRef.next, null, 'reading the mutated ref reproduces the bug')
+})

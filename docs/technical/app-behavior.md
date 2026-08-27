@@ -662,6 +662,16 @@ therefore encodes *how long* the document has been unsaved.
   a one-shot `restorePending` latch lets the first clean observation pass without clearing, so
   only a genuine dirty→clean transition (an actual save) resets the clock. Pinned by
   `tests/unit/staleness-ramp.test.ts`.
+- **Edge inputs are snapshotted in the effect body, never read from a ref inside the state
+  updater.** A `setState` updater is **deferred**: React may invoke it after the effect body has
+  run to completion, so any mutable ref the updater reads has already been overwritten by the
+  body's trailing `prevDirtyRef.current = dirty`. Both edge effects originally passed
+  `wasDirty: prevDirtyRef.current` from inside the updater, so every rising edge arrived as
+  `dirty=true, wasDirty=true` — "still dirty, no edge" — and the stamp was **never set**. The dot
+  appeared (it is driven by the dirty flag) but had no age, so it could never leave neutral, and
+  the tick never armed either since it is gated on the stamp being non-null. `wasDirty`,
+  `restorePending`, the recovery stamp and `now` are therefore all captured as constants before
+  `setSfcDirtySince`/`setHsfDirtySince` is called. Pinned by `tests/unit/sfc-dirty-provenance.test.ts`.
 - **Clock ownership.** `hooks/useStalenessTracking.ts` stamps the clean→dirty edges, mirrors both
   stamps to `sellfileCreator.stalenessSince.v1` (see
   [Settings & Persistence](settings-and-persistence.md#connection--language--first-run--data)),

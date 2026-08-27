@@ -945,30 +945,15 @@ export const SFC_NUDGE_FADE_OUT_MS = 700
 // dirty-badge dot enters each tier. The dot interpolates continuously BETWEEN these
 // stops — they are the anchors, not four discrete states. Tuned so ordinary editing
 // never nags (fresh), an hour of unsaved work is unmistakable (critical).
-//
-// TESTING AID: set STALENESS_SPEEDUP above 1 to compress the whole ramp so the tiers
-// can be watched in seconds instead of an hour. It divides BOTH the tier stops and
-// the tick below — a fast ramp behind the normal 30 s tick would simply skip tiers.
-// DEV-only by construction: production builds always take the 1x path, so a stray
-// value can never ship a nagging dot. Set back to 1 when done.
-// The try/catch mirrors IS_DEV_BUILD in runtimeConfig.ts (kept local rather than
-// imported: constants.ts is a leaf module and must not pull runtimeConfig in). Vite
-// replaces the token with a literal, so release builds fold this to 1; plain Node —
-// where the unit tests compile src directly — has no import.meta.env at all.
-const STALENESS_SPEEDUP: number = (() => {
-  try { return import.meta.env.DEV ? 60 : 1 } catch { return 1 }
-})()
 export const STALENESS_TIER_MINUTES = {
-  aging: 5 / STALENESS_SPEEDUP,
-  stale: 20 / STALENESS_SPEEDUP,
-  critical: 60 / STALENESS_SPEEDUP,
+  aging: 5,
+  stale: 20,
+  critical: 60,
 } as const
-// How often the badges re-evaluate elapsed time. At 1x the ramp moves imperceptibly
-// slowly (a full hour of travel), so a coarse tick is plenty and keeps a permanently-
-// mounted timer off the hot path; the dot is never watched changing, only glanced at.
-// Divided by the same speedup so a compressed ramp is actually observable, with a
-// floor so a large factor cannot spin a sub-frame timer.
-export const STALENESS_TICK_MS = Math.max(250, (30 * 1000) / STALENESS_SPEEDUP)
+// How often the badges re-evaluate elapsed time. The ramp moves imperceptibly slowly
+// (a full hour of travel), so a coarse tick is plenty and keeps a permanently-mounted
+// timer off the hot path; the dot is never watched changing, only glanced at.
+export const STALENESS_TICK_MS = 30 * 1000
 // Persisted dirty-since stamps, so an unsaved document resumes its REAL age after a
 // restart instead of looking freshly clean. Account-scoped like the autosave it
 // describes. This addresses a finding from real use: work could be lost without the dot ever warning about it.
