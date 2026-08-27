@@ -10,8 +10,8 @@
   -Bump patch|minor|major picks which component the tree moves to AFTER this
   release ships (default patch). The run always PACKAGES the version already in
   package.json - the switch only chooses the number developed against next, so
-  a feature release is `npm run release:win -- -Bump minor`, not a hand
-  edit. Ignored with -DevBuild, which never bumps.
+  a feature release is `npm run release:win -- -Bump minor`, not a hand edit.
+  Ignored with -DevBuild, which never bumps.
 #>
 
 param(
@@ -440,9 +440,9 @@ public static class Crc32Helper {
   }
 
 # After packaging: bump the -Bump component and add the -dev suffix. Which one
-# moves is the caller's choice - the normal series steps PATCH (1.0.0 -> 1.0.1),
-# while a release that adds features steps MINOR. Everything below the bumped
-# component resets to 0.
+# moves is the caller's choice - the ordinary case steps PATCH (1.0.0 -> 1.0.1),
+# and a release carrying a real feature steps MINOR. Everything below the
+# bumped component resets to 0.
   if (-not $DevBuild) {
     if ($releaseVersion -match '^(\d+)\.(\d+)\.(\d+)$') {
       $maj = [int]$Matches[1]
