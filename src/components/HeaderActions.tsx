@@ -23,7 +23,6 @@ const sfcNudgeKf = keyframes`
 `
 
 export default function HeaderActions(props: {
-  onAboutToOpenSfc?: (event: MouseEvent<HTMLButtonElement>) => void
   onSelectFile: (file: File, context?: { shiftKey?: boolean }) => void
   onSaveSfc: () => void
   onOpenNote: () => void
@@ -44,7 +43,6 @@ export default function HeaderActions(props: {
   onSfcLoadNudgeDismiss?: () => void
 }) {
   const {
-    onAboutToOpenSfc,
     onSelectFile,
     onSaveSfc,
     onOpenNote,
@@ -90,14 +88,18 @@ export default function HeaderActions(props: {
   // First left-click each page load opens the menu (returns true to veto the
   // file dialog); every later click falls through and opens the picker directly.
   const handleSfcBeforeOpen = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    onAboutToOpenSfc?.(event)
     // Any click dismisses the arrows nudge regardless of which path we take.
+    // Deliberately does NOT touch the dirty flag: this fires on the button click,
+    // before any file exists — the first click only opens the menu, and later
+    // clicks open a picker the user can cancel. Clearing dirty here discarded the
+    // unsaved-work signal for a document that had not changed at all. The clear
+    // belongs on the load-completed paths, which anchor the loaded snapshot.
     onSfcLoadNudgeDismiss?.()
     if (sfcFirstClickConsumedRef.current) return false
     sfcFirstClickConsumedRef.current = true
     setSfcMenuAnchor(event.currentTarget)
     return true
-  }, [onAboutToOpenSfc, onSfcLoadNudgeDismiss])
+  }, [onSfcLoadNudgeDismiss])
 
   const handleLoadPreset = useCallback(() => {
     if (!pendingPreset) return

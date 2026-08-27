@@ -8,6 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
+import { provenanceIsClean, type SfcProvenance } from './lib/sfcProvenance'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
@@ -2230,11 +2231,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargetsSessionModeRef.current = null
     }
   }, [substatTargetsDialogOpen])
-  // Nonce incremented inside startTransition on every SFC load/selective import.
-  // The useEffect below watches it to call markSavedNow() AFTER the history snapshot
-  // effect fires in the same commit — ensuring the safety-net does not fire early
-  // (the rAF fires before React's useEffect for deferred transition renders).
-  const [sfcLoadNonce, setSfcLoadNonce] = useState(0)
+  // Nonce incremented inside startTransition on an ANCHORED SFC load (see
+  // lib/sfcProvenance.ts). The useEffect below watches it to call markSavedNow()
+  // AFTER the history snapshot effect fires in the same commit — ensuring the
+  // safety-net does not fire early (the rAF fires before React's useEffect for
+  // deferred transition renders).
+  //
+  // It carries the provenance rather than a bare counter so the safety net can only
+  // ever force-clean a load that is genuinely anchored. A derived or recovered load
+  // that bumped a bare nonce would have its dirty dot wiped right back off by this
+  // effect, silently defeating the provenance rule at every call site.
+  const [sfcLoadNonce, setSfcLoadNonce] = useState<{ seq: number; provenance: SfcProvenance } | null>(null)
+  // Counts autosave restores. Handed to useStalenessTracking so the clean→dirty edge a
+  // restore produces resumes the persisted stamp instead of restarting the clock — the
+  // restored work has been unsaved since the ORIGINAL session (see lib/sfcProvenance.ts).
+  const [sfcRecoveredSeq, setSfcRecoveredSeq] = useState(0)
   const {
     undo,
     redo,
@@ -2242,7 +2253,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     canRedo,
     isDirty,
     markSavedNow,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     describeNextChange,
     suppressNextSnapshot,
     captureSnapshotNow,
@@ -2375,12 +2386,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // already consumed markNextAsSavedRef; it also clears any leaked true value in the
   // edge case where the transition produced no new history entry (identical payload).
   // This replaces the previous rAF-based safety net, which fired before transitions
-  // committed and inadvertently prevented markNextSnapshotAsSaved from being honoured.
+  // committed and inadvertently prevented the load's anchor request from being honoured.
   useEffect(() => {
     // Must run in the same React commit as the transition render, after the history snapshot
     // effect — timing that cannot be achieved from the SFC load event handler directly.
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
-    if (sfcLoadNonce > 0) markSavedNow()
+    if (sfcLoadNonce !== null && provenanceIsClean(sfcLoadNonce.provenance)) markSavedNow()
   }, [sfcLoadNonce, markSavedNow])
   // Use one SSOT transition wrapper for heavy tab/dialog writes so every pathway
   // (builder, minima, safeguards, final-sell, gear) shares the same scheduling behavior.
@@ -3925,9 +3936,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Clearing recipes can trigger large downstream preview diffs; transition the write.
     setCustomRecipesTransition([])
     syncSelectedRecipeIdx(null, { forceSync: true, suppressDraft: true })
-    markNextSnapshotAsSaved()
+    // Derived: wiping every recipe is a real, unsaved edit that matches no file on
+    // disk. It previously anchored as saved, so a user could clear their whole setup
+    // and see no dirty dot at all.
+    anchorNextSnapshot('derived')
     setExportBaselineResetPending(true)
-  }, [customRecipes.length, describeNextChange, markNextSnapshotAsSaved, setCustomRecipesTransition, syncSelectedRecipeIdx])
+  }, [anchorNextSnapshot, customRecipes.length, describeNextChange, setCustomRecipesTransition, syncSelectedRecipeIdx])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     // Recipe deletes can shift large arrays; schedule as non-urgent.
     setCustomRecipesTransition(prev => {
@@ -4445,7 +4459,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hsfDirtySince,
     now: stalenessNow,
     restoredDirtySfc,
-  } = useStalenessTracking(isDirty, hsfDirty)
+  } = useStalenessTracking(isDirty, hsfDirty, sfcRecoveredSeq)
 
   // Startup nudge for the RETURNING user: a restored session that came back with
   // unsaved work gets the arrows pointed at Save. Without this the arrows only ever
@@ -4579,7 +4593,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         nextItems,
       )
     }
-    markNextSnapshotAsSaved()
+    // Anchored: this is the GEAR-only express restore — it deliberately leaves
+    // recipes/note/targets alone and dismisses the SFC autosave, so the preset SFC
+    // stays authoritative. The SFC content is still the bundled preset the user can
+    // reload in one click, so there is nothing unsaved to warn about.
+    anchorNextSnapshot('anchored')
     setLastExportedHash(null)
     setExportBaselineResetPending(true)
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -4599,7 +4617,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     endpointGearDataApplied,
     beginGearInspectorMatchReset,
     setGearInspectorItemsTransition,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     setLastExportedHash,
     setExportBaselineResetPending,
     markSavedNow,
@@ -7812,10 +7830,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (sgLoadRule) setSafeguardBuilder(cloneSafeguardRule(sgLoadRule))
       // Increment nonce so the post-transition safety-net effect fires after the history
       // snapshot effect in this same commit (see sfcLoadNonce useEffect above).
-      setSfcLoadNonce((n) => n + 1)
+      setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance: 'anchored' }))
     })
 
-    markNextSnapshotAsSaved()
+    // Anchored: the document is now byte-for-byte the .sfc the user just opened
+    // (or the bundled preset routed through this same path). Closing the tab loses
+    // nothing — they can reopen the file.
+    anchorNextSnapshot('anchored')
     setLastExportedHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
@@ -7826,7 +7847,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     closeNoteAfterLoad,
     describeNextChange,
     flushTransientUi,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     metasets,
     openNoteViewer,
     setNoteAutoOpenedFromSfc,
@@ -8024,16 +8045,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setRecipesEnabled((prev) => prev || payload.recipesEnabled !== false)
       }
     }
-    markNextSnapshotAsSaved()
+    // Derived: a selective (Shift) import merges the chosen units INTO the current
+    // document, so even a per-unit "replace" leaves the unselected sections as they
+    // were. The result matches no single file on disk, which makes it unsaved work
+    // from the moment it lands — it used to anchor as saved and show no dot.
+    anchorNextSnapshot('derived')
     setLastExportedHash(null)
     setExportBaselineResetPending(true)
-    // markSavedNow in the rAF is a safety net: this function uses urgent (non-transition)
-    // updates, so useEffect fires before the rAF and the rAF is truly a fallback.
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => { markSavedNow() })
-    } else {
-      setTimeout(() => { markSavedNow() }, 0)
-    }
     flushTransientUi()
     return { deferredConflict: false }
   }, [
@@ -8047,8 +8065,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalizeImport,
     flushTransientUi,
     getSelectiveImportMetasetIssues,
-    markNextSnapshotAsSaved,
-    markSavedNow,
+    anchorNextSnapshot,
     metasets,
     openNoteViewer,
     prepareSfcImport,
@@ -8931,9 +8948,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
-      onAboutToOpenSfc={() => {
-        markSavedNow()
-      }}
       onSelectFile={handleManualFileSelection}
       onSaveSfc={() => {
         persistRuntimeGearSetsNow()
@@ -10397,19 +10411,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, sgSelIdx + 1)
               }
             }
-            // Clear dirty markers after restore: markNextSnapshotAsSaved anchors the upcoming
-            // history snapshot as saved; rAF markSavedNow is a safety net for the edge case where
-            // the effect fires without a new entry. setLastExportedHash(null) + setExportBaselineResetPending(true)
-            // reset the HSF export baseline. Do NOT call markSavedNow() synchronously — it clears
-            // markNextAsSavedRef immediately, defeating markNextSnapshotAsSaved.
-            markNextSnapshotAsSaved()
+            // Recovered: this content came back from autosave, so it has NEVER been
+            // written to disk. It is exactly the "user loses a session's work" case the
+            // staleness ramp exists to warn about, yet it used to anchor as saved and
+            // reset the clock — presenting unsaved work as safe. It now lands dirty, and
+            // useStalenessTracking resumes the persisted stamp so the dot shows the real
+            // age instead of restarting at zero.
+            //
+            // The HSF export baseline still resets: nothing has been exported this
+            // session regardless of where the SFC content came from.
+            anchorNextSnapshot('recovered')
+            setSfcRecoveredSeq((seq) => seq + 1)
             setLastExportedHash(null)
             setExportBaselineResetPending(true)
-            if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-              window.requestAnimationFrame(() => { markSavedNow() })
-            } else {
-              setTimeout(() => { markSavedNow() }, 0)
-            }
             // Coalesce downstream rebuilds into a single pass.
             restoringAutosaveRef.current = true
             acceptRestore()

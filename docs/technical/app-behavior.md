@@ -534,6 +534,62 @@ suppression — it must not be re-derived under a second name.
 - **HSF export-dirty (`hsfDirty`) = the exported file would actually differ from the last export.** It is a crc32 fingerprint of the *exact bytes* `buildHsfFileFromMerged(mergedRules, { recipeNames })` would produce, compared against the fingerprint captured at the last export/push (reset to baseline on SFC load/import/restore). The fingerprint is computed by the SSOT helper `computeExportedHsfFingerprint` (`lib/hsfIO.ts`) **in the rule-cache worker** (it already holds the merged rules) and returned as `mergedRulesHash` on every pipeline result; the main thread just compares the string (it does not recompute the crc). The recipe **names** written into the export — one of the crc inputs — are derived on both sides by the single SSOT helper `recipeNamesForExport` (`lib/ruleCacheHelpers.ts`) over the **override-applied** recipe list (`recipesForRuleBuild(applyRecipeOverrides(...))`), not the raw `customRecipes` used for display/match labels. This guarantees the worker's fingerprint and the main thread's actual export payload (`buildExportPayload` → `exportRecipeNames`) agree byte-for-byte even if a future recipe override renames a recipe. Because `cleanHsfForExport` strips every volatile field first (`__safeguardScanMs` timestamp, `projected`/`deficit`/`itemKey`, `__lineIdx`, detection internals), the fingerprint is content-pure: a gear-DB update that doesn't change the injected rules produces the **same** fingerprint (no false "needs export"), and an add-then-remove inventory round-trip returns it to the baseline (correctly goes clean again).
 - **Content-keyed pipeline result cache (add-then-remove farming round-trips skip recompute).** The main-thread pipeline LRU (`pipelineCacheRef`, `PIPELINE_CACHE_MAX`/`PIPELINE_CACHE_TTL_MS` in `App.tsx`) keys each cached result on an *artifact-content* hash, `:a${artifactContentHash}:`, where `artifactContentHash = computeArtifactSetContentHash(gearInspectorPreviewArtifacts)` (SSOT in `lib/safeguards.ts`, memoized once per artifact change). The hash is a two-lane 53-bit FNV-style fold over **only** the fields that cross to WASM and change pipeline output — per artifact: `id, slot, set, rank, rarity, level, exactLevel, faction, mainStat.variant, substats[].{variant,isFlat,totalValue,rolls}, equippedChampion.location` — mirroring `toWasmArtifactStoreInput`/`toWasmTestItem`. It deliberately **excludes** display-only / non-projected fields (`lastUseLocalTimestamp` — which bumps every game round — `rerollCount`, `ascension`, `source`, `isLocked`, champion id/name). Consequence: during RSL Helper farming, getting 1–2 artifacts then using/removing them returns the set to a matching-identical state → the *same* cache key → a hit (~0 ms) instead of a full pipeline recompute (~3.9 s on 7755 artifacts). Correctness: an in-flight run writes its result under the hash of the artifacts it actually processed, so it can never be served as a stale hit for a different set; the only remaining clear is on base-HSF change (HSF identity isn't in the content key). On a cache hit the served safeguard detection is shallow-copied with a fresh `scannedAt` (entries are content-identical; only the "last scanned" display time is refreshed — no detection recompute), and `currentMergedRulesHash` is restored from the cached result so the export-dirty badge stays exact across the round-trip. Per-field sensitivity is guarded by `tests/unit/artifact-content-hash.test.ts`.
 
+### SFC dirty flag: provenance decides, not history position
+
+**The contract (SSOT `lib/sfcProvenance.ts`): a document is clean if and only if its current
+content exists somewhere the user can get it back from WITHOUT this tab.** Not "unchanged since
+load", and not "history index equals savedIndex" — those are mechanisms, and both answer the wrong
+question. Recoverability is the question, and every load site already knows its own answer.
+
+Before this, every load path called an unconditional `markNextSnapshotAsSaved()`, so a bundled
+preset, a user's `.sfc`, an autosave restore, and an append-import all presented identically as
+saved. Three of those four were wrong — an autosave restore in particular has **never** touched
+disk, which is exactly the loss the ramp below exists to warn about, yet it cleared the dot and
+reset the clock.
+
+`anchorNextSnapshot(provenance)` (renamed from `markNextSnapshotAsSaved`) replaces it. Three values
+cover every call site:
+
+| Provenance | Dot on arrival | Call sites |
+| --- | --- | --- |
+| `anchored` | none (clean) | SFC file/preset load (`App.tsx` `handleSfcFile` path); express **gear-only** silent restore |
+| `derived` | dirty, clock starts now | selective/Shift import; clear-all-recipes |
+| `recovered` | dirty, clock **resumes** the persisted stamp | autosave restore dialog |
+
+- **`provenanceIsClean`** is the single branch deciding whether a load anchors as saved, so "which
+  loads clear the dirty flag" has one definition instead of one per call site.
+- **The express gear-only restore is `anchored`, not `recovered`** — it deliberately leaves
+  recipes/note/targets alone and dismisses the SFC autosave, so the SFC content is still the
+  bundled preset. Only the SFC autosave restore is a recovery.
+- **A selective import is always `derived`, even in per-unit "replace" mode**: it merges the chosen
+  units into the current document, leaving unselected sections as they were, so the result matches
+  no single file on disk.
+- **`sfcLoadNonce` carries its provenance** (`{ seq, provenance }`, not a bare counter). The
+  post-load safety-net effect force-clears dirty only when `provenanceIsClean` holds. With a bare
+  counter, any future derived/recovered path that bumped the nonce would have its dot wiped right
+  back off, silently defeating the rule at every call site.
+- **`recovered` also drives the staleness clock.** `App.tsx` bumps `sfcRecoveredSeq`, which
+  `useStalenessTracking` passes to `resolveDirtySince` as `keepStamp`. A rising edge normally means
+  "a real edit — restart the clock"; a recovery instead resumes the persisted stamp, so a document
+  unsaved for hours comes back red rather than as a fresh, calm-looking dot. The counter (rather
+  than a boolean) arms the resume exactly once, so the next genuine edit stamps normally.
+
+**Undo/redo: the saved anchor is clamped across branch truncation** (`clampSavedIndex`, the SSOT
+used by both write paths in `useSfcHistory.ts`). Appending after an undo drops
+`entries.slice(index + 1)`; the anchor used to be carried across untouched, so an anchor living in
+the cut part survived as an index past the end of the array. `index !== savedIndex` was then
+permanently true — the document read dirty forever, and undoing back onto genuinely saved content
+could never clear it again. Clamping to `null` ("no known-saved entry in this timeline") reads as
+dirty while staying reachable by a later save. Undoing back *onto* the anchor still goes clean:
+the in-memory document again matches the bytes on disk. Pinned by
+`tests/unit/sfc-dirty-provenance.test.ts`.
+
+**The dirty flag is never cleared from a button click.** `HeaderActions`' `handleSfcBeforeOpen`
+fires on the Load button's click — the first click only opens the menu (and vetoes the picker
+entirely), and later clicks open an OS dialog the user can cancel. The removed `onAboutToOpenSfc`
+prop cleared dirty there, so editing → clicking Load → pressing Escape discarded the unsaved-work
+signal for a document that had not changed at all. The clear belongs on the load-*completed* paths.
+
 ### Staleness ramp (the aging dirty dot)
 
 The app runs from `file://` and therefore can never autosave to disk — the user has to press
@@ -579,6 +635,14 @@ therefore encodes *how long* the document has been unsaved.
   `DirtyBadge` stays a pure function of its props (no clock read during render). Edge trackers are
   seeded from the *restored* stamps, not from `false`, so a session that comes back already dirty
   keeps its real age instead of resetting to zero.
+- **A recovery edge resumes its stamp instead of restarting the clock.** Accepting the autosave
+  restore drives the SFC flag clean→dirty, and a rising edge normally means "a real edit — stamp
+  now". That would reset an hours-old unsaved document to a fresh dot at the exact moment the user
+  most needs the warning. `useStalenessTracking` therefore takes `sfcRecoveredSeq` and passes
+  `keepStamp` to `resolveDirtySince` for that one edge (see
+  [provenance](#sfc-dirty-flag-provenance-decides-not-history-position)); with no persisted stamp
+  to resume it falls back to stamping now, and the flag never leaks past the restore, so the next
+  genuine edit re-stamps normally.
 
 ### SFC nudge arrows: one derived target
 
@@ -586,13 +650,15 @@ The bouncing arrow fan (`components/SfcNudgeArrows.tsx`, shared by both buttons)
 whichever control the user needs next. The target is **derived, not configured**:
 `sfcDirty ? 'save' : 'load'`, with the whole nudge skipped when it is inactive.
 
-The two nudges are mutually exclusive *by logic*, so no flag can put them out of sync: a dirty
-document holds unsaved user work (→ Save), while the Load nudge is only ever raised for a document
-that is empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx` suppresses it
-otherwise). Those cannot both hold. Consequences:
+The two nudges are mutually exclusive *by construction* — one ternary, `sfcDirty ? 'save' :
+'load'`, so no flag can put them out of sync. A dirty document holds unsaved user work (→ Save);
+the Load nudge is only reached when the document is clean, and is further suppressed unless it is
+empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx`). Consequences:
 
-- Fresh install, empty document → **Load**; restored autosave matching a preset → **nothing**;
-  restored autosave with unsaved edits → **Save**; freshly loaded and untouched → **nothing**.
+- Fresh install, empty document → **Load**; freshly loaded and untouched → **nothing**; an
+  **accepted autosave restore → Save**, since a restore is `recovered` and therefore lands dirty
+  (see [provenance](#sfc-dirty-flag-provenance-decides-not-history-position)) — including when its
+  content happens to match a preset, because `sfcDirty` wins the ternary outright.
 - Besides the existing first-run-Help and tutorial-completion triggers, the nudge now also fires
   **once on startup** when a restored session comes back dirty (`restoredDirtySfc`), skipped while
   the first-run Help is open because dismissing that already fires its own nudge. Without this the

@@ -132,13 +132,25 @@ export function resolveDirtySince(params: {
   current: number | null
   /** True while a restored stamp still needs to survive the boot-time clean read. */
   restorePending: boolean
+  /**
+   * True when the rising edge is a RECOVERY rather than an edit — an autosave
+   * restore, whose unsaved age predates this session (see lib/sfcProvenance.ts).
+   * Such an edge must keep the persisted stamp; stamping `now` would reset a
+   * document that has been unsaved for hours back to a fresh, calm-looking dot.
+   * An existing stamp is required: with none to resume, there is no age to keep
+   * and the edge falls through to stamping now.
+   */
+  keepStamp?: boolean
   /** Clock, injected so tests are deterministic. */
   now: number
 }): { next: number | null; restorePending: boolean } {
-  const { dirty, wasDirty, current, restorePending, now } = params
+  const { dirty, wasDirty, current, restorePending, keepStamp, now } = params
   // Rising edge: a real edit starts (or restarts) the clock and supersedes any
-  // restored stamp.
-  if (dirty && !wasDirty) return { next: now, restorePending: false }
+  // restored stamp — unless this edge is a recovery, which resumes its own age.
+  if (dirty && !wasDirty) {
+    const resume = keepStamp === true && current !== null
+    return { next: resume ? current : now, restorePending: false }
+  }
   if (!dirty) {
     // Boot-time clean read: keep the restored stamp, and consume the grace.
     if (restorePending) return { next: current, restorePending: false }

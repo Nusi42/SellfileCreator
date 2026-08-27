@@ -147,3 +147,35 @@ test('staying dirty leaves the stamp untouched', () => {
   assert.equal(held.next, stamp)
   assert.equal(stalenessTier(stalenessMinutes(held.next, NOW)), 'stale')
 })
+
+// A RECOVERY edge (autosave restore) is not an edit: the work has been unsaved since
+// the original session, so the persisted stamp must be resumed rather than reset.
+// Stamping now here is what made a restored document present an hours-old loss as a
+// fresh, calm-looking dot. See lib/sfcProvenance.ts.
+test('a recovery rising edge resumes the persisted stamp instead of restarting', () => {
+  const restored = NOW - 95 * 60_000
+  const recovered = resolveDirtySince({
+    dirty: true, wasDirty: false, current: restored, restorePending: true, keepStamp: true, now: NOW,
+  })
+  assert.equal(recovered.next, restored, 'the restored age must survive the restore edge')
+  assert.equal(recovered.restorePending, false)
+  // The dot therefore arrives already red rather than neutral.
+  assert.equal(stalenessTier(stalenessMinutes(recovered.next, NOW)), 'critical')
+})
+
+// keepStamp only has an age to resume when one was actually persisted; with no stamp
+// the edge must still start a clock rather than leaving the document unstamped.
+test('a recovery with no persisted stamp falls back to stamping now', () => {
+  const recovered = resolveDirtySince({
+    dirty: true, wasDirty: false, current: null, restorePending: false, keepStamp: true, now: NOW,
+  })
+  assert.equal(recovered.next, NOW)
+})
+
+// The flag must not leak past the restore: the next genuine edit re-stamps normally.
+test('keepStamp does not affect ordinary edit edges', () => {
+  const edited = resolveDirtySince({
+    dirty: true, wasDirty: false, current: NOW - 95 * 60_000, restorePending: false, keepStamp: false, now: NOW,
+  })
+  assert.equal(edited.next, NOW)
+})

@@ -65,8 +65,19 @@ export interface StalenessTracking {
 /**
  * Tracks both documents' unsaved age. `sfcDirty` / `hsfDirty` are the live dirty
  * flags; this hook stamps their rising edges, clears on save, and persists both.
+ *
+ * `sfcRecoveredSeq` counts autosave restores. A restore drives the SFC dirty flag
+ * from clean to dirty, but that edge is a RECOVERY, not an edit — the work has
+ * been unsaved since the original session, so the clock must resume the persisted
+ * stamp instead of restarting at now (see lib/sfcProvenance.ts). Passing a counter
+ * rather than a boolean means each restore arms the resume exactly once, so a
+ * later genuine edit still stamps normally.
  */
-export function useStalenessTracking(sfcDirty: boolean, hsfDirty: boolean): StalenessTracking {
+export function useStalenessTracking(
+  sfcDirty: boolean,
+  hsfDirty: boolean,
+  sfcRecoveredSeq = 0,
+): StalenessTracking {
   // Restore once, at mount, before any edge has been observed this session.
   const [restored] = useState(() => readPersistedStamps(Date.now()))
   // Whether the SFC came back from storage already dirty — the startup nudge reads
@@ -101,20 +112,27 @@ export function useStalenessTracking(sfcDirty: boolean, hsfDirty: boolean): Stal
   // TRANSITION is the intentional set-state-on-edge pattern used elsewhere in this
   // codebase (it cannot be computed from current props alone), so the lint rules
   // that assume effects only mirror props are disabled for these two blocks.
+  // Which restore this hook has already accounted for. When the counter moves, the
+  // NEXT rising edge is a recovery and must resume the persisted stamp rather than
+  // stamp now; it is consumed immediately so only that one edge is affected.
+  const consumedRecoveredSeqRef = useRef(sfcRecoveredSeq)
   useEffect(() => {
+    const recovering = sfcRecoveredSeq !== consumedRecoveredSeqRef.current
+    consumedRecoveredSeqRef.current = sfcRecoveredSeq
     setSfcDirtySince((current) => {
       const { next, restorePending } = resolveDirtySince({
         dirty: sfcDirty,
         wasDirty: prevSfcDirtyRef.current,
         current,
         restorePending: sfcRestoredPendingRef.current,
+        keepStamp: recovering,
         now: Date.now(),
       })
       sfcRestoredPendingRef.current = restorePending
       return next
     })
     prevSfcDirtyRef.current = sfcDirty
-  }, [sfcDirty])
+  }, [sfcDirty, sfcRecoveredSeq])
 
   useEffect(() => {
     setHsfDirtySince((current) => {

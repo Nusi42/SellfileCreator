@@ -7,6 +7,7 @@ import { compressToBytes, decompressFromBytes } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/recipeMultiEditDraft'
 import type { SafeguardRule } from '../lib/safeguards'
 import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
+import { provenanceIsClean, type SfcProvenance } from '../lib/sfcProvenance'
 
 export type { HistoryEntryDescriptor }
 
@@ -65,6 +66,20 @@ type HistoryState = {
 }
 
 type ResetOptions = { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }
+
+/**
+ * Clamp the saved anchor across a redo-branch truncation (SSOT for both write paths).
+ *
+ * Appending after an undo drops `entries.slice(index + 1)`. If the saved anchor lived
+ * in the part just cut, keeping its integer leaves it pointing past the end of the
+ * array: `index !== savedIndex` is then permanently true, so the document reads dirty
+ * forever and undoing back onto genuinely-saved content can never clear it again.
+ * Returning null means "no known-saved entry in this timeline", which correctly reads
+ * as dirty while still being reachable by a later save.
+ */
+export function clampSavedIndex(savedIndex: number | null, currentIndex: number): number | null {
+  return savedIndex !== null && savedIndex <= currentIndex ? savedIndex : null
+}
 
 function compressDescriptor(descriptor: HistoryEntryDescriptor | null): Uint8Array | null {
   if (!descriptor) return null
@@ -321,10 +336,13 @@ export function useSfcHistory(params: {
         nextEntries.push(entry)
         nextIndex = nextEntries.length - 1
       }
-      let nextSaved = prev.savedIndex
+      // Start from the anchor clamped against the truncation this write just performed,
+      // so a save point that was branched away cannot survive as a stale index.
+      let nextSaved = clampSavedIndex(prev.savedIndex, prev.index)
       if (markNextAsSavedRef.current) {
         nextSaved = nextIndex
       } else if (canReplace && prev.savedIndex === prev.index) {
+        // Replacing the entry the user was sitting on: the anchor moves with it.
         nextSaved = nextIndex
       }
       markNextAsSavedRef.current = false
@@ -378,8 +396,16 @@ export function useSfcHistory(params: {
     markNextAsSavedRef.current = false
   }, [])
 
-  const markNextSnapshotAsSaved = useCallback(() => {
-    markNextAsSavedRef.current = true
+  /**
+   * Declare where the snapshot that is ABOUT to land came from, which decides
+   * whether it anchors as saved. Load sites call this instead of unconditionally
+   * marking saved — see lib/sfcProvenance.ts for the rule.
+   *
+   * A non-clean provenance deliberately leaves markNextAsSavedRef false, so the
+   * incoming entry appends as ordinary unsaved work and the dot appears.
+   */
+  const anchorNextSnapshot = useCallback((provenance: SfcProvenance) => {
+    markNextAsSavedRef.current = provenanceIsClean(provenance)
   }, [])
 
   const describeNextChange = useCallback<DescribeNextChangeFn>((descriptor, options) => {
@@ -447,7 +473,7 @@ export function useSfcHistory(params: {
       const baseEntries = prev.entries.slice(0, prev.index + 1)
       const nextEntries = [...baseEntries, entry]
       const nextIndex = nextEntries.length - 1
-      const trimmedSaved = prev.savedIndex !== null && prev.savedIndex <= prev.index ? prev.savedIndex : null
+      const trimmedSaved = clampSavedIndex(prev.savedIndex, prev.index)
       const nextSaved = options?.markSaved === true ? nextIndex : trimmedSaved
       return {
         entries: nextEntries,
@@ -526,7 +552,7 @@ export function useSfcHistory(params: {
     canRedo,
     isDirty,
     markSavedNow,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     describeNextChange,
     suppressNextSnapshot,
     resetHistory,

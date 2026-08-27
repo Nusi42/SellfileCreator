@@ -14,6 +14,7 @@ import {
 } from './useSfcHistory'
 import type { SafeguardRule } from '../lib/safeguards'
 import { stableSerialize } from '../lib/stableSerialize'
+import type { SfcProvenance } from '../lib/sfcProvenance'
 
 type Params = {
   customRecipes: BuilderRecipe[]
@@ -60,7 +61,8 @@ type ControllerResult = {
   canRedo: boolean
   isDirty: boolean
   markSavedNow: () => void
-  markNextSnapshotAsSaved: () => void
+  /** Declare the provenance of the snapshot about to land; see lib/sfcProvenance.ts. */
+  anchorNextSnapshot: (provenance: SfcProvenance) => void
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
   describeNextChange: DescribeNextChangeFn
   suppressNextSnapshot: SuppressNextSnapshotFn
@@ -285,7 +287,7 @@ export function useSfcHistoryController(params: Params): ControllerResult {
     canRedo,
     isDirty,
     markSavedNow,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     resetHistory,
     describeNextChange,
     suppressNextSnapshot,
@@ -363,7 +365,7 @@ export function useSfcHistoryController(params: Params): ControllerResult {
     canRedo,
     isDirty,
     markSavedNow,
-    markNextSnapshotAsSaved,
+    anchorNextSnapshot,
     resetHistory,
     describeNextChange,
     suppressNextSnapshot,
