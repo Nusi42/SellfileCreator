@@ -1,13 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
+import { loadLategameRecipes, loadLategameSafeguardRules, loadLategameSfc } from '../setup/presetFixtures.js'
 import { findArtifactSetIdByName } from '../../src/lib/types.js'
 import {
   findRecipeOptionByToken,
   resolveRecipeOverridesTags,
   collectRecipeOverridesDiagnostics,
+  resolveRecipeOverridesEffectiveRecipe,
   seedSafeguardAnswersFromRecipeDefaults,
 } from '../../src/lib/noteRecipeOverrides.js'
+import { createFactoryBuilderDefaults } from '../../src/lib/builderDefaults.js'
 import { resolveNoteSafeguardOverridesTags } from '../../src/lib/noteSafeguardOverrides.js'
 import { listOverrideBlocks, parseOverridesBlockDraft } from '../../src/lib/overridesDraft.js'
 
@@ -259,4 +261,59 @@ test('the FW-Hard question carries no option-write coupling; its safeguard effec
     assert.deepEqual([...option.setTokens, ...option.unsetTokens, ...option.excludedTokens], [],
       `${option.token} must not carry cross-domain option writes`)
   }
+})
+
+// ── The Chaos Ore master-sell must stay inside the Chaos Ore family ───────────
+// "Actually, just sell all weak Chaos Ore pieces?" (q_6aowi9) used to select on the bare
+// `@ignoredbysafeguards=on` flag. That flag is not exclusive to Chaos Ore: the "Anomalous"
+// rule carries it too, so answering Yes also flipped Anomalous to sell — a rule the question
+// never mentions. The selector now names the seven `ore*` tags, which cover exactly the
+// Chaos Ore rules and nothing else. These tests pin both halves of that: the tag family
+// still spans only Chaos Ore in the shipped file, and the answer only sells those rules.
+
+// The tags the master-sell selector enumerates.
+const ORE_TAGS = [
+  'ore5epic', 'ore5legendary', 'ore5mythical',
+  'ore6epic', 'ore6legendary', 'ore6mythical', 'ore6legendary_allsets',
+] as const
+
+test('the ore* tag family covers exactly the Chaos Ore rules', () => {
+  // If a future edit tags a non-Chaos-Ore rule with an ore* token, the master-sell selector
+  // would silently widen again — so assert the family's membership, not just its size.
+  const recipes = loadLategameRecipes()
+  const tagged = recipes.filter((r) => (r.Tags ?? []).some((t) => (ORE_TAGS as readonly string[]).includes(t)))
+  assert.ok(tagged.length > 0, 'the preset must ship Chaos Ore rules')
+  for (const recipe of tagged) {
+    assert.equal(recipe.appearance?.name, 'Chaos Ore',
+      'only rules named "Chaos Ore" may carry an ore* tag')
+  }
+  // And every Chaos Ore rule is reachable by the selector — no untagged straggler survives Yes.
+  const chaosRules = recipes.filter((r) => r.appearance?.name === 'Chaos Ore')
+  assert.equal(tagged.length, chaosRules.length, 'every Chaos Ore rule carries an ore* tag')
+})
+
+test('answering "sell them all" sells Chaos Ore rules but spares Anomalous (regression)', () => {
+  // Resolve the real question from the shipped note and pick the "Yes, sell them all" option.
+  const found = findRecipeOptionByToken(resolveRecipeOverridesTags(note).questions, 'ore_chaos_master_sell')!
+  const { question, option: sellOption } = found
+  const { instructions } = resolveRecipeOverridesTags(note, { [question.id]: [sellOption.id] }, sellOption.id)
+
+  // rarityMode:'code' keeps the resolver off the WASM auto-rarity path, as elsewhere in the suite.
+  const recipe = (fields: { tags?: string[]; ignoredBySafeguards?: boolean }) => ({
+    ...createFactoryBuilderDefaults(), rarityMode: 'code' as const, keep: true, ...fields,
+  })
+
+  // Every Chaos Ore tag flips to sell — the question's actual job.
+  for (const tag of ORE_TAGS) {
+    const effective = resolveRecipeOverridesEffectiveRecipe(recipe({ tags: [tag], ignoredBySafeguards: true }), instructions)
+    assert.equal(effective.keep, false, `${tag} must be sold when the master-sell is chosen`)
+  }
+
+  // "Anomalous" shares the IgnoredBySafeguards flag but carries no ore* tag: it must be untouched.
+  const anomalous = loadLategameRecipes().find((r) => r.appearance?.name === 'Anomalous')!
+  assert.deepEqual(anomalous.Tags ?? [], [], 'the Anomalous rule is untagged in the shipped preset')
+  const effectiveAnomalous = resolveRecipeOverridesEffectiveRecipe(
+    recipe({ tags: [], ignoredBySafeguards: true }), instructions)
+  assert.equal(effectiveAnomalous.keep, true,
+    'a flagged-but-untagged rule (Anomalous) must survive the Chaos Ore master-sell')
 })

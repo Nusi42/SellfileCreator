@@ -20505,7 +20505,7 @@
     "  single \"Yes, sell them all\"",
     "     \"[[de]]Ja, alle verkaufen\"",
     "     \"Sell the weak `Chaos Ore` pieces you were keeping. Anything you were already selling stays sold.\"",
-    "     \"[[de]]Verkauft die schwachen `Chaos-Erz`-Teile, die du behalten hast. Was du ohnehin verkauft hättest, bleibt verkauft.\" id=ore_chaos_master_sell { @ignoredbysafeguards=on { action=sell } }",
+    "     \"[[de]]Verkauft die schwachen `Chaos-Erz`-Teile, die du behalten hast. Was du ohnehin verkauft hättest, bleibt verkauft.\" id=ore_chaos_master_sell { @tag in [ore5epic,ore5legendary,ore5mythical,ore6epic,ore6legendary,ore6mythical,ore6legendary_allsets] { action=sell } }",
     "--><br>",
     "<!-- /collapse -->",
     "<!-- collapse -->",

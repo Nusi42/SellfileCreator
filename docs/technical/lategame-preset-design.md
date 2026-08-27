@@ -211,6 +211,17 @@ then the catch-all safeguards.
     separate "6★ from any gear set" keep with its own question; writing set includes onto an
     intentionally unfiltered rule would narrow it to the eight listed sets.
 
+- **The Chaos Ore master-sell (`ore_chaos_master_sell`, in `q_6aowi9`) selects on the `ore*` tags,
+  never on `@ignoredbysafeguards=on`.** `IgnoredBySafeguards` is a behaviour flag, not a Chaos Ore
+  marker: the `Anomalous` rule carries it too, so the flag selector reached a rule the question
+  never mentions and flipped it to sell. The selector enumerates the seven tags
+  (`ore5epic`/`ore5legendary`/`ore5mythical`, `ore6epic`/`ore6legendary`/`ore6mythical`,
+  `ore6legendary_allsets`), which cover exactly the Chaos Ore rules. Two properties keep that
+  true and are pinned in `lategame-preset-overrides.test.ts`: only rules named `Chaos Ore` carry
+  an `ore*` tag, and every Chaos Ore rule carries one — so an untagged straggler cannot quietly
+  escape the sell either. **If you add a Chaos Ore rule, tag it**; if you need a new behaviour
+  flag on a rule, do not reach for a flag selector to address a rule *family*.
+
 - **Three traps this section depends on**, all worth re-checking before authoring a similar block:
   1. **`+-"Two Words"` does not parse.** The tokenizer does not classify `-` as a symbol, so
      `gearsets=+-"Divine Speed"` lexes as the word `-"Divine` plus `Speed"`: the opening quote never
