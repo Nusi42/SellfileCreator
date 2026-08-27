@@ -8,7 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
-import { provenanceIsClean, type SfcProvenance } from './lib/sfcProvenance'
+import { provenanceIsClean, readAutosaveDivergedAt, type SfcProvenance } from './lib/sfcProvenance'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
@@ -29,6 +29,7 @@ import {
   getSimpleVariant,
   setSimpleVariant as persistSimpleVariant,
   AUTOSAVE_PRESET_ORIGIN_KEY,
+  AUTOSAVE_DIVERGED_AT_KEY,
   AUTOSAVE_SIMPLE_EXPERT_MODE_KEY,
   getRslHelperConnectEnabled,
   getRslHelperPort,
@@ -2242,10 +2243,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // that bumped a bare nonce would have its dirty dot wiped right back off by this
   // effect, silently defeating the provenance rule at every call site.
   const [sfcLoadNonce, setSfcLoadNonce] = useState<{ seq: number; provenance: SfcProvenance } | null>(null)
-  // Counts autosave restores. Handed to useStalenessTracking so the clean→dirty edge a
-  // restore produces resumes the persisted stamp instead of restarting the clock — the
-  // restored work has been unsaved since the ORIGINAL session (see lib/sfcProvenance.ts).
-  const [sfcRecoveredSeq, setSfcRecoveredSeq] = useState(0)
+  // Counts autosave restores AND carries the divergence stamp the restored body was
+  // written with. Handed to useStalenessTracking so the clean→dirty edge a restore
+  // produces adopts that stamp instead of restarting the clock — the restored work has
+  // been unsaved since the ORIGINAL session (see lib/sfcProvenance.ts). `divergedAt` is
+  // null when the entry predates the field, in which case the age is genuinely unknown
+  // and the edge stamps now.
+  const [sfcRecovery, setSfcRecovery] = useState<{ seq: number; divergedAt: number | null }>(
+    { seq: 0, divergedAt: null },
+  )
   const {
     undo,
     redo,
@@ -4459,7 +4465,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hsfDirtySince,
     now: stalenessNow,
     restoredDirtySfc,
-  } = useStalenessTracking(isDirty, hsfDirty, sfcRecoveredSeq)
+  } = useStalenessTracking(isDirty, hsfDirty, sfcRecovery)
+  // Mirrored into a ref so buildAutosavePayload can stamp the divergence moment without
+  // taking the stamp as a dependency — that would rebuild the payload callback (and so
+  // reschedule autosave) every time the clock advanced.
+  const sfcDirtySinceRef = useRef<number | null>(sfcDirtySince)
+  // Synced in a layout effect (never during render) — the same pattern currentSfcFieldsRef
+  // uses for the preset-origin stamp written by the very same payload builder.
+  useLayoutEffect(() => { sfcDirtySinceRef.current = sfcDirtySince })
 
   // Startup nudge for the RETURNING user: a restored session that came back with
   // unsaved work gets the arrows pointed at Save. Without this the arrows only ever
@@ -5396,6 +5409,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(simpleMode ? { [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expertMode } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       AutosaveSavedAt: new Date().toISOString(),
+      // WHEN this document first diverged from its last save/load — pinned at the dirty
+      // rising edge, unlike AutosaveSavedAt above which bumps on every write. Travels with
+      // the body so a restore can show the document's REAL unsaved age even in a session
+      // that never saved (see AUTOSAVE_DIVERGED_AT_KEY). Omitted while clean.
+      ...(sfcDirtySinceRef.current !== null ? { [AUTOSAVE_DIVERGED_AT_KEY]: sfcDirtySinceRef.current } : {}),
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
@@ -10421,7 +10439,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             // The HSF export baseline still resets: nothing has been exported this
             // session regardless of where the SFC content came from.
             anchorNextSnapshot('recovered')
-            setSfcRecoveredSeq((seq) => seq + 1)
+            // Adopt the divergence moment the restored body carries, so the dot shows the
+            // document's REAL unsaved age rather than restarting at zero. Written by
+            // buildAutosavePayload; absent on entries from before the field existed.
+            setSfcRecovery((prev) => ({
+              seq: prev.seq + 1,
+              divergedAt: readAutosaveDivergedAt(draft),
+            }))
             setLastExportedHash(null)
             setExportBaselineResetPending(true)
             // Coalesce downstream rebuilds into a single pass.

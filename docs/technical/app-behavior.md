@@ -568,11 +568,28 @@ cover every call site:
   post-load safety-net effect force-clears dirty only when `provenanceIsClean` holds. With a bare
   counter, any future derived/recovered path that bumped the nonce would have its dot wiped right
   back off, silently defeating the rule at every call site.
-- **`recovered` also drives the staleness clock.** `App.tsx` bumps `sfcRecoveredSeq`, which
-  `useStalenessTracking` passes to `resolveDirtySince` as `keepStamp`. A rising edge normally means
-  "a real edit — restart the clock"; a recovery instead resumes the persisted stamp, so a document
-  unsaved for hours comes back red rather than as a fresh, calm-looking dot. The counter (rather
-  than a boolean) arms the resume exactly once, so the next genuine edit stamps normally.
+- **`recovered` also drives the staleness clock.** `App.tsx` bumps `sfcRecovery` (`{ seq,
+  divergedAt }`), which `useStalenessTracking` turns into `keepStamp` for `resolveDirtySince`. A
+  rising edge normally means "a real edit — restart the clock"; a recovery instead adopts the
+  divergence stamp, so a document unsaved for hours comes back red rather than as a fresh,
+  calm-looking dot. The counter (rather than a boolean) arms the adoption exactly once, so the
+  next genuine edit stamps normally.
+- **The divergence moment travels INSIDE the autosave payload** (`AUTOSAVE_DIVERGED_AT_KEY` =
+  `DivergedAt`, stamped by `buildAutosavePayload` from the live `sfcDirtySince`; read back by
+  `readAutosaveDivergedAt`). It records when the document first diverged from its last save/load —
+  **not** when autosave last wrote, which is the separate `AutosaveSavedAt` the restore dialog
+  shows and which bumps on every debounced write.
+
+  It cannot live only in the standalone `stalenessSince` key, because that key is **deleted the
+  moment both documents read clean** — so a session that never saved (or any transient clean
+  render) destroyed the age before a restore could use it, and the restored dot came back neutral
+  no matter how long the work had been unsaved. The divergence moment is a property of *the
+  document*, so it is carried with the body it describes and cannot be lost independently of that
+  content. On a recovery edge `App.tsx` feeds the body's stamp to `resolveDirtySince` as `current`,
+  in preference to whatever the standalone key holds. A missing, malformed, or future-dated value
+  reads as `null` ("age unknown") and the edge falls back to stamping now — degrading to the old
+  behaviour rather than to a wrong, alarming age. Autosave is ephemeral session state, so entries
+  written before the field existed simply take that fallback; no migration is required.
 
 **Undo/redo: the saved anchor is clamped across branch truncation** (`clampSavedIndex`, the SSOT
 used by both write paths in `useSfcHistory.ts`). Appending after an undo drops

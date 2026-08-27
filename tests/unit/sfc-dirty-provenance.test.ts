@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import {
   provenanceIsClean,
   provenanceKeepsStalenessStamp,
+  readAutosaveDivergedAt,
   type SfcProvenance,
 } from '../../src/lib/sfcProvenance.js'
+import { resolveDirtySince } from '../../src/lib/stalenessRamp.js'
 import { clampSavedIndex } from '../../src/hooks/useSfcHistory.js'
 
 // ---------------------------------------------------------------------------
@@ -71,4 +73,48 @@ test('an anchor inside the surviving timeline is preserved', () => {
 test('a null anchor stays null', () => {
   assert.equal(clampSavedIndex(null, 0), null)
   assert.equal(clampSavedIndex(null, 7), null)
+})
+
+// ---------------------------------------------------------------------------
+// readAutosaveDivergedAt — the divergence stamp carried in the autosave body.
+// ---------------------------------------------------------------------------
+
+const NOW_MS = 1_700_000_000_000
+
+// The stamp travels with the content it describes, so a restore can show the real
+// unsaved age even when the standalone staleness key was never written or was
+// deleted by a transient clean render.
+test('a valid divergence stamp is read back from the autosave payload', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  assert.equal(readAutosaveDivergedAt({ DivergedAt: diverged }, NOW_MS), diverged)
+})
+
+// Entries written before the field existed must degrade to "unknown age" (stamp now),
+// not to a wrong one. Autosave is ephemeral session state, so old entries are expected.
+test('a payload without the field reads as unknown', () => {
+  assert.equal(readAutosaveDivergedAt({ Recipes: [] }, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt({}, NOW_MS), null)
+})
+
+// Malformed or hostile values must never become an age. A future stamp (a machine
+// whose clock moved back) would otherwise read as a negative — or absurd — elapsed span.
+test('malformed and future stamps read as unknown', () => {
+  assert.equal(readAutosaveDivergedAt({ DivergedAt: 'yesterday' }, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt({ DivergedAt: Number.NaN }, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt({ DivergedAt: NOW_MS + 60_000 }, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt(null, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt('nope', NOW_MS), null)
+})
+
+// The exact scenario that motivated this: a session that NEVER saved. The standalone
+// staleness key is absent (current === null), but the restored body carries the moment
+// the document first diverged, so the dot comes back showing that real age.
+test('a never-saved session recovers its age from the body, not the standalone key', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  const fromBody = readAutosaveDivergedAt({ DivergedAt: diverged }, NOW_MS)
+  // This is what App.tsx feeds resolveDirtySince as `current` on a recovery edge.
+  const resolved = resolveDirtySince({
+    dirty: true, wasDirty: false, current: fromBody, restorePending: false, keepStamp: true, now: NOW_MS,
+  })
+  assert.equal(resolved.next, diverged, 'the age must survive with no standalone stamp')
 })

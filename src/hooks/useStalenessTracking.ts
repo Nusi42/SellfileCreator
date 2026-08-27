@@ -66,17 +66,27 @@ export interface StalenessTracking {
  * Tracks both documents' unsaved age. `sfcDirty` / `hsfDirty` are the live dirty
  * flags; this hook stamps their rising edges, clears on save, and persists both.
  *
- * `sfcRecoveredSeq` counts autosave restores. A restore drives the SFC dirty flag
- * from clean to dirty, but that edge is a RECOVERY, not an edit — the work has
- * been unsaved since the original session, so the clock must resume the persisted
- * stamp instead of restarting at now (see lib/sfcProvenance.ts). Passing a counter
- * rather than a boolean means each restore arms the resume exactly once, so a
- * later genuine edit still stamps normally.
+ * `sfcRecovery` describes autosave restores: `seq` counts them, `divergedAt` is the
+ * moment the restored body first diverged from its last save/load (carried inside the
+ * autosave payload). A restore drives the SFC dirty flag clean→dirty, but that edge is
+ * a RECOVERY, not an edit — the work has been unsaved since the original session, so
+ * the clock must adopt that stamp instead of restarting at now (see lib/sfcProvenance.ts).
+ * Counting rather than flagging means each restore arms the adoption exactly once, so a
+ * later genuine edit still stamps normally. A null `divergedAt` (entry predates the
+ * field, or a malformed/future value) means the age is genuinely unknown and the edge
+ * falls back to stamping now.
  */
+export interface SfcRecoverySignal {
+  seq: number
+  divergedAt: number | null
+}
+
+const NO_RECOVERY: SfcRecoverySignal = { seq: 0, divergedAt: null }
+
 export function useStalenessTracking(
   sfcDirty: boolean,
   hsfDirty: boolean,
-  sfcRecoveredSeq = 0,
+  sfcRecovery: SfcRecoverySignal = NO_RECOVERY,
 ): StalenessTracking {
   // Restore once, at mount, before any edge has been observed this session.
   const [restored] = useState(() => readPersistedStamps(Date.now()))
@@ -115,15 +125,19 @@ export function useStalenessTracking(
   // Which restore this hook has already accounted for. When the counter moves, the
   // NEXT rising edge is a recovery and must resume the persisted stamp rather than
   // stamp now; it is consumed immediately so only that one edge is affected.
-  const consumedRecoveredSeqRef = useRef(sfcRecoveredSeq)
+  const consumedRecoveredSeqRef = useRef(sfcRecovery.seq)
   useEffect(() => {
-    const recovering = sfcRecoveredSeq !== consumedRecoveredSeqRef.current
-    consumedRecoveredSeqRef.current = sfcRecoveredSeq
+    const recovering = sfcRecovery.seq !== consumedRecoveredSeqRef.current
+    consumedRecoveredSeqRef.current = sfcRecovery.seq
     setSfcDirtySince((current) => {
       const { next, restorePending } = resolveDirtySince({
         dirty: sfcDirty,
         wasDirty: prevSfcDirtyRef.current,
-        current,
+        // A recovery adopts the stamp the restored body carries. It is preferred over
+        // `current` because the standalone staleness key can legitimately be absent
+        // (any transient clean render deletes it), while the body's stamp travels with
+        // the content it describes and therefore survives.
+        current: recovering && sfcRecovery.divergedAt !== null ? sfcRecovery.divergedAt : current,
         restorePending: sfcRestoredPendingRef.current,
         keepStamp: recovering,
         now: Date.now(),
@@ -132,7 +146,7 @@ export function useStalenessTracking(
       return next
     })
     prevSfcDirtyRef.current = sfcDirty
-  }, [sfcDirty, sfcRecoveredSeq])
+  }, [sfcDirty, sfcRecovery])
 
   useEffect(() => {
     setHsfDirtySince((current) => {

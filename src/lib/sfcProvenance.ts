@@ -21,6 +21,8 @@
  * question, and each load site already knows its own answer.
  */
 
+import { AUTOSAVE_DIVERGED_AT_KEY } from './externalWsProtocol'
+
 /**
  * Where a freshly-loaded document's content came from, in terms of what the user
  * would lose by closing the tab right now.
@@ -63,4 +65,20 @@ export function provenanceIsClean(provenance: SfcProvenance): boolean {
  */
 export function provenanceKeepsStalenessStamp(provenance: SfcProvenance): boolean {
   return provenance === 'recovered'
+}
+
+/**
+ * Read the divergence stamp (epoch ms) out of an autosave payload.
+ *
+ * Returns null when the entry predates the field, carries a malformed value, or is
+ * stamped in the future (a machine whose clock has since moved back). A null means
+ * "age unknown" and the restore edge stamps now — degrading to today's behaviour
+ * rather than to a wrong, alarming age.
+ */
+export function readAutosaveDivergedAt(payload: unknown, now: number = Date.now()): number | null {
+  if (typeof payload !== 'object' || payload === null) return null
+  const raw = (payload as Record<string, unknown>)[AUTOSAVE_DIVERGED_AT_KEY]
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+  // A future stamp cannot describe an elapsed age; treat it as unknown.
+  return raw <= now ? raw : null
 }

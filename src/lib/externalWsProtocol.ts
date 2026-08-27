@@ -35,6 +35,18 @@ export const AUTOSAVE_PRESET_ORIGIN_KEY = 'PresetOrigin'
 // value on simple-mode startup. Same durability path the override answers already ride.
 export const AUTOSAVE_SIMPLE_EXPERT_MODE_KEY = 'SimpleExpertMode'
 
+// Autosave payload key recording WHEN the document first diverged from its last save or
+// load (epoch ms) — not when the autosave was last written (that is AutosaveSavedAt, which
+// bumps on every debounced write). This is the age the dirty dot must show after a restore.
+//
+// It lives in the autosave payload rather than only in the standalone staleness key because
+// the divergence moment is a property of THE DOCUMENT: a session that never saved still
+// diverged at a knowable instant, and the separate key is deleted the moment both documents
+// read clean — so any transient clean render destroyed the age before the restore could use
+// it. Carried with the body, it cannot be lost independently of the content it describes.
+// Absent on entries written before this field existed; the reader falls back to "unknown".
+export const AUTOSAVE_DIVERGED_AT_KEY = 'DivergedAt'
+
 // The simple-mode toggle selections we persist. 'custom' means the user's own SFC.
 export type SimpleVariant = 'beginner' | 'lategame' | 'custom'
 // Guard a raw localStorage string against the known variant tokens.

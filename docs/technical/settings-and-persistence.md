@@ -141,6 +141,12 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 > lost an hour of edits with the dot still looking calm. Account-scoped because the unsaved work
 > it describes is that account's autosave. Malformed or future-dated stamps degrade to "clean"
 > rather than to a wrong age, so the worst failure mode is the old flat dot.
+>
+> **It is not the only copy.** Because this key is removed the moment both documents read clean,
+> it cannot carry the age of a session that never saved across a restore. The moment the SFC first
+> diverged from its last save/load is therefore ALSO stamped into the autosave payload itself
+> (`DivergedAt`), which travels with the body it describes; the restore path prefers that value.
+> See [provenance](app-behavior.md#sfc-dirty-flag-provenance-decides-not-history-position).
 
 > **`runtimeGearSets` is a live feature, not dead** (it looks unused because hydration is lazy).
 > It holds **custom/community gear-set catalogs**: drag-and-drop a `.gearsets.json` / `.gearsets`
