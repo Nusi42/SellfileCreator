@@ -6,10 +6,17 @@
 
   Why: Ensures a reproducible, Windows-friendly release bundle matching the
   requested file names and archive naming format without depending on dev envs.
+
+  -Bump patch|minor|major picks which component the tree moves to AFTER this
+  release ships (default minor). The run always PACKAGES the version already in
+  package.json - the switch only chooses the number developed against next, so
+  a custom patch release is `npm run release:win -- -Bump patch`, not a hand
+  edit. Ignored with -DevBuild, which never bumps.
 #>
 
 param(
-  [switch]$DevBuild
+  [switch]$DevBuild,
+  [ValidateSet('patch', 'minor', 'major')][string]$Bump = 'minor'
 )
 
 Set-StrictMode -Version Latest
@@ -432,13 +439,21 @@ public static class Crc32Helper {
     Write-Warning "Failed to copy built HTML to old_releases: $_"
   }
 
-# After packaging: bump patch and add -dev suffix (e.g., 1.2.3 -> 1.2.4-dev)
+# After packaging: bump the -Bump component and add the -dev suffix. Which one
+# moves is the caller's choice - the normal series steps MINOR (1.0.0 -> 1.1.0),
+# while a fix cut on top of something already shipped steps PATCH. Everything
+# below the bumped component resets to 0.
   if (-not $DevBuild) {
     if ($releaseVersion -match '^(\d+)\.(\d+)\.(\d+)$') {
       $maj = [int]$Matches[1]
       $min = [int]$Matches[2]
       $pat = [int]$Matches[3]
-      $next = "{0}.{1}.{2}-dev" -f $maj, $min, ($pat + 1)
+      switch ($Bump) {
+        'major' { $maj++; $min = 0; $pat = 0 }
+        'minor' { $min++; $pat = 0 }
+        'patch' { $pat++ }
+      }
+      $next = "{0}.{1}.{2}-dev" -f $maj, $min, $pat
       Write-Host "Setting next development version: $next"
       $pkg.version = $next
       $json2 = $pkg | ConvertTo-Json -Depth 20
