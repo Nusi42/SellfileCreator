@@ -156,6 +156,9 @@ export default function PreviewHeaderActions(props: {
   exportDisabled: boolean
   pushEndpoint?: string
   hsfDirty: boolean
+  // Current time from the owner's staleness tick, so the export dot's colour and
+  // its tooltip's elapsed span advance together off one clock.
+  stalenessNow?: number
   // Timestamp (ms) when the current unexported state began; drives the badge tooltip.
   hsfDirtySince?: number | null
   building?: boolean
@@ -285,6 +288,7 @@ export default function PreviewHeaderActions(props: {
     pushEndpoint,
     hsfDirty,
     hsfDirtySince,
+    stalenessNow,
     building = false,
     limitHit = false,
     previewMode,
@@ -1151,7 +1155,7 @@ export default function PreviewHeaderActions(props: {
   // affordance. A flex row with a 1px gap keeps the theme's contained styling on
   // both halves (no ButtonGroup); the gap reads as a seam.
   // Localized "not saved since <time>" tooltip for the export badge dot.
-  const hsfDirtyTooltip = buildDirtyTooltip(hsfDirtySince, t)
+  const hsfDirtyTooltip = buildDirtyTooltip(hsfDirtySince, t, stalenessNow)
   // The export-action explanation wraps ONLY the button (not the badge/chevron) so
   // it never stacks with the dirty-dot's own tooltip when the cursor is on the dot.
   // Icon-only when the label is fully collapsed; affects icon placement + height locking.
@@ -1213,7 +1217,13 @@ export default function PreviewHeaderActions(props: {
           maxWidth: exportIdealWidth > 0 ? Math.min(exportIdealWidth, EXPORT_BUTTON_MAX_WIDTH_PX) : EXPORT_BUTTON_MAX_WIDTH_PX,
         }}
       >
-        <DirtyBadge active={hsfDirty} tooltip={hsfDirtyTooltip} sx={{ display: 'flex', flex: 1, minWidth: 0 }}>
+        <DirtyBadge
+          active={hsfDirty}
+          tooltip={hsfDirtyTooltip}
+          dirtySince={hsfDirtySince}
+          now={stalenessNow}
+          sx={{ display: 'flex', flex: 1, minWidth: 0 }}
+        >
           {(exportTooltip?.trim().length ?? 0) > 0 ? (
             /* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */
             <MarkdownTooltip markdown={exportTooltip}>{exportButtonNode}</MarkdownTooltip>

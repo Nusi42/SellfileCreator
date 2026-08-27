@@ -31,7 +31,7 @@ const overrides: Catalog = {
   addNote: "Añadir nota y anulaciones dinámicas…",
   noteOpen: "Nota y anulaciones dinámicas…",
   saveAllRecipes: "Guardar archivo SFC",
-  saveAllRecipesTooltip: "Guarda tu configuración completa — recetas, conservaciones, metasets, notas y más — en un archivo SFC para recargarla más adelante. Las anulaciones de receta no se guardan.",
+  saveAllRecipesTooltip: "Guarda tu configuración completa — recetas, conservaciones, metasets, notas y más — en un archivo SFC para recargarla más adelante.",
   deleteRecipes: "Eliminar todas las recetas",
 
   previewModeAria: "Cambiar modo de vista",
@@ -84,6 +84,9 @@ const overrides: Catalog = {
   exportSellfileMoreOptions: "Opciones de exportación",
   dirtyBadgeNotSavedSince: "Cambios sin guardar — sin guardar desde {time}",
   dirtyBadgeUnsaved: "Cambios sin guardar",
+  dirtyBadgeUnsavedFor: "Sin guardar desde hace {duration} — sin guardar desde {time}",
+  dirtyBadgeDurationHours: "{hours} h {minutes} min",
+  dirtyBadgeDurationMinutes: "{minutes} min",
   pushMergedSellfile: "Enviar Sellfile fusionado a {client}",
   pushMergedSellfileShort: "Enviar Sellfile fusionado",
   pushMergedSellfileMin: "Enviar",

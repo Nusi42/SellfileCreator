@@ -534,6 +534,79 @@ suppression — it must not be re-derived under a second name.
 - **HSF export-dirty (`hsfDirty`) = the exported file would actually differ from the last export.** It is a crc32 fingerprint of the *exact bytes* `buildHsfFileFromMerged(mergedRules, { recipeNames })` would produce, compared against the fingerprint captured at the last export/push (reset to baseline on SFC load/import/restore). The fingerprint is computed by the SSOT helper `computeExportedHsfFingerprint` (`lib/hsfIO.ts`) **in the rule-cache worker** (it already holds the merged rules) and returned as `mergedRulesHash` on every pipeline result; the main thread just compares the string (it does not recompute the crc). The recipe **names** written into the export — one of the crc inputs — are derived on both sides by the single SSOT helper `recipeNamesForExport` (`lib/ruleCacheHelpers.ts`) over the **override-applied** recipe list (`recipesForRuleBuild(applyRecipeOverrides(...))`), not the raw `customRecipes` used for display/match labels. This guarantees the worker's fingerprint and the main thread's actual export payload (`buildExportPayload` → `exportRecipeNames`) agree byte-for-byte even if a future recipe override renames a recipe. Because `cleanHsfForExport` strips every volatile field first (`__safeguardScanMs` timestamp, `projected`/`deficit`/`itemKey`, `__lineIdx`, detection internals), the fingerprint is content-pure: a gear-DB update that doesn't change the injected rules produces the **same** fingerprint (no false "needs export"), and an add-then-remove inventory round-trip returns it to the baseline (correctly goes clean again).
 - **Content-keyed pipeline result cache (add-then-remove farming round-trips skip recompute).** The main-thread pipeline LRU (`pipelineCacheRef`, `PIPELINE_CACHE_MAX`/`PIPELINE_CACHE_TTL_MS` in `App.tsx`) keys each cached result on an *artifact-content* hash, `:a${artifactContentHash}:`, where `artifactContentHash = computeArtifactSetContentHash(gearInspectorPreviewArtifacts)` (SSOT in `lib/safeguards.ts`, memoized once per artifact change). The hash is a two-lane 53-bit FNV-style fold over **only** the fields that cross to WASM and change pipeline output — per artifact: `id, slot, set, rank, rarity, level, exactLevel, faction, mainStat.variant, substats[].{variant,isFlat,totalValue,rolls}, equippedChampion.location` — mirroring `toWasmArtifactStoreInput`/`toWasmTestItem`. It deliberately **excludes** display-only / non-projected fields (`lastUseLocalTimestamp` — which bumps every game round — `rerollCount`, `ascension`, `source`, `isLocked`, champion id/name). Consequence: during RSL Helper farming, getting 1–2 artifacts then using/removing them returns the set to a matching-identical state → the *same* cache key → a hit (~0 ms) instead of a full pipeline recompute (~3.9 s on 7755 artifacts). Correctness: an in-flight run writes its result under the hash of the artifacts it actually processed, so it can never be served as a stale hit for a different set; the only remaining clear is on base-HSF change (HSF identity isn't in the content key). On a cache hit the served safeguard detection is shallow-copied with a fresh `scannedAt` (entries are content-identical; only the "last scanned" display time is refreshed — no detection recompute), and `currentMergedRulesHash` is restored from the cached result so the export-dirty badge stays exact across the round-trip. Per-field sensitivity is guarded by `tests/unit/artifact-content-hash.test.ts`.
 
+### Staleness ramp (the aging dirty dot)
+
+The app runs from `file://` and therefore can never autosave to disk — the user has to press
+**Save SFC** / **Export Sellfile** themselves. A dirty dot that looks identical at five seconds
+and five hours gives them no reason to, which is how a user lost a session's work. The dot
+therefore encodes *how long* the document has been unsaved.
+
+- **Ramp SSOT** — `lib/stalenessRamp.ts` owns the tier stops, the colour interpolation, and the
+  duration split. Stops live in `STALENESS_TIER_MINUTES` (`constants.ts`): **5 / 20 / 60 minutes**
+  → `fresh` → `aging` → `stale` → `critical`. The colour interpolates *continuously* between the
+  anchors rather than snapping: nobody watches the dot change, they glance at it having changed,
+  and a continuous ramp carries "how long" better than four discrete states. `stalenessTier` is
+  used only for the discrete behaviours (the critical pulse, the tooltip wording).
+- **Anchors are DERIVED, not persisted.** `neutral` = `text.secondary` (the pre-ramp dot),
+  `warning` = `warning.main`, `error` = `error.main`. Deliberately *not* four new
+  `ThemeCustomization` fields: reading the semantic slots means the ramp retunes itself for free
+  under the RSLH preset, a user's custom skin, and — critically — every colour-blind palette,
+  since those override `warning`/`error` upstream in `theme.ts`. Unparseable anchors fall back to
+  the neutral dot, so a malformed custom theme can only ever restore today's appearance.
+- **SFC and HSF age on the same clock**, independently stamped. Saving one leaves the other's dot
+  ramping.
+- **Only `critical` animates** (a slow 2.4 s pulse), and it yields to `prefers-reduced-motion`. If
+  every tier moved, motion would be wallpaper and the one tier that must break through would have
+  no escalation left to spend.
+- **Colour is never the only carrier.** Past the fresh tier the badge tooltip leads with the
+  elapsed span ("Unsaved for 1h 20m — not saved since …"), built by `buildDirtyTooltip`
+  (`lib/dateDisplay.ts`). The unit words live in the i18n catalogs (`dirtyBadgeDurationHours` /
+  `…Minutes`), so `stalenessDurationParts` returns `{hours, minutes}` rather than a formatted
+  string.
+- **A restored stamp survives the boot-time clean read.** The app always boots CLEAN (the
+  history baseline is established before any edit), so a naive "clean ⇒ clear" rule wiped the
+  stamp that had just been reloaded from storage, *before* anything could read it — the dot
+  restarted at zero on every reload and could only reach the red tier inside one uninterrupted
+  session. `resolveDirtySince` (`lib/stalenessRamp.ts`) is the SSOT edge/restore state machine:
+  a one-shot `restorePending` latch lets the first clean observation pass without clearing, so
+  only a genuine dirty→clean transition (an actual save) resets the clock. Pinned by
+  `tests/unit/staleness-ramp.test.ts`.
+- **Clock ownership.** `hooks/useStalenessTracking.ts` stamps the clean→dirty edges, mirrors both
+  stamps to `sellfileCreator.stalenessSince.v1` (see
+  [Settings & Persistence](settings-and-persistence.md#connection--language--first-run--data)),
+  and runs one coarse `STALENESS_TICK_MS` (30 s) interval — only while something is unsaved. The
+  `now` it produces is passed *down* to both badges, so every dot ages off one clock and
+  `DirtyBadge` stays a pure function of its props (no clock read during render). Edge trackers are
+  seeded from the *restored* stamps, not from `false`, so a session that comes back already dirty
+  keeps its real age instead of resetting to zero.
+
+### SFC nudge arrows: one derived target
+
+The bouncing arrow fan (`components/SfcNudgeArrows.tsx`, shared by both buttons) points at
+whichever control the user needs next. The target is **derived, not configured**:
+`sfcDirty ? 'save' : 'load'`, with the whole nudge skipped when it is inactive.
+
+The two nudges are mutually exclusive *by logic*, so no flag can put them out of sync: a dirty
+document holds unsaved user work (→ Save), while the Load nudge is only ever raised for a document
+that is empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx` suppresses it
+otherwise). Those cannot both hold. Consequences:
+
+- Fresh install, empty document → **Load**; restored autosave matching a preset → **nothing**;
+  restored autosave with unsaved edits → **Save**; freshly loaded and untouched → **nothing**.
+- Besides the existing first-run-Help and tutorial-completion triggers, the nudge now also fires
+  **once on startup** when a restored session comes back dirty (`restoredDirtySfc`), skipped while
+  the first-run Help is open because dismissing that already fires its own nudge. Without this the
+  arrows only ever appeared on first run, so the returning user — precisely the one who loses work
+  — was never shown anything.
+- **The fan is portalled to `<body>` and `position: fixed`**, anchored to a measured
+  `getBoundingClientRect()` of its target (`targetRef`), re-measured on resize/scroll. It is
+  deliberately *not* an absolutely-positioned child of the header: the fan hangs ~90 px above the
+  button and reaches ~54 px to either side (the ±22° tilt), and the builder column's scroll box
+  (`AppLayout/BuilderColumn.tsx`) is `overflowY: auto` — which makes `overflow-x` compute to `auto`
+  as well, so an in-flow overflowing child raised **both** a vertical and a horizontal scrollbar
+  for the few seconds the nudge was up. Fixed-position descendants are excluded from every
+  ancestor's scrollable overflow, so the arrows now paint over anything without moving a scrollbar.
+
 ## Behavioral Details
 
 - Safeguard-overrides slider values apply for mixed answers: the resolver read the slider value from `answers[questionId][0]`, but a count card that combines an activation radio with a slider persists `[radioOptionId, sliderValue]` (slider last) — so any user-dragged slider on such a card silently resolved to its `default=` (tier `setval` seeds write slider-only answers, which masked the bug). Both resolution sites (the `$value.TOKEN` cross-slider map and the per-question `$value` binding) now split the stored answer via `buildSafeguardAnswerParts`, the existing SSOT for exactly this shape. Regression coverage: `tests/unit/safeguard-slider-answer-shape.test.ts`.

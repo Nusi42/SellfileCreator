@@ -31,7 +31,7 @@ const overrides: Catalog = {
   addNote: "Добавить заметку и динамические переопределения…",
   noteOpen: "Заметка и динамические переопределения…",
   saveAllRecipes: "Сохранить файл SFC",
-  saveAllRecipesTooltip: "Сохраните полную конфигурацию — рецепты, защиты, метасеты, заметки и многое другое — в файл SFC для последующей загрузки. Параметры рецепта не сохраняются.",
+  saveAllRecipesTooltip: "Сохраните полную конфигурацию — рецепты, защиты, метасеты, заметки и многое другое — в файл SFC для последующей загрузки.",
   deleteRecipes: "Удалить все рецепты",
 
   previewModeAria: "Переключить режим просмотра",
@@ -84,6 +84,9 @@ const overrides: Catalog = {
   exportSellfileMoreOptions: "Параметры экспорта",
   dirtyBadgeNotSavedSince: "Несохранённые изменения — не сохранялось с {time}",
   dirtyBadgeUnsaved: "Несохранённые изменения",
+  dirtyBadgeUnsavedFor: "Не сохранялось {duration} — с {time}",
+  dirtyBadgeDurationHours: "{hours} ч {minutes} мин",
+  dirtyBadgeDurationMinutes: "{minutes} мин",
   pushMergedSellfile: "Отправить объединённый Sellfile в {client}",
   pushMergedSellfileShort: "Отправить объединённый Sellfile",
   pushMergedSellfileMin: "Отправить",

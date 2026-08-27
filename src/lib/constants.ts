@@ -17,6 +17,7 @@ import {
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
+  ACCOUNT_BASE_KEY_STALENESS_SINCE,
   resolveAccountScopedKey,
 } from './accounts'
 
@@ -939,6 +940,24 @@ export const SFC_NUDGE_VISIBLE_FIRST_MS = 4 * 1000
 export const SFC_NUDGE_VISIBLE_REPEAT_MS = 2 * 1000
 // How long the fade-out animation runs before the arrows are removed from the DOM.
 export const SFC_NUDGE_FADE_OUT_MS = 700
+
+// Staleness ramp (see lib/stalenessRamp.ts): minutes of unsaved age at which the
+// dirty-badge dot enters each tier. The dot interpolates continuously BETWEEN these
+// stops — they are the anchors, not four discrete states. Tuned so ordinary editing
+// never nags (fresh), an hour of unsaved work is unmistakable (critical).
+export const STALENESS_TIER_MINUTES = {
+  aging: 5,
+  stale: 20,
+  critical: 60,
+} as const
+// How often the badges re-evaluate elapsed time. The ramp moves imperceptibly slowly
+// (a full hour of travel), so a coarse tick is plenty and keeps a permanently-mounted
+// timer off the hot path; the dot is never watched changing, only glanced at.
+export const STALENESS_TICK_MS = 30 * 1000
+// Persisted dirty-since stamps, so an unsaved document resumes its REAL age after a
+// restart instead of looking freshly clean. Account-scoped like the autosave it
+// describes. This addresses a finding from real use: work could be lost without the dot ever warning about it.
+export const STALENESS_SINCE_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_STALENESS_SINCE)
 // Easter-egg leaderboards: per-game high-score storage keys.
 export const EASTER_EGG_PONG_SCORES_KEY = 'sellfileCreator.easterEgg.pong.scores.v1'
 export const EASTER_EGG_SELLFALL_SCORES_KEY = 'sellfileCreator.easterEgg.sellfall.scores.v1'

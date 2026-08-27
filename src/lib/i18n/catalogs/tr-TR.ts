@@ -31,7 +31,7 @@ const overrides: Catalog = {
   addNote: "Not ve dinamik geçersiz kılmalar ekle…",
   noteOpen: "Not ve dinamik geçersiz kılmalar…",
   saveAllRecipes: "SFC Dosyasını Kaydet",
-  saveAllRecipesTooltip: "Tam kurulumunuzu — reçeteler, korumalar, metasetler, notlar ve daha fazlasını — daha sonra yeniden yüklemek için bir SFC dosyasına kaydedin. Reçete seçenekleri kaydedilmez.",
+  saveAllRecipesTooltip: "Tam kurulumunuzu — reçeteler, korumalar, metasetler, notlar ve daha fazlasını — daha sonra yeniden yüklemek için bir SFC dosyasına kaydedin.",
   deleteRecipes: "Tüm reçeteleri sil",
 
   previewModeAria: "Önizleme modunu değiştir",
@@ -84,6 +84,9 @@ const overrides: Catalog = {
   exportSellfileMoreOptions: "Dışa aktarma seçenekleri",
   dirtyBadgeNotSavedSince: "Kaydedilmemiş değişiklikler — {time} tarihinden beri kaydedilmedi",
   dirtyBadgeUnsaved: "Kaydedilmemiş değişiklikler",
+  dirtyBadgeUnsavedFor: "{duration} boyunca kaydedilmedi — son kayıt {time}",
+  dirtyBadgeDurationHours: "{hours} sa {minutes} dk",
+  dirtyBadgeDurationMinutes: "{minutes} dk",
   pushMergedSellfile: "Birleştirilmiş Sellfile'ı {client}'a gönder",
   pushMergedSellfileShort: "Birleştirilmiş Sellfile gönder",
   pushMergedSellfileMin: "Gönder",

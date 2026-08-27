@@ -82,6 +82,12 @@ export const ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR = 'sellfileCreator.g
 // startup (default ON) — per account, edited from the account manager dialog. Off skips the
 // silent custom-gear restore entirely (pieces stay saved, just not auto-reloaded).
 export const ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR = 'sellfileCreator.restoreCustomGear.v1'
+// When the SFC / HSF documents last went from saved to unsaved (epoch ms each, either
+// null when clean). Per account because the unsaved work it describes is that account's
+// autosave. Read at startup so the dirty-badge staleness ramp survives a restart — the
+// in-memory stamps alone reset on reload, which is exactly how a user lost track of an
+// hour of unsaved edits. See lib/stalenessRamp.ts.
+export const ACCOUNT_BASE_KEY_STALENESS_SINCE = 'sellfileCreator.stalenessSince.v1'
 
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
@@ -99,6 +105,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
   ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
   ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR,
+  ACCOUNT_BASE_KEY_STALENESS_SINCE,
 ])
 
 // Keys that are NOT scoped going forward but must still move into the first account's

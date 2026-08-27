@@ -31,7 +31,7 @@ const overrides: Catalog = {
   addNote: "Notiz & Dynamische Überbrückungen hinzufügen…",
   noteOpen: "Notiz & Dynamische Überbrückungen…",
   saveAllRecipes: "SFC-Datei speichern",
-  saveAllRecipesTooltip: "Speichere dein vollständiges Setup — Rezepte, Schutzregeln, Metasets, Notizen und mehr — als SFC-Datei, die du später erneut laden kannst. Dynamische Überbrückungen werden nicht gespeichert.",
+  saveAllRecipesTooltip: "Speichere dein vollständiges Setup — Rezepte, Schutzregeln, Metasets, Notizen und mehr — als SFC-Datei, die du später erneut laden kannst.",
   deleteRecipes: "Alle Rezepte löschen",
 
   previewModeAria: "Ansichtsmodus wechseln",
@@ -84,6 +84,9 @@ const overrides: Catalog = {
   exportSellfileMoreOptions: "Exportoptionen",
   dirtyBadgeNotSavedSince: "Ungespeicherte Änderungen — nicht gespeichert seit {time}",
   dirtyBadgeUnsaved: "Ungespeicherte Änderungen",
+  dirtyBadgeUnsavedFor: "Seit {duration} nicht gespeichert — zuletzt gespeichert {time}",
+  dirtyBadgeDurationHours: "{hours} Std. {minutes} Min.",
+  dirtyBadgeDurationMinutes: "{minutes} Min.",
   pushMergedSellfile: "Zusammengeführtes Sellfile an {client} senden",
   pushMergedSellfileShort: "Zusammengeführtes Sellfile senden",
   pushMergedSellfileMin: "Senden",

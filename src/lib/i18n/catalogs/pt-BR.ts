@@ -31,7 +31,7 @@ const catalog: Catalog = {
   addNote: "Adicionar nota e substituições dinâmicas…",
   noteOpen: "Nota e substituições dinâmicas…",
   saveAllRecipes: "Salvar arquivo SFC",
-  saveAllRecipesTooltip: "Salve sua configuração completa — receitas, manutenções, metasets, notas e mais — em um arquivo SFC para recarregar depois. As substituições dinâmicas não são salvas.",
+  saveAllRecipesTooltip: "Salve sua configuração completa — receitas, manutenções, metasets, notas e mais — em um arquivo SFC para recarregar depois.",
   deleteRecipes: "Excluir todas as receitas",
 
   previewModeAria: "Alterar modo de visualização",
@@ -84,6 +84,9 @@ const catalog: Catalog = {
   exportSellfileMoreOptions: "Opções de exportação",
   dirtyBadgeNotSavedSince: "Alterações não salvas — não salvas desde {time}",
   dirtyBadgeUnsaved: "Alterações não salvas",
+  dirtyBadgeUnsavedFor: "Sem salvar há {duration} — não salvo desde {time}",
+  dirtyBadgeDurationHours: "{hours} h {minutes} min",
+  dirtyBadgeDurationMinutes: "{minutes} min",
   pushMergedSellfile: "Enviar Sellfile mesclado para o {client}",
   pushMergedSellfileShort: "Enviar Sellfile mesclado",
   pushMergedSellfileMin: "Enviar",

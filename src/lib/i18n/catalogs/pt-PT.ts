@@ -31,7 +31,7 @@ const overrides: Catalog = {
   addNote: "Adicionar nota e substituições dinâmicas…",
   noteOpen: "Nota e substituições dinâmicas…",
   saveAllRecipes: "Guardar ficheiro SFC",
-  saveAllRecipesTooltip: "Guarde a sua configuração completa — receitas, manutenções, metasets, notas e mais — num ficheiro SFC para carregar novamente mais tarde. As substituições dinâmicas não são guardadas.",
+  saveAllRecipesTooltip: "Guarde a sua configuração completa — receitas, manutenções, metasets, notas e mais — num ficheiro SFC para carregar novamente mais tarde.",
   deleteRecipes: "Eliminar todas as receitas",
 
   previewModeAria: "Alterar modo de visualização",
@@ -84,6 +84,9 @@ const overrides: Catalog = {
   exportSellfileMoreOptions: "Opções de exportação",
   dirtyBadgeNotSavedSince: "Alterações não guardadas — não guardadas desde {time}",
   dirtyBadgeUnsaved: "Alterações não guardadas",
+  dirtyBadgeUnsavedFor: "Sem guardar há {duration} — não guardado desde {time}",
+  dirtyBadgeDurationHours: "{hours} h {minutes} min",
+  dirtyBadgeDurationMinutes: "{minutes} min",
   pushMergedSellfile: "Enviar Sellfile combinado para o {client}",
   pushMergedSellfileShort: "Enviar Sellfile combinado",
   pushMergedSellfileMin: "Enviar",

@@ -130,6 +130,17 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | **Runtime gear-set catalog** | `sellfileCreator.runtimeGearSets.v1` | `lib/gearSets/runtimeStore.ts` |
 | Seen markers (readme/tutorial/update/nudge/context hints) | `sellfileCreator.*.seen.*` | various |
 | Easter-egg high scores | `sellfileCreator.easterEgg.*.scores.v1` | (constants) |
+| **Unsaved-since stamps (staleness ramp)** | `sellfileCreator.stalenessSince.v1` (account-scoped) | `hooks/useStalenessTracking.ts` |
+
+> **`stalenessSince` exists so unsaved age survives a restart.** It holds one record —
+> `{ sfc, hsf }`, epoch-ms each, either `null` when that document is saved — written whenever
+> either document crosses the clean⇄dirty edge and removed entirely once both are saved. The
+> dirty-badge dot ramps from neutral toward the theme's error colour as the stamp ages (see
+> [Staleness ramp](app-behavior.md#staleness-ramp-the-aging-dirty-dot)); without persistence the
+> stamps would live only in React state and reset on every reload, which is precisely how a user
+> lost an hour of edits with the dot still looking calm. Account-scoped because the unsaved work
+> it describes is that account's autosave. Malformed or future-dated stamps degrade to "clean"
+> rather than to a wrong age, so the worst failure mode is the old flat dot.
 
 > **`runtimeGearSets` is a live feature, not dead** (it looks unused because hydration is lazy).
 > It holds **custom/community gear-set catalogs**: drag-and-drop a `.gearsets.json` / `.gearsets`

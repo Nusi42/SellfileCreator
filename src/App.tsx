@@ -217,6 +217,7 @@ import RslHelperConnectButton from './components/RslHelperConnectButton'
 import PongFlyout from './components/PongFlyout'
 import SellfallFlyout from './components/SellfallFlyout'
 import { useAutosave } from './hooks/useAutosave'
+import { useStalenessTracking } from './hooks/useStalenessTracking'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
@@ -4433,27 +4434,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     && currentMergedRulesHash !== lastExportedHash
 
   // Capture the moment each dirty state began (rising edge of clean→dirty) so the
-  // badge tooltip can show "not saved since <time>". Cleared when saved again. This
-  // is a derived checkpoint stamped on a state transition — the same intentional
-  // set-state-on-edge pattern used elsewhere in this file — so the lint rules that
-  // assume effects mirror props are disabled here. Date.now() is fine in app code
-  // (only workflow scripts forbid it).
-  const [sfcDirtySince, setSfcDirtySince] = useState<number | null>(null)
-  const prevSfcDirtyRef = useRef(isDirty)
-  /* eslint-disable react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  // badge tooltip can show "not saved since <time>" and the dot can age from neutral
+  // toward red. The hook owns the edge-stamping (including the latch that lets a
+  // RESTORED stamp survive the app's boot-time clean read), the localStorage mirror
+  // (so an age survives a restart — the in-memory stamps alone reset on reload, which
+  // is how a user lost an hour of edits with the dot still looking calm), and the
+  // coarse tick that re-renders both badges as time passes. Ramp: lib/stalenessRamp.ts.
+  const {
+    sfcDirtySince,
+    hsfDirtySince,
+    now: stalenessNow,
+    restoredDirtySfc,
+  } = useStalenessTracking(isDirty, hsfDirty)
+
+  // Startup nudge for the RETURNING user: a restored session that came back with
+  // unsaved work gets the arrows pointed at Save. Without this the arrows only ever
+  // fire from first-run Help / tutorial completion, so the user who restarts on day
+  // thirty — precisely the one who loses work — is never shown anything. Skipped
+  // while the first-run Help is up, because dismissing that already fires its own
+  // nudge and two would collide. Fires at most once per session — the ref latches on
+  // the first successful trigger and is never re-armed.
+  const startupNudgeFiredRef = useRef(false)
+  // Destructured so the effect depends on the two members it actually uses rather
+  // than on the whole tutorial object, which changes identity every render.
+  const { helpOpen: tutorialHelpOpen, triggerSfcLoadNudge } = tutorial
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- there is no
+     event to hang this on: the trigger is "the app finished starting up with restored
+     work already dirty", which only the first post-mount render can observe. */
   useEffect(() => {
-    if (isDirty && !prevSfcDirtyRef.current) setSfcDirtySince(Date.now())
-    else if (!isDirty) setSfcDirtySince(null)
-    prevSfcDirtyRef.current = isDirty
-  }, [isDirty])
-  const [hsfDirtySince, setHsfDirtySince] = useState<number | null>(null)
-  const prevHsfDirtyForTsRef = useRef(hsfDirty)
-  useEffect(() => {
-    if (hsfDirty && !prevHsfDirtyForTsRef.current) setHsfDirtySince(Date.now())
-    else if (!hsfDirty) setHsfDirtySince(null)
-    prevHsfDirtyForTsRef.current = hsfDirty
-  }, [hsfDirty])
-  /* eslint-enable react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+    if (startupNudgeFiredRef.current) return
+    if (!restoredDirtySfc) return
+    // Wait out the first-run Help; its own dismissal path owns the nudge.
+    if (tutorialHelpOpen) return
+    startupNudgeFiredRef.current = true
+    triggerSfcLoadNudge()
+  }, [restoredDirtySfc, tutorialHelpOpen, triggerSfcLoadNudge])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
@@ -8942,6 +8958,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       } : {})}
       sfcDirty={isDirty}
       sfcDirtySince={sfcDirtySince}
+      stalenessNow={stalenessNow}
       sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive && !sfcMatchesPreset}
       sfcLoadNudgeFading={tutorial.sfcLoadNudgeFading}
       onSfcLoadNudgeDismiss={tutorial.clearSfcLoadNudge}
@@ -9791,6 +9808,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
         hsfDirty={hsfDirty}
         hsfDirtySince={hsfDirtySince}
+        stalenessNow={stalenessNow}
         dedupeDefault={dedupeDefault}
         onToggleDedupeDefault={handleSetDedupeDefault}
         omitDisabledForExport={omitDisabledForExport}

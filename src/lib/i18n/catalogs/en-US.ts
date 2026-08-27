@@ -31,7 +31,7 @@ const enUS: Catalog = {
   addNote: "Add Note & Dynamic Overrides…",
   noteOpen: "Note & Dynamic Overrides…",
   saveAllRecipes: "Save SFC File",
-  saveAllRecipesTooltip: "Save your full setup — recipes, safeguards, metasets, notes, and more — to an SFC file you can reload later. Recipe overrides are not saved.",
+  saveAllRecipesTooltip: "Save your full setup — recipes, safeguards, metasets, notes, and more — to an SFC file you can reload later.",
   deleteRecipes: "Delete All Recipes",
 
   previewModeAria: "Switch preview mode",
@@ -84,6 +84,9 @@ const enUS: Catalog = {
   exportSellfileMoreOptions: "Export options",
   dirtyBadgeNotSavedSince: "Unsaved changes — not saved since {time}",
   dirtyBadgeUnsaved: "Unsaved changes",
+  dirtyBadgeUnsavedFor: "Unsaved for {duration} — not saved since {time}",
+  dirtyBadgeDurationHours: "{hours}h {minutes}m",
+  dirtyBadgeDurationMinutes: "{minutes}m",
   pushMergedSellfile: "Push Merged {client} Sellfile",
   pushMergedSellfileShort: "Push Merged Sellfile",
   pushMergedSellfileMin: "Push",
