@@ -591,6 +591,15 @@ cover every call site:
   behaviour rather than to a wrong, alarming age. Autosave is ephemeral session state, so entries
   written before the field existed simply take that fallback; no migration is required.
 
+  **`restoreDraft` is an allowlist, so the field must be named there too.**
+  `useAutosaveRestore` projects the raw autosave entry into `restoreDraft` by copying named
+  fields one at a time — anything not listed is dropped. Writing `DivergedAt` into the payload
+  was therefore not enough on its own: the value never reached the restore handler, every
+  recovery read "age unknown" and stamped now, and the dot came back neutral no matter how long
+  the work had been unsaved. Both ends are pinned by
+  `tests/unit/sfc-dirty-provenance.test.ts`; any future field the restore path needs has to be
+  added to that projection as well.
+
 **Undo/redo: the saved anchor is clamped across branch truncation** (`clampSavedIndex`, the SSOT
 used by both write paths in `useSfcHistory.ts`). Appending after an undo drops
 `entries.slice(index + 1)`; the anchor used to be carried across untouched, so an anchor living in

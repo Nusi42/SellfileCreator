@@ -10,7 +10,8 @@ import { useMemo, useState } from 'react'
 import { loadAutosave, removeAutosave } from '../lib/autosave'
 import { parseSfcObject } from '../lib/sfcIO'
 import { presetDraftFields, type PresetVariant } from '../lib/sfcPresetMatch'
-import { AUTOSAVE_PRESET_ORIGIN_KEY } from '../lib/externalWsProtocol'
+import { AUTOSAVE_PRESET_ORIGIN_KEY, AUTOSAVE_DIVERGED_AT_KEY } from '../lib/externalWsProtocol'
+import { readAutosaveDivergedAt } from '../lib/sfcProvenance'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
@@ -55,6 +56,13 @@ export type RestoreDraft = {
   NoteRecipeOverridesDisabled?: boolean
   NoteSafeguardOverridesAnswers?: NoteSafeguardOverridesAnswers
   AutosaveSavedAt?: string
+  /**
+   * When the saved document first diverged from its last save/load (epoch ms).
+   * Distinct from AutosaveSavedAt, which is the last WRITE time and bumps on every
+   * debounced save. Carried through so the restore can show the document's real
+   * unsaved age; see lib/sfcProvenance.ts.
+   */
+  DivergedAt?: number
   LogicHubDialogTab?: LogicHubDialogTab
 }
 
@@ -305,6 +313,9 @@ function computeInitialAutosaveState(args: {
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
+        // Validated by the same SSOT the consumer uses, so a malformed/future stamp is
+        // dropped here rather than travelling on as a bad age.
+        const divergedAtRaw = readAutosaveDivergedAt(payload)
         // Read selected recipe index from the raw payload (parseSfcObject always returns 0 — not useful here).
         const rawSelIdx = payload['SelectedRecipeIndex']
         const savedRecipeSelIdx = typeof rawSelIdx === 'number' && rawSelIdx >= 0 && rawSelIdx < recipes.length
@@ -334,6 +345,10 @@ function computeInitialAutosaveState(args: {
             ...(savedSafeguardOverridesAnswers ? { [NOTE_SAFEGUARD_OVERRIDES_ANSWERS_KEY]: savedSafeguardOverridesAnswers } : {}),
             ...(savedOverridesDisabled ? { [NOTE_DYNAMIC_OVERRIDES_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
+            // The divergence stamp must be forwarded explicitly: restoreDraft is an
+            // allowlist projection, so anything not named here is dropped and the
+            // restore would fall back to "age unknown" (stamping now).
+            ...(divergedAtRaw !== null ? { [AUTOSAVE_DIVERGED_AT_KEY]: divergedAtRaw } : {}),
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']

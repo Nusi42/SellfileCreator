@@ -118,3 +118,24 @@ test('a never-saved session recovers its age from the body, not the standalone k
   })
   assert.equal(resolved.next, diverged, 'the age must survive with no standalone stamp')
 })
+
+// Regression: restoreDraft (useAutosaveRestore) is an ALLOWLIST projection — it copies
+// named fields out of the raw autosave payload one by one. DivergedAt was written by
+// buildAutosavePayload but not named there, so it was silently dropped between the write
+// and the read: every restore saw "age unknown" and stamped now, and the dot came back
+// neutral no matter how long the work had been unsaved. This pins the round trip through
+// the same validator the projection uses, so re-adding the field is not enough to pass —
+// it has to survive with its value intact.
+test('the divergence stamp survives the restore-draft projection', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  // What buildAutosavePayload writes into the raw autosave entry.
+  const rawPayload = { Recipes: [], AutosaveSavedAt: '2026-08-28T00:00:00.000Z', DivergedAt: diverged }
+  // What the projection must carry forward (the value useAutosaveRestore forwards).
+  const projected = readAutosaveDivergedAt(rawPayload, NOW_MS)
+  assert.equal(projected, diverged, 'the stamp must not be dropped by the projection')
+  // And what App.tsx then feeds resolveDirtySince on the recovery edge.
+  const resolved = resolveDirtySince({
+    dirty: true, wasDirty: false, current: projected, restorePending: false, keepStamp: true, now: NOW_MS,
+  })
+  assert.equal(resolved.next, diverged)
+})
