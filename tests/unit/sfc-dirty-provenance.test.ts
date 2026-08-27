@@ -139,3 +139,43 @@ test('the divergence stamp survives the restore-draft projection', () => {
   })
   assert.equal(resolved.next, diverged)
 })
+
+// Regression: the restore lands across TWO commits — sfcRecovery.seq bumps first, and
+// sfcDirty only flips true once the history snapshot for the restored body commits.
+// Consuming the recovery on first sight burned it on the still-clean render in between,
+// so the real rising edge saw no recovery and stamped now: the dot came back at age 0 and
+// ramped from scratch instead of resuming. The recovery must stay ARMED until a rising
+// edge actually uses it. Mirrors the arming logic in useStalenessTracking.
+test('a recovery stays armed across the commit where dirty has not flipped yet', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  let prevDirty = false
+  let pending = false
+  let cur: number | null = null
+  let armedSeq = 0
+
+  const step = (dirty: boolean, seq: number, divergedAt: number | null) => {
+    const pendingRecovery = seq !== armedSeq
+    const recovering = pendingRecovery && dirty && !prevDirty
+    if (recovering) armedSeq = seq
+    const r = resolveDirtySince({
+      dirty,
+      wasDirty: prevDirty,
+      current: recovering && divergedAt !== null ? divergedAt : cur,
+      restorePending: pending,
+      keepStamp: recovering,
+      now: NOW_MS,
+    })
+    cur = r.next; pending = r.restorePending; prevDirty = dirty
+    return recovering
+  }
+
+  step(false, 0, null)                        // mount, clean
+  assert.equal(step(false, 1, diverged), false, 'recovery must NOT be consumed while still clean')
+  assert.equal(step(true, 1, diverged), true, 'it applies on the commit where dirty flips')
+  assert.equal(cur, diverged, 'the restored age is adopted, not restarted')
+
+  // One-shot: a save then a genuine edit must stamp fresh, not re-adopt the old age.
+  step(false, 1, diverged)                    // saved -> clean
+  step(true, 1, diverged)                     // user edits
+  assert.equal(cur, NOW_MS, 'a later edit stamps now')
+})

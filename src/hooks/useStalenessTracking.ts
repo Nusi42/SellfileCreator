@@ -117,18 +117,31 @@ export function useStalenessTracking(
   const sfcRestoredPendingRef = useRef(restored.sfc !== null)
   const hsfRestoredPendingRef = useRef(restored.hsf !== null)
 
-  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state */
+  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state,
+     react-you-might-not-need-an-effect/no-event-handler -- both edge effects below derive a
+     checkpoint from a state TRANSITION (clean<->dirty). That is not an event handler moved
+     into an effect: the restore lands across two commits and the edge is only visible by
+     comparing against the previous render's flag, which no call site can do for us. */
   // Stamp the clean→dirty edge; clear on save. Deriving a checkpoint from a state
   // TRANSITION is the intentional set-state-on-edge pattern used elsewhere in this
   // codebase (it cannot be computed from current props alone), so the lint rules
   // that assume effects only mirror props are disabled for these two blocks.
-  // Which restore this hook has already accounted for. When the counter moves, the
-  // NEXT rising edge is a recovery and must resume the persisted stamp rather than
-  // stamp now; it is consumed immediately so only that one edge is affected.
-  const consumedRecoveredSeqRef = useRef(sfcRecovery.seq)
+  // Which restore this hook has already accounted for.
+  //
+  // The recovery must stay ARMED until a rising edge actually consumes it, and must not
+  // be cleared merely by having been observed. The restore lands in two commits: the
+  // seq bumps first, and `sfcDirty` only flips true once the history snapshot for the
+  // restored body commits. Consuming on first sight therefore burned the recovery on a
+  // still-clean render, and the real rising edge a commit later saw `recovering === false`
+  // and stamped now — age 0, a neutral dot ramping from scratch, which is exactly the
+  // "it doesn't ramp up" symptom. Disarming only on the edge that uses it also keeps the
+  // one-shot guarantee: the next genuine edit still stamps normally.
+  const armedRecoveredSeqRef = useRef(sfcRecovery.seq)
   useEffect(() => {
-    const recovering = sfcRecovery.seq !== consumedRecoveredSeqRef.current
-    consumedRecoveredSeqRef.current = sfcRecovery.seq
+    const pendingRecovery = sfcRecovery.seq !== armedRecoveredSeqRef.current
+    // A recovery only applies on the clean→dirty edge; until then it stays armed.
+    const recovering = pendingRecovery && sfcDirty && !prevSfcDirtyRef.current
+    if (recovering) armedRecoveredSeqRef.current = sfcRecovery.seq
     setSfcDirtySince((current) => {
       const { next, restorePending } = resolveDirtySince({
         dirty: sfcDirty,
@@ -162,7 +175,8 @@ export function useStalenessTracking(
     })
     prevHsfDirtyRef.current = hsfDirty
   }, [hsfDirty])
-  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state */
+  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state,
+     react-you-might-not-need-an-effect/no-event-handler */
 
   // Mirror both stamps to storage whenever either moves. Writing the pair as one
   // record keeps the two documents' clocks atomic — a half-written pair could show

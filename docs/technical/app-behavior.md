@@ -600,6 +600,15 @@ cover every call site:
   `tests/unit/sfc-dirty-provenance.test.ts`; any future field the restore path needs has to be
   added to that projection as well.
 
+  **The recovery stays armed until a rising edge consumes it.** The restore lands across
+  **two commits**: `sfcRecovery.seq` bumps first, and `sfcDirty` only flips true once the
+  history snapshot for the restored body commits. Disarming on first sight burned the recovery
+  on the still-clean render in between, so the real clean→dirty edge saw no recovery and
+  stamped now — the dot came back at age 0 and ramped from scratch instead of resuming.
+  `useStalenessTracking` therefore only consumes the recovery on the edge that actually uses it
+  (`pendingRecovery && sfcDirty && !prevDirty`), which also preserves the one-shot guarantee:
+  a later genuine edit still stamps fresh.
+
 **Undo/redo: the saved anchor is clamped across branch truncation** (`clampSavedIndex`, the SSOT
 used by both write paths in `useSfcHistory.ts`). Appending after an undo drops
 `entries.slice(index + 1)`; the anchor used to be carried across untouched, so an anchor living in
