@@ -47,7 +47,12 @@ const closeNotePanel = async (page: Page): Promise<void> => {
 
 /** Reopen the note from the header toggle and switch back to the simple view. */
 const returnToSimple = async (page: Page): Promise<void> => {
-  await page.locator(NOTE_TOGGLE_SELECTOR).first().click()
+  const toggle = page.locator(NOTE_TOGGLE_SELECTOR).first()
+  // Closing the note in simple+expert mode pulses this toggle for a few seconds (the way
+  // back into the dialog). A pulsing element is never "stable" for a click, so wait for
+  // its animations to finish — a real condition, not a guessed delay.
+  await toggle.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
+  await toggle.click()
   await page.locator('[data-attention-id="note.goSimple"]').click()
 }
 
@@ -199,4 +204,69 @@ test('the Custom button wears the dirty dot while the custom setup is unsaved', 
   await returnToSimple(page)
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customDirtyDot(page), 'the dot stayed on after the save').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+})
+
+test('a custom setup survives trying a preset and reloading', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await prepareApp(page)
+  await page.goto('/?simple', APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await makeDocumentCustom(page)
+  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // Try a preset: autosave now holds the preset, and the custom setup lives in the snapshot.
+  await midgameButton(page).click()
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+
+  // A reload used to forget the custom setup here (the snapshot was in memory only): the
+  // preset boots as selected, but the user's own rules must still be on offer — and still
+  // flagged unsaved.
+  await page.reload(APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(customButton(page), 'the reload forgot the custom setup').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(customDirtyDot(page)).toHaveCount(1)
+
+  // Selecting Custom restores it, still unsaved.
+  await customButton(page).click()
+  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+  await expect(customDirtyDot(page)).toHaveCount(1)
+  // And the restored body is the edited one: the preset recipe's flag is set.
+  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await closeNotePanel(page)
+  await expect(page.getByRole('button', { name: 'Not counted by safeguards', exact: true }).first())
+    .toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+})
+
+test('confirming Go Expert over a preset is the one place the custom setup is forgotten', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await prepareApp(page)
+  await page.goto('/?simple', APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await makeDocumentCustom(page)
+  await midgameButton(page).click()
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+
+  // Confirm the discard.
+  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
+  await expect(confirm).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await confirm.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await expect(confirm).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+
+  // Back in the simple view, and after a reload, Custom is gone: the user decided.
+  await closeNotePanel(page)
+  await returnToSimple(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(customButton(page), 'the discard did not forget the custom setup').toHaveCount(0)
+  await page.reload(APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+  await expect(customButton(page), 'the discarded custom setup came back after a reload').toHaveCount(0)
 })

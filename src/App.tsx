@@ -28,6 +28,9 @@ import {
   setSimpleExpertMode as persistSimpleExpertMode,
   getSimpleVariant,
   setSimpleVariant as persistSimpleVariant,
+  getSimpleCustomSnapshot,
+  setSimpleCustomSnapshot,
+  clearSimpleCustomSnapshot,
   AUTOSAVE_PRESET_ORIGIN_KEY,
   AUTOSAVE_ANCHORED_KEY,
   AUTOSAVE_DIVERGED_AT_KEY,
@@ -8971,8 +8974,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // restores a custom setup (resolveSimpleStartupSource → 'custom'), the toggle can
   // render 'custom' from the first paint instead of flashing the 'lategame' fallback
   // while the async load settles — especially visible in the embedded-window tool.
+  //
+  // A DURABLE snapshot also offers Custom at boot even though the live document will be a
+  // preset: the user tried a preset and reloaded, and their own rules must survive that
+  // like the bundled ones do (see SIMPLE_CUSTOM_SNAPSHOT_KEY). Read once here, before any
+  // write, and mirrored into the in-session snapshot below so the button has something to
+  // restore from the first paint.
+  const [persistedCustomSnapshot] = useState(() => (isSimpleViewAtStart ? getSimpleCustomSnapshot() : null))
   const [customAvailable, setCustomAvailable] = useState(
-    () => isSimpleViewAtStart && resolveSimpleStartupSource().kind === 'custom',
+    () => isSimpleViewAtStart && (resolveSimpleStartupSource().kind === 'custom' || persistedCustomSnapshot !== null),
   )
   // The toggle selection the express startup restore is heading toward, resolved once
   // synchronously from autosave. Passed to NoteDialog so it can hold this value until
@@ -8985,15 +8995,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   // Snapshot of the latest custom SFC text so the Old/Custom button can restore
   // it after the user tries a preset. Same serialization as save/autosave so the
-  // restored File round-trips byte-faithfully. Null until the latch has fired.
-  const customSfcSnapshotRef = useRef<string | null>(null)
+  // restored File round-trips byte-faithfully. Seeded from the durable snapshot, else
+  // null until the latch has fired (which then refreshes both).
+  const customSfcSnapshotRef = useRef<string | null>(persistedCustomSnapshot?.text ?? null)
   // When the snapshotted custom document went unsaved (epoch ms), or null while it is
   // saved. Recorded WITH the snapshot: once the user tries a preset the live document is
   // that (clean) preset, but the custom setup then exists only in the snapshot and is
   // lost on Go Expert or a reload unless it was saved — so the Custom button wears the
   // dirty dot from this stamp, not from the live document. The simple view hides the
   // header's Save dot, which makes this the only unsaved-work warning it has.
-  const [customSnapshotDirtySince, setCustomSnapshotDirtySince] = useState<number | null>(null)
+  const [customSnapshotDirtySince, setCustomSnapshotDirtySince] = useState<number | null>(
+    () => persistedCustomSnapshot?.dirtySince ?? null,
+  )
 
   // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
   // the express startup effect; this path must do the same when there is NOTHING yet —
@@ -9006,6 +9019,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setExpertMode(false)
     persistSimpleExpertMode(false)
     stampSimpleExpertModeIntoAutosave(false)
+    // A durable Custom snapshot re-offers the button in session too (the latch only
+    // fires for a LIVE custom document): the user loaded a preset in expert mode and
+    // came back, and their own rules are still one click away.
+    const persisted = getSimpleCustomSnapshot()
+    if (persisted) {
+      customSfcSnapshotRef.current = persisted.text
+      setCustomSnapshotDirtySince(persisted.dirtySince)
+      setCustomAvailable(true)
+    }
     if (!sfcIsEmpty) return
     if (loadAutosave(AUTOSAVE_KEY) === null) {
       const source = resolveSimpleStartupSource()
@@ -9023,7 +9045,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // fires (1s debounce), never on the render hot path.
   useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
 
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
   // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
   // custom state, so post-preset edits remain restorable.
   useEffect(() => {
@@ -9038,10 +9060,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)). Shares the
     // document writer with "Save .sfc": the latch stands in for the user's whole custom
     // document, so it must carry exactly the same fields — overrides included.
-    customSfcSnapshotRef.current = JSON.stringify(buildCurrentSfcPayload(), null, 2)
+    const snapshotText = JSON.stringify(buildCurrentSfcPayload(), null, 2)
+    customSfcSnapshotRef.current = snapshotText
     setCustomAvailable(true)
     // The snapshot's unsaved age travels with it (see customSnapshotDirtySince).
     setCustomSnapshotDirtySince(sfcDirtySince)
+    // And it is made durable, so trying a preset and reloading cannot lose it.
+    setSimpleCustomSnapshot({ text: snapshotText, dirtySince: sfcDirtySince })
     // A live custom setup (e.g. the user edited a preset) becomes the persisted
     // selection so a reload restores it rather than a preset.
     persistSimpleVariant('custom')
@@ -9067,7 +9092,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       customSfcSnapshotRef.current = null
     }
   }, [expertMode, isSimpleView])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates */
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state */
+
+  // The user confirmed Go Expert while a preset was selected over their custom setup:
+  // the ONE place the durable snapshot is forgotten. Leaving the simple view clears the
+  // in-session latch anyway (effect above); this is the part that must be a decision.
+  const handleDiscardSimpleCustom = useCallback(() => {
+    clearSimpleCustomSnapshot()
+    customSfcSnapshotRef.current = null
+    setCustomSnapshotDirtySince(null)
+    setCustomAvailable(false)
+  }, [])
 
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
@@ -10279,6 +10314,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           expertMode={expertMode}
           onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true); stampSimpleExpertModeIntoAutosave(true) }}
           onGoSimple={handleGoSimple}
+          onDiscardSimpleCustom={handleDiscardSimpleCustom}
           autoPushExpressEnabled={autoPushEnabled}
           onToggleAutoPushExpress={setAutoPushEnabled}
           autoPushFlashSeq={autoPushFlashSeq}

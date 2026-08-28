@@ -4269,6 +4269,7 @@ export default function NoteDialog({
   expertMode,
   onGoExpert,
   onGoSimple,
+  onDiscardSimpleCustom,
   autoPushExpressEnabled,
   onToggleAutoPushExpress,
   autoPushFlashSeq,
@@ -4326,6 +4327,10 @@ export default function NoteDialog({
   expertMode?: boolean
   onGoExpert?: () => void
   onGoSimple?: () => void
+  // Called when the user CONFIRMS Go Expert while a preset is selected over their custom
+  // setup — the one sanctioned point where the custom snapshot (in-session and durable)
+  // is forgotten. Leaving the simple view any other way keeps it.
+  onDiscardSimpleCustom?: () => void
   // Auto-push state surfaced in the express-mode action bar.
   autoPushExpressEnabled?: boolean
   onToggleAutoPushExpress?: (enabled: boolean) => void
@@ -5878,7 +5883,8 @@ export default function NoteDialog({
         <DialogActions>
           {/* Uniform styling so color does not imply a preferred choice. */}
           <Button {...disableConfirmButtonProps} onClick={() => setGoExpertConfirmOpen(false)}>{t('cancel')}</Button>
-          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); armGoExpertDemo() }}>
+          {/* Proceeding IS the discard: forget the custom snapshot before leaving. */}
+          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); onDiscardSimpleCustom?.(); armGoExpertDemo() }}>
             {t('simpleModeGoExpertConfirmProceed')}
           </Button>
         </DialogActions>

@@ -97,6 +97,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   'sellfileCreator.builder.userDefaults.v1',
   'sellfileCreator.safeguardBuilder.userDefaults.v1',
   'sellfileCreator.simple.variant.v1',
+  'sellfileCreator.simple.customSnapshot.v1',
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,

@@ -11,6 +11,12 @@ import {
 } from '../../src/lib/sfcProvenance.js'
 import { restoreDraftIsAnchored } from '../../src/hooks/useAutosaveRestore.js'
 import {
+  getSimpleCustomSnapshot,
+  setSimpleCustomSnapshot,
+  clearSimpleCustomSnapshot,
+  SIMPLE_CUSTOM_SNAPSHOT_KEY,
+} from '../../src/lib/externalWsProtocol.js'
+import {
   RESTORE_SELECTION_DEFAULT,
   restoreCoversWholeSfcBody,
   type RestoreOptionKey,
@@ -440,4 +446,49 @@ test('a pre-field entry restores as a recovery of unknown age', () => {
   const load = loadProvenanceFromAutosave({ Recipes: [] }, NOW_MS)
   assert.equal(load.provenance, 'recovered')
   assert.equal(load.divergedAt, null)
+})
+
+// ---------------------------------------------------------------------------
+// The durable simple-mode Custom snapshot.
+// ---------------------------------------------------------------------------
+
+// A minimal localStorage stand-in for the storage helpers (node has none).
+const installMemoryStorage = () => {
+  const store = new Map<string, string>()
+  const storage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => { store.set(k, String(v)) },
+    removeItem: (k: string) => { store.delete(k) },
+    clear: () => { store.clear() },
+    key: (i: number) => [...store.keys()][i] ?? null,
+    get length() { return store.size },
+  }
+  // The helpers go through window.localStorage (the guard the incognito file:// launch
+  // needs), so the stand-in has to hang off a window object, not the global.
+  ;(globalThis as unknown as { window: unknown }).window = { localStorage: storage }
+  return store
+}
+
+// The snapshot must round-trip WITH its unsaved stamp: the stamp is what puts the dirty
+// dot on the Custom button after a reload, so losing it would present unsaved rules as
+// saved.
+test('the custom snapshot round-trips text and unsaved stamp', () => {
+  const store = installMemoryStorage()
+  setSimpleCustomSnapshot({ text: '{"Recipes":[]}', dirtySince: NOW_MS - 60_000 })
+  assert.deepEqual(getSimpleCustomSnapshot(), { text: '{"Recipes":[]}', dirtySince: NOW_MS - 60_000 })
+  setSimpleCustomSnapshot({ text: '{"Recipes":[]}', dirtySince: null })
+  assert.deepEqual(getSimpleCustomSnapshot(), { text: '{"Recipes":[]}', dirtySince: null })
+  clearSimpleCustomSnapshot()
+  assert.equal(getSimpleCustomSnapshot(), null)
+  assert.equal(store.has(SIMPLE_CUSTOM_SNAPSHOT_KEY), false)
+})
+
+// Anything malformed reads as "no snapshot" — the worst outcome is a missing button,
+// never a broken load from half a document or a bogus age.
+test('a malformed custom snapshot reads as absent', () => {
+  const store = installMemoryStorage()
+  for (const raw of ['', 'nope', '{}', '{"text":""}', '{"text":"x","dirtySince":"soon"}', '{"text":"x","dirtySince":1e999}', '[]']) {
+    store.set(SIMPLE_CUSTOM_SNAPSHOT_KEY, raw)
+    assert.equal(getSimpleCustomSnapshot(), null, `raw=${raw}`)
+  }
 })

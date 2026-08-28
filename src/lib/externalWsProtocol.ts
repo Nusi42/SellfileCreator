@@ -76,6 +76,54 @@ export const setSimpleVariant = (variant: SimpleVariant): void => {
   safeSetItem(SIMPLE_VARIANT_KEY, variant)
 }
 
+// localStorage key holding the simple-mode Custom snapshot: the user's own (non-preset)
+// document as .sfc text plus its unsaved stamp. Account-scoped like the variant.
+//
+// Why it is durable: the express toggle reads as three rule sets — two bundled and the
+// user's own — and the bundled two survive anything. The custom one used to live only in
+// memory once the user tried a preset (autosave then holds the preset), so a reload —
+// F5, RSL Helper relaunching the app, a crash — silently discarded it, bypassing the Go
+// Expert confirmation that guards exactly that loss. Written whenever the in-session
+// latch takes a snapshot, read to offer Custom at boot / on Go Simple when the live
+// document is a preset, and deleted in one place only: the Go Expert confirmation, the
+// sanctioned discard.
+export const SIMPLE_CUSTOM_SNAPSHOT_KEY = resolveAccountScopedKey('sellfileCreator.simple.customSnapshot.v1')
+
+/** The persisted Custom snapshot: the .sfc text and when it went unsaved (null = saved). */
+export type SimpleCustomSnapshot = { text: string; dirtySince: number | null }
+
+// Only a well-formed record counts; anything else (absent, hand-edited, truncated by a
+// quota failure) reads as "no snapshot" so the worst outcome is today's missing button.
+const isSimpleCustomSnapshot = (value: unknown): value is SimpleCustomSnapshot => {
+  if (typeof value !== 'object' || value === null) return false
+  const rec = value as Record<string, unknown>
+  const dirtySince = rec['dirtySince']
+  return typeof rec['text'] === 'string' && rec['text'].length > 0
+    && (dirtySince === null || (typeof dirtySince === 'number' && Number.isFinite(dirtySince)))
+}
+
+// Read the persisted Custom snapshot, or null when none (or a malformed one) is stored.
+export const getSimpleCustomSnapshot = (): SimpleCustomSnapshot | null => {
+  const raw = safeGetItem(SIMPLE_CUSTOM_SNAPSHOT_KEY)
+  if (!raw) return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return isSimpleCustomSnapshot(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+// Persist the Custom snapshot (replacing any previous one).
+export const setSimpleCustomSnapshot = (snapshot: SimpleCustomSnapshot): void => {
+  safeSetItem(SIMPLE_CUSTOM_SNAPSHOT_KEY, JSON.stringify(snapshot))
+}
+
+// Forget the Custom snapshot — the user chose to discard it.
+export const clearSimpleCustomSnapshot = (): void => {
+  safeRemoveItem(SIMPLE_CUSTOM_SNAPSHOT_KEY)
+}
+
 // Read whether the user has previously toggled on the RSL Helper connection.
 export const getRslHelperConnectEnabled = (): boolean =>
   safeGetItem(RSL_HELPER_CONNECT_ENABLED_KEY) === 'true'
