@@ -68,6 +68,30 @@ export function provenanceKeepsStalenessStamp(provenance: SfcProvenance): boolea
 }
 
 /**
+ * How a PROGRAMMATIC load should land: the provenance the loaded document gets, and —
+ * for a recovery — the divergence stamp the staleness clock resumes from. Threaded
+ * through the file-load context by loads that are not a user picking a file.
+ */
+export type SfcLoadProvenance = { provenance: SfcProvenance; divergedAt: number | null }
+
+/**
+ * The load provenance for restoring an autosave body WHOLE outside the restore dialog
+ * (the express boot's custom-setup restore). Same rule the dialog applies: an entry
+ * written while clean is anchored; anything else is a recovery that resumes the age the
+ * entry recorded. Routing the express path through this instead of an unconditional
+ * anchored load is what keeps an unsaved custom setup reading as unsaved after a reload
+ * — the express view hides the header's Save dot, so the Custom button's dot is the only
+ * warning left, and it must not lie.
+ */
+export function loadProvenanceFromAutosave(payload: unknown, now: number = Date.now()): SfcLoadProvenance {
+  const anchored = readAutosaveAnchored(payload)
+  return {
+    provenance: restoreProvenance(anchored),
+    divergedAt: anchored ? null : readAutosaveDivergedAt(payload, now),
+  }
+}
+
+/**
  * Read the divergence stamp (epoch ms) out of an autosave payload.
  *
  * Returns null when the entry predates the field, carries a malformed value, or is

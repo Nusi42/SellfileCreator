@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  loadProvenanceFromAutosave,
   provenanceIsClean,
   provenanceKeepsStalenessStamp,
   readAutosaveAnchored,
@@ -408,4 +409,35 @@ test('a saved document restored whole is clean; restored partially it is not', (
   const unsavedDraft = { DivergedAt: NOW_MS - 95 * 60_000 }
   assert.equal(restoreProvenance(restoreDraftIsAnchored(unsavedDraft) && whole), 'recovered')
   assert.equal(readAutosaveDivergedAt(unsavedDraft, NOW_MS), NOW_MS - 95 * 60_000)
+})
+
+// ---------------------------------------------------------------------------
+// loadProvenanceFromAutosave -- the express custom-setup restore lands as the entry recorded.
+// ---------------------------------------------------------------------------
+
+// The express boot restores the user's own body by feeding the autosave entry through
+// the normal file-load path, which used to anchor unconditionally: an unsaved custom
+// setup came back reading as a freshly opened file, so the Custom button's dirty dot
+// (the simple view's only unsaved warning) could never survive a reload.
+test('an entry written while dirty restores as a recovery that resumes its age', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  const load = loadProvenanceFromAutosave({ Recipes: [], DivergedAt: diverged }, NOW_MS)
+  assert.equal(load.provenance, 'recovered')
+  assert.equal(load.divergedAt, diverged)
+  assert.equal(provenanceKeepsStalenessStamp(load.provenance), true)
+})
+
+test('an entry written while clean restores anchored with no age to resume', () => {
+  const load = loadProvenanceFromAutosave({ Recipes: [], Anchored: true }, NOW_MS)
+  assert.equal(load.provenance, 'anchored')
+  assert.equal(load.divergedAt, null)
+  assert.equal(provenanceIsClean(load.provenance), true)
+})
+
+// A pre-field entry has neither marker: recovered with an unknown age, exactly the
+// dialog's reading, so the two restore paths can never disagree about the same entry.
+test('a pre-field entry restores as a recovery of unknown age', () => {
+  const load = loadProvenanceFromAutosave({ Recipes: [] }, NOW_MS)
+  assert.equal(load.provenance, 'recovered')
+  assert.equal(load.divergedAt, null)
 })

@@ -555,9 +555,9 @@ cover every call site:
 
 | Provenance | Dot on arrival | Call sites |
 | --- | --- | --- |
-| `anchored` | none (clean) | SFC file/preset load (`App.tsx` `handleSfcFile` path); express **gear-only** silent restore; autosave restore of an entry written while clean (or a preset), restored whole |
+| `anchored` | none (clean) | SFC file/preset load (`App.tsx` `handleSfcFile` path, the default when the load context carries no provenance); express **gear-only** silent restore; autosave restore of an entry written while clean (or a preset), restored whole — via the dialog or the express custom restore |
 | `derived` | dirty, clock starts now | selective/Shift import; clear-all-recipes |
-| `recovered` | dirty, clock **resumes** the persisted stamp | autosave restore dialog (entry written while dirty, or a partial restore) |
+| `recovered` | dirty, clock **resumes** the persisted stamp | autosave restore dialog (entry written while dirty, or a partial restore); express custom-setup restore of an entry written while dirty (`loadProvenanceFromAutosave` via the load context) |
 
 - **`provenanceIsClean`** is the single branch deciding whether a load anchors as saved, so "which
   loads clear the dirty flag" has one definition instead of one per call site.
@@ -604,6 +604,8 @@ cover every call site:
   reads as `null` ("age unknown") and the edge falls back to stamping now — degrading to the old
   behaviour rather than to a wrong, alarming age. Autosave is ephemeral session state, so entries
   written before the field existed simply take that fallback; no migration is required.
+
+  **The file-load route context is an allowlist too.** `handleManualFileSelection` rebuilds `FileRouteContext` field by field (exactOptionalPropertyTypes forbids spreading an undefined `shiftKey`), so a field the loaders read has to be named there or it is dropped on the way — the express restores' `provenance` was, and every restored body landed anchored no matter what the entry recorded (the Custom button's dot then only ever showed the stale standalone staleness stamp). Pinned by the dot lifecycle test in `tests/playwright/simple-mode-custom-tab.spec.ts`.
 
   **`restoreDraft` is an allowlist, so the field must be named there too.**
   `useAutosaveRestore` projects the raw autosave entry into `restoreDraft` by copying named

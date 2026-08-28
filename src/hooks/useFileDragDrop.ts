@@ -18,11 +18,21 @@ export type FileRouteHandlers = {
   onUnknownFile?: (file: File, context?: FileRouteContext) => void | Promise<void>
 }
 
+import type { SfcLoadProvenance } from '../lib/sfcProvenance'
+
 // Route context carries transient key modifiers from entry points.
 // Why: Shift-triggered SFC imports open the selective import dialog.
 export type FileRouteContext = {
   shiftKey?: boolean
   source?: 'manual' | 'command'
+  /**
+   * How the loaded document lands, for a load that is NOT a user picking a file — the
+   * express boot restoring the user's own body from autosave. That body may never have
+   * been saved to disk, so it must come back exactly as dirty (and as old) as the entry
+   * recorded, the same way the restore dialog restores it (lib/sfcProvenance.ts). Absent
+   * for every real file pick, which is anchored: the user can reopen the file.
+   */
+  provenance?: SfcLoadProvenance
 }
 
 export async function routeFileByExtension(file: File, handlers: FileRouteHandlers, context?: FileRouteContext): Promise<void> {

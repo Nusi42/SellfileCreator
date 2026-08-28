@@ -138,6 +138,8 @@ import { normalizeTagValue } from '../lib/tagHelpers'
 import type { GearInspectorOutcomeSummary } from '../types/gearInspectorPreview'
 import { TINT, ALPHA } from '../lib/colorTints'
 import { FLOATING_LAYER_SHADOW } from '../lib/themeCustomTokens'
+import DirtyBadge from './DirtyBadge'
+import { buildDirtyTooltip } from '../lib/dateDisplay'
 import { GoldCornerOrnaments } from './GoldCornerOrnament'
 import {
   NOTE_COLOR_HEX,
@@ -4281,6 +4283,8 @@ export default function NoteDialog({
   simpleCustomAvailable,
   onLoadSimpleCustom,
   simpleStartupSelection,
+  simpleCustomDirtySince,
+  stalenessNow,
   drawerWidthPx,
   drawerTopPx,
   drawerLeftPx,
@@ -4355,6 +4359,14 @@ export default function NoteDialog({
   // toggle's held value so it shows the eventual selection (e.g. 'custom') from the
   // first paint instead of flashing the empty-SFC 'lategame' fallback while loading.
   simpleStartupSelection?: 'beginner' | 'lategame' | 'custom' | null
+  // When the snapshotted custom SFC went unsaved (epoch ms), or null while it is saved.
+  // Drives the dirty dot on the Old/Custom button — the express view hides the header's
+  // Save dot, so this is its only warning that switching to a preset, going expert or
+  // reloading can lose unsaved work. App records it with the snapshot, so it stays true
+  // after the user tries a preset (the live document is then the clean preset).
+  simpleCustomDirtySince?: number | null
+  // The owner's staleness tick (ms), so the dot ages off the same clock as the header's.
+  stalenessNow?: number
   // Width of the left builder panel in CSS pixels. When provided the floating panel aligns with
   // the builder column, leaving the gear inspector visible on the right.
   drawerWidthPx?: number
@@ -5553,8 +5565,21 @@ export default function NoteDialog({
           >
             <ToggleButton value="beginner">{t('simpleModeBasicSfc')}</ToggleButton>
             <ToggleButton value="lategame">{t('simpleModeEndgameSfc')}</ToggleButton>
-            {/* Old/Custom restores the user's prior non-preset SFC; only shown once latched. */}
-            {simpleCustomAvailable && <ToggleButton value="custom">{t('simpleModeCustomSfc')}</ToggleButton>}
+            {/* Old/Custom restores the user's prior non-preset SFC; only shown once latched. It wears
+                the dirty dot while that SFC is unsaved (see simpleCustomDirtySince). Wrapping the
+                ToggleButton is safe: MUI's ToggleButton reads its group through context, not via
+                cloned props, so the badge does not break selection. */}
+            {simpleCustomAvailable && (
+              <DirtyBadge
+                active={simpleCustomDirtySince != null}
+                dirtySince={simpleCustomDirtySince}
+                now={stalenessNow}
+                tooltip={buildDirtyTooltip(simpleCustomDirtySince, t, stalenessNow)}
+                data-testid="simple-custom-dirty-badge"
+              >
+                <ToggleButton value="custom">{t('simpleModeCustomSfc')}</ToggleButton>
+              </DirtyBadge>
+            )}
           </ToggleButtonGroup>
           <Box sx={{ flex: 1 }} />
           {showNoteSummaryChip && (

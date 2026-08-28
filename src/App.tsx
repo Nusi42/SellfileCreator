@@ -8,7 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
-import { provenanceIsClean, readAutosaveDivergedAt, restoreProvenance, type SfcProvenance } from './lib/sfcProvenance'
+import { loadProvenanceFromAutosave, provenanceIsClean, provenanceKeepsStalenessStamp, readAutosaveDivergedAt, restoreProvenance, type SfcLoadProvenance, type SfcProvenance } from './lib/sfcProvenance'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
@@ -7809,7 +7809,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const applySfcLoadResult = useCallback((
     fileName: string,
     payload: SfcLoadPayload,
+    // Absent for a user's file pick (anchored). The express boot's custom restore passes
+    // the entry's own provenance so an unsaved body lands unsaved (see FileRouteContext).
+    loadProvenance?: SfcLoadProvenance,
   ) => {
+    const provenance: SfcProvenance = loadProvenance?.provenance ?? 'anchored'
     const {
       recipes,
       metasets: nextMetas,
@@ -7904,14 +7908,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const sgLoadRule = sgLoadSel !== null ? (safeguardRules ?? [])[sgLoadSel] : undefined
       if (sgLoadRule) setSafeguardBuilder(cloneSafeguardRule(sgLoadRule))
       // Increment nonce so the post-transition safety-net effect fires after the history
-      // snapshot effect in this same commit (see sfcLoadNonce useEffect above).
-      setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance: 'anchored' }))
+      // snapshot effect in this same commit (see sfcLoadNonce useEffect above). It carries
+      // the load's provenance, so it only ever force-cleans an anchored load.
+      setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance }))
     })
 
-    // Anchored: the document is now byte-for-byte the .sfc the user just opened
-    // (or the bundled preset routed through this same path). Closing the tab loses
-    // nothing — they can reopen the file.
-    anchorNextSnapshot('anchored')
+    // Anchored (the default): the document is now byte-for-byte the .sfc the user just
+    // opened (or the bundled preset routed through this same path). Closing the tab loses
+    // nothing — they can reopen the file. A recovery (the express custom restore of an
+    // entry written while dirty) lands dirty instead, and hands the staleness clock the
+    // age the entry recorded — the same pairing the restore dialog performs.
+    anchorNextSnapshot(provenance)
+    if (provenanceKeepsStalenessStamp(provenance)) {
+      setSfcRecovery((prev) => ({
+        seq: prev.seq + 1,
+        divergedAt: loadProvenance?.divergedAt ?? null,
+        provenance,
+      }))
+    }
     setLastExportedHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
@@ -7943,6 +7957,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSafeguardBuilder,
     setHsf,
     setSfcLoadNonce,
+    setSfcRecovery,
     beginGearInspectorMatchReset,
   ])
 
@@ -8173,7 +8188,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (context?.shiftKey) {
         setPendingSfcShiftDialogImport({ fileName: file.name, payload: result })
       } else {
-        applySfcLoadResult(file.name, result)
+        applySfcLoadResult(file.name, result, context?.provenance)
       }
     } catch (err) {
       if (import.meta.env.DEV) {
@@ -8261,9 +8276,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [showToast, t])
 
   const handleManualFileSelection = useCallback(async (file: File, context?: FileRouteContext) => {
-    const routeContext: FileRouteContext = context?.shiftKey === undefined
-      ? { source: context?.source ?? 'manual' }
-      : { source: context?.source ?? 'manual', shiftKey: context.shiftKey }
+    // Rebuilt field by field (exactOptionalPropertyTypes forbids spreading an undefined
+    // shiftKey), so every field the loaders read has to be NAMED here or it is silently
+    // dropped — the express restores' provenance was, and every restored body landed
+    // anchored (clean) no matter what the autosave entry recorded.
+    const routeContext: FileRouteContext = {
+      source: context?.source ?? 'manual',
+      ...(context?.shiftKey !== undefined ? { shiftKey: context.shiftKey } : {}),
+      ...(context?.provenance !== undefined ? { provenance: context.provenance } : {}),
+    }
     await routeFileByExtension(file, {
       onSfc: handleSfcFile,
       onHsf: handleHsfFile,
@@ -8347,7 +8368,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // back to text yields a valid .sfc the loader understands (extra keys are ignored).
     const text = JSON.stringify(entry.payload, null, 2)
     const file = new File([text], 'custom.sfc', { type: 'application/json' })
-    return handleManualFileSelection(file, { shiftKey: false })
+    // The body lands with the provenance the entry recorded: an unsaved custom setup
+    // comes back unsaved (and as old as it was), a saved one comes back clean — instead
+    // of every restore presenting as a freshly opened file.
+    return handleManualFileSelection(file, { shiftKey: false, provenance: loadProvenanceFromAutosave(entry.payload) })
   }, [handleLoadSimplePreset, handleManualFileSelection, simpleStartupAutosaveEntry])
 
   // Resolve what to load on simple-mode startup, authoritatively from autosave.
@@ -8963,6 +8987,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // it after the user tries a preset. Same serialization as save/autosave so the
   // restored File round-trips byte-faithfully. Null until the latch has fired.
   const customSfcSnapshotRef = useRef<string | null>(null)
+  // When the snapshotted custom document went unsaved (epoch ms), or null while it is
+  // saved. Recorded WITH the snapshot: once the user tries a preset the live document is
+  // that (clean) preset, but the custom setup then exists only in the snapshot and is
+  // lost on Go Expert or a reload unless it was saved — so the Custom button wears the
+  // dirty dot from this stamp, not from the live document. The simple view hides the
+  // header's Save dot, which makes this the only unsaved-work warning it has.
+  const [customSnapshotDirtySince, setCustomSnapshotDirtySince] = useState<number | null>(null)
 
   // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
   // the express startup effect; this path must do the same when there is NOTHING yet —
@@ -8992,7 +9023,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // fires (1s debounce), never on the render hot path.
   useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
 
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
   // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
   // custom state, so post-preset edits remain restorable.
   useEffect(() => {
@@ -9009,17 +9040,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // document, so it must carry exactly the same fields — overrides included.
     customSfcSnapshotRef.current = JSON.stringify(buildCurrentSfcPayload(), null, 2)
     setCustomAvailable(true)
+    // The snapshot's unsaved age travels with it (see customSnapshotDirtySince).
+    setCustomSnapshotDirtySince(sfcDirtySince)
     // A live custom setup (e.g. the user edited a preset) becomes the persisted
     // selection so a reload restores it rather than a preset.
     persistSimpleVariant('custom')
     // buildCurrentSfcPayload stands in for the whole document: its own memo lists every
     // field the snapshot serializes, so its identity changes exactly when the latch must
     // be re-taken. Listing those fields again here would be the same dependency twice.
+    // sfcDirtySince is listed for the recorded age: a recovery resumes it a commit AFTER
+    // the body lands, so the latch has to re-run when the stamp catches up.
   }, [
     isSimpleView,
     simplePresetMatch,
     sfcIsEmpty,
     buildCurrentSfcPayload,
+    sfcDirtySince,
   ])
 
   // Clear the latch and snapshot when leaving simple view (Go Expert / session
@@ -9027,10 +9063,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (expertMode || !isSimpleView) {
       setCustomAvailable(false)
+      setCustomSnapshotDirtySince(null)
       customSfcSnapshotRef.current = null
     }
   }, [expertMode, isSimpleView])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state */
+  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates */
 
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
@@ -9044,8 +9081,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // toggle holding a "Custom" press that no load could ever confirm.
     if (!text) { void loadSavedCustomSfc(); return }
     const file = new File([text], 'custom.sfc', { type: 'application/json' })
-    void handleManualFileSelection(file, { shiftKey: false })
-  }, [handleManualFileSelection, loadSavedCustomSfc])
+    // The snapshot lands with the unsaved state it was taken with: the file-load path
+    // anchors by default (a picked file can be reopened), which would launder an unsaved
+    // custom setup clean the moment the user comes back to it after trying a preset —
+    // and switch the dot off on work that is still only in this tab.
+    void handleManualFileSelection(file, {
+      shiftKey: false,
+      provenance: {
+        provenance: restoreProvenance(customSnapshotDirtySince === null),
+        divergedAt: customSnapshotDirtySince,
+      },
+    })
+  }, [handleManualFileSelection, loadSavedCustomSfc, customSnapshotDirtySince])
 
   // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
   // so the shift-switch merge carry round-trips through the regular parse/normalize path.
@@ -10246,6 +10293,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           simpleCustomAvailable={customAvailable}
           onLoadSimpleCustom={handleLoadSimpleCustom}
           simpleStartupSelection={simpleStartupSelection}
+          simpleCustomDirtySince={customSnapshotDirtySince}
+          stalenessNow={stalenessNow}
           {...(noteDrawerWidthPx != null ? { drawerWidthPx: noteDrawerWidthPx } : {})}
           {...(noteDrawerTopPx != null ? { drawerTopPx: noteDrawerTopPx } : {})}
           {...(noteDrawerLeftPx != null ? { drawerLeftPx: noteDrawerLeftPx } : {})}
