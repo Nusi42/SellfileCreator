@@ -41,6 +41,13 @@ const rslhEnabledStore = createLocalStorageStore<boolean>({
   fallback: RSLH_DEFAULT,
   parse: (raw) => (raw === 'true' ? true : raw === 'false' ? false : RSLH_DEFAULT),
   serialize: (value) => (value ? 'true' : 'false'),
+  // The fallback above is session-dependent (ON under ?simple, OFF otherwise), so the
+  // default value MUST still be written. Without this the store removes the key whenever
+  // the choice happens to equal this session's default — e.g. a simple-mode user turning
+  // RSLH ON — and the next launch re-resolves the absent key through a possibly different
+  // default, silently reverting the user's theme. Writing both states is what makes the
+  // 'true'/'false' serializer above meaningful.
+  persistDefault: true,
 })
 
 // Reactive read of the RSLH flag. main.tsx gates the preset merge on it; the popout reads it

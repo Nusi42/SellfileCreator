@@ -195,3 +195,52 @@ localStorage, because it belongs to the document's structure — it survives reo
 and travels with a shared file, where a per-machine view preference would not. The candidate
 flyout's *Group* toggle, by contrast, is plain component state: it describes how one person is
 looking at the list right now and is dropped the moment the selection changes.
+
+### `persistDefault`: stores whose default varies by session
+
+By default a store **removes** its key when the value equals `fallback`, so localStorage only
+holds settings the user actually customized. That optimization silently corrupts any store whose
+`fallback` is not constant across sessions.
+
+The RSLH theme flag is the case in point: it defaults **ON** under `?simple` and **OFF**
+otherwise, so "no key" means different things on different launches. A simple-mode user turning
+RSLH on was writing a value equal to that session's default, the key was removed, and the next
+launch resolved the absent key through a different default — the theme choice reverted on its
+own. Two separate guards were needed, because the write was blocked twice over:
+
+- `set()` treats "value unchanged but nothing on disk yet" as a real write for these stores.
+  `readFromStorage()` reports the fallback for an absent key, so *choosing the current default*
+  otherwise looks like a no-op and is never recorded.
+- The remove-on-default branch is skipped, so the value is written rather than expressed as
+  key absence.
+
+```ts
+const flagStore = createLocalStorageStore<boolean>({
+  key: RSLH_ENABLED_KEY,
+  fallback: getSimpleMode(),   // ← session-dependent: MUST persist the default
+  parse, serialize,
+  persistDefault: true,
+})
+```
+
+Rule of thumb: if `fallback` is a literal, leave `persistDefault` off. If it is computed from
+the launch URL, the environment, or anything else that can differ between runs, set it — the
+store must be able to tell "the user chose this" from "nobody ever chose".
+
+---
+
+## Autosave integrity failures are ignored, never deleted
+
+`loadAutosave` (`lib/autosave.ts`) verifies a CRC32 over the stored payload. When that check
+fails — or the envelope is unparseable, or the `crc` field is not a string — the reader returns
+`null` and **leaves the entry in storage untouched**. It previously deleted it.
+
+A failed integrity check does not prove the data is worthless. `saveAutosave` swallows write
+errors (quota, private mode), so a write truncated by quota exhaustion leaves a body that fails
+CRC on the very next boot — and deleting it there destroyed the user's only copy of their
+document, unrecoverably.
+
+Ignoring costs nothing. The entry is unreadable either way, so the session starts clean exactly
+as before; the only change is that the bytes stay put. The app is expected to overwrite the key
+with its next autosave write, which is the accepted resolution — no quarantine key, no extra
+lifecycle, no quota pressure. Regression coverage: `tests/unit/autosave-corrupt-ignore.test.ts`.

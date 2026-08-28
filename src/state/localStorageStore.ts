@@ -54,6 +54,19 @@ type LocalStorageStoreOptions<T> = {
    *  stay required (used whenever persistence is active). Default false = an always-persisted
    *  store (theme, display prefs, presets) unaffected by the toggle. */
   rememberableView?: boolean
+  /** Keep writing the value even when it equals `fallback`, instead of removing the key.
+   *
+   *  Required whenever `fallback` is not a constant across sessions — the RSLH flag defaults
+   *  to ON under `?simple` and OFF otherwise (state/themeModePreference.ts). With the normal
+   *  remove-on-default behavior, a simple-mode user turning RSLH ON writes a value equal to
+   *  that session's fallback, so the key is DELETED; the next launch re-resolves the absent
+   *  key through whatever fallback applies then, and the choice silently reverts. Persisting
+   *  the value makes "chosen" distinguishable from "never chosen", which is the whole point
+   *  of such a store's 'true'/'false' serializer.
+   *
+   *  Leave false for stores whose fallback is a true constant, so storage keeps holding only
+   *  keys the user has customized away from the default. */
+  persistDefault?: boolean
 }
 
 type LocalStorageStore<T> = {
@@ -69,7 +82,7 @@ type LocalStorageStore<T> = {
 const isWindowDefined = (): boolean => typeof window !== 'undefined'
 
 export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>): LocalStorageStore<T> {
-  const { key, fallback, parse, serialize, equals, rememberableView = false } = options
+  const { key, fallback, parse, serialize, equals, rememberableView = false, persistDefault = false } = options
   // Does THIS store persist right now? Always for a normal store; for a rememberable-view store,
   // only while the "Remember last view" toggle is ON (evaluated live on each access).
   const persistsNow = (): boolean => !rememberableView || rememberableViewPersistGetter()
@@ -81,6 +94,14 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
   const listeners = new Set<() => void>()
 
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
+
+  // Raw presence probe: null means "this key is not on disk", which readFromStorage cannot
+  // report (it maps an absent key to the fallback VALUE). Never throws — a storage-less
+  // environment reports absence, matching the safeStorage contract.
+  const readRawKey = (): string | null => {
+    if (!isWindowDefined()) return null
+    try { return window.localStorage.getItem(key) } catch { return null }
+  }
 
   const readFromStorage = (): T => {
     // When persistence is off (a rememberable-view store with the toggle OFF) the in-memory
@@ -136,7 +157,13 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
 
   const set = (next: T) => {
     const previous = readFromStorage()
-    if (equality(previous, next)) return
+    // A persistDefault store must also treat "same value, but nothing on disk yet" as a real
+    // write. readFromStorage() reports the session fallback for an absent key, so without
+    // this the very act of CHOOSING the current default would look like a no-op and the
+    // choice would never be recorded — leaving the next session free to resolve a different
+    // default. For ordinary stores an equal value genuinely is a no-op.
+    const needsFirstWrite = persistDefault && persistsNow() && readRawKey() === null
+    if (equality(previous, next) && !needsFirstWrite) return
     const previousSerialized = currentSerialized
     current = next
     // When persistence is off (rememberable-view store, toggle OFF) hold the value in memory only.
@@ -146,9 +173,12 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     }
     if (isWindowDefined()) {
       try {
-        if (equality(next, fallback)) {
+        if (equality(next, fallback) && !persistDefault) {
           // Value matches the factory default — remove rather than write so localStorage
-          // only holds keys the user has actually customized away from defaults.
+          // only holds keys the user has actually customized away from defaults. Skipped for
+          // persistDefault stores, whose fallback varies by session: there, removing the key
+          // would let the next launch resolve a DIFFERENT default and silently discard the
+          // user's explicit choice (see the persistDefault docs).
           window.localStorage.removeItem(key)
           currentSerialized = null
         } else {

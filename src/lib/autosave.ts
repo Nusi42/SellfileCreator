@@ -21,36 +21,32 @@ export function computeCrc32(s: string): string {
   return crc.toString(16).padStart(8, '0').toUpperCase()
 }
 
-/** Load and verify an autosave entry `[crc, payload]` from localStorage. */
+/**
+ * Load and verify an autosave entry `[crc, payload]` from localStorage.
+ *
+ * An entry that fails any integrity check is IGNORED, not deleted: the reader reports "no
+ * usable autosave" and leaves the bytes where they are. A failed check does not prove the
+ * data is worthless — saveAutosave swallows write errors, so a write truncated by quota
+ * exhaustion leaves a body that fails CRC on the very next boot, and deleting it there
+ * destroyed the user's only copy. Ignoring costs nothing: the entry is unreadable either
+ * way, and the session's next autosave write overwrites the key in place.
+ */
 export function loadAutosave<T = unknown>(key: string): { crc: string; payload: T } | null {
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return null
-    // Clear corrupted entries so the next autosave starts from a clean slate.
-    const purgeInvalid = () => { try { localStorage.removeItem(key) } catch {} }
     let parsed: unknown
     try { parsed = JSON.parse(raw) } catch {
-      purgeInvalid()
       return null
     }
-    if (!Array.isArray(parsed) || parsed.length < 2) {
-      purgeInvalid()
-      return null
-    }
+    if (!Array.isArray(parsed) || parsed.length < 2) return null
     const [crc, payload] = parsed
-    if (typeof crc !== 'string') {
-      purgeInvalid()
-      return null
-    }
+    if (typeof crc !== 'string') return null
     let dataStr: string
     try { dataStr = JSON.stringify(payload) } catch {
-      purgeInvalid()
       return null
     }
-    if (crc !== computeCrc32(dataStr)) {
-      purgeInvalid()
-      return null
-    }
+    if (crc !== computeCrc32(dataStr)) return null
     return { crc, payload: payload as T }
   } catch {
     return null

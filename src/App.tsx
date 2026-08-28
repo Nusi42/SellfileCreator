@@ -4522,6 +4522,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     restoreDraft,
     dismissRestore,
     acceptRestore,
+    rearmAutosaveDivergence,
     autosaveEnabled,
   } = useAutosaveRestore({
     key: AUTOSAVE_KEY,
@@ -4656,9 +4657,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // In express simple mode: dismiss the SFC autosave (preset overrides) and silently restore gear data.
   // When expert was already on at startup (isSimpleViewAtStart=false), the restore dialog runs normally.
+  //
+  // armDivergence:false is load-bearing. This dismissal is the APP's decision, not the
+  // user's, and the express startup effect loads a preset/custom SFC right after it. Arming
+  // here would baseline against the still-empty state, so that programmatic load would read
+  // as a user edit, re-enable autosave, and write the loaded body over the user's stored
+  // document. The startup effect re-arms once its load has settled.
   useEffect(() => {
     if (!isSimpleViewAtStart) return
-    if (restoreDialogPending) dismissRestore()
+    if (restoreDialogPending) dismissRestore({ armDivergence: false })
     if (gearInspectorRestoreDraft) handleSilentGearRestore()
   }, [isSimpleViewAtStart, restoreDialogPending, dismissRestore, gearInspectorRestoreDraft, handleSilentGearRestore])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-hooks/set-state-in-effect */
@@ -8367,10 +8374,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // but not inside the embedded WebView, where the commit lands a frame later — apply
     // then pruned against an empty note and silently dropped every saved override. Instead
     // wait for the note to become present before applying (bounded so we never spin).
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
-    if (savedAnswers) {
-      void loadPromise.then(() => waitForLoadedNote().then(() => applySavedSimpleOverrideAnswers(savedAnswers)))
-    }
+    void loadPromise
+      .then(() => waitForLoadedNote())
+      .then(() => {
+        // Answers are part of the startup load, so they must land BEFORE the re-arm below —
+        // otherwise re-applying them would itself read as the user's first edit.
+        // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+        if (savedAnswers) applySavedSimpleOverrideAnswers(savedAnswers)
+        // The startup load is now fully committed. Re-arm divergence against THIS state so
+        // real user edits from here on re-enable autosave normally. The dismissal above
+        // deliberately left it unarmed so this programmatic load could not be mistaken for
+        // an edit and overwrite the user's stored document.
+        rearmAutosaveDivergence()
+      })
   }, [
     isSimpleViewAtStart,
     handleLoadSimplePreset,
@@ -8378,6 +8394,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolveSimpleStartupSource,
     readSavedSimpleOverrideAnswers,
     applySavedSimpleOverrideAnswers,
+    rearmAutosaveDivergence,
     waitForLoadedNote,
   ])
 

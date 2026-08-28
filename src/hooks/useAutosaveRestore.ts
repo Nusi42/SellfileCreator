@@ -6,7 +6,7 @@
  * change after dismissing. Exposes dialog state and whether autosave is
  * currently enabled.
  */
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave, removeAutosave } from '../lib/autosave'
 import { parseSfcObject } from '../lib/sfcIO'
 import { presetDraftFields, type PresetVariant } from '../lib/sfcPresetMatch'
@@ -469,6 +469,15 @@ export function useAutosaveRestore(opts: {
     logicHubDialogTab,
   ])
 
+  // Live mirror of everything rearmDivergence needs, synced in a layout effect so a
+  // deferred caller sees the latest COMMITTED values rather than the render scope it
+  // happened to close over — see rearmDivergence for why that matters. Layout (not plain)
+  // effect so the mirror is current before any paint-triggered callback can read it.
+  const liveDivergenceStateRef = useRef({ enabled, restoreDlgOpen, snapshot })
+  useLayoutEffect(() => {
+    liveDivergenceStateRef.current = { enabled, restoreDlgOpen, snapshot }
+  }, [enabled, restoreDlgOpen, snapshot])
+
   // After dismissing, enable autosave only after divergence from baseline.
   // Render-time state adjustment: when snapshot diverges from baseline, enable immediately.
   const canEnableFromDivergence = !enabled && !restoreDlgOpen && dismissBaseline !== null
@@ -478,8 +487,26 @@ export function useAutosaveRestore(opts: {
     } catch {}
   }
 
-  const dismiss = () => {
+  /**
+   * Close the restore prompt without restoring.
+   *
+   * The baseline captured here is what "the user then changed something" is measured
+   * against: once the live snapshot diverges from it, autosave re-enables and the stored
+   * payload is overwritten (see canEnableFromDivergence above). That is right for a real
+   * dismissal, where the next change IS a user edit.
+   *
+   * It is wrong when the app dismisses on the user's behalf and then loads a document
+   * itself — the express boot does exactly that (App.tsx: the dismiss effect runs before
+   * the startup preset/custom load). There the baseline would be snapshotted while state
+   * is still empty, the programmatic load would read as divergence, and the freshly loaded
+   * body would be written straight over the user's saved document. `armDivergence: false`
+   * keeps autosave disabled until something re-arms it, so the stored payload survives a
+   * startup load that the user never asked for.
+   */
+  const dismiss = (opts?: { armDivergence?: boolean }) => {
     setRestoreDlgOpen(false)
+    // Default true: a bare dismiss() is the user closing the dialog.
+    if (opts?.armDivergence === false) return
     try { setDismissBaseline(snapshot) } catch { setDismissBaseline(null) }
     // Keep previous autosave intact by not enabling here
   }
@@ -490,5 +517,34 @@ export function useAutosaveRestore(opts: {
     setRestoreDraft(null)
   }
 
-  return { restoreDlgOpen, restoreDraft, dismissRestore: dismiss, acceptRestore: accept, autosaveEnabled: enabled }
+  /**
+   * Re-arm divergence detection against the CURRENT state.
+   *
+   * Companion to `dismiss({ armDivergence: false })`: the express boot suppresses arming so
+   * its own startup load cannot be mistaken for a user edit, then calls this once that load
+   * has settled. Baselining on the POST-load snapshot is what makes the difference — from
+   * here on, only a real user change diverges, and autosave re-enables exactly as it would
+   * after a normal dismissal. Without this the express session would never re-enable
+   * autosave at all and genuine edits would be lost, which is worse than the bug it fixes.
+   */
+  const rearmDivergence = () => {
+    // Read through the ref, not the closure: this is invoked from a deferred promise once
+    // the startup load settles, so the captured render scope would be several renders stale
+    // and would baseline against the PRE-load snapshot — reintroducing the very overwrite
+    // this exists to prevent.
+    const live = liveDivergenceStateRef.current
+    // Never override an already-enabled session, and never re-baseline while the prompt is
+    // still up (the user has not decided yet — dismiss/accept own that transition).
+    if (live.enabled || live.restoreDlgOpen) return
+    try { setDismissBaseline(live.snapshot) } catch { setDismissBaseline(null) }
+  }
+
+  return {
+    restoreDlgOpen,
+    restoreDraft,
+    dismissRestore: dismiss,
+    acceptRestore: accept,
+    rearmAutosaveDivergence: rearmDivergence,
+    autosaveEnabled: enabled,
+  }
 }
