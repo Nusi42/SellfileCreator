@@ -4555,6 +4555,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     recipesEnabled,
     logicHubDialogTab,
     storedRuntimeGearSetCount,
+    // The same clean/dirty read the autosave payload persists (Anchored vs DivergedAt).
+    sfcClean: sfcDirtySince === null,
   })
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
   // SSOT for the "Metasets" restore-row trigger lives in restoreDraftMetasetsDiffer
@@ -7847,17 +7849,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } else {
       closeNoteAfterLoad()
     }
-    // Non-history state — not part of the signature, safe outside the transition.
-    setNoteRecipeOverridesAnswers({})
-    // SFC files may now carry the disabled flag; absent (legacy files) reads as false.
-    setNoteOverridesDisabled(importedOverridesDisabled)
-    // Safeguard + recipe overrides answers are resolved by the import-mode `applyNoteChange`
-    // below (its SSOT) — it runs last in this batch and would overwrite anything set here, so
-    // any seed here is dead. Clearing keeps the pre-commit state consistent; the import path
-    // reapplies the document's own stored answers (or reseeds when the file carries none).
-    setNoteSafeguardOverridesAnswers({})
-
     startTransition(() => {
+      // The override answers are cleared INSIDE the transition, so they commit together with
+      // the content they belong to. Clearing them urgently (outside) produced one commit in
+      // which the document was still the OLD content with EMPTY answers — and the simple-mode
+      // custom latch snapshotted exactly that when a preset was loaded over a custom setup,
+      // so switching back to Custom restored it without its answers. The import-mode
+      // `applyNoteChange` below is the SSOT that resolves the file's own answers (or reseeds
+      // when the file carries none) and runs last in this batch, so nothing is seeded here.
+      setNoteRecipeOverridesAnswers({})
+      // SFC files may carry the disabled flag; absent (legacy files) reads as false.
+      setNoteOverridesDisabled(importedOverridesDisabled)
+      setNoteSafeguardOverridesAnswers({})
       describeNextChange(loadDescriptor)
       // Note change moved inside the transition so sfcNote and customRecipes commit in the
       // same render batch. sfcNote is part of the history signature; if it were committed
@@ -8456,6 +8459,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   //    override answers are re-applied on top so the user's tuning sticks.
   //  - custom: restore the autosaved SFC body (the user's own setup). Its note carries
   //    the override DSL; saved answers are re-applied the same way.
+  // The toggle selection the express startup restore is heading toward, resolved once
+  // synchronously from autosave. Passed to NoteDialog so it can hold this value until
+  // the (async) SFC load commits a live preset match — preventing the first-paint flash
+  // of the 'lategame' fallback before a restored custom (or beginner) setup loads.
+  //
+  // Cleared once the startup load has settled: the hold exists for the first-paint window
+  // only. NoteDialog seeds its held value from this on EVERY mount, and the simple Dialog
+  // remounts each time the user returns from expert mode — a stale 'custom' hold after the
+  // custom setup had been discarded pointed at a button that no longer existed, so nothing
+  // read as pressed and the self-heal (which waits for the live match to reach the held
+  // value) could never clear it.
+  const [simpleStartupSelection, setSimpleStartupSelection] = useState<'beginner' | 'lategame' | 'custom' | null>(() => {
+    if (!isSimpleViewAtStart) return null
+    const source = resolveSimpleStartupSource()
+    return source.kind === 'custom' ? 'custom' : source.variant
+  })
+  // Declared here, above the startup effect that clears it once its load settles.
   const simplePresetLoadDoneRef = useRef(false)
   useEffect(() => {
     // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
@@ -8489,6 +8509,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // them rather than reading state back on the next line.
         // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
         if (savedAnswers) applySavedSimpleOverrideAnswers(savedAnswers)
+        // The first-paint hold has done its job; later dialog mounts derive from the live match.
+        setSimpleStartupSelection(null)
         // Request the re-arm: divergence is re-baselined once the load above has committed,
         // so real user edits from here on re-enable autosave normally. The dismissal above
         // deliberately left it unarmed so this programmatic load could not be mistaken for
@@ -8984,15 +9006,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [customAvailable, setCustomAvailable] = useState(
     () => isSimpleViewAtStart && (resolveSimpleStartupSource().kind === 'custom' || persistedCustomSnapshot !== null),
   )
-  // The toggle selection the express startup restore is heading toward, resolved once
-  // synchronously from autosave. Passed to NoteDialog so it can hold this value until
-  // the (async) SFC load commits a live preset match — preventing the first-paint flash
-  // of the 'lategame' fallback before a restored custom (or beginner) setup loads.
-  const [simpleStartupSelection] = useState<'beginner' | 'lategame' | 'custom' | null>(() => {
-    if (!isSimpleViewAtStart) return null
-    const source = resolveSimpleStartupSource()
-    return source.kind === 'custom' ? 'custom' : source.variant
-  })
   // Snapshot of the latest custom SFC text so the Old/Custom button can restore
   // it after the user tries a preset. Same serialization as save/autosave so the
   // restored File round-trips byte-faithfully. Seeded from the durable snapshot, else
@@ -9103,6 +9116,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCustomSnapshotDirtySince(null)
     setCustomAvailable(false)
   }, [])
+
+  // Save the custom setup from the Custom button's right-click menu. It saves the
+  // SNAPSHOT — what the button restores — not necessarily the live document: with a
+  // preset selected the live document is that preset. When Custom IS live the snapshot
+  // equals the document, so the document is marked saved exactly like the header's Save.
+  // Either way the snapshot is now on disk, so its unsaved stamp clears in memory and in
+  // storage (the dot goes off, and the discard needs no confirmation any more).
+  const handleSaveSimpleCustom = useCallback(() => {
+    const text = customSfcSnapshotRef.current ?? JSON.stringify(buildCurrentSfcPayload(), null, 2)
+    persistRuntimeGearSetsNow()
+    downloadBlob(new Blob([text], { type: SFC_EXPORT_CONTENT_TYPE }), sfcFilename())
+    showToast(t('toastRecipesSaved'))
+    if (simplePresetMatch === null) markSavedNow()
+    customSfcSnapshotRef.current = text
+    setCustomSnapshotDirtySince(null)
+    setSimpleCustomSnapshot({ text, dirtySince: null })
+  }, [buildCurrentSfcPayload, persistRuntimeGearSetsNow, showToast, t, simplePresetMatch, markSavedNow])
 
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
@@ -10315,6 +10345,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onGoExpert={() => { setExpertMode(true); persistSimpleExpertMode(true); stampSimpleExpertModeIntoAutosave(true) }}
           onGoSimple={handleGoSimple}
           onDiscardSimpleCustom={handleDiscardSimpleCustom}
+          onSaveSimpleCustom={handleSaveSimpleCustom}
           autoPushExpressEnabled={autoPushEnabled}
           onToggleAutoPushExpress={setAutoPushEnabled}
           autoPushFlashSeq={autoPushFlashSeq}

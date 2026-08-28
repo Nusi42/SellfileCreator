@@ -140,6 +140,9 @@ import { TINT, ALPHA } from '../lib/colorTints'
 import { FLOATING_LAYER_SHADOW } from '../lib/themeCustomTokens'
 import DirtyBadge from './DirtyBadge'
 import { buildDirtyTooltip } from '../lib/dateDisplay'
+import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
+import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { GoldCornerOrnaments } from './GoldCornerOrnament'
 import {
   NOTE_COLOR_HEX,
@@ -4270,6 +4273,7 @@ export default function NoteDialog({
   onGoExpert,
   onGoSimple,
   onDiscardSimpleCustom,
+  onSaveSimpleCustom,
   autoPushExpressEnabled,
   onToggleAutoPushExpress,
   autoPushFlashSeq,
@@ -4331,6 +4335,8 @@ export default function NoteDialog({
   // setup — the one sanctioned point where the custom snapshot (in-session and durable)
   // is forgotten. Leaving the simple view any other way keeps it.
   onDiscardSimpleCustom?: () => void
+  // Saves the custom setup to a file from the Custom button's right-click menu.
+  onSaveSimpleCustom?: () => void
   // Auto-push state surfaced in the express-mode action bar.
   autoPushExpressEnabled?: boolean
   onToggleAutoPushExpress?: (enabled: boolean) => void
@@ -4484,6 +4490,30 @@ export default function NoteDialog({
     if (goExpertNeedsConfirm) setGoExpertConfirmOpen(true)
     else armGoExpertDemo()
   }, [goExpertNeedsConfirm, armGoExpertDemo])
+
+  // Right-click menu on the Custom button: save the custom rules to a file, or discard them.
+  // The simple view has no other way to act on the user's own rules — saving otherwise
+  // needs Go Expert, and forgetting was only ever a side effect of leaving.
+  const [customMenuAnchor, setCustomMenuAnchor] = useState<HTMLElement | null>(null)
+  const closeCustomMenu = useCallback(() => { setCustomMenuAnchor(null) }, [])
+  const customMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(customMenuAnchor),
+    onClose: closeCustomMenu,
+    menuRef: customMenuPaperRef,
+  })
+  // First-time right-click hint, the same affordance every other context-menu surface uses.
+  const customMenuHint = useContextMenuButtonHint(CONTEXT_HINT_IDS.simpleCustomMenu, {
+    enabled: Boolean(simpleCustomAvailable) && !customMenuAnchor,
+    text: t('contextMenuHint'),
+  })
+  // Discarding UNSAVED custom rules asks first; saved ones can be reloaded from the file.
+  const [customDiscardConfirmOpen, setCustomDiscardConfirmOpen] = useState(false)
+  const requestDiscardSimpleCustom = useCallback(() => {
+    closeCustomMenu()
+    if (simpleCustomDirtySince != null) setCustomDiscardConfirmOpen(true)
+    else onDiscardSimpleCustom?.()
+  }, [closeCustomMenu, simpleCustomDirtySince, onDiscardSimpleCustom])
 
   // Express mode toggle value type: the two presets plus the restorable custom SFC.
   type SimpleToggleValue = 'beginner' | 'lategame' | 'custom'
@@ -5575,17 +5605,65 @@ export default function NoteDialog({
                 ToggleButton is safe: MUI's ToggleButton reads its group through context, not via
                 cloned props, so the badge does not break selection. */}
             {simpleCustomAvailable && (
-              <DirtyBadge
-                active={simpleCustomDirtySince != null}
-                dirtySince={simpleCustomDirtySince}
-                now={stalenessNow}
-                tooltip={buildDirtyTooltip(simpleCustomDirtySince, t, stalenessNow)}
-                data-testid="simple-custom-dirty-badge"
-              >
-                <ToggleButton value="custom">{t('simpleModeCustomSfc')}</ToggleButton>
-              </DirtyBadge>
+              <MarkdownTooltip markdown={t('simpleModeCustomTooltip')}>
+                {/* The span is the right-click surface + hint trigger; the dot's own tooltip
+                    swallows hover so the two tooltips never stack. */}
+                <Box
+                  component="span"
+                  sx={{ display: 'inline-flex' }}
+                  {...customMenuHint.triggerProps}
+                  onContextMenu={(event) => {
+                    try {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    } catch {}
+                    setCustomMenuAnchor(event.currentTarget as HTMLElement)
+                    customMenuHint.onOpen()
+                  }}
+                >
+                  <DirtyBadge
+                    active={simpleCustomDirtySince != null}
+                    dirtySince={simpleCustomDirtySince}
+                    now={stalenessNow}
+                    tooltip={buildDirtyTooltip(simpleCustomDirtySince, t, stalenessNow)}
+                    data-testid="simple-custom-dirty-badge"
+                  >
+                    <ToggleButton value="custom">{t('simpleModeCustomSfc')}</ToggleButton>
+                  </DirtyBadge>
+                </Box>
+              </MarkdownTooltip>
             )}
           </ToggleButtonGroup>
+          {customMenuHint.overlay}
+          <Menu
+            anchorEl={customMenuAnchor}
+            open={Boolean(customMenuAnchor)}
+            onClose={closeCustomMenu}
+            slotProps={{ paper: { ref: customMenuPaperRef } }}
+          >
+            <MenuItem onClick={() => { closeCustomMenu(); onSaveSimpleCustom?.() }}>
+              {t('simpleModeCustomMenuSave')}
+            </MenuItem>
+            {/* Discard only while a preset is selected: with Custom live, the latch that
+                tracks a live custom document would simply take it again. */}
+            {simplePresetMatch != null && (
+              <MenuItem onClick={requestDiscardSimpleCustom}>{t('simpleModeCustomMenuDiscard')}</MenuItem>
+            )}
+          </Menu>
+          {/* Confirm before discarding custom rules that were never saved to a file. */}
+          <Dialog open={customDiscardConfirmOpen} onClose={() => setCustomDiscardConfirmOpen(false)}>
+            <DialogTitle>{t('simpleModeCustomDiscardConfirmTitle')}</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2">{t('simpleModeCustomDiscardConfirmBody')}</Typography>
+            </DialogContent>
+            <DialogActions>
+              {/* Uniform styling so color does not imply a preferred choice. */}
+              <Button {...disableConfirmButtonProps} onClick={() => setCustomDiscardConfirmOpen(false)}>{t('cancel')}</Button>
+              <Button {...disableConfirmButtonProps} onClick={() => { setCustomDiscardConfirmOpen(false); onDiscardSimpleCustom?.() }}>
+                {t('simpleModeCustomDiscardConfirmProceed')}
+              </Button>
+            </DialogActions>
+          </Dialog>
           <Box sx={{ flex: 1 }} />
           {showNoteSummaryChip && (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>

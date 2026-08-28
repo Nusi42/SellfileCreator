@@ -29,6 +29,7 @@ export const CONTEXT_HINT_IDS = {
   previewSortPresetMenu: 'previewSortPresetMenu',
   previewDiffMenu: 'previewDiffMenu',
   rslHelperConnectButton: 'rslHelperConnectButton',
+  simpleCustomMenu: 'simpleCustomMenu',
 } as const
 
 export type ContextHintId = (typeof CONTEXT_HINT_IDS)[keyof typeof CONTEXT_HINT_IDS]
@@ -59,4 +60,5 @@ export const CONTEXT_HINT_REVISIONS: Record<ContextHintId, number> = {
   previewSortPresetMenu: 1,
   previewDiffMenu: 1,
   rslHelperConnectButton: 1,
+  simpleCustomMenu: 1,
 }

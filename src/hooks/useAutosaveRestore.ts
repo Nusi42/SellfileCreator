@@ -458,6 +458,16 @@ export function useAutosaveRestore(opts: {
   recipesEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
   storedRuntimeGearSetCount: number
+  /**
+   * Whether the document currently reads clean (saved / anchored). Part of the divergence
+   * snapshot because clean-vs-dirty is PERSISTED (the autosave entry's Anchored marker vs its
+   * DivergedAt stamp), and a save flips it without touching any content: in an express
+   * session — autosave off until the user diverges from the post-load baseline — a plain
+   * save of a restored unsaved setup would otherwise never re-enable autosave, the entry
+   * would keep saying "unsaved", and the next reload would restore the saved document as
+   * unsaved work again.
+   */
+  sfcClean: boolean
 }) {
   const {
     key,
@@ -476,6 +486,7 @@ export function useAutosaveRestore(opts: {
     recipesEnabled,
     logicHubDialogTab,
     storedRuntimeGearSetCount,
+    sfcClean,
   } = opts
 
   // Compute initial autosave state once via useState's lazy initializer so we never
@@ -515,6 +526,8 @@ export function useAutosaveRestore(opts: {
       SafeguardsEnabled: safeguardsEnabled,
       RecipesEnabled: recipesEnabled,
       LogicHubDialogTab: logicHubDialogTab,
+      // A save is a divergence too (see the sfcClean option).
+      Clean: sfcClean,
       // Persist note content and recipe overrides answers only when present.
       ...(note && note.trim() ? { Note: note } : {}),
       ...(Object.keys(noteRecipeOverridesAnswers).length > 0
@@ -540,6 +553,7 @@ export function useAutosaveRestore(opts: {
     safeguardsEnabled,
     recipesEnabled,
     logicHubDialogTab,
+    sfcClean,
   ])
 
   // Single definition of "baseline divergence against this snapshot from now on", shared by

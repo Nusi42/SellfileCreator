@@ -1,15 +1,22 @@
 /**
  * simple-mode-custom-tab.spec.ts
  *
- * When does the express note dialog offer the "Custom" sell-rules button?
+ * The express note dialog's "Custom" sell-rules button: when it exists, what it restores,
+ * how it warns about unsaved rules, and what its right-click menu does.
  *
  * The button restores the user's own (non-preset) document, so it must exist exactly
  * when such a document exists — never for a preset that merely has override answers,
  * and never during the boot window where the live document is empty only because the
- * startup load has not landed yet. The reported bug: after a preset session, a reload
- * showed Custom even though nothing custom existed, because the "is the empty document
- * the user's own?" check trusted the presence of ANY stored autosave entry — including
- * the previous session's preset and the app's own first empty write.
+ * startup load has not landed yet. It wears the dirty dot while that document is unsaved
+ * (the simple view has no other unsaved-work warning), survives the user trying a preset
+ * and reloading, and is forgotten only by an explicit decision: the Go Expert
+ * confirmation or the menu's Discard.
+ *
+ * Two cases drive the expert round trip for real (edit a preset recipe, come back), since
+ * that is how a document becomes custom in session. Every other case seeds an unsaved
+ * custom autosave entry before boot instead: the app then restores it as its own startup
+ * path does, which is the same product behaviour at a fraction of the wall-clock — the
+ * round trip costs two attention pulses and a demo slide, all real UI waits.
  */
 import { test, expect, type Page } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
@@ -18,6 +25,10 @@ import { warmupAppShell } from './app-warmup'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
 import { NOTE_TOGGLE_SELECTOR } from './ui-selectors'
+import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
+import { AUTOSAVE_KEY } from '../../src/lib/constants'
+import { computeCrc32 } from '../../src/lib/autosave'
+import { readFileSync } from 'node:fs'
 
 test.beforeAll(async ({ browser }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
@@ -26,6 +37,8 @@ test.beforeAll(async ({ browser }) => {
 
 // Distinctive fragment of the lategame preset's Endgame account-mode answer.
 const ENDGAME_LABEL = 'I can finish all Hard game modes'
+// A plain first note line that makes the seeded document custom AND visible in the dialog.
+const CUSTOM_MARK = 'CUSTOM MARK for the custom-tab spec'
 
 /** The express toggle group and its three possible buttons. */
 const sellRulesGroup = (page: Page) => page.getByRole('group', { name: 'Gear Sell Rules' })
@@ -35,12 +48,80 @@ const midgameButton = (page: Page) => sellRulesGroup(page).getByRole('button', {
 /** The dirty dot on the Custom button — present iff the custom setup reads unsaved. */
 const customDirtyDot = (page: Page) => page.getByTestId('simple-custom-dirty-badge').getByTestId('dirty-dot')
 
+/** The header's own dirty dot (expert mode) — the ground truth the Custom dot mirrors. */
+const headerDirtyDot = (page: Page) => page.getByTestId('sfc-dirty-badge').getByTestId('dirty-dot')
+
+/**
+ * Seed an UNSAVED custom autosave entry before boot: the lategame preset with a plain
+ * marker line prepended to its note (so it matches no bundled preset and the marker is
+ * visible in the dialog) and a divergence stamp (so it restores unsaved). Written the way
+ * the app writes autosave — a [crc, payload] tuple — so the loader accepts it. Must run
+ * after prepareApp (whose init script clears the key) and before the first navigation.
+ */
+const seedUnsavedCustomSetup = async (page: Page, divergedAgoMs: number): Promise<void> => {
+  const preset = JSON.parse(readFileSync(PRESET_LATEGAME_SFC_PATH, 'utf-8')) as { Note?: string[]; Recipes?: unknown[] } & Record<string, unknown>
+  // A LIGHT body: the note (its override questions are what the flows exercise) over a
+  // handful of recipes and no safeguards. The full preset's rule pipeline costs seconds per
+  // load, and these flows load two or three times — that, not the behaviour under test,
+  // was what pushed them past their budget under parallel workers.
+  const payload = {
+    ...preset,
+    Recipes: (preset.Recipes ?? []).slice(0, 6),
+    Safeguards: [],
+    SafeguardsEnabled: false,
+    // Its own paragraph: markdown would otherwise fold it into the note's first line.
+    Note: [CUSTOM_MARK, '', ...(preset.Note ?? [])],
+    DivergedAt: Date.now() - divergedAgoMs,
+  }
+  const entry = JSON.stringify([computeCrc32(JSON.stringify(payload)), payload])
+  // Init scripts run on EVERY navigation, reloads included. Seed once per tab (a
+  // sessionStorage marker survives reloads), or a reload would plant the seed over
+  // whatever the app had correctly written since — and test the seed, not the app.
+  await page.addInitScript(([key, value, marker]) => {
+    try {
+      if (window.sessionStorage.getItem(marker)) return
+      window.sessionStorage.setItem(marker, '1')
+      window.localStorage.setItem(key, value)
+    } catch { /* storage unavailable */ }
+  }, [AUTOSAVE_KEY, entry, 'custom-tab-spec.seeded'] as const)
+}
+
+/** Boot the simple view on the seeded custom setup and wait for Custom to be selected. */
+const bootOnSeededCustom = async (page: Page): Promise<void> => {
+  await prepareApp(page)
+  await seedUnsavedCustomSetup(page, 60_000)
+  await page.goto('/?simple', APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+}
+
+/** Boot the simple view on the bundled preset (a fresh launch). */
+const bootOnPreset = async (page: Page): Promise<void> => {
+  await prepareApp(page)
+  await page.goto('/?simple', APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+}
+
+/** Switch to the Midgame+ preset and let the load and preview settle. */
+const switchToMidgame = async (page: Page): Promise<void> => {
+  await midgameButton(page).click()
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+}
+
 /**
  * Close the note (a floating panel in expert mode that overlays the builder column — the
  * situation the go-expert demo slide exists for), the way a user does.
  */
 const closeNotePanel = async (page: Page): Promise<void> => {
   const notePanel = page.getByRole('dialog', { name: /Note & Dynamic Overrides/ })
+  await expect(notePanel).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  // Right after Go Expert the fresh panel plays its demo slide (a transform animation), and
+  // a moving Close button is never "stable" for a click. Wait for the panel's animations to
+  // finish — a real condition — rather than letting the click burn its budget retrying.
+  await notePanel.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
   await notePanel.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(notePanel).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 }
@@ -53,7 +134,12 @@ const returnToSimple = async (page: Page): Promise<void> => {
   // its animations to finish — a real condition, not a guessed delay.
   await toggle.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
   await toggle.click()
-  await page.locator('[data-attention-id="note.goSimple"]').click()
+  // The Simple Mode toggle pulses the same way when it newly becomes visible: wait that
+  // out too, or the click burns its whole budget retrying against an unstable element.
+  const goSimple = page.locator('[data-attention-id="note.goSimple"]')
+  await expect(goSimple).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await goSimple.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
+  await goSimple.click()
 }
 
 /**
@@ -74,6 +160,15 @@ const makeDocumentCustom = async (page: Page): Promise<void> => {
   await returnToSimple(page)
 }
 
+/** Confirm the Go Expert discard dialog (Custom exists, a preset is selected). */
+const confirmGoExpertDiscard = async (page: Page): Promise<void> => {
+  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
+  await expect(confirm).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await confirm.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await expect(confirm).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+}
+
 /** Click one override answer in the express note dialog and let the preview settle. */
 const selectOverride = async (page: Page, labelFragment: string): Promise<void> => {
   const row = page.locator('[role="dialog"] input[type="checkbox"]')
@@ -85,14 +180,14 @@ const selectOverride = async (page: Page, labelFragment: string): Promise<void> 
   await settleWorkload(page)
 }
 
+// ---------------------------------------------------------------------------
+// When Custom exists.
+// ---------------------------------------------------------------------------
+
 test('a fresh simple launch offers no Custom button', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-
+  await bootOnPreset(page)
   // The preset lands and is selected; nothing custom exists, so no third button.
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
   await expect(customButton(page)).toHaveCount(0)
 })
@@ -101,9 +196,7 @@ test('a preset with override answers stays a preset across a reload', async ({ p
   // Two boots + restore flows: the testHeavy class (autosave restores and similar heavy
   // setup), not testLong's single-workload budget.
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
+  await bootOnPreset(page)
 
   // Override answers are tuning on top of the preset, not a custom document.
   await selectOverride(page, ENDGAME_LABEL)
@@ -120,15 +213,9 @@ test('a preset with override answers stays a preset across a reload', async ({ p
 
 test('a real custom document offers Custom, selected, and keeps it across a reload', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-
-  // Make the document genuinely custom (and unsaved) in expert mode, then come back.
+  await bootOnPreset(page)
+  // The in-session way a document becomes custom: an expert edit.
   await makeDocumentCustom(page)
-
-  // Now Custom exists and is the selected rules button.
   await expect(customButton(page)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
@@ -139,21 +226,20 @@ test('a real custom document offers Custom, selected, and keeps it across a relo
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
+// ---------------------------------------------------------------------------
+// The Go Expert warning.
+// ---------------------------------------------------------------------------
+
 test('Go Expert warns when a preset is selected over an existing custom setup', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await bootOnPreset(page)
   await makeDocumentCustom(page)
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
-  // Trying a preset leaves the custom setup only in the in-session snapshot, which
-  // Go Expert would discard — so it must ask first.
-  await midgameButton(page).click()
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  // The pressed state is a visual hold; the confirmation reads the COMMITTED preset match.
-  await settleWorkload(page)
+  // Trying a preset leaves the custom setup only in the snapshot, which Go Expert would
+  // discard — so it must ask first. (The pressed state is a visual hold; the confirmation
+  // reads the COMMITTED preset match, hence the settle.)
+  await switchToMidgame(page)
   await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
   const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
   await expect(confirm, 'no warning before discarding the custom setup').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
@@ -163,62 +249,65 @@ test('Go Expert warns when a preset is selected over an existing custom setup', 
   await expect(customButton(page)).toBeVisible()
 })
 
+// ---------------------------------------------------------------------------
+// The dirty dot.
+// ---------------------------------------------------------------------------
+
 test('the Custom button wears the dirty dot while the custom setup is unsaved', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await makeDocumentCustom(page)
-
-  // Unsaved custom setup: the dot is on. The simple view has no other unsaved warning.
-  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await expect(customDirtyDot(page)).toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-
-  // A reload restores the custom body with the provenance the entry recorded — still
+  // Boot restores the seeded unsaved setup with the provenance the entry recorded — still
   // unsaved — instead of presenting it as a freshly opened file.
-  await page.reload(APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await expect(customDirtyDot(page), 'the reload lost the unsaved state').toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await bootOnSeededCustom(page)
+  await expect(customDirtyDot(page), 'the restore lost the unsaved state').toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
   // Trying a preset keeps the dot on Custom: the live document is now the clean preset,
   // but the custom setup in the snapshot is still unsaved.
-  await midgameButton(page).click()
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await switchToMidgame(page)
   await expect(customDirtyDot(page)).toHaveCount(1)
+})
 
-  // Back to Custom, save it in expert mode, and the dot goes away.
+test('re-selecting Custom lands unsaved in expert mode', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+  await switchToMidgame(page)
+
+  // Back to Custom: the snapshot re-load must land with its own unsaved state — the
+  // header's dot in expert mode is the ground truth the Custom dot mirrors.
   await customButton(page).click()
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
   await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
   await closeNotePanel(page)
-  // Coming back to the unsaved custom setup must land it unsaved in expert mode too — the
-  // header's own dot is the ground truth the Custom dot mirrors.
-  await expect(page.getByTestId('sfc-dirty-badge').getByTestId('dirty-dot'), 'the Custom re-load laundered the unsaved state').toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(headerDirtyDot(page), 'the Custom re-load laundered the unsaved state').toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+})
+
+test('saving the custom setup in expert mode clears the dot on Custom', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+  await expect(customDirtyDot(page)).toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // Save it in expert mode, and the dot is gone — in the header now, and on Custom back
+  // in the simple view.
+  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await closeNotePanel(page)
   const download = page.waitForEvent('download')
   await page.locator('[data-tour-id="sfc.save"]').click()
   await download
-  await expect(page.getByTestId('sfc-dirty-badge').getByTestId('dirty-dot'), 'the save did not clean the document').toHaveCount(0)
+  await expect(headerDirtyDot(page), 'the save did not clean the document').toHaveCount(0)
   await returnToSimple(page)
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customDirtyDot(page), 'the dot stayed on after the save').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
+// ---------------------------------------------------------------------------
+// Surviving a reload, and the one sanctioned discard.
+// ---------------------------------------------------------------------------
+
 test('a custom setup survives trying a preset and reloading', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await makeDocumentCustom(page)
-  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-
+  await bootOnSeededCustom(page)
   // Try a preset: autosave now holds the preset, and the custom setup lives in the snapshot.
-  await midgameButton(page).click()
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await settleWorkload(page)
+  await switchToMidgame(page)
 
   // A reload used to forget the custom setup here (the snapshot was in memory only): the
   // preset boots as selected, but the user's own rules must still be on offer — and still
@@ -229,44 +318,109 @@ test('a custom setup survives trying a preset and reloading', async ({ page }) =
   await expect(customButton(page), 'the reload forgot the custom setup').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customDirtyDot(page)).toHaveCount(1)
 
-  // Selecting Custom restores it, still unsaved.
+  // Selecting Custom restores it — the marker line proves it is the seeded body — still unsaved.
   await customButton(page).click()
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
+  await expect(page.getByRole('dialog').getByText(CUSTOM_MARK).first(), 'the restored body is not the custom one').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customDirtyDot(page)).toHaveCount(1)
-  // And the restored body is the edited one: the preset recipe's flag is set.
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
-  await closeNotePanel(page)
-  await expect(page.getByRole('button', { name: 'Not counted by safeguards', exact: true }).first())
-    .toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
-
-test('confirming Go Expert over a preset is the one place the custom setup is forgotten', async ({ page }) => {
+test('confirming Go Expert over a preset forgets the custom setup', async ({ page }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
-  await prepareApp(page)
-  await page.goto('/?simple', APP_GOTO_OPTIONS)
-  await dismissBlockingDialogs(page)
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await makeDocumentCustom(page)
-  await midgameButton(page).click()
-  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await settleWorkload(page)
+  await bootOnSeededCustom(page)
+  await switchToMidgame(page)
 
-  // Confirm the discard.
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
-  const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
-  await expect(confirm).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  await confirm.getByRole('button', { name: 'Go Expert', exact: true }).click()
-  await expect(confirm).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-
-  // Back in the simple view, and after a reload, Custom is gone: the user decided.
+  // Confirm the discard, then come back: Custom is gone — the user decided.
+  await confirmGoExpertDiscard(page)
   await closeNotePanel(page)
   await returnToSimple(page)
   await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(customButton(page), 'the discard did not forget the custom setup').toHaveCount(0)
+})
+
+test('a discarded custom setup stays forgotten across a reload', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+  await switchToMidgame(page)
+  await confirmGoExpertDiscard(page)
+  // Back to the simple view first: Go Expert persists expert mode, and a reload would
+  // otherwise boot into the full UI, where the toggle does not exist at all.
+  await closeNotePanel(page)
+  await returnToSimple(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // The durable snapshot was deleted with the discard, so a reload cannot bring it back.
   await page.reload(APP_GOTO_OPTIONS)
   await dismissBlockingDialogs(page)
   await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
   await expect(customButton(page), 'the discarded custom setup came back after a reload').toHaveCount(0)
+})
+
+// ---------------------------------------------------------------------------
+// Override answers, and the right-click menu.
+// ---------------------------------------------------------------------------
+
+test('override answers survive switching to a preset and back to Custom', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+
+  // Tune an answer on the custom setup, then switch to a preset and back.
+  await selectOverride(page, ENDGAME_LABEL)
+  await switchToMidgame(page)
+  await customButton(page).click()
+  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+
+  // The custom setup must come back WITH its answers. It used to come back without them:
+  // the preset load cleared the answers one commit before it replaced the content, and the
+  // latch snapshotted the custom body in that answer-less state.
+  const endgame = page.locator('[role="dialog"] input[type="checkbox"]')
+    .locator('xpath=ancestor::label')
+    .filter({ hasText: ENDGAME_LABEL })
+    .first()
+  await expect(endgame.locator('input[type="checkbox"]'), 'the override answers were lost on the way back to Custom')
+    .toBeChecked({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+})
+
+test('the Custom menu saves the custom rules to a file and clears the dot', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+  await expect(customDirtyDot(page)).toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // Right-click Custom -> Save: a download, and the rules read saved from then on.
+  await customButton(page).click({ button: 'right' })
+  const download = page.waitForEvent('download')
+  await page.getByRole('menuitem', { name: 'Save custom SFC file…' }).click()
+  await download
+  await expect(customDirtyDot(page), 'the save did not clear the dot').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+
+  // Still saved after a reload.
+  await page.reload(APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+  await expect(customDirtyDot(page)).toHaveCount(0)
+})
+
+test('the Custom menu discards unsaved custom rules after confirming', async ({ page }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+  await bootOnSeededCustom(page)
+  await switchToMidgame(page)
+
+  // With a preset selected the menu offers Discard; unsaved rules ask first.
+  await customButton(page).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Discard custom rules' }).click()
+  const confirm = page.getByRole('dialog', { name: 'Discard custom rules?' })
+  await expect(confirm, 'no confirmation before discarding unsaved rules').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await confirm.getByRole('button', { name: 'Discard', exact: true }).click()
+  await expect(confirm).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await expect(customButton(page), 'the discard did not forget the custom setup').toHaveCount(0)
+
+  // And it stays forgotten across a reload.
+  await page.reload(APP_GOTO_OPTIONS)
+  await dismissBlockingDialogs(page)
+  await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await settleWorkload(page)
+  await expect(customButton(page)).toHaveCount(0)
 })
