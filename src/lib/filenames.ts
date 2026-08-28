@@ -17,3 +17,16 @@ export function sellfileFilename(date?: Date): string {
 export function sfcFilename(date?: Date): string {
   return `SellfileCreatorRecipes_${buildTimestamp(date)}.sfc`
 }
+
+/**
+ * Extension for the dynamic-override-set backup file. Plain JSON (not .sfc) because
+ * it is a standalone settings backup, not a recipe payload — and staying JSON keeps
+ * the file inspectable in any editor. SSOT for the filename below and the picker's
+ * accept filter, so the two can never drift apart.
+ */
+export const DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION = '.json'
+
+/** Backup file holding every saved dynamic-override set. */
+export function dynamicOverridesPresetFilename(date?: Date): string {
+  return `SellfileCreatorOverrideSets_${buildTimestamp(date)}${DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION}`
+}

@@ -50,7 +50,7 @@ import {
   useDynamicOverridesPresetsPreference,
   type DynamicOverridesPreset,
 } from '../state/dynamicOverridesPresetsPreference'
-import { createPresetId, sanitizePresetName } from '../state/presetUtils'
+import { PRESET_NAME_MAX_LENGTH, createPresetId, sanitizePresetName } from '../state/presetUtils'
 import {
   DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT,
   dynamicOverridesPresetFileToBlob,
@@ -59,6 +59,7 @@ import {
   parseDynamicOverridesPresetFile,
   type DynamicOverridesPresetFileErrorReason,
 } from '../lib/dynamicOverridesPresetFile'
+import { downloadBlob } from '../lib/downloadBlob'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { legendaryGlow } from '../lib/celebrationKeyframes'
 import {
@@ -260,14 +261,8 @@ export function useDynamicOverridesPresetController({
     onCloseMenu()
     // Nothing saved yet: the menu entry is disabled, but guard so a stray call is a no-op.
     if (presets.length === 0) return
-    const blob = dynamicOverridesPresetFileToBlob(presets)
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = dynamicOverridesPresetFilename()
-    anchor.click()
-    // Release the object URL immediately — the click has already handed the blob to the browser.
-    URL.revokeObjectURL(url)
+    // Shared download helper — same path every other export in the app uses.
+    downloadBlob(dynamicOverridesPresetFileToBlob(presets), dynamicOverridesPresetFilename())
   }, [onCloseMenu, presets])
 
   // The hidden <input type="file"> lives in the dialogs component; the menu entry
@@ -627,7 +622,7 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
               onChange={(event) => setSaveName(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') confirmSave() }}
               slotProps={{
-                htmlInput: { maxLength: 80, ref: saveNameRef },
+                htmlInput: { maxLength: PRESET_NAME_MAX_LENGTH, ref: saveNameRef },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">

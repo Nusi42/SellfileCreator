@@ -10,6 +10,7 @@ import {
   mergeImportedDynamicOverridesPresets,
   parseDynamicOverridesPresetFile,
 } from '../../src/lib/dynamicOverridesPresetFile.js'
+import { PRESET_NAME_MAX_LENGTH, sanitizePresetName } from '../../src/state/presetUtils.js'
 import type { DynamicOverridesPreset } from '../../src/state/dynamicOverridesPresetsPreference.js'
 
 // A minimal but realistic set: both answer maps populated, plus the label snapshot.
@@ -184,4 +185,42 @@ test('answer maps and label snapshots survive export and import unchanged', () =
   assert.deepEqual(restored.recipeAnswers, preset.recipeAnswers)
   assert.deepEqual(restored.safeguardAnswers, preset.safeguardAnswers)
   assert.deepEqual(restored.savedLabels, preset.savedLabels)
+})
+
+// Regression: a renamed import must still be recognized on the NEXT import of the same
+// file, or every re-import piles up another "(3)", "(4)", … copy of the same set.
+test('re-importing a file whose entry was renamed stays a no-op', () => {
+  const existing = [makePreset('x', 'Alpha')]
+  // Same name, different answers — the first import must rename it.
+  const file = [{ ...makePreset('a', 'Alpha'), recipeAnswers: { q1: ['optB'] } }]
+  const first = mergeImportedDynamicOverridesPresets(existing, file)
+  assert.equal(first.added, 1)
+  assert.equal(first.renamed, 1)
+  // Importing the very same file again must add nothing.
+  const second = mergeImportedDynamicOverridesPresets(first.presets, file)
+  assert.equal(second.added, 0, 're-import must not add a second copy')
+  assert.equal(second.duplicates, 1)
+  assert.equal(second.presets.length, 2)
+})
+
+// Regression: two identical entries in one file must collapse even when the shared
+// name also collides with an already-saved set (so both would need renaming).
+test('identical file entries collapse even when the name also collides', () => {
+  const existing = [makePreset('x', 'Alpha')]
+  const dup = { ...makePreset('a', 'Alpha'), recipeAnswers: { q1: ['optB'] } }
+  const result = mergeImportedDynamicOverridesPresets(existing, [dup, { ...dup, id: 'b' }])
+  assert.equal(result.added, 1, 'the two identical entries must collapse to one')
+  assert.equal(result.duplicates, 1)
+  assert.deepEqual(result.presets.map((p) => p.name).sort(), ['Alpha', 'Alpha (2)'])
+})
+
+// The suffixed name must stay within the cap the store enforces, or the stored name
+// would be silently ellipsized on the next load and stop matching what the menu showed.
+test('a collision suffix keeps the name within the stored-name cap', () => {
+  const long = 'L'.repeat(PRESET_NAME_MAX_LENGTH)
+  const unique = makeUniquePresetName(long, new Set([long]))
+  assert.ok(unique.length <= PRESET_NAME_MAX_LENGTH, `got ${unique.length} chars`)
+  assert.ok(unique.endsWith(' (2)'))
+  // Sanitization must be a no-op on it — i.e. it round-trips unchanged.
+  assert.equal(sanitizePresetName(unique), unique)
 })

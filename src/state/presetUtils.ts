@@ -30,13 +30,23 @@ export const sanitizePresetId = (raw: unknown): string | null => {
   return trimmed.slice(0, 80)
 }
 
+/**
+ * Longest user-visible preset name we store. SSOT for both the truncation below and
+ * the save dialog's input `maxLength`, so what the user may type is exactly what
+ * survives sanitization — no silent ellipsis on a name the field accepted.
+ */
+export const PRESET_NAME_MAX_LENGTH = 80
+
 /** Accepts only short, non-empty strings suitable for user-visible names. */
 export const sanitizePresetName = (raw: unknown): string | null => {
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!trimmed) return null
-  // Truncate with ellipsis so the menu label never wraps to multiple lines.
-  return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed
+  // Truncate with ellipsis so the menu label never wraps to multiple lines. The
+  // ellipsis replaces the last character, keeping the result within the cap.
+  return trimmed.length > PRESET_NAME_MAX_LENGTH
+    ? `${trimmed.slice(0, PRESET_NAME_MAX_LENGTH - 3)}…`
+    : trimmed
 }
 
 /** Returns a valid ISO timestamp, falling back to "now" for malformed values. */

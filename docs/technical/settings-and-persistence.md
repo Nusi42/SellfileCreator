@@ -105,8 +105,13 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 > whole library to a JSON document and merge one back (`lib/dynamicOverridesPresetFile.ts`), so the
 > sets survive a cleared browser storage and can move between machines. Import re-uses this store's
 > validator, skips exact duplicates (same name and answers), and never replaces an existing
-> set — a colliding name with different content is suffixed instead. See
-> [Application Behavior](app-behavior.md) for the menu behavior.
+> set — a colliding name with different content is suffixed instead. Duplicate detection
+> compares the name with any import-added `" (n)"` suffix stripped, which is what keeps a
+> **re-import idempotent even when the first import had to rename**: without that, the
+> renamed copy would never match its own file entry and each re-import would add another
+> `(3)`, `(4)`, … copy. The suffix also trims the stem to stay inside
+> `PRESET_NAME_MAX_LENGTH`, so a stored name is never one the loader would re-ellipsize.
+> See [Application Behavior](app-behavior.md) for the menu behavior.
 
 > **Normalized overlay: two keys.** The **presets** library above and the **applied selection**
 > (`normalizedOverlay.applied.v1` — `useSortWeights`/`enabledPresetIds`/`lastEnabledPresetIds`),

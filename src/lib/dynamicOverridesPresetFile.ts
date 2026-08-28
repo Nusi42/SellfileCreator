@@ -19,8 +19,11 @@
  *    (not id) is therefore what duplicate detection compares.
  */
 import { SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
-import { buildTimestamp } from './filenames'
-import { createPresetId } from '../state/presetUtils'
+import {
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION,
+  dynamicOverridesPresetFilename,
+} from './filenames'
+import { PRESET_NAME_MAX_LENGTH, createPresetId } from '../state/presetUtils'
 import {
   sanitizeDynamicOverridesPreset,
   type DynamicOverridesPreset,
@@ -32,9 +35,17 @@ export const DYNAMIC_OVERRIDES_PRESET_FILE_KIND = 'sellfileCreator.dynamicOverri
 /** Format version; bumped only for a breaking layout change (readers accept <= current). */
 export const DYNAMIC_OVERRIDES_PRESET_FILE_VERSION = 1
 
-/** File extension + accept filter for the picker. JSON keeps the file inspectable. */
-export const DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION = '.json'
-export const DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT = 'application/json,.json'
+/**
+ * Accept filter for the picker, built from the one content type we write and the one
+ * extension filenames.ts names — so a change to either can never leave the chooser
+ * filtering for a file the exporter no longer produces.
+ */
+export const DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT =
+  `${SFC_EXPORT_CONTENT_TYPE},${DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION}`
+
+// The filename helper lives with the app's other export names (SSOT); re-exported here
+// so the menu keeps importing everything about this file format from one module.
+export { dynamicOverridesPresetFilename }
 
 /** The on-disk document: a marker, a version, and the saved sets verbatim. */
 export type DynamicOverridesPresetFile = {
@@ -43,11 +54,6 @@ export type DynamicOverridesPresetFile = {
   // Export time, informational only — helps a user tell two backups apart.
   exportedAt: string
   presets: DynamicOverridesPreset[]
-}
-
-/** Timestamped export filename, matching the app's other export names. */
-export function dynamicOverridesPresetFilename(date?: Date): string {
-  return `SellfileCreatorOverrideSets_${buildTimestamp(date)}${DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION}`
 }
 
 /** Build the export document for the given sets. */
@@ -130,23 +136,43 @@ export function makeUniquePresetName(name: string, taken: ReadonlySet<string>): 
   if (!taken.has(name)) return name
   // Bounded by the candidate count, so the loop always terminates.
   for (let n = 2; ; n += 1) {
-    const candidate = `${name} (${n})`
+    const suffix = ` (${n})`
+    // Trim the stem so stem+suffix still fits the stored-name cap. Without this an
+    // already-maximal name would grow past it and be silently ellipsized on the next
+    // load, so the stored name would stop matching the one the menu just showed.
+    const stem = name.slice(0, PRESET_NAME_MAX_LENGTH - suffix.length).trimEnd()
+    const candidate = `${stem}${suffix}`
     if (!taken.has(candidate)) return candidate
   }
 }
+
+/**
+ * Strip a " (2)", " (3)", … collision suffix that a previous import appended, so a
+ * renamed copy still reports the name it was imported under. Without this, a set the
+ * importer renamed could never be recognized as the same set on the next import.
+ */
+const stripCollisionSuffix = (name: string): string => name.replace(/ \(\d+\)$/, '')
 
 /**
  * Stable identity of a set's *content*: its name plus both answer maps, with keys
  * and multi-select values order-normalized so a re-serialized file still matches.
  * Ids and timestamps are deliberately excluded — an imported set is re-issued an
  * id, so identity has to survive that or a re-import could never be recognized.
+ *
+ * The name is compared with any import-added " (n)" suffix stripped, so a set this
+ * importer already renamed still matches the file entry it came from. That is what
+ * makes re-importing the same backup a no-op even when the first import collided.
  */
 export function dynamicOverridesPresetIdentity(preset: DynamicOverridesPreset): string {
   // Sort both levels: answer keys, and the option ids inside each answer. Both answer
   // maps are Record<string, string[]>, so one helper serves them unchanged.
   const canonical = (answers: Record<string, string[]>): Array<[string, string[]]> =>
     Object.keys(answers).sort().map((key) => [key, [...(answers[key] ?? [])].sort()])
-  return JSON.stringify([preset.name, canonical(preset.recipeAnswers), canonical(preset.safeguardAnswers)])
+  return JSON.stringify([
+    stripCollisionSuffix(preset.name),
+    canonical(preset.recipeAnswers),
+    canonical(preset.safeguardAnswers),
+  ])
 }
 
 /** Result of merging an imported file into the existing list. */
@@ -193,9 +219,12 @@ export function mergeImportedDynamicOverridesPresets(
     const name = makeUniquePresetName(preset.name, taken)
     if (name !== preset.name) renamed += 1
     taken.add(name)
-    // Record the accepted set's identity under its FINAL name, so a later entry
-    // duplicating this one (rather than an pre-existing set) is caught too.
     const accepted: DynamicOverridesPreset = { ...preset, id: createPresetId(), name }
+    // Record the accepted set so a later entry duplicating this one (rather than a
+    // pre-existing set) is caught too. Identity strips the " (n)" collision suffix, so
+    // this covers the entry under both its original and its renamed name — without
+    // that, a renamed entry would never match itself and every re-import of the same
+    // backup would add yet another "(3)", "(4)", … copy.
     seen.add(dynamicOverridesPresetIdentity(accepted))
     added.push(accepted)
   })

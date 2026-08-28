@@ -344,6 +344,7 @@ function computeChampionFingerprint(champions: readonly GearDbChampionRow[]): nu
 
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
+import { downloadBlob } from './lib/downloadBlob'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY, SIMPLE_MODE_TRANSITION_MS } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
@@ -9008,13 +9009,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSelectFile={handleManualFileSelection}
       onSaveSfc={() => {
         persistRuntimeGearSetsNow()
-        const blob = sfcToBlob(buildCurrentSfcPayload())
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = sfcFilename()
-        a.click()
-        URL.revokeObjectURL(url)
+        downloadBlob(sfcToBlob(buildCurrentSfcPayload()), sfcFilename())
         showToast(t('toastRecipesSaved'))
         markSavedNow()
       }}
@@ -9329,13 +9324,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Local export path mirrors prior behavior and keeps push optional. The Blob is
     // built only on this branch (the push path above sends the payload object).
-    const blob = hsfToBlob(payloadOnce())
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(hsfToBlob(payloadOnce()), filename)
     setLastExportedHash(currentMergedRulesHash)
     outcomeToast('toastSellfileSaved')
   }, [
