@@ -69,6 +69,12 @@ export function useAutosave(opts: UseAutosaveOptions) {
   // Keep the last observed change-signal so enable/disable flips cannot reschedule
   // heavy payload work when the underlying data did not actually change.
   const lastScheduledSignalRef = useRef<unknown>(NO_SIGNAL_SENTINEL)
+  // A change was observed but has not been written yet. This is the truth the unload flush
+  // and the debounce effect consult — NOT the timer/idle handles, which the debounce
+  // effect's own cleanup nulls whenever any dependency changes identity (e.g. the payload
+  // builder re-created by a selection click) even though the signal did not. Without this
+  // the cancelled write was never rescheduled and the flush saw "nothing pending".
+  const pendingWriteRef = useRef(false)
   // Prefer explicit payloadSignal; fall back to payload identity for eager callers.
   const changeSignal = payloadSignal !== undefined ? payloadSignal : payload
 
@@ -85,6 +91,8 @@ export function useAutosave(opts: UseAutosaveOptions) {
     const nextPayload = resolvePayload()
     lastRef.current = nextPayload
     saveAutosave(key, nextPayload)
+    // Storage now holds the live state; only a new signal makes it pending again.
+    pendingWriteRef.current = false
   }, [beforeSave, key, resolvePayload])
 
   const clearScheduledWrite = useCallback(() => {
@@ -135,9 +143,12 @@ export function useAutosave(opts: UseAutosaveOptions) {
   // Write on subsequent payload changes (post-render), honoring debounce to reduce churn.
   useEffect(() => {
     if (!enabled) return undefined
-    // Ignore no-op rerenders so we only debounce real payload changes.
-    if (Object.is(lastScheduledSignalRef.current, changeSignal)) return undefined
+    // Ignore no-op rerenders so we only debounce real payload changes — unless a write is
+    // still pending: this run may be a dependency-identity re-run whose cleanup just
+    // cancelled that write, and it must be rescheduled, not forgotten.
+    if (Object.is(lastScheduledSignalRef.current, changeSignal) && !pendingWriteRef.current) return undefined
     lastScheduledSignalRef.current = changeSignal
+    pendingWriteRef.current = true
     // New payload signal invalidates both the pending debounce and idle work.
     clearScheduledWrite()
     // Store the timer id locally so clearTimeout is visible to the lint rule in the cleanup.
@@ -157,15 +168,16 @@ export function useAutosave(opts: UseAutosaveOptions) {
   // Flush on unload / when tab becomes hidden
   useEffect(() => {
     if (!enabled) return
-    // A change made just before the tab goes away is only known as PENDING work — the
-    // debounce/idle handles hold it, not lastRef. lastRef is the payload of the last
-    // COMPLETED write, so persisting it here re-wrote what storage already held while
-    // the cancel below discarded the pending change: an edit inside the debounce window
-    // (e.g. flip an override, hit F5) was silently dropped on every reload. When work is
-    // pending, the flush must rebuild from the LIVE state instead.
+    // A change made just before the tab goes away is only known as PENDING work — it has
+    // not reached lastRef, which is the payload of the last COMPLETED write. Persisting
+    // lastRef here re-wrote what storage already held while the cancel below discarded the
+    // pending change: an edit inside the debounce window (e.g. flip an override, hit F5)
+    // was silently dropped on every reload. When work is pending, the flush must rebuild
+    // from the LIVE state instead. Pending is read from pendingWriteRef, never from the
+    // timer/idle handles — those are nulled by an effect cleanup that a cancelled-but-
+    // unwritten change survives.
     const flush = () => {
-      // Snapshot BEFORE clearing — clearScheduledWrite nulls both handles.
-      const pending = debounceRef.current !== null || idleRef.current !== null
+      const pending = pendingWriteRef.current
       clearScheduledWrite()
       try {
         // No pending work and a write already landed: storage is current, nothing to do.

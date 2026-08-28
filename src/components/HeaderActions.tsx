@@ -13,6 +13,7 @@ import SfcNudgeArrows from './SfcNudgeArrows'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import { buildDirtyTooltip } from '../lib/dateDisplay'
+import { sfcTextToFile } from '../lib/sfcIO'
 import beginnerSfcRaw from '../../presets/beginner.sfc?raw'
 import lategameSfcRaw from '../../presets/lategame.sfc?raw'
 
@@ -109,8 +110,8 @@ export default function HeaderActions(props: {
   const handleLoadPreset = useCallback(() => {
     if (!pendingPreset) return
     setPendingPreset(null)
-    const file = new File([pendingPreset.raw], pendingPreset.filename, { type: 'application/json' })
-    void onSelectFile(file, { shiftKey: false })
+    // Same File wrapper every programmatic .sfc load uses (one MIME definition).
+    void onSelectFile(sfcTextToFile(pendingPreset.raw, pendingPreset.filename), { shiftKey: false })
   }, [pendingPreset, onSelectFile])
 
   // Which control the arrows point at, straight from the trigger. Deriving it from

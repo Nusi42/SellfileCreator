@@ -33,6 +33,28 @@ export type FileRouteContext = {
    * for every real file pick, which is anchored: the user can reopen the file.
    */
   provenance?: SfcLoadProvenance
+  /**
+   * The load is the app's own — the express boot's startup load, the preset toggle, the
+   * Custom button — not a file the user picked. Such a load must never count as the user
+   * dismissing a pending restore prompt (see loadArmsRestoreDismissal). Absent for every
+   * real file pick.
+   */
+  programmatic?: true
+}
+
+/**
+ * Does dismissing a pending restore prompt on this load ARM autosave's divergence detection?
+ *
+ * A user-picked file does: the prompt closes and the next change is the user's. The app's
+ * own load must not — the express boot dismisses that prompt UNARMED on purpose, and an
+ * armed re-dismissal from the load path would baseline against the still-empty document, so
+ * the load itself would read as the user's first edit: autosave re-enables in the load's
+ * commit and writes the loaded body (answers not yet re-applied, recovery stamp not yet
+ * landed) over the user's stored document. One predicate, so the file handler and the
+ * express loaders cannot disagree on which loads count.
+ */
+export function loadArmsRestoreDismissal(context?: FileRouteContext): boolean {
+  return context?.programmatic !== true
 }
 
 export async function routeFileByExtension(file: File, handlers: FileRouteHandlers, context?: FileRouteContext): Promise<void> {

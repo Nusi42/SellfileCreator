@@ -1734,7 +1734,33 @@ export function buildSfcPayloadFromParsed(parsed: ParsedSfcResult, version: stri
   })
 }
 
+/**
+ * The .sfc text of a payload — the ONE serialization every emitted document uses (the Save
+ * download, the express Custom snapshot, the account-merge carry, the express restore's
+ * in-memory File). Sharing it is what keeps a snapshot byte-faithful to a saved file.
+ */
+export function sfcToText(payload: unknown): string {
+  return JSON.stringify(payload, null, 2)
+}
+
+/** Wrap already-serialized .sfc text as a download Blob (same MIME as every SFC export). */
+export function sfcTextToBlob(text: string): Blob {
+  return new Blob([text], { type: SFC_EXPORT_CONTENT_TYPE })
+}
+
 /** Convert an SFC payload object to a Blob ready to download. */
 export function sfcToBlob(payload: unknown): Blob {
-  return new Blob([JSON.stringify(payload, null, 2)], { type: SFC_EXPORT_CONTENT_TYPE })
+  return sfcTextToBlob(sfcToText(payload))
 }
+
+/**
+ * Wrap .sfc text as a File for the regular file-load path, so programmatic loads (bundled
+ * presets, the express Custom snapshot, the autosave body) parse and normalize exactly like
+ * a file the user picked. The name only has to carry the extension the router dispatches on.
+ */
+export function sfcTextToFile(text: string, fileName: string): File {
+  return new File([text], fileName, { type: SFC_EXPORT_CONTENT_TYPE })
+}
+
+/** The filename a programmatically restored custom (non-preset) document lands under. */
+export const CUSTOM_SFC_FILENAME = 'custom.sfc'

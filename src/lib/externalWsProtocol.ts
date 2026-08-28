@@ -1,7 +1,7 @@
 import type { ExternalCommand } from './externalCommands'
 import { safeGetItem, safeSetItem, safeRemoveItem } from './safeStorage'
 import { createListenerSet } from './listenerSet'
-import { resolveAccountScopedKey } from './accounts'
+import { ACCOUNT_BASE_KEY_SIMPLE_CUSTOM_SNAPSHOT, ACCOUNT_BASE_KEY_SIMPLE_VARIANT, resolveAccountScopedKey } from './accounts'
 // Shared WebSocket-scheme predicate, so the port extractor below accepts exactly the schemes
 // the launch-param sanitizer does.
 import { isWebSocketProtocol } from './runtimeConfig'
@@ -17,9 +17,10 @@ export const RSL_HELPER_CONNECT_ENABLED_KEY = 'sellfileCreator.rslHelper.connect
 // localStorage key that persists whether the user last chose Expert mode in a simple-mode session.
 export const SIMPLE_EXPERT_MODE_KEY = 'sellfileCreator.simple.expertMode.v1'
 // localStorage key that persists the toggle variant (preset or custom) the user last had in
-// simple mode. Account-scoped (lib/accounts.ts): beginner/lategame tracks account progression,
-// unlike SIMPLE_EXPERT_MODE_KEY above which is a property of the user and stays global.
-export const SIMPLE_VARIANT_KEY = resolveAccountScopedKey('sellfileCreator.simple.variant.v1')
+// simple mode. Account-scoped (lib/accounts.ts owns the base key): beginner/lategame tracks
+// account progression, unlike SIMPLE_EXPERT_MODE_KEY above which is a property of the user
+// and stays global.
+export const SIMPLE_VARIANT_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_SIMPLE_VARIANT)
 
 // Autosave payload key marking that the saved setup is (still) an unmodified built-in
 // preset. When present, the simple-mode load path swaps in the CURRENT built-in of that
@@ -85,9 +86,10 @@ export const setSimpleVariant = (variant: SimpleVariant): void => {
 // F5, RSL Helper relaunching the app, a crash — silently discarded it, bypassing the Go
 // Expert confirmation that guards exactly that loss. Written whenever the in-session
 // latch takes a snapshot, read to offer Custom at boot / on Go Simple when the live
-// document is a preset, and deleted in one place only: the Go Expert confirmation, the
-// sanctioned discard.
-export const SIMPLE_CUSTOM_SNAPSHOT_KEY = resolveAccountScopedKey('sellfileCreator.simple.customSnapshot.v1')
+// document is a preset, and deleted only by an explicit decision — the Go Expert
+// confirmation's proceed or the Custom button's right-click Discard (one App handler).
+// lib/accounts.ts owns the base key (account-scoped like the variant).
+export const SIMPLE_CUSTOM_SNAPSHOT_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_SIMPLE_CUSTOM_SNAPSHOT)
 
 /** The persisted Custom snapshot: the .sfc text and when it went unsaved (null = saved). */
 export type SimpleCustomSnapshot = { text: string; dirtySince: number | null }
@@ -95,10 +97,9 @@ export type SimpleCustomSnapshot = { text: string; dirtySince: number | null }
 // Only a well-formed record counts; anything else (absent, hand-edited, truncated by a
 // quota failure) reads as "no snapshot" so the worst outcome is today's missing button.
 const isSimpleCustomSnapshot = (value: unknown): value is SimpleCustomSnapshot => {
-  if (typeof value !== 'object' || value === null) return false
-  const rec = value as Record<string, unknown>
-  const dirtySince = rec['dirtySince']
-  return typeof rec['text'] === 'string' && rec['text'].length > 0
+  if (!isRecord(value)) return false
+  const dirtySince = value['dirtySince']
+  return typeof value['text'] === 'string' && value['text'].length > 0
     && (dirtySince === null || (typeof dirtySince === 'number' && Number.isFinite(dirtySince)))
 }
 

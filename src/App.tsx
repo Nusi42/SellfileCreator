@@ -8,7 +8,8 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
-import { loadProvenanceFromAutosave, provenanceIsClean, provenanceKeepsStalenessStamp, readAutosaveDivergedAt, restoreProvenance, type SfcLoadProvenance, type SfcProvenance } from './lib/sfcProvenance'
+import { ANCHORED_LOAD_PROVENANCE, loadProvenanceFromAutosave, provenanceIsClean, readAutosaveDivergedAt, restoreProvenance, type SfcLoadProvenance, type SfcProvenance } from './lib/sfcProvenance'
+import { dirtyStampIsClean } from './lib/stalenessRamp'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
@@ -31,6 +32,8 @@ import {
   getSimpleCustomSnapshot,
   setSimpleCustomSnapshot,
   clearSimpleCustomSnapshot,
+  type SimpleCustomSnapshot,
+  type SimpleVariant,
   AUTOSAVE_PRESET_ORIGIN_KEY,
   AUTOSAVE_ANCHORED_KEY,
   AUTOSAVE_DIVERGED_AT_KEY,
@@ -54,7 +57,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { applyClientCapabilitiesPacket } from './lib/clientCapabilities'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToBlob, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToText, sfcTextToBlob, sfcTextToFile, CUSTOM_SFC_FILENAME, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -205,7 +208,7 @@ import { AppTitle } from './components/AppTitle'
 import UpdateNoticeLine from './components/UpdateNoticeLine'
 import SafeguardBuilderPanel from './components/SafeguardBuilderPanel'
 import SafeguardChipsPanel from './components/SafeguardChipsPanel'
-import { useFileDragDrop, routeFileByExtension, type FileRouteContext } from './hooks/useFileDragDrop'
+import { useFileDragDrop, routeFileByExtension, loadArmsRestoreDismissal, type FileRouteContext } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import { GearDiffPreview } from './components/GearDiffPreview'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
@@ -2266,6 +2269,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [sfcRecovery, setSfcRecovery] = useState<SfcRecoverySignal>(
     { seq: 0, divergedAt: null, provenance: 'anchored' },
   )
+  // The two signals every landed document sends, each defined ONCE so the file-load path
+  // and the autosave-restore path cannot drift apart in how they announce a load.
+  //
+  // The load nonce fires the post-commit force-clean; it carries the provenance and the
+  // effect above checks it, so bumping is safe (a no-op) for a non-clean load. Callers
+  // choose the commit: inside a transition when the snapshot lands in that transition.
+  const bumpSfcLoadNonce = useCallback((provenance: SfcProvenance) => {
+    setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance }))
+  }, [])
+  // The recovery signal hands the staleness clock the landed document's provenance and
+  // the age it may resume. Sent for EVERY load, not only recoveries: the hook owns the
+  // predicate for resuming a stamp (only a recovery does), and re-evaluating on an
+  // anchored load is what clears a boot-restored stamp still lingering on a document the
+  // user has since opened clean from disk — nothing else re-runs the hook's edge tracker.
+  const signalSfcRecovery = useCallback(({ provenance, divergedAt }: SfcLoadProvenance) => {
+    setSfcRecovery((prev) => ({ seq: prev.seq + 1, divergedAt, provenance }))
+  }, [])
   const {
     undo,
     redo,
@@ -4486,6 +4506,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Synced in a layout effect (never during render) — the same pattern currentSfcFieldsRef
   // uses for the preset-origin stamp written by the very same payload builder.
   useLayoutEffect(() => { sfcDirtySinceRef.current = sfcDirtySince })
+  // Does the SFC document read clean? Computed ONCE from the stamp (lib/stalenessRamp.ts
+  // owns that reading) and shared by the divergence snapshot and the autosave change
+  // signal; the debounced payload writer applies the same predicate to the ref above.
+  const sfcClean = dirtyStampIsClean(sfcDirtySince)
 
   // Destructured so the startup-nudge effect (declared after restoreDlgOpen, below)
   // depends on the two members it actually uses rather than on the whole tutorial
@@ -4556,7 +4580,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     storedRuntimeGearSetCount,
     // The same clean/dirty read the autosave payload persists (Anchored vs DivergedAt).
-    sfcClean: sfcDirtySince === null,
+    sfcClean,
   })
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
   // SSOT for the "Metasets" restore-row trigger lives in restoreDraftMetasetsDiffer
@@ -5466,9 +5490,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       //    restore can show the REAL unsaved age even in a session that never saved;
       //  - clean: the Anchored marker, so restoring this body whole presents as saved —
       //    it exists in the .sfc the user just saved/loaded, or is a bundled preset.
-      ...(sfcDirtySinceRef.current !== null
-        ? { [AUTOSAVE_DIVERGED_AT_KEY]: sfcDirtySinceRef.current }
-        : { [AUTOSAVE_ANCHORED_KEY]: true }),
+      ...(dirtyStampIsClean(sfcDirtySinceRef.current)
+        ? { [AUTOSAVE_ANCHORED_KEY]: true }
+        : { [AUTOSAVE_DIVERGED_AT_KEY]: sfcDirtySinceRef.current }),
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
@@ -5500,7 +5524,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // entry would keep its dirty-era shape after a save and the next restore would present
     // the freshly saved document as unsaved work. The boolean (not the stamp) keeps the
     // signal still across clock ticks.
-    sfcClean: sfcDirtySince === null,
+    sfcClean,
     recipes: customRecipes,
     metasets,
     substatTargets,
@@ -5531,7 +5555,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     trimmedSfcNote,
     expertMode,
-    sfcDirtySince,
+    sfcClean,
   ])
   useAutosave({
     key: AUTOSAVE_KEY,
@@ -7814,11 +7838,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const applySfcLoadResult = useCallback((
     fileName: string,
     payload: SfcLoadPayload,
-    // Absent for a user's file pick (anchored). The express boot's custom restore passes
-    // the entry's own provenance so an unsaved body lands unsaved (see FileRouteContext).
-    loadProvenance?: SfcLoadProvenance,
+    // Absent for a user's file pick (anchored). The express restores pass the entry's or
+    // the snapshot's own provenance so an unsaved body lands unsaved (see FileRouteContext).
+    loadProvenance: SfcLoadProvenance = ANCHORED_LOAD_PROVENANCE,
   ) => {
-    const provenance: SfcProvenance = loadProvenance?.provenance ?? 'anchored'
+    const { provenance } = loadProvenance
     const {
       recipes,
       metasets: nextMetas,
@@ -7913,10 +7937,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setSelectedSafeguardRuleIndices(sgLoadSel !== null ? [sgLoadSel] : [], { suppressWillChange: true })
       const sgLoadRule = sgLoadSel !== null ? (safeguardRules ?? [])[sgLoadSel] : undefined
       if (sgLoadRule) setSafeguardBuilder(cloneSafeguardRule(sgLoadRule))
-      // Increment nonce so the post-transition safety-net effect fires after the history
-      // snapshot effect in this same commit (see sfcLoadNonce useEffect above). It carries
-      // the load's provenance, so it only ever force-cleans an anchored load.
-      setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance }))
+      // Bump the nonce INSIDE the transition so the post-transition safety-net effect fires
+      // after the history snapshot effect in this same commit (see sfcLoadNonce above).
+      bumpSfcLoadNonce(provenance)
     })
 
     // Anchored (the default): the document is now byte-for-byte the .sfc the user just
@@ -7925,13 +7948,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // entry written while dirty) lands dirty instead, and hands the staleness clock the
     // age the entry recorded — the same pairing the restore dialog performs.
     anchorNextSnapshot(provenance)
-    if (provenanceKeepsStalenessStamp(provenance)) {
-      setSfcRecovery((prev) => ({
-        seq: prev.seq + 1,
-        divergedAt: loadProvenance?.divergedAt ?? null,
-        provenance,
-      }))
-    }
+    signalSfcRecovery(loadProvenance)
     setLastExportedHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
@@ -7962,8 +7979,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedSafeguardRuleIndices,
     setSafeguardBuilder,
     setHsf,
-    setSfcLoadNonce,
-    setSfcRecovery,
+    bumpSfcLoadNonce,
+    signalSfcRecovery,
     beginGearInspectorMatchReset,
   ])
 
@@ -8218,10 +8235,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       tutorial.setHelpFirstRunMode(false)
       try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
     }
-    // A user-picked file arms divergence as usual; the express boot's OWN startup load
-    // must not, or it re-arms the dismissal the boot deliberately left unarmed and its
-    // own load then reads as the user's first edit (see loadArmsRestoreDismissal).
-    if (restoreDialogPending) dismissRestore()
+    // A user-picked file arms divergence as usual; the app's OWN loads (the express boot's
+    // startup load reaches here from the mount closure, where the prompt still reads as
+    // pending) must not, or they re-arm the dismissal the boot deliberately left unarmed
+    // and the load itself then reads as the user's first edit (see loadArmsRestoreDismissal).
+    if (restoreDialogPending) dismissRestore({ armDivergence: loadArmsRestoreDismissal(context) })
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
     await importSfcFile(file, context)
   }, [
@@ -8282,15 +8300,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [showToast, t])
 
   const handleManualFileSelection = useCallback(async (file: File, context?: FileRouteContext) => {
-    // Rebuilt field by field (exactOptionalPropertyTypes forbids spreading an undefined
-    // shiftKey), so every field the loaders read has to be NAMED here or it is silently
-    // dropped — the express restores' provenance was, and every restored body landed
-    // anchored (clean) no matter what the autosave entry recorded.
-    const routeContext: FileRouteContext = {
-      source: context?.source ?? 'manual',
-      ...(context?.shiftKey !== undefined ? { shiftKey: context.shiftKey } : {}),
-      ...(context?.provenance !== undefined ? { provenance: context.provenance } : {}),
-    }
+    // Forward the caller's context WHOLE and only default the source. This used to be
+    // rebuilt field by field, which silently dropped every field not named here — the
+    // express restores' provenance was, and every restored body landed anchored (clean)
+    // no matter what the autosave entry recorded. Spreading is legal under
+    // exactOptionalPropertyTypes (an absent optional stays absent), so nothing can be lost.
+    const routeContext: FileRouteContext = { ...context, source: context?.source ?? 'manual' }
     await routeFileByExtension(file, {
       onSfc: handleSfcFile,
       onHsf: handleHsfFile,
@@ -8310,6 +8325,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleUnknownImportedFile,
   ])
 
+  // The ONE way the app loads .sfc text of its own (a bundled preset, the express Custom
+  // snapshot, the autosave body at boot): wrapped as a File and routed through the regular
+  // file-load path so it parses/normalizes exactly like a user's pick, marked programmatic
+  // so it never counts as the user dismissing a restore prompt, and landing with the given
+  // provenance (anchored when absent). Returns the load promise so callers can sequence on
+  // it. Every field a programmatic load needs is named here once, not per loader.
+  const loadSfcText = useCallback((text: string, fileName: string, provenance?: SfcLoadProvenance): Promise<void> => (
+    handleManualFileSelection(sfcTextToFile(text, fileName), {
+      shiftKey: false,
+      programmatic: true,
+      ...(provenance ? { provenance } : {}),
+    })
+  ), [handleManualFileSelection])
+
   // Loads the beginner or lategame preset SFC directly without a confirmation dialog.
   // Used by the express-mode preset toggle in NoteDialog. Persists the chosen
   // variant so the selection survives reloads.
@@ -8324,9 +8353,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     persistSimpleVariant(variant)
     // Raw text + filename come from the preset SSOT (sfcPresetMatch) so the bundled
     // preset is consumed in exactly one place across the app.
-    const file = new File([presetRaw(variant)], presetFilename(variant), { type: 'application/json' })
-    return handleManualFileSelection(file, { shiftKey: false })
-  }, [handleManualFileSelection])
+    return loadSfcText(presetRaw(variant), presetFilename(variant))
+  }, [loadSfcText])
 
   // Saved dynamic-override state for the simple-mode startup restore: the tuned
   // recipe/safeguard answers and the overrides-disabled flag, read from autosave.
@@ -8363,22 +8391,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { recipeAnswers, safeguardAnswers, disabled }
   }, [simpleStartupAutosaveEntry])
 
+  // The .sfc text of the custom body captured at boot, or null when there is none. The
+  // autosave payload IS a superset of the readable SFC schema, so serializing it back to
+  // text yields a valid .sfc the loader understands (extra keys are ignored). Shared by
+  // the boot restore below and the Custom menu's Save for a setup that was never latched.
+  const savedCustomSfcText = useCallback(
+    (): string | null => (simpleStartupAutosaveEntry ? sfcToText(simpleStartupAutosaveEntry.payload) : null),
+    [simpleStartupAutosaveEntry],
+  )
+
   // Load the autosaved custom SFC body through the normal SFC load path (same path the
   // preset buttons use), so it parses/normalizes identically. Returns a promise that
   // resolves after the load is dispatched so callers can sequence answer re-application.
   const loadSavedCustomSfc = useCallback((): Promise<void> => {
     const entry = simpleStartupAutosaveEntry
-    // No saved custom body to restore — fall back to the lategame preset.
-    if (!entry) { handleLoadSimplePreset('lategame'); return Promise.resolve() }
-    // The autosave payload IS a superset of the readable SFC schema, so serializing it
-    // back to text yields a valid .sfc the loader understands (extra keys are ignored).
-    const text = JSON.stringify(entry.payload, null, 2)
-    const file = new File([text], 'custom.sfc', { type: 'application/json' })
+    const text = savedCustomSfcText()
+    // No saved custom body to restore — fall back to the lategame preset (its real load
+    // promise, so a caller sequencing on the load is not released early).
+    if (!entry || text === null) return handleLoadSimplePreset('lategame')
     // The body lands with the provenance the entry recorded: an unsaved custom setup
     // comes back unsaved (and as old as it was), a saved one comes back clean — instead
     // of every restore presenting as a freshly opened file.
-    return handleManualFileSelection(file, { shiftKey: false, provenance: loadProvenanceFromAutosave(entry.payload) })
-  }, [handleLoadSimplePreset, handleManualFileSelection, simpleStartupAutosaveEntry])
+    return loadSfcText(text, CUSTOM_SFC_FILENAME, loadProvenanceFromAutosave(entry.payload))
+  }, [handleLoadSimplePreset, loadSfcText, savedCustomSfcText, simpleStartupAutosaveEntry])
 
   // Resolve what to load on simple-mode startup, authoritatively from autosave.
   // The PresetOrigin marker (stamped at save time from the LIVE content match) wins:
@@ -8470,7 +8505,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // custom setup had been discarded pointed at a button that no longer existed, so nothing
   // read as pressed and the self-heal (which waits for the live match to reach the held
   // value) could never clear it.
-  const [simpleStartupSelection, setSimpleStartupSelection] = useState<'beginner' | 'lategame' | 'custom' | null>(() => {
+  const [simpleStartupSelection, setSimpleStartupSelection] = useState<SimpleVariant | null>(() => {
     if (!isSimpleViewAtStart) return null
     const source = resolveSimpleStartupSource()
     return source.kind === 'custom' ? 'custom' : source.variant
@@ -8982,7 +9017,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Latch: once the live SFC is a real custom setup (non-preset, NON-EMPTY) in
   // simple view, the Old/Custom button stays available for the rest of the
-  // session even after the user switches to a preset. Reset on entering expert.
+  // session even after the user switches to a preset. The in-session latch resets on
+  // entering expert; the DURABLE snapshot below survives until an explicit discard.
   //
   // The EMPTY document is decided here and in handleGoSimple — never by the latch
   // effect further down, which does not fire on an empty document. Empty can mean
@@ -9021,6 +9057,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => persistedCustomSnapshot?.dirtySince ?? null,
   )
 
+  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it, through the one writer below, which the latch and leave-view effects call. */
+  // The ONE writer of the in-session Custom snapshot (text ref + unsaved stamp + button
+  // availability, which is exactly "a snapshot exists"). Every site that takes, adopts,
+  // saves or forgets the custom setup goes through here, so the three cannot disagree.
+  // `persist` also writes (or, for null, deletes) the durable copy — the latch and the
+  // menu's Save/Discard do; adopting an already-persisted snapshot or leaving the view
+  // (which keeps the durable copy) does not.
+  const applyCustomSnapshot = useCallback((snapshot: SimpleCustomSnapshot | null, opts?: { persist?: boolean }) => {
+    customSfcSnapshotRef.current = snapshot?.text ?? null
+    setCustomSnapshotDirtySince(snapshot?.dirtySince ?? null)
+    setCustomAvailable(snapshot !== null)
+    if (!opts?.persist) return
+    if (snapshot) setSimpleCustomSnapshot(snapshot)
+    else clearSimpleCustomSnapshot()
+  }, [])
+
+  // Serialize the current document exactly like "Save .sfc" (same writer, same
+  // formatting): the Custom snapshot, the header's Save and the shift-switch merge carry
+  // all read the document through this one function, so a snapshot is byte-faithful to
+  // a saved file and round-trips through the regular parse/normalize path.
+  const serializeCurrentSfcText = useCallback(() => sfcToText(buildCurrentSfcPayload()), [buildCurrentSfcPayload])
+
   // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
   // the express startup effect; this path must do the same when there is NOTHING yet —
   // an empty live doc with no saved doc gets the startup source loaded immediately, so
@@ -9036,11 +9094,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // fires for a LIVE custom document): the user loaded a preset in expert mode and
     // came back, and their own rules are still one click away.
     const persisted = getSimpleCustomSnapshot()
-    if (persisted) {
-      customSfcSnapshotRef.current = persisted.text
-      setCustomSnapshotDirtySince(persisted.dirtySince)
-      setCustomAvailable(true)
-    }
+    if (persisted) applyCustomSnapshot(persisted)
     if (!sfcIsEmpty) return
     if (loadAutosave(AUTOSAVE_KEY) === null) {
       const source = resolveSimpleStartupSource()
@@ -9049,16 +9103,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     // The user's own empty setup (e.g. a fresh account): Custom is the truthful selected
-    // button, rather than a preset that was never loaded.
-    setCustomAvailable(true)
-  }, [setExpertMode, sfcIsEmpty, resolveSimpleStartupSource, handleLoadSimplePreset, loadSavedCustomSfc])
+    // button, rather than a preset that was never loaded. Unless a durable snapshot was
+    // adopted above, the LIVE (empty) document is what Custom stands for — snapshot it
+    // now, because the latch never does for an empty document, and a button with no
+    // snapshot would otherwise fall back to whatever the boot-time entry held.
+    if (!persisted) applyCustomSnapshot({ text: serializeCurrentSfcText(), dirtySince: sfcDirtySince })
+  }, [setExpertMode, sfcIsEmpty, resolveSimpleStartupSource, handleLoadSimplePreset, loadSavedCustomSfc, applyCustomSnapshot, serializeCurrentSfcText, sfcDirtySince])
 
   // Shadow the current setup fields so the debounced autosave-build callback (defined
   // far above) can compute the preset-origin marker lazily — only when a write actually
   // fires (1s debounce), never on the render hot path.
   useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
 
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
   // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
   // custom state, so post-preset edits remain restorable.
   useEffect(() => {
@@ -9070,69 +9126,82 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // The empty case is owned by the startup seed and handleGoSimple (see the state
     // declaration above), which consult the persisted document instead of guessing.
     if (sfcIsEmpty) return
-    // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)). Shares the
-    // document writer with "Save .sfc": the latch stands in for the user's whole custom
-    // document, so it must carry exactly the same fields — overrides included.
-    const snapshotText = JSON.stringify(buildCurrentSfcPayload(), null, 2)
-    customSfcSnapshotRef.current = snapshotText
-    setCustomAvailable(true)
-    // The snapshot's unsaved age travels with it (see customSnapshotDirtySince).
-    setCustomSnapshotDirtySince(sfcDirtySince)
-    // And it is made durable, so trying a preset and reloading cannot lose it.
-    setSimpleCustomSnapshot({ text: snapshotText, dirtySince: sfcDirtySince })
     // A live custom setup (e.g. the user edited a preset) becomes the persisted
     // selection so a reload restores it rather than a preset.
     persistSimpleVariant('custom')
-    // buildCurrentSfcPayload stands in for the whole document: its own memo lists every
-    // field the snapshot serializes, so its identity changes exactly when the latch must
-    // be re-taken. Listing those fields again here would be the same dependency twice.
-    // sfcDirtySince is listed for the recorded age: a recovery resumes it a commit AFTER
-    // the body lands, so the latch has to re-run when the stamp catches up.
+    // The latch stands in for the user's whole custom document, so it is serialized by
+    // the same writer as "Save .sfc" and carries exactly the same fields — overrides
+    // included (serializeCurrentSfcText).
+    const snapshotText = serializeCurrentSfcText()
+    // Nothing to re-take: the text and its stamp are what the snapshot already holds. This
+    // run is a stamp-only commit, the boot right after a custom restore lands, or a Custom
+    // click re-landing the snapshot — re-writing ~0.5MB of identical text to storage on
+    // the commit path bought nothing.
+    if (snapshotText === customSfcSnapshotRef.current && sfcDirtySince === customSnapshotDirtySince) return
+    // Take it, with the unsaved age it was taken with (see customSnapshotDirtySince), and
+    // make it durable so trying a preset and reloading cannot lose it.
+    applyCustomSnapshot({ text: snapshotText, dirtySince: sfcDirtySince }, { persist: true })
+    // serializeCurrentSfcText stands in for the whole document: the payload memo behind it
+    // lists every field the snapshot serializes, so its identity changes exactly when the
+    // latch must be re-taken. Listing those fields again here would be the same dependency
+    // twice. sfcDirtySince is listed for the recorded age: a recovery resumes it a commit
+    // AFTER the body lands, so the latch has to re-run when the stamp catches up.
   }, [
     isSimpleView,
     simplePresetMatch,
     sfcIsEmpty,
-    buildCurrentSfcPayload,
+    serializeCurrentSfcText,
     sfcDirtySince,
+    customSnapshotDirtySince,
+    applyCustomSnapshot,
   ])
 
-  // Clear the latch and snapshot when leaving simple view (Go Expert / session
-  // restart) so a fresh session starts without a stale Old/Custom button.
+  // Clear the IN-SESSION latch and snapshot when leaving simple view (Go Expert / session
+  // restart). The durable snapshot is deliberately kept: handleGoSimple re-offers Custom
+  // from it, and only an explicit discard (handleDiscardSimpleCustom) forgets it.
   useEffect(() => {
-    if (expertMode || !isSimpleView) {
-      setCustomAvailable(false)
-      setCustomSnapshotDirtySince(null)
-      customSfcSnapshotRef.current = null
-    }
-  }, [expertMode, isSimpleView])
+    if (expertMode || !isSimpleView) applyCustomSnapshot(null)
+  }, [expertMode, isSimpleView, applyCustomSnapshot])
   /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state */
 
-  // The user confirmed Go Expert while a preset was selected over their custom setup:
-  // the ONE place the durable snapshot is forgotten. Leaving the simple view clears the
-  // in-session latch anyway (effect above); this is the part that must be a decision.
+  // The user decided to forget their custom setup — by confirming Go Expert while a preset
+  // was selected over it, or from the Custom button's right-click Discard. The ONE handler
+  // that deletes the durable snapshot; leaving the simple view clears only the in-session
+  // latch (effect above).
   const handleDiscardSimpleCustom = useCallback(() => {
-    clearSimpleCustomSnapshot()
-    customSfcSnapshotRef.current = null
-    setCustomSnapshotDirtySince(null)
-    setCustomAvailable(false)
-  }, [])
+    applyCustomSnapshot(null, { persist: true })
+  }, [applyCustomSnapshot])
+
+  // Download .sfc text as the user's file: the ONE save ritual (gear sets flushed first,
+  // the shared filename, the same toast) behind the header's Save and the Custom menu's
+  // Save. Marking the document saved is the caller's call — only when the text IS the
+  // live document.
+  const downloadSfcText = useCallback((text: string) => {
+    persistRuntimeGearSetsNow()
+    downloadBlob(sfcTextToBlob(text), sfcFilename())
+    showToast(t('toastRecipesSaved'))
+  }, [persistRuntimeGearSetsNow, showToast, t])
 
   // Save the custom setup from the Custom button's right-click menu. It saves the
   // SNAPSHOT — what the button restores — not necessarily the live document: with a
-  // preset selected the live document is that preset. When Custom IS live the snapshot
-  // equals the document, so the document is marked saved exactly like the header's Save.
+  // preset selected the live document is that preset. When the snapshot IS the live
+  // document (Custom live), the document is marked saved exactly like the header's Save.
   // Either way the snapshot is now on disk, so its unsaved stamp clears in memory and in
   // storage (the dot goes off, and the discard needs no confirmation any more).
   const handleSaveSimpleCustom = useCallback(() => {
-    const text = customSfcSnapshotRef.current ?? JSON.stringify(buildCurrentSfcPayload(), null, 2)
-    persistRuntimeGearSetsNow()
-    downloadBlob(new Blob([text], { type: SFC_EXPORT_CONTENT_TYPE }), sfcFilename())
-    showToast(t('toastRecipesSaved'))
-    if (simplePresetMatch === null) markSavedNow()
-    customSfcSnapshotRef.current = text
-    setCustomSnapshotDirtySince(null)
-    setSimpleCustomSnapshot({ text, dirtySince: null })
-  }, [buildCurrentSfcPayload, persistRuntimeGearSetsNow, showToast, t, simplePresetMatch, markSavedNow])
+    const liveText = serializeCurrentSfcText()
+    // No snapshot taken yet — only a boot-seeded custom setup the latch never latched (an
+    // empty one). What Custom stands for is then the live document while Custom is live,
+    // else the boot-time body that Custom would restore. Never the live PRESET: adopting
+    // that would silently replace the user's rules with a bundled set.
+    const text = customSfcSnapshotRef.current ?? (simplePresetMatch === null ? liveText : savedCustomSfcText())
+    if (text === null) return
+    downloadSfcText(text)
+    // Byte-equality, not "no preset is live": an empty live document also matches no
+    // preset while the snapshot may hold the user's earlier (non-empty) rules.
+    if (text === liveText) markSavedNow()
+    applyCustomSnapshot({ text, dirtySince: null }, { persist: true })
+  }, [serializeCurrentSfcText, simplePresetMatch, savedCustomSfcText, downloadSfcText, markSavedNow, applyCustomSnapshot])
 
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
@@ -9140,36 +9209,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Persist 'custom' so the next reload restores the custom SFC, not a preset.
     persistSimpleVariant('custom')
     const text = customSfcSnapshotRef.current
-    // No in-session snapshot: the custom setup was seeded from autosave at startup and
-    // the latch has not fired (an empty custom setup never does). Restore the persisted
-    // body through the startup path instead of silently doing nothing, which left the
-    // toggle holding a "Custom" press that no load could ever confirm.
+    // No in-session snapshot: only a boot-seeded custom setup the latch never latched (an
+    // empty one; handleGoSimple snapshots its empty case itself). Its body is the entry
+    // captured at boot, which the startup path restores — instead of silently doing
+    // nothing, which left the toggle holding a "Custom" press no load could confirm.
     if (!text) { void loadSavedCustomSfc(); return }
-    const file = new File([text], 'custom.sfc', { type: 'application/json' })
     // The snapshot lands with the unsaved state it was taken with: the file-load path
     // anchors by default (a picked file can be reopened), which would launder an unsaved
     // custom setup clean the moment the user comes back to it after trying a preset —
     // and switch the dot off on work that is still only in this tab.
-    void handleManualFileSelection(file, {
-      shiftKey: false,
-      provenance: {
-        provenance: restoreProvenance(customSnapshotDirtySince === null),
-        divergedAt: customSnapshotDirtySince,
-      },
+    void loadSfcText(text, CUSTOM_SFC_FILENAME, {
+      provenance: restoreProvenance(dirtyStampIsClean(customSnapshotDirtySince)),
+      divergedAt: customSnapshotDirtySince,
     })
-  }, [handleManualFileSelection, loadSavedCustomSfc, customSnapshotDirtySince])
-
-  // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
-  // so the shift-switch merge carry round-trips through the regular parse/normalize path.
-  const getAccountMergeSfcText = useCallback(
-    () => JSON.stringify(buildCurrentSfcPayload(), null, 2),
-    [buildCurrentSfcPayload],
-  )
+  }, [loadSfcText, loadSavedCustomSfc, customSnapshotDirtySince])
 
   // One switcher component, two mount points (header + simple Note dialog) so both entry
-  // points share behavior; the compact variant only changes the button chrome.
-  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} />
-  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={getAccountMergeSfcText} flashSeq={accountPushFlashSeq} compact />
+  // points share behavior; the compact variant only changes the button chrome. The
+  // shift-switch merge carry is the current document serialized like "Save .sfc".
+  const accountSwitcherElement = <AccountSwitcher getMergeSfcText={serializeCurrentSfcText} flashSeq={accountPushFlashSeq} />
+  const accountSwitcherCompactElement = <AccountSwitcher getMergeSfcText={serializeCurrentSfcText} flashSeq={accountPushFlashSeq} compact />
 
   // The theme popout, built here and handed to the simple Note dialog's title bar (same
   // node-prop pattern as the account switcher above). Simple mode hides the app header, so the
@@ -9217,9 +9276,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <HeaderActions
       onSelectFile={handleManualFileSelection}
       onSaveSfc={() => {
-        persistRuntimeGearSetsNow()
-        downloadBlob(sfcToBlob(buildCurrentSfcPayload()), sfcFilename())
-        showToast(t('toastRecipesSaved'))
+        downloadSfcText(serializeCurrentSfcText())
         markSavedNow()
       }}
       onOpenNote={() => { notePresent ? openNoteViewerManual() : openNoteEditorManual() }}
@@ -10690,21 +10747,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             anchorNextSnapshot(restoredProvenance)
             // Adopt the divergence moment the restored body carries, so the dot shows the
             // document's REAL unsaved age rather than restarting at zero. Written by
-            // buildAutosavePayload; absent on entries from before the field existed.
-            setSfcRecovery((prev) => ({
-              seq: prev.seq + 1,
-              divergedAt: readAutosaveDivergedAt(draft),
-              // Same provenance the history anchor above was given: the hook decides
-              // whether to resume the stamp from it, so the two can never disagree.
-              provenance: restoredProvenance,
-            }))
+            // buildAutosavePayload; absent on entries from before the field existed. Same
+            // provenance the history anchor above was given, so the two can never disagree.
+            signalSfcRecovery({ provenance: restoredProvenance, divergedAt: readAutosaveDivergedAt(draft) })
             // An anchored restore still has to be force-cleaned AFTER its snapshot lands:
             // anchorNextSnapshot only arms the flag, and the restore commits across a
-            // transition. Reuse the existing load safety net, which fires in the right
-            // commit and is a no-op for a non-clean provenance.
-            if (provenanceIsClean(restoredProvenance)) {
-              setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance: restoredProvenance }))
-            }
+            // transition. The load safety net fires in the right commit and is a no-op for
+            // a non-clean provenance.
+            bumpSfcLoadNonce(restoredProvenance)
             setLastExportedHash(null)
             setExportBaselineResetPending(true)
             // Coalesce downstream rebuilds into a single pass.

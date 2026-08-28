@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
 import { LANG_KEY } from '../../src/lib/constants'
+import { ACCOUNT_BASE_KEY_AUTOSAVE_SFC } from '../../src/lib/accounts'
 import { DEFAULT_LANGUAGE } from '../../src/lib/i18n/types'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 
@@ -24,7 +25,9 @@ type PrepareAppOptions = {
 
 const README_KEY = 'sellfileCreator.readme.seen.version'
 const TUTORIAL_KEY = 'sellfileCreator.tutorial.seen.version'
-const AUTOSAVE_KEY = 'sellfileCreator.autosave.sfc.v1'
+// The un-scoped base key (the init script clears the pre-account location; the app's own
+// definition, so a key bump cannot leave a stale entry behind).
+const AUTOSAVE_KEY = ACCOUNT_BASE_KEY_AUTOSAVE_SFC
 // The preview filter drawer (and its "limit recipes" toggles) is persisted in localStorage.
 // Why: Playwright runs must start from a clean baseline so scroll/virtualization assertions match user repro steps.
 const RULES_FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v2'

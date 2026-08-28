@@ -94,9 +94,6 @@ export default function RestoreAutosaveDialog({
     () => offeredRestoreSfcIdentityKeys(draft, { metasetsDiffer, targetsDiffer }),
     [draft, metasetsDiffer, targetsDiffer],
   )
-  const hasTargets = offeredIdentityKeys.has('targets')
-  const hasNote = offeredIdentityKeys.has('note')
-  const hasSafeguards = offeredIdentityKeys.has('safeguards')
   // Only offer the Gear Inspector restore when the saved snapshot has at least one item.
   // An empty snapshot equals the app's default state — restoring it would be a no-op.
   const hasGearInspectorContent = Boolean(gearInspectorDraft && gearInspectorDraft.count > 0)
@@ -141,21 +138,21 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveMetasetsHelper'),
       })
     }
-    if (hasTargets) {
+    if (offeredIdentityKeys.has('targets')) {
       rows.push({
         key: 'targets',
         label: t('restoreAutosaveTargetsLabel'),
         helper: t('restoreAutosaveTargetsHelper'),
       })
     }
-    if (hasNote) {
+    if (offeredIdentityKeys.has('note')) {
       rows.push({
         key: 'note',
         label: t('restoreAutosaveNoteLabel'),
         helper: t('restoreAutosaveNoteHelper'),
       })
     }
-    if (hasSafeguards) {
+    if (offeredIdentityKeys.has('safeguards')) {
       rows.push({
         key: 'safeguards',
         label: t('restoreAutosaveSafeguardsLabel', { count: draft?.Safeguards?.length ?? 0 }),
@@ -188,7 +185,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, offeredIdentityKeys, recipesCount, gearSetsCount, hasTargets, hasNote, hasSafeguards, metasCount, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
+  }, [draft?.Safeguards?.length, offeredIdentityKeys, recipesCount, gearSetsCount, metasCount, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.

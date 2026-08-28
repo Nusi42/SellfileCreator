@@ -21,6 +21,32 @@ import { NOTE_TOGGLE_SELECTOR } from './ui-selectors'
 // expected, a second in a row means something else is wrong and should fail loudly.
 const NOTE_DIALOG_REOPEN_ATTEMPTS = 2
 
+// Distinctive fragments of the lategame preset's account-mode answers, shared by every
+// spec that flips them so a wording change in the preset is a one-line fix.
+export const ENDGAME_ANSWER_LABEL = 'I can finish all Hard game modes'
+export const ENDGAME_PLUS_ANSWER_LABEL = 'If you really want to get rid of more'
+
+/**
+ * An override answer row inside the EXPRESS (simple-mode) note dialog, by label fragment.
+ * FormControlLabel renders <label>…<input>…</label>, so the row is the checkbox's label.
+ *
+ * Express mode cannot use setNoteOverrideCheckbox: its retry path re-opens the dialog via
+ * the header toggle, which express mode does not render at all.
+ */
+export const expressOverrideRow = (page: Page, labelFragment: string) => page
+  .locator('[role="dialog"] input[type="checkbox"]')
+  .locator('xpath=ancestor::label')
+  .filter({ hasText: labelFragment })
+  .first()
+
+/** Click one override answer in the express note dialog and let the preview settle. */
+export const selectExpressOverride = async (page: Page, labelFragment: string): Promise<void> => {
+  const row = expressOverrideRow(page, labelFragment)
+  await expect(row).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await row.click()
+  await settleWorkload(page)
+}
+
 /**
  * Open the Note & Dynamic Overrides dialog via the header toggle and wait for it
  * to render its override checkboxes. Used when the dialog is not already open

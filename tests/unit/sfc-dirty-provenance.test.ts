@@ -96,12 +96,16 @@ test('a null anchor stays null', () => {
 // ---------------------------------------------------------------------------
 
 const NOW_MS = 1_700_000_000_000
+const MINUTE_MS = 60_000
+// An unsaved age older than every staleness tier threshold, so a resumed stamp is
+// unmistakable from a freshly stamped one.
+const UNSAVED_AGE_MS = 95 * MINUTE_MS
 
 // The stamp travels with the content it describes, so a restore can show the real
 // unsaved age even when the standalone staleness key was never written or was
 // deleted by a transient clean render.
 test('a valid divergence stamp is read back from the autosave payload', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   assert.equal(readAutosaveDivergedAt({ DivergedAt: diverged }, NOW_MS), diverged)
 })
 
@@ -117,7 +121,7 @@ test('a payload without the field reads as unknown', () => {
 test('malformed and future stamps read as unknown', () => {
   assert.equal(readAutosaveDivergedAt({ DivergedAt: 'yesterday' }, NOW_MS), null)
   assert.equal(readAutosaveDivergedAt({ DivergedAt: Number.NaN }, NOW_MS), null)
-  assert.equal(readAutosaveDivergedAt({ DivergedAt: NOW_MS + 60_000 }, NOW_MS), null)
+  assert.equal(readAutosaveDivergedAt({ DivergedAt: NOW_MS + MINUTE_MS }, NOW_MS), null)
   assert.equal(readAutosaveDivergedAt(null, NOW_MS), null)
   assert.equal(readAutosaveDivergedAt('nope', NOW_MS), null)
 })
@@ -126,7 +130,7 @@ test('malformed and future stamps read as unknown', () => {
 // staleness key is absent (current === null), but the restored body carries the moment
 // the document first diverged, so the dot comes back showing that real age.
 test('a never-saved session recovers its age from the body, not the standalone key', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   const fromBody = readAutosaveDivergedAt({ DivergedAt: diverged }, NOW_MS)
   // This is what App.tsx feeds resolveDirtySince as `current` on a recovery edge.
   const resolved = resolveDirtySince({
@@ -143,7 +147,7 @@ test('a never-saved session recovers its age from the body, not the standalone k
 // the same validator the projection uses, so re-adding the field is not enough to pass —
 // it has to survive with its value intact.
 test('the divergence stamp survives the restore-draft projection', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   // What buildAutosavePayload writes into the raw autosave entry.
   const rawPayload = { Recipes: [], AutosaveSavedAt: '2026-08-28T00:00:00.000Z', DivergedAt: diverged }
   // What the projection must carry forward (the value useAutosaveRestore forwards).
@@ -163,7 +167,7 @@ test('the divergence stamp survives the restore-draft projection', () => {
 // ramped from scratch instead of resuming. The recovery must stay ARMED until a rising
 // edge actually uses it. Mirrors the arming logic in useStalenessTracking.
 test('a recovery stays armed across the commit where dirty has not flipped yet', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   let prevDirty = false
   let pending = false
   let cur: number | null = null
@@ -204,7 +208,7 @@ test('a recovery stays armed across the commit where dirty has not flipped yet',
 // bumping the counter — which is what any future non-recovery load reaching that signal would
 // otherwise do.
 test('only a stamp-resuming provenance arms the adoption, not the bare counter', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   let prevDirty = false
   let armedSeq = 0
   let cur: number | null = null
@@ -397,7 +401,7 @@ test('a draft is anchored by the clean-at-write marker or by a preset origin', (
   assert.equal(restoreDraftIsAnchored({ PresetOrigin: 'lategame' }), true)
   assert.equal(restoreDraftIsAnchored({ Anchored: true, PresetOrigin: 'beginner' }), true)
   // A dirty-era entry (DivergedAt, no marker) and a pre-field entry both stay recovered.
-  assert.equal(restoreDraftIsAnchored({ DivergedAt: NOW_MS - 60_000 }), false)
+  assert.equal(restoreDraftIsAnchored({ DivergedAt: NOW_MS - MINUTE_MS }), false)
   assert.equal(restoreDraftIsAnchored({ Recipes: [] }), false)
   assert.equal(restoreDraftIsAnchored(null), false)
   assert.equal(restoreDraftIsAnchored(undefined), false)
@@ -412,9 +416,9 @@ test('a saved document restored whole is clean; restored partially it is not', (
   assert.equal(restoreProvenance(restoreDraftIsAnchored(savedDraft) && whole), 'anchored')
   assert.equal(restoreProvenance(restoreDraftIsAnchored(savedDraft) && partial), 'recovered')
   // And the never-saved session keeps its warning — plus its real age.
-  const unsavedDraft = { DivergedAt: NOW_MS - 95 * 60_000 }
+  const unsavedDraft = { DivergedAt: NOW_MS - UNSAVED_AGE_MS }
   assert.equal(restoreProvenance(restoreDraftIsAnchored(unsavedDraft) && whole), 'recovered')
-  assert.equal(readAutosaveDivergedAt(unsavedDraft, NOW_MS), NOW_MS - 95 * 60_000)
+  assert.equal(readAutosaveDivergedAt(unsavedDraft, NOW_MS), NOW_MS - UNSAVED_AGE_MS)
 })
 
 // ---------------------------------------------------------------------------
@@ -426,7 +430,7 @@ test('a saved document restored whole is clean; restored partially it is not', (
 // setup came back reading as a freshly opened file, so the Custom button's dirty dot
 // (the simple view's only unsaved warning) could never survive a reload.
 test('an entry written while dirty restores as a recovery that resumes its age', () => {
-  const diverged = NOW_MS - 95 * 60_000
+  const diverged = NOW_MS - UNSAVED_AGE_MS
   const load = loadProvenanceFromAutosave({ Recipes: [], DivergedAt: diverged }, NOW_MS)
   assert.equal(load.provenance, 'recovered')
   assert.equal(load.divergedAt, diverged)
@@ -474,8 +478,8 @@ const installMemoryStorage = () => {
 // saved.
 test('the custom snapshot round-trips text and unsaved stamp', () => {
   const store = installMemoryStorage()
-  setSimpleCustomSnapshot({ text: '{"Recipes":[]}', dirtySince: NOW_MS - 60_000 })
-  assert.deepEqual(getSimpleCustomSnapshot(), { text: '{"Recipes":[]}', dirtySince: NOW_MS - 60_000 })
+  setSimpleCustomSnapshot({ text: '{"Recipes":[]}', dirtySince: NOW_MS - MINUTE_MS })
+  assert.deepEqual(getSimpleCustomSnapshot(), { text: '{"Recipes":[]}', dirtySince: NOW_MS - MINUTE_MS })
   setSimpleCustomSnapshot({ text: '{"Recipes":[]}', dirtySince: null })
   assert.deepEqual(getSimpleCustomSnapshot(), { text: '{"Recipes":[]}', dirtySince: null })
   clearSimpleCustomSnapshot()

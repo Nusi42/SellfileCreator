@@ -36,6 +36,17 @@ export interface StalenessRampAnchors {
 }
 
 /**
+ * Does a dirty stamp describe a CLEAN document? The stamp is the moment the document went
+ * unsaved, and null while it is saved — this is the one definition of that reading, shared
+ * by the autosave payload writer (Anchored vs DivergedAt), the divergence snapshot, the
+ * express Custom snapshot's own stamp and the dots that render it. Writing `=== null`
+ * inline at each of those sites let them drift apart.
+ */
+export function dirtyStampIsClean(dirtySince: number | null | undefined): boolean {
+  return dirtySince == null
+}
+
+/**
  * Minutes elapsed since `dirtySince`, or null when nothing is pending. Negative
  * clock skew (a stamp from the future, e.g. after a system clock change) clamps
  * to 0 so a bad stamp reads as "just edited" rather than as instantly critical.

@@ -19,6 +19,7 @@ import { test, expect, type Page } from './fixtures'
 import { prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { settleWorkload } from './workload-indicator'
+import { ENDGAME_ANSWER_LABEL, expressOverrideRow } from './note-overrides-helpers'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -27,16 +28,8 @@ import { pathToFileURL } from 'node:url'
 // marker — the reload must survive on that marker alone).
 const APP_FILE_URL = `${pathToFileURL(path.resolve(process.cwd(), 'dist.app/index.html')).href}?simple=1`
 
-// Distinctive fragment of the lategame preset's Endgame account-mode answer.
-const ENDGAME_LABEL = 'I can finish all Hard game modes'
-
-// The Endgame answer row inside the express note dialog. The shared override helpers
-// are not reusable here: their retry path re-opens the dialog via the header toggle,
-// which express mode does not render.
-const endgameRow = (page: Page) => page.locator('[role="dialog"] input[type="checkbox"]')
-  .locator('xpath=ancestor::label')
-  .filter({ hasText: ENDGAME_LABEL })
-  .first()
+// The Endgame answer row inside the express note dialog.
+const endgameRow = (page: Page) => expressOverrideRow(page, ENDGAME_ANSWER_LABEL)
 
 test('an override change survives a file:// reload in simple mode', async ({ page }) => {
   // Two file:// boots of the 15MB single-file page + restore flows: the testHeavy

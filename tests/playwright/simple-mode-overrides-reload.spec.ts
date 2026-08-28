@@ -19,33 +19,16 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { warmupAppShell } from './app-warmup'
 import { dismissBlockingDialogs } from './dialog-helpers'
-import { settleWorkload } from './workload-indicator'
+import { readStoredAutosavePayload } from './autosave-storage'
+import {
+  ENDGAME_ANSWER_LABEL,
+  ENDGAME_PLUS_ANSWER_LABEL,
+  expressOverrideRow,
+  selectExpressOverride,
+} from './note-overrides-helpers'
 import {
   NOTE_RECIPE_OVERRIDES_ANSWERS_KEY,
 } from '../../src/lib/noteRecipeOverrides'
-
-// Tail of the account-scoped autosave key the app writes at runtime.
-const AUTOSAVE_KEY_SUFFIX = 'autosave.sfc.v1'
-
-// Distinctive fragments of the lategame preset's account-mode questions.
-const ENDGAME_LABEL = 'I can finish all Hard game modes'
-const ENDGAME_PLUS_LABEL = 'If you really want to get rid of more'
-
-/**
- * Click one override answer in the express note dialog and let the preview settle.
- *
- * The shared setNoteOverrideCheckbox helper cannot be reused: its retry path re-opens
- * the dialog via the header toggle, which express mode does not render at all.
- */
-const selectOverride = async (page: Page, labelFragment: string): Promise<void> => {
-  const row = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: labelFragment })
-    .first()
-  await expect(row).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await row.click()
-  await settleWorkload(page)
-}
 
 test.beforeAll(async ({ browser }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
@@ -58,24 +41,10 @@ test.beforeAll(async ({ browser }) => {
  * question is whether the answers were PERSISTED, which the UI cannot show.
  */
 const readStoredRecipeAnswers = async (page: Page): Promise<Record<string, unknown> | null> => {
-  return page.evaluate(([keySuffix, answersKey]) => {
-    // The autosave key is ACCOUNT-SCOPED at runtime (sellfileCreator.acc.<id>.…), so the
-    // exported constant does not name the key the page actually writes. Find it live.
-    const key = Object.keys(window.localStorage).find((k) => k.endsWith(keySuffix))
-    if (!key) return null
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return null
-    try {
-      // saveAutosave stores a [crc, payload] TUPLE, not an object with a payload field.
-      const entry = JSON.parse(raw) as [unknown, Record<string, unknown>]
-      const payload = Array.isArray(entry) ? entry[1] : null
-      if (!payload || typeof payload !== 'object') return null
-      const answers = payload[answersKey]
-      return (answers && typeof answers === 'object' ? answers : {}) as Record<string, unknown>
-    } catch {
-      return null
-    }
-  }, [AUTOSAVE_KEY_SUFFIX, NOTE_RECIPE_OVERRIDES_ANSWERS_KEY] as const)
+  const payload = await readStoredAutosavePayload(page)
+  if (!payload) return null
+  const answers = payload[NOTE_RECIPE_OVERRIDES_ANSWERS_KEY]
+  return (answers && typeof answers === 'object' ? answers : {}) as Record<string, unknown>
 }
 
 /**
@@ -107,7 +76,7 @@ test('an override changed in simple mode survives a reload', async ({ page }) =>
   // dialog via the header toggle, which express mode does not render at all.
   //
   // The preset ships with Lategame selected, so switching to Endgame is a real change.
-  await selectOverride(page, ENDGAME_LABEL)
+  await selectExpressOverride(page, ENDGAME_ANSWER_LABEL)
 
   // The change must reach the stored autosave entry — this is the write half.
   const stored = await waitForStoredAnswers(page)
@@ -121,10 +90,7 @@ test('an override changed in simple mode survives a reload', async ({ page }) =>
   // the restored UI (not just storage) is the point — a boot that reads the answers and
   // then lets the preset load overwrite them would still leave storage looking correct
   // at this instant, and only lose them on the write after the next edit.
-  const endgameAfter = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: 'I can finish all Hard game modes' })
-    .first()
+  const endgameAfter = expressOverrideRow(page, ENDGAME_ANSWER_LABEL)
   await expect(endgameAfter).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(
     endgameAfter.locator('input[type="checkbox"]'),
@@ -156,13 +122,13 @@ test('an override changed after a reload is saved too', async ({ page }) => {
   await dismissBlockingDialogs(page)
 
   // First session: pick Endgame and let it persist.
-  await selectOverride(page, ENDGAME_LABEL)
+  await selectExpressOverride(page, ENDGAME_ANSWER_LABEL)
   await waitForStoredAnswers(page)
 
   // Reload into the express boot path, then make a SECOND change.
   await page.reload(APP_GOTO_OPTIONS)
   await dismissBlockingDialogs(page)
-  await selectOverride(page, ENDGAME_PLUS_LABEL)
+  await selectExpressOverride(page, ENDGAME_PLUS_ANSWER_LABEL)
 
   // That change must reach storage — this is what an unarmed session would drop.
   await expect(async () => {
@@ -190,10 +156,7 @@ test('an override changed immediately before a reload is not lost', async ({ pag
 
   // Switch the account mode and reload with NO settling wait — the click's state
   // commit is confirmed by the checkbox flipping, nothing more.
-  const endgame = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: ENDGAME_LABEL })
-    .first()
+  const endgame = expressOverrideRow(page, ENDGAME_ANSWER_LABEL)
   await expect(endgame).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await endgame.click()
   await expect(endgame.locator('input[type="checkbox"]')).toBeChecked({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
@@ -201,10 +164,7 @@ test('an override changed immediately before a reload is not lost', async ({ pag
   await dismissBlockingDialogs(page)
 
   // The reloaded session must come back on Endgame, not the preset's Lategame default.
-  const endgameAfter = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: ENDGAME_LABEL })
-    .first()
+  const endgameAfter = expressOverrideRow(page, ENDGAME_ANSWER_LABEL)
   await expect(endgameAfter).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await expect(
     endgameAfter.locator('input[type="checkbox"]'),

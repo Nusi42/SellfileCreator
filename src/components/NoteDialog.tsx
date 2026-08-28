@@ -143,6 +143,9 @@ import { buildDirtyTooltip } from '../lib/dateDisplay'
 import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import type { SimpleVariant } from '../lib/externalWsProtocol'
+import { dirtyStampIsClean } from '../lib/stalenessRamp'
+import UniformChoiceDialog from './dialogs/UniformChoiceDialog'
 import { GoldCornerOrnaments } from './GoldCornerOrnament'
 import {
   NOTE_COLOR_HEX,
@@ -4331,9 +4334,10 @@ export default function NoteDialog({
   expertMode?: boolean
   onGoExpert?: () => void
   onGoSimple?: () => void
-  // Called when the user CONFIRMS Go Expert while a preset is selected over their custom
-  // setup — the one sanctioned point where the custom snapshot (in-session and durable)
-  // is forgotten. Leaving the simple view any other way keeps it.
+  // Called when the user DECIDES to forget their custom setup: confirming Go Expert while a
+  // preset is selected over it, or the Custom button's right-click Discard. Those are the
+  // only ways the custom snapshot (in-session and durable) is forgotten; leaving the simple
+  // view any other way keeps it.
   onDiscardSimpleCustom?: () => void
   // Saves the custom setup to a file from the Custom button's right-click menu.
   onSaveSimpleCustom?: () => void
@@ -4369,7 +4373,7 @@ export default function NoteDialog({
   // from autosave before the (async) SFC load commits a live preset match. Seeds the
   // toggle's held value so it shows the eventual selection (e.g. 'custom') from the
   // first paint instead of flashing the empty-SFC 'lategame' fallback while loading.
-  simpleStartupSelection?: 'beginner' | 'lategame' | 'custom' | null
+  simpleStartupSelection?: SimpleVariant | null
   // When the snapshotted custom SFC went unsaved (epoch ms), or null while it is saved.
   // Drives the dirty dot on the Old/Custom button — the express view hides the header's
   // Save dot, so this is its only warning that switching to a preset, going expert or
@@ -4469,8 +4473,6 @@ export default function NoteDialog({
   const noteSummaryInFlight = summaryProgressRatio > 0
   // Only render the summary chip when at least one Gear Inspector row exists.
   const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
-  // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
-  const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
 
   // Going expert discards the custom SFC only when a preset is currently selected
   // while a custom SFC exists to abandon — confirm in that case, go straight through
@@ -4478,6 +4480,7 @@ export default function NoteDialog({
   const goExpertNeedsConfirm = Boolean(simpleCustomAvailable && simplePresetMatch != null)
   // Controls the "Switch to Expert mode?" confirmation dialog.
   const [goExpertConfirmOpen, setGoExpertConfirmOpen] = useState(false)
+  const closeGoExpertConfirm = useCallback(() => { setGoExpertConfirmOpen(false) }, [])
   // Arm the one-time go-expert demo slide (see lib/goExpertDemo.ts). Set the moment the user commits
   // to going expert, so the freshly-mounted floating panel knows to play the teaching gesture and to
   // open at default width. The module-level played flag prevents re-arming after it has played once.
@@ -4507,20 +4510,22 @@ export default function NoteDialog({
     enabled: Boolean(simpleCustomAvailable) && !customMenuAnchor,
     text: t('contextMenuHint'),
   })
+  // Whether the custom setup reads unsaved — the same stamp reading the header's dot uses.
+  const simpleCustomDirty = !dirtyStampIsClean(simpleCustomDirtySince)
   // Discarding UNSAVED custom rules asks first; saved ones can be reloaded from the file.
   const [customDiscardConfirmOpen, setCustomDiscardConfirmOpen] = useState(false)
+  const closeCustomDiscardConfirm = useCallback(() => { setCustomDiscardConfirmOpen(false) }, [])
   const requestDiscardSimpleCustom = useCallback(() => {
     closeCustomMenu()
-    if (simpleCustomDirtySince != null) setCustomDiscardConfirmOpen(true)
+    if (simpleCustomDirty) setCustomDiscardConfirmOpen(true)
     else onDiscardSimpleCustom?.()
-  }, [closeCustomMenu, simpleCustomDirtySince, onDiscardSimpleCustom])
+  }, [closeCustomMenu, simpleCustomDirty, onDiscardSimpleCustom])
 
-  // Express mode toggle value type: the two presets plus the restorable custom SFC.
-  type SimpleToggleValue = 'beginner' | 'lategame' | 'custom'
-  // The selected toggle button is derived from the live preset match (App owns it):
-  // a matching preset selects itself; no match + a custom SFC selects Old/Custom;
-  // otherwise we fall back to lategame (Midgame+), the default for an empty SFC.
-  const derivedSimpleValue: SimpleToggleValue =
+  // The selected toggle button (a SimpleVariant: the two presets plus the restorable custom
+  // SFC) is derived from the live preset match (App owns it): a matching preset selects
+  // itself; no match + a custom SFC selects Old/Custom; otherwise we fall back to lategame
+  // (Midgame+), the default for an empty SFC.
+  const derivedSimpleValue: SimpleVariant =
     simpleCustomAvailable && simplePresetMatch == null ? 'custom' : (simplePresetMatch ?? 'lategame')
   // Loading an SFC is async, so the derived value lags a frame behind a click and
   // the just-pressed button would visibly snap back. This transient override holds
@@ -4528,7 +4533,7 @@ export default function NoteDialog({
   // startup restore's resolved selection so a custom restore shows 'custom' from the
   // first paint rather than the empty-SFC 'lategame' fallback while the load settles;
   // the self-healing effect below clears it once the live match reaches it.
-  const [pendingSimpleSelection, setPendingSimpleSelection] = useState<SimpleToggleValue | null>(
+  const [pendingSimpleSelection, setPendingSimpleSelection] = useState<SimpleVariant | null>(
     () => simpleStartupSelection ?? null,
   )
   const simpleToggleValue = pendingSimpleSelection ?? derivedSimpleValue
@@ -4541,7 +4546,7 @@ export default function NoteDialog({
   /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-derived-state, react-you-might-not-need-an-effect/no-chain-state-updates, react-you-might-not-need-an-effect/no-event-handler */
   // Load the chosen preset (or restore the custom SFC) when the express toggle changes.
   const handleSimpleVariantChange = useCallback(
-    (_: React.MouseEvent, value: SimpleToggleValue | null) => {
+    (_: React.MouseEvent, value: SimpleVariant | null) => {
       if (!value) return
       // Hold the pressed value visually until the async load commits a fresh match.
       setPendingSimpleSelection(value)
@@ -5622,7 +5627,7 @@ export default function NoteDialog({
                   }}
                 >
                   <DirtyBadge
-                    active={simpleCustomDirtySince != null}
+                    active={simpleCustomDirty}
                     dirtySince={simpleCustomDirtySince}
                     now={stalenessNow}
                     tooltip={buildDirtyTooltip(simpleCustomDirtySince, t, stalenessNow)}
@@ -5651,19 +5656,16 @@ export default function NoteDialog({
             )}
           </Menu>
           {/* Confirm before discarding custom rules that were never saved to a file. */}
-          <Dialog open={customDiscardConfirmOpen} onClose={() => setCustomDiscardConfirmOpen(false)}>
-            <DialogTitle>{t('simpleModeCustomDiscardConfirmTitle')}</DialogTitle>
-            <DialogContent>
-              <Typography variant="body2">{t('simpleModeCustomDiscardConfirmBody')}</Typography>
-            </DialogContent>
-            <DialogActions>
-              {/* Uniform styling so color does not imply a preferred choice. */}
-              <Button {...disableConfirmButtonProps} onClick={() => setCustomDiscardConfirmOpen(false)}>{t('cancel')}</Button>
-              <Button {...disableConfirmButtonProps} onClick={() => { setCustomDiscardConfirmOpen(false); onDiscardSimpleCustom?.() }}>
-                {t('simpleModeCustomDiscardConfirmProceed')}
-              </Button>
-            </DialogActions>
-          </Dialog>
+          <UniformChoiceDialog
+            open={customDiscardConfirmOpen}
+            onClose={closeCustomDiscardConfirm}
+            title={t('simpleModeCustomDiscardConfirmTitle')}
+            body={t('simpleModeCustomDiscardConfirmBody')}
+            choices={[
+              { label: t('cancel'), onClick: closeCustomDiscardConfirm },
+              { label: t('simpleModeCustomDiscardConfirmProceed'), onClick: () => { closeCustomDiscardConfirm(); onDiscardSimpleCustom?.() } },
+            ]}
+          />
           <Box sx={{ flex: 1 }} />
           {showNoteSummaryChip && (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
@@ -5936,37 +5938,30 @@ export default function NoteDialog({
           {panelBody}
         </Dialog>
       )}
-      <Dialog open={Boolean(disableRecipeOverridesContext)} onClose={closeDisableRecipeOverridesDialog}>
-        <DialogTitle>{t('noteDynamicOverridesDisableConfirmTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">{t('noteDynamicOverridesDisableConfirmBody')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          {/* Use uniform styling so color does not imply priority. */}
-          <Button {...disableConfirmButtonProps} onClick={closeDisableRecipeOverridesDialog}>{t('cancel')}</Button>
-          <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(false)}>
-            {t('noteDynamicOverridesDisableConfirmDisable')}
-          </Button>
-          <Button {...disableConfirmButtonProps} onClick={() => handleDisableRecipeOverridesConfirm(true)}>
-            {t('noteDynamicOverridesDisableConfirmApply')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Confirm before going expert when it would discard the user's custom SFC. */}
-      <Dialog open={goExpertConfirmOpen} onClose={() => setGoExpertConfirmOpen(false)}>
-        <DialogTitle>{t('simpleModeGoExpertConfirmTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">{t('simpleModeGoExpertConfirmBody')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          {/* Uniform styling so color does not imply a preferred choice. */}
-          <Button {...disableConfirmButtonProps} onClick={() => setGoExpertConfirmOpen(false)}>{t('cancel')}</Button>
-          {/* Proceeding IS the discard: forget the custom snapshot before leaving. */}
-          <Button {...disableConfirmButtonProps} onClick={() => { setGoExpertConfirmOpen(false); onDiscardSimpleCustom?.(); armGoExpertDemo() }}>
-            {t('simpleModeGoExpertConfirmProceed')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Disabling dynamic overrides: keep or apply the current answers, or back out. */}
+      <UniformChoiceDialog
+        open={Boolean(disableRecipeOverridesContext)}
+        onClose={closeDisableRecipeOverridesDialog}
+        title={t('noteDynamicOverridesDisableConfirmTitle')}
+        body={t('noteDynamicOverridesDisableConfirmBody')}
+        choices={[
+          { label: t('cancel'), onClick: closeDisableRecipeOverridesDialog },
+          { label: t('noteDynamicOverridesDisableConfirmDisable'), onClick: () => handleDisableRecipeOverridesConfirm(false) },
+          { label: t('noteDynamicOverridesDisableConfirmApply'), onClick: () => handleDisableRecipeOverridesConfirm(true) },
+        ]}
+      />
+      {/* Confirm before going expert when it would discard the user's custom SFC.
+          Proceeding IS the discard: forget the custom snapshot before leaving. */}
+      <UniformChoiceDialog
+        open={goExpertConfirmOpen}
+        onClose={closeGoExpertConfirm}
+        title={t('simpleModeGoExpertConfirmTitle')}
+        body={t('simpleModeGoExpertConfirmBody')}
+        choices={[
+          { label: t('cancel'), onClick: closeGoExpertConfirm },
+          { label: t('simpleModeGoExpertConfirmProceed'), onClick: () => { closeGoExpertConfirm(); onDiscardSimpleCustom?.(); armGoExpertDemo() } },
+        ]}
+      />
     </NoteRenderContext>
   )
 }

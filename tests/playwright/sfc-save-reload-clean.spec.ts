@@ -21,34 +21,21 @@ import {
   RESTORE_DIALOG_TITLE,
 } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
+import { SFC_DIRTY_DOT_SELECTOR } from './ui-selectors'
+import { readStoredAutosavePayload } from './autosave-storage'
+import { readAutosaveAnchored } from '../../src/lib/sfcProvenance'
 
 test.beforeAll(async ({ browser }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
   await warmupAppShell(browser)
 })
 
-// Tail of the account-scoped autosave key the app writes at runtime.
-const AUTOSAVE_KEY_SUFFIX = 'autosave.sfc.v1'
-
 /** The SFC dirty dot on the Save button — present iff the document reads dirty. */
-const sfcDirtyDot = (page: Page) => page.getByTestId('sfc-dirty-badge').getByTestId('dirty-dot')
+const sfcDirtyDot = (page: Page) => page.locator(SFC_DIRTY_DOT_SELECTOR)
 
-/** Whether the stored autosave entry carries the clean-at-write marker. */
-const storedEntryIsAnchored = async (page: Page): Promise<boolean> => {
-  return page.evaluate((suffix) => {
-    try {
-      const key = Object.keys(window.localStorage).find((k) => k.endsWith(suffix))
-      if (!key) return false
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return false
-      // saveAutosave stores a [crc, payload] tuple.
-      const entry = JSON.parse(raw) as [unknown, Record<string, unknown>]
-      return Array.isArray(entry) && entry[1]?.['Anchored'] === true
-    } catch {
-      return false
-    }
-  }, AUTOSAVE_KEY_SUFFIX)
-}
+/** Whether the stored autosave entry carries the clean-at-write marker (the app's own reader). */
+const storedEntryIsAnchored = async (page: Page): Promise<boolean> =>
+  readAutosaveAnchored(await readStoredAutosavePayload(page))
 
 /** The first recipe's chip — proof that the document holds the added recipe. */
 const firstRecipeChip = (page: Page) => page.getByText(/^1\.\s*Keep/).first()

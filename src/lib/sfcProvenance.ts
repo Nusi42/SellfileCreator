@@ -21,7 +21,7 @@
  * question, and each load site already knows its own answer.
  */
 
-import { AUTOSAVE_ANCHORED_KEY, AUTOSAVE_DIVERGED_AT_KEY } from './externalWsProtocol'
+import { AUTOSAVE_ANCHORED_KEY, AUTOSAVE_DIVERGED_AT_KEY, isRecord } from './externalWsProtocol'
 
 /**
  * Where a freshly-loaded document's content came from, in terms of what the user
@@ -75,6 +75,13 @@ export function provenanceKeepsStalenessStamp(provenance: SfcProvenance): boolea
 export type SfcLoadProvenance = { provenance: SfcProvenance; divergedAt: number | null }
 
 /**
+ * The load provenance of a user picking a file: anchored, with no age to resume. The one
+ * default every file-load site falls back to when no programmatic provenance is threaded
+ * through, so the two halves of the pair are never defaulted separately.
+ */
+export const ANCHORED_LOAD_PROVENANCE: SfcLoadProvenance = { provenance: 'anchored', divergedAt: null }
+
+/**
  * The load provenance for restoring an autosave body WHOLE outside the restore dialog
  * (the express boot's custom-setup restore). Same rule the dialog applies: an entry
  * written while clean is anchored; anything else is a recovery that resumes the age the
@@ -100,8 +107,8 @@ export function loadProvenanceFromAutosave(payload: unknown, now: number = Date.
  * rather than to a wrong, alarming age.
  */
 export function readAutosaveDivergedAt(payload: unknown, now: number = Date.now()): number | null {
-  if (typeof payload !== 'object' || payload === null) return null
-  const raw = (payload as Record<string, unknown>)[AUTOSAVE_DIVERGED_AT_KEY]
+  if (!isRecord(payload)) return null
+  const raw = payload[AUTOSAVE_DIVERGED_AT_KEY]
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
   // A future stamp cannot describe an elapsed age; treat it as unknown.
   return raw <= now ? raw : null
@@ -115,8 +122,7 @@ export function readAutosaveDivergedAt(payload: unknown, now: number = Date.now(
  * false "saved".
  */
 export function readAutosaveAnchored(payload: unknown): boolean {
-  if (typeof payload !== 'object' || payload === null) return false
-  return (payload as Record<string, unknown>)[AUTOSAVE_ANCHORED_KEY] === true
+  return isRecord(payload) && payload[AUTOSAVE_ANCHORED_KEY] === true
 }
 
 /**

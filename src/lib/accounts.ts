@@ -88,6 +88,13 @@ export const ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR = 'sellfileCreator.restoreCust
 // in-memory stamps alone reset on reload, which is exactly how a user lost track of an
 // hour of unsaved edits. See lib/stalenessRamp.ts.
 export const ACCOUNT_BASE_KEY_STALENESS_SINCE = 'sellfileCreator.stalenessSince.v1'
+// The simple-mode toggle selection (beginner/lategame/custom) and the account's own
+// (non-preset) simple-mode document kept while a preset is tried. Per account because both
+// describe that account's progression/document. Exported so lib/externalWsProtocol.ts builds
+// its scoped keys from these instead of restating the literals — a restated literal that
+// drifts silently un-scopes the key (see resolveAccountScopedKey: set membership decides).
+export const ACCOUNT_BASE_KEY_SIMPLE_VARIANT = 'sellfileCreator.simple.variant.v1'
+export const ACCOUNT_BASE_KEY_SIMPLE_CUSTOM_SNAPSHOT = 'sellfileCreator.simple.customSnapshot.v1'
 
 export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_AUTOSAVE_SFC,
@@ -96,8 +103,8 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   'sellfileCreator.autosave.restoreSelection.v1',
   'sellfileCreator.builder.userDefaults.v1',
   'sellfileCreator.safeguardBuilder.userDefaults.v1',
-  'sellfileCreator.simple.variant.v1',
-  'sellfileCreator.simple.customSnapshot.v1',
+  ACCOUNT_BASE_KEY_SIMPLE_VARIANT,
+  ACCOUNT_BASE_KEY_SIMPLE_CUSTOM_SNAPSHOT,
   ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_DEDUP_DEFAULT,
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
@@ -316,9 +323,14 @@ const generateAccountId = (existing: readonly SfcAccount[]): string => {
 // Key scoping
 // ---------------------------------------------------------------------------
 
+// The part of a base key that survives namespacing — what every account-scoped key ENDS
+// with. Exported so a test can find the live scoped key by suffix without restating the
+// namespace formula, which lives only in namespacedKey below.
+export const accountScopedKeySuffix = (baseKey: string): string => baseKey.slice(APP_KEY_PREFIX.length)
+
 // Rewrite a scoped base key under the given account's namespace; global keys pass through.
 const namespacedKey = (baseKey: string, accountId: string): string =>
-  `${ACCOUNT_KEY_PREFIX}${accountId}.${baseKey.slice(APP_KEY_PREFIX.length)}`
+  `${ACCOUNT_KEY_PREFIX}${accountId}.${accountScopedKeySuffix(baseKey)}`
 
 /**
  * Resolve a storage key for THIS TAB's active account. Scoped base keys (see

@@ -19,12 +19,14 @@
  * round trip costs two attention pulses and a demo slide, all real UI waits.
  */
 import { test, expect, type Page } from './fixtures'
+import type { Locator } from '@playwright/test'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { warmupAppShell } from './app-warmup'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
-import { NOTE_TOGGLE_SELECTOR } from './ui-selectors'
+import { NOTE_TOGGLE_SELECTOR, SFC_DIRTY_DOT_SELECTOR, SIMPLE_CUSTOM_DIRTY_DOT_SELECTOR } from './ui-selectors'
+import { ENDGAME_ANSWER_LABEL, expressOverrideRow, selectExpressOverride } from './note-overrides-helpers'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
 import { AUTOSAVE_KEY } from '../../src/lib/constants'
 import { computeCrc32 } from '../../src/lib/autosave'
@@ -35,10 +37,12 @@ test.beforeAll(async ({ browser }) => {
   await warmupAppShell(browser)
 })
 
-// Distinctive fragment of the lategame preset's Endgame account-mode answer.
-const ENDGAME_LABEL = 'I can finish all Hard game modes'
 // A plain first note line that makes the seeded document custom AND visible in the dialog.
 const CUSTOM_MARK = 'CUSTOM MARK for the custom-tab spec'
+// How long ago the seeded custom setup went unsaved — any positive age restores as dirty.
+const SEED_UNSAVED_AGE_MS = 60_000
+// sessionStorage marker that keeps the seed to one planting per tab (see seedUnsavedCustomSetup).
+const SEED_MARKER = 'custom-tab-spec.seeded'
 
 /** The express toggle group and its three possible buttons. */
 const sellRulesGroup = (page: Page) => page.getByRole('group', { name: 'Gear Sell Rules' })
@@ -46,33 +50,39 @@ const customButton = (page: Page) => sellRulesGroup(page).getByRole('button', { 
 const midgameButton = (page: Page) => sellRulesGroup(page).getByRole('button', { name: 'Midgame / Lategame / Endgame' })
 
 /** The dirty dot on the Custom button — present iff the custom setup reads unsaved. */
-const customDirtyDot = (page: Page) => page.getByTestId('simple-custom-dirty-badge').getByTestId('dirty-dot')
+const customDirtyDot = (page: Page) => page.locator(SIMPLE_CUSTOM_DIRTY_DOT_SELECTOR)
 
 /** The header's own dirty dot (expert mode) — the ground truth the Custom dot mirrors. */
-const headerDirtyDot = (page: Page) => page.getByTestId('sfc-dirty-badge').getByTestId('dirty-dot')
+const headerDirtyDot = (page: Page) => page.locator(SFC_DIRTY_DOT_SELECTOR)
 
 /**
- * Seed an UNSAVED custom autosave entry before boot: the lategame preset with a plain
+ * The seeded custom body, built once for the whole spec: the lategame preset with a plain
  * marker line prepended to its note (so it matches no bundled preset and the marker is
- * visible in the dialog) and a divergence stamp (so it restores unsaved). Written the way
- * the app writes autosave — a [crc, payload] tuple — so the loader accepts it. Must run
- * after prepareApp (whose init script clears the key) and before the first navigation.
+ * visible in the dialog). A LIGHT body: the note (its override questions are what the
+ * flows exercise) over a handful of recipes and no safeguards. The full preset's rule
+ * pipeline costs seconds per load, and these flows load two or three times — that, not
+ * the behaviour under test, was what pushed them past their budget under parallel workers.
  */
-const seedUnsavedCustomSetup = async (page: Page, divergedAgoMs: number): Promise<void> => {
+const SEEDED_CUSTOM_BODY = (() => {
   const preset = JSON.parse(readFileSync(PRESET_LATEGAME_SFC_PATH, 'utf-8')) as { Note?: string[]; Recipes?: unknown[] } & Record<string, unknown>
-  // A LIGHT body: the note (its override questions are what the flows exercise) over a
-  // handful of recipes and no safeguards. The full preset's rule pipeline costs seconds per
-  // load, and these flows load two or three times — that, not the behaviour under test,
-  // was what pushed them past their budget under parallel workers.
-  const payload = {
+  return {
     ...preset,
     Recipes: (preset.Recipes ?? []).slice(0, 6),
     Safeguards: [],
     SafeguardsEnabled: false,
     // Its own paragraph: markdown would otherwise fold it into the note's first line.
     Note: [CUSTOM_MARK, '', ...(preset.Note ?? [])],
-    DivergedAt: Date.now() - divergedAgoMs,
   }
+})()
+
+/**
+ * Seed an UNSAVED custom autosave entry before boot: the seeded body plus a divergence
+ * stamp (so it restores unsaved). Written the way the app writes autosave — a
+ * [crc, payload] tuple — so the loader accepts it. Must run after prepareApp (whose init
+ * script clears the key) and before the first navigation.
+ */
+const seedUnsavedCustomSetup = async (page: Page, divergedAgoMs: number): Promise<void> => {
+  const payload = { ...SEEDED_CUSTOM_BODY, DivergedAt: Date.now() - divergedAgoMs }
   const entry = JSON.stringify([computeCrc32(JSON.stringify(payload)), payload])
   // Init scripts run on EVERY navigation, reloads included. Seed once per tab (a
   // sessionStorage marker survives reloads), or a reload would plant the seed over
@@ -83,13 +93,13 @@ const seedUnsavedCustomSetup = async (page: Page, divergedAgoMs: number): Promis
       window.sessionStorage.setItem(marker, '1')
       window.localStorage.setItem(key, value)
     } catch { /* storage unavailable */ }
-  }, [AUTOSAVE_KEY, entry, 'custom-tab-spec.seeded'] as const)
+  }, [AUTOSAVE_KEY, entry, SEED_MARKER] as const)
 }
 
 /** Boot the simple view on the seeded custom setup and wait for Custom to be selected. */
 const bootOnSeededCustom = async (page: Page): Promise<void> => {
   await prepareApp(page)
-  await seedUnsavedCustomSetup(page, 60_000)
+  await seedUnsavedCustomSetup(page, SEED_UNSAVED_AGE_MS)
   await page.goto('/?simple', APP_GOTO_OPTIONS)
   await dismissBlockingDialogs(page)
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
@@ -109,6 +119,25 @@ const switchToMidgame = async (page: Page): Promise<void> => {
   await midgameButton(page).click()
   await expect(midgameButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
+}
+
+/**
+ * Click through the DOM instead of Playwright's pointer action. Going expert (or back to
+ * the express view) mounts the whole builder over the live document — over the full preset
+ * that blocks the main thread for seconds — and Playwright's click follows its pointer
+ * events with a "scheduled navigations" barrier that needs that thread: under parallel
+ * workers the barrier overran the action budget with the click long delivered, failing a
+ * step the app had completed. Same reason closeNoteDialog dispatches through the DOM. The
+ * target is asserted visible first; callers assert the postcondition they actually need.
+ */
+const dispatchClick = async (target: Locator): Promise<void> => {
+  await expect(target).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await target.evaluate((el: HTMLElement) => el.click())
+}
+
+/** Press the express dialog's Go Expert button (opens the confirm, or mounts the expert UI). */
+const goExpert = async (page: Page): Promise<void> => {
+  await dispatchClick(page.getByRole('button', { name: 'Go Expert', exact: true }))
 }
 
 /**
@@ -134,12 +163,10 @@ const returnToSimple = async (page: Page): Promise<void> => {
   // its animations to finish — a real condition, not a guessed delay.
   await toggle.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
   await toggle.click()
-  // The Simple Mode toggle pulses the same way when it newly becomes visible: wait that
-  // out too, or the click burns its whole budget retrying against an unstable element.
-  const goSimple = page.locator('[data-attention-id="note.goSimple"]')
-  await expect(goSimple).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  await goSimple.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
-  await goSimple.click()
+  // The Simple Mode toggle pulses when it newly becomes visible (a beat after the dialog's
+  // fade-in, so waiting for "current" animations raced it), and switching back mounts the
+  // express view: dispatch through the DOM, which neither the pulse nor the mount can time out.
+  await dispatchClick(page.locator('[data-attention-id="note.goSimple"]'))
 }
 
 /**
@@ -150,7 +177,7 @@ const returnToSimple = async (page: Page): Promise<void> => {
  * UNSAVED.
  */
 const makeDocumentCustom = async (page: Page): Promise<void> => {
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await goExpert(page)
   await closeNotePanel(page)
   await page.getByRole('button', { name: 'Not counted by safeguards', exact: true }).first().click()
   const applyRecipe = page.getByRole('button', { name: /Apply as Recipe/ }).first()
@@ -162,22 +189,12 @@ const makeDocumentCustom = async (page: Page): Promise<void> => {
 
 /** Confirm the Go Expert discard dialog (Custom exists, a preset is selected). */
 const confirmGoExpertDiscard = async (page: Page): Promise<void> => {
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await goExpert(page)
   const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
   await expect(confirm).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-  await confirm.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  // Proceeding discards AND mounts the expert UI in one handler — the heaviest click here.
+  await dispatchClick(confirm.getByRole('button', { name: 'Go Expert', exact: true }))
   await expect(confirm).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-}
-
-/** Click one override answer in the express note dialog and let the preview settle. */
-const selectOverride = async (page: Page, labelFragment: string): Promise<void> => {
-  const row = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: labelFragment })
-    .first()
-  await expect(row).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await row.click()
-  await settleWorkload(page)
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +216,7 @@ test('a preset with override answers stays a preset across a reload', async ({ p
   await bootOnPreset(page)
 
   // Override answers are tuning on top of the preset, not a custom document.
-  await selectOverride(page, ENDGAME_LABEL)
+  await selectExpressOverride(page, ENDGAME_ANSWER_LABEL)
   await expect(customButton(page)).toHaveCount(0)
 
   // The reported flow: reload. The boot must resolve the entry as the preset it is and
@@ -240,7 +257,7 @@ test('Go Expert warns when a preset is selected over an existing custom setup', 
   // discard — so it must ask first. (The pressed state is a visual hold; the confirmation
   // reads the COMMITTED preset match, hence the settle.)
   await switchToMidgame(page)
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await goExpert(page)
   const confirm = page.getByRole('dialog', { name: 'Switch to Expert mode?' })
   await expect(confirm, 'no warning before discarding the custom setup').toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -276,7 +293,7 @@ test('re-selecting Custom lands unsaved in expert mode', async ({ page }) => {
   await customButton(page).click()
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   await settleWorkload(page)
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await goExpert(page)
   await closeNotePanel(page)
   await expect(headerDirtyDot(page), 'the Custom re-load laundered the unsaved state').toHaveCount(1, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
@@ -288,7 +305,7 @@ test('saving the custom setup in expert mode clears the dot on Custom', async ({
 
   // Save it in expert mode, and the dot is gone — in the header now, and on Custom back
   // in the simple view.
-  await page.getByRole('button', { name: 'Go Expert', exact: true }).click()
+  await goExpert(page)
   await closeNotePanel(page)
   const download = page.waitForEvent('download')
   await page.locator('[data-tour-id="sfc.save"]').click()
@@ -296,7 +313,8 @@ test('saving the custom setup in expert mode clears the dot on Custom', async ({
   await expect(headerDirtyDot(page), 'the save did not clean the document').toHaveCount(0)
   await returnToSimple(page)
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
-  await expect(customDirtyDot(page), 'the dot stayed on after the save').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  // The button above already landed; the dot is plain UI state, so the default budget applies.
+  await expect(customDirtyDot(page), 'the dot stayed on after the save').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 })
 
 // ---------------------------------------------------------------------------
@@ -366,7 +384,7 @@ test('override answers survive switching to a preset and back to Custom', async 
   await bootOnSeededCustom(page)
 
   // Tune an answer on the custom setup, then switch to a preset and back.
-  await selectOverride(page, ENDGAME_LABEL)
+  await selectExpressOverride(page, ENDGAME_ANSWER_LABEL)
   await switchToMidgame(page)
   await customButton(page).click()
   await expect(customButton(page)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
@@ -375,10 +393,7 @@ test('override answers survive switching to a preset and back to Custom', async 
   // The custom setup must come back WITH its answers. It used to come back without them:
   // the preset load cleared the answers one commit before it replaced the content, and the
   // latch snapshotted the custom body in that answer-less state.
-  const endgame = page.locator('[role="dialog"] input[type="checkbox"]')
-    .locator('xpath=ancestor::label')
-    .filter({ hasText: ENDGAME_LABEL })
-    .first()
+  const endgame = expressOverrideRow(page, ENDGAME_ANSWER_LABEL)
   await expect(endgame.locator('input[type="checkbox"]'), 'the override answers were lost on the way back to Custom')
     .toBeChecked({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
@@ -393,7 +408,8 @@ test('the Custom menu saves the custom rules to a file and clears the dot', asyn
   const download = page.waitForEvent('download')
   await page.getByRole('menuitem', { name: 'Save custom SFC file…' }).click()
   await download
-  await expect(customDirtyDot(page), 'the save did not clear the dot').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  // A synchronous click handler clears the stamp — plain UI state, default budget.
+  await expect(customDirtyDot(page), 'the save did not clear the dot').toHaveCount(0, { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
   // Still saved after a reload.
   await page.reload(APP_GOTO_OPTIONS)

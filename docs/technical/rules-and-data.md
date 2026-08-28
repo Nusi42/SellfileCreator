@@ -130,7 +130,7 @@ always check for the `error` key before reading `rules` or `improvementChances`.
 
 ### IO Helpers (SFC)
 - Parse text/file: `parseSfcText`, `readSfcFile`.
-- Build & write: `buildReadableRecipe`, `substatTargetsToReadable`, `buildSfcPayload`, `sfcToBlob`.
+- Build & write: `buildReadableRecipe`, `substatTargetsToReadable`, `buildSfcPayload`, `sfcToText` (the ONE serialization of an emitted document), `sfcTextToBlob` / `sfcToBlob` (download), `sfcTextToFile` + `CUSTOM_SFC_FILENAME` (wrapping text for the regular file-load path — bundled presets, the express Custom snapshot, the boot restore).
 - Object parsing: `parseSfcObject` normalizes a pre-parsed SFC payload (readable schema). Autosave stores the same SFC payload with a CRC and restores via this parser.
 - SFC parsing focuses on the readable schema; it applies the compatibility helpers noted above while HSF handles numeric legacy formats.
 - Legacy recipe-bundle support (`.hsfc` extension, legacy keys, and legacy note markers) remains centralized in `src/lib/sfcIO.ts`.
