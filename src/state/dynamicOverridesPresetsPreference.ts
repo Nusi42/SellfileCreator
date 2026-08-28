@@ -136,3 +136,11 @@ const presetsStore = createLocalStorageStore<DynamicOverridesPreset[]>({
 export const useDynamicOverridesPresetsPreference = createLocalStorageStateHook(presetsStore)
 
 export const getDynamicOverridesPresetsSnapshot = (): readonly DynamicOverridesPreset[] => presetsStore.getSnapshot()
+
+/**
+ * Replace the saved sets without subscribing to them. For callers that only ever
+ * write — the file router's drop path, which imports a backup and reports through a
+ * toast. Using the hook there would subscribe the whole App root to a list it never
+ * reads, re-rendering it on every save/load/delete inside the note dialog.
+ */
+export const setDynamicOverridesPresetsSnapshot = (next: DynamicOverridesPreset[]): void => presetsStore.set(next)

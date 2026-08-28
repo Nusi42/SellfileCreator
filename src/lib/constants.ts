@@ -5,6 +5,10 @@
  * Centralizing avoids drift and clarifies intent without changing behavior.
  */
 import {
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION,
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION_BARE,
+} from './filenames'
+import {
   ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID,
   SUBSTAT_MAX_ROLLS_PER_SLOT as GENERATED_SUBSTAT_MAX_ROLLS_PER_SLOT,
 } from './generated/domainConstants'
@@ -519,6 +523,10 @@ const IMPORTABLE_FILE_EXTENSIONS = [
   '.l10n',
   '.l10n.json',
   '.i18n.json',
+  // Saved dynamic-override sets. Sourced from filenames.ts so this list can never
+  // name a suffix the exporter and the file router have moved on from.
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION,
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION_BARE,
   ...GEAR_DB_FILE_EXTENSIONS,
   'application/json',
 ] as const

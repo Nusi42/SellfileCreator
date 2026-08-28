@@ -350,7 +350,7 @@ import {
   importReportDetailLines,
   importReportHeadline,
 } from './components/NoteDynamicOverridesPresets'
-import { getDynamicOverridesPresetsSnapshot, useDynamicOverridesPresetsPreference } from './state/dynamicOverridesPresetsPreference'
+import { getDynamicOverridesPresetsSnapshot, setDynamicOverridesPresetsSnapshot } from './state/dynamicOverridesPresetsPreference'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY, SIMPLE_MODE_TRANSITION_MS } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
@@ -8216,8 +8216,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // store. The note dialog owns the menu-driven import and its report dialog, but it
   // may not even be mounted at drop time, so this path reports through the toast.
   // The store is a global external store, so writing it here still updates any open
-  // note dialog. Merge logic and wording are shared with the menu path.
-  const [, setDynamicOverridesPresets] = useDynamicOverridesPresetsPreference()
+  // note dialog. Merge logic and wording are shared with the menu path. Written through
+  // the setter-only entry point: App never reads the list, so it must not subscribe to it.
   const handleDynamicOverridesPresetFile = useCallback(async (file: File) => {
     const outcome = await importDynamicOverridesPresetFile(file, getDynamicOverridesPresetsSnapshot())
     if (!outcome.ok) {
@@ -8225,10 +8225,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     const { presets: merged, ...report } = outcome
-    setDynamicOverridesPresets(merged)
+    setDynamicOverridesPresetsSnapshot(merged)
     // Headline plus any detail lines, joined into the single line a toast affords.
     showToast([importReportHeadline(report, t), ...importReportDetailLines(report, t)].join(' '))
-  }, [setDynamicOverridesPresets, showToast, t])
+  }, [showToast, t])
 
   const handleManualFileSelection = useCallback(async (file: File, context?: FileRouteContext) => {
     const routeContext: FileRouteContext = context?.shiftKey === undefined

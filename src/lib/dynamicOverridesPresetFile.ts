@@ -60,7 +60,7 @@ export function isDynamicOverridesPresetFilename(filename: string): boolean {
 
 // The filename helper lives with the app's other export names (SSOT); re-exported here
 // so the menu keeps importing everything about this file format from one module.
-export { dynamicOverridesPresetFilename, DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION }
+export { dynamicOverridesPresetFilename }
 
 /** The on-disk document: a marker, a version, and the saved sets verbatim. */
 export type DynamicOverridesPresetFile = {
