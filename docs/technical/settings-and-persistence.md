@@ -111,7 +111,9 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 > renamed copy would never match its own file entry and each re-import would add another
 > `(3)`, `(4)`, … copy. The suffix also trims the stem to stay inside
 > `PRESET_NAME_MAX_LENGTH`, so a stored name is never one the loader would re-ellipsize.
-> See [Application Behavior](app-behavior.md) for the menu behavior.
+> The document is written as `.overrides.json` so the file router can recognize it by name,
+> which is what lets a backup be **dropped onto the window** as well as picked from the menu.
+> See [Application Behavior](app-behavior.md) for the menu and drag/drop behavior.
 
 > **Normalized overlay: two keys.** The **presets** library above and the **applied selection**
 > (`normalizedOverlay.applied.v1` — `useSortWeights`/`enabledPresetIds`/`lastEnabledPresetIds`),

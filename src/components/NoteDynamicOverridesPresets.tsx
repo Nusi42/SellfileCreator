@@ -55,9 +55,9 @@ import {
   DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT,
   dynamicOverridesPresetFileToBlob,
   dynamicOverridesPresetFilename,
-  mergeImportedDynamicOverridesPresets,
-  parseDynamicOverridesPresetFile,
+  importDynamicOverridesPresetFile,
   type DynamicOverridesPresetFileErrorReason,
+  type DynamicOverridesPresetImportOutcome,
 } from '../lib/dynamicOverridesPresetFile'
 import { downloadBlob } from '../lib/downloadBlob'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
@@ -124,10 +124,15 @@ export type DynamicOverridesPresetController = {
   closeImportReport: () => void
 }
 
-/** What the import produced, shown in a small confirmation dialog after the merge. */
+/**
+ * What the import produced, shown in a small confirmation dialog after the merge.
+ * Derived from the shared import outcome so the dialog and the drag/drop toast
+ * describe the same result; the merged list itself is dropped because the report
+ * only ever renders counts.
+ */
 export type DynamicOverridesPresetImportReport =
-  | { ok: true; added: number; renamed: number; skipped: number; duplicates: number }
-  | { ok: false; reason: DynamicOverridesPresetFileErrorReason }
+  Omit<Extract<DynamicOverridesPresetImportOutcome, { ok: true }>, 'presets'>
+  | Extract<DynamicOverridesPresetImportOutcome, { ok: false }>
 
 /** Owns preset state + the save/load/delete handlers shared by both menus. */
 export function useDynamicOverridesPresetController({
@@ -278,25 +283,14 @@ export function useDynamicOverridesPresetController({
   // skipped and a colliding name with different content is suffixed.
   const importFromFile = React.useCallback((file: File) => {
     onCloseMenu()
-    void file.text().then((text) => {
-      const parsed = parseDynamicOverridesPresetFile(text)
-      if (!parsed.ok) { setImportReport({ ok: false, reason: parsed.reason }); return }
-      // Merge against the store snapshot (not the render-time `presets`) so a set saved
-      // while the file was being read is still counted. Reading the snapshot rather than
-      // merging inside the updater keeps the merge a single pure evaluation, so the
-      // renamed/added counts we report cannot be skewed by a double-invoked updater.
-      const merged = mergeImportedDynamicOverridesPresets(getDynamicOverridesPresetsSnapshot(), parsed.presets)
-      setPresets(merged.presets)
-      setImportReport({
-        ok: true,
-        added: merged.added,
-        renamed: merged.renamed,
-        skipped: parsed.skipped,
-        duplicates: merged.duplicates,
-      })
-    }).catch(() => {
-      // Read failure (permissions, unreadable media) reads the same as a bad file to the user.
-      setImportReport({ ok: false, reason: 'unreadable' })
+    // Merge against the store snapshot (not the render-time `presets`) so a set saved
+    // while the file was being read is still counted. The shared routine keeps this
+    // path identical to the drag/drop one — only the reporting differs.
+    void importDynamicOverridesPresetFile(file, getDynamicOverridesPresetsSnapshot()).then((outcome) => {
+      if (!outcome.ok) { setImportReport(outcome); return }
+      const { presets: merged, ...report } = outcome
+      setPresets(merged)
+      setImportReport(report)
     })
   }, [onCloseMenu, setPresets])
 
@@ -572,11 +566,48 @@ export function DynamicOverridesPresetMenuItems({ controller }: { controller: Dy
 }
 
 /** Map an import failure reason to its catalog key — one definition for the dialog. */
-function importFailureMessageKey(reason: DynamicOverridesPresetFileErrorReason | undefined): I18nKey {
+export function importFailureMessageKey(reason: DynamicOverridesPresetFileErrorReason | undefined): I18nKey {
   // 'empty' means the document parsed but held no usable set; the others mean wrong file.
   if (reason === 'empty') return 'noteDynamicOverridesPresetsImportEmpty'
   if (reason === 'wrongKind') return 'noteDynamicOverridesPresetsImportWrongKind'
   return 'noteDynamicOverridesPresetsImportUnreadable'
+}
+
+/**
+ * The report's headline: what the import did, in one sentence. Shared by the dialog
+ * (which follows it with per-count detail lines) and the drag/drop toast (which has
+ * room for only this line), so the two never word the same outcome differently.
+ *
+ * Nothing added because every set was already held says so plainly, rather than
+ * reporting "Added 0", which reads like a failure.
+ */
+export function importReportHeadline(
+  report: DynamicOverridesPresetImportReport,
+  t: (key: I18nKey, vars?: Record<string, string | number>) => string,
+): string {
+  if (!report.ok) return t(importFailureMessageKey(report.reason))
+  return report.added === 0 && report.duplicates > 0
+    ? t('noteDynamicOverridesPresetsImportAllDuplicates')
+    : t('noteDynamicOverridesPresetsImportDoneMessage', { count: report.added })
+}
+
+/**
+ * The report's detail lines: duplicates, renamed, skipped — each included only when
+ * it happened, so the common case stays a single clear line. Duplicates are omitted
+ * when nothing was added, because the headline already says everything was a duplicate.
+ */
+export function importReportDetailLines(
+  report: DynamicOverridesPresetImportReport,
+  t: (key: I18nKey, vars?: Record<string, string | number>) => string,
+): string[] {
+  if (!report.ok) return []
+  const lines: string[] = []
+  if (report.duplicates > 0 && report.added > 0) {
+    lines.push(t('noteDynamicOverridesPresetsImportDuplicates', { count: report.duplicates }))
+  }
+  if (report.renamed > 0) lines.push(t('noteDynamicOverridesPresetsImportRenamed', { count: report.renamed }))
+  if (report.skipped > 0) lines.push(t('noteDynamicOverridesPresetsImportSkipped', { count: report.skipped }))
+  return lines
 }
 
 /**
@@ -695,34 +726,14 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
         </DialogTitle>
         <DialogContent>
           <Stack spacing={1}>
+            {/* Headline + detail lines come from the shared composers, so this dialog
+                and the drag/drop toast describe an identical import identically. */}
             <Typography variant="body2">
-              {importReport?.ok
-                // Nothing added because every set was already held: say that plainly
-                // instead of reporting "Added 0", which reads like a failure.
-                ? (importReport.added === 0 && importReport.duplicates > 0
-                  ? t('noteDynamicOverridesPresetsImportAllDuplicates')
-                  : t('noteDynamicOverridesPresetsImportDoneMessage', { count: importReport.added }))
-                : t(importFailureMessageKey(importReport?.reason))}
+              {importReport ? importReportHeadline(importReport, t) : null}
             </Typography>
-            {/* Duplicates are reported only when some were also added — otherwise the
-                headline above already says everything was a duplicate. */}
-            {importReport?.ok && importReport.duplicates > 0 && importReport.added > 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {t('noteDynamicOverridesPresetsImportDuplicates', { count: importReport.duplicates })}
-              </Typography>
-            ) : null}
-            {/* Renamed/skipped are reported only when they happened, so the common
-                case stays a single clear line. */}
-            {importReport?.ok && importReport.renamed > 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {t('noteDynamicOverridesPresetsImportRenamed', { count: importReport.renamed })}
-              </Typography>
-            ) : null}
-            {importReport?.ok && importReport.skipped > 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {t('noteDynamicOverridesPresetsImportSkipped', { count: importReport.skipped })}
-              </Typography>
-            ) : null}
+            {(importReport ? importReportDetailLines(importReport, t) : []).map((line) => (
+              <Typography key={line} variant="body2" color="text.secondary">{line}</Typography>
+            ))}
           </Stack>
         </DialogContent>
         <DialogActions>

@@ -345,6 +345,12 @@ function computeChampionFingerprint(champions: readonly GearDbChampionRow[]): nu
 // WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
 import { sellfileFilename, sfcFilename } from './lib/filenames'
 import { downloadBlob } from './lib/downloadBlob'
+import { importDynamicOverridesPresetFile } from './lib/dynamicOverridesPresetFile'
+import {
+  importReportDetailLines,
+  importReportHeadline,
+} from './components/NoteDynamicOverridesPresets'
+import { getDynamicOverridesPresetsSnapshot, useDynamicOverridesPresetsPreference } from './state/dynamicOverridesPresetsPreference'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SAFEGUARD_BUILDER_USER_DEFAULTS_KEY, SIMPLE_MODE_TRANSITION_MS } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID, type MetasetIconId } from './lib/metasetIcons'
 import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
@@ -8206,6 +8212,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showFileFormatError(file.name)
   }, [showFileFormatError])
 
+  // Override-set backups dropped on the window (or picked) merge straight into the
+  // store. The note dialog owns the menu-driven import and its report dialog, but it
+  // may not even be mounted at drop time, so this path reports through the toast.
+  // The store is a global external store, so writing it here still updates any open
+  // note dialog. Merge logic and wording are shared with the menu path.
+  const [, setDynamicOverridesPresets] = useDynamicOverridesPresetsPreference()
+  const handleDynamicOverridesPresetFile = useCallback(async (file: File) => {
+    const outcome = await importDynamicOverridesPresetFile(file, getDynamicOverridesPresetsSnapshot())
+    if (!outcome.ok) {
+      showToast(importReportHeadline(outcome, t), { severity: 'error' })
+      return
+    }
+    const { presets: merged, ...report } = outcome
+    setDynamicOverridesPresets(merged)
+    // Headline plus any detail lines, joined into the single line a toast affords.
+    showToast([importReportHeadline(report, t), ...importReportDetailLines(report, t)].join(' '))
+  }, [setDynamicOverridesPresets, showToast, t])
+
   const handleManualFileSelection = useCallback(async (file: File, context?: FileRouteContext) => {
     const routeContext: FileRouteContext = context?.shiftKey === undefined
       ? { source: context?.source ?? 'manual' }
@@ -8216,6 +8240,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onL10n: handleRuntimeCatalog,
       onGearDb: handleGearDbImport,
       onGearSets: handleRuntimeGearSets,
+      onDynamicOverrides: handleDynamicOverridesPresetFile,
       onUnknownFile: handleUnknownImportedFile,
     }, routeContext)
   }, [
@@ -8224,6 +8249,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleHsfFile,
     handleRuntimeCatalog,
     handleRuntimeGearSets,
+    handleDynamicOverridesPresetFile,
     handleUnknownImportedFile,
   ])
 
@@ -8541,6 +8567,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onL10n: (file) => { if (!tutorial.tutorialOpen) void handleRuntimeCatalog(file) },
     onGearDb: (file, ctx) => { if (!tutorial.tutorialOpen) void handleGearDbImport(file, ctx) },
     onGearSets: (file) => { if (!tutorial.tutorialOpen) void handleRuntimeGearSets(file) },
+    onDynamicOverrides: (file) => { if (!tutorial.tutorialOpen) void handleDynamicOverridesPresetFile(file) },
     onUnknownFile: (file) => { if (!tutorial.tutorialOpen) void handleUnknownImportedFile(file) },
   })
 

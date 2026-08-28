@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
+import { isDynamicOverridesPresetFilename } from '../lib/dynamicOverridesPresetFile'
 
 export type FileRouteHandlers = {
   onSfc: (file: File, context?: FileRouteContext) => void | Promise<void>
@@ -13,6 +14,7 @@ export type FileRouteHandlers = {
   onL10n?: (file: File, context?: FileRouteContext) => void | Promise<void>
   onGearDb?: (file: File, context?: FileRouteContext) => void | Promise<void>
   onGearSets?: (file: File, context?: FileRouteContext) => void | Promise<void>
+  onDynamicOverrides?: (file: File, context?: FileRouteContext) => void | Promise<void>
   onUnknownFile?: (file: File, context?: FileRouteContext) => void | Promise<void>
 }
 
@@ -45,6 +47,13 @@ export async function routeFileByExtension(file: File, handlers: FileRouteHandle
   // Runtime gear-set patch files (`.gearsets.json` / `.gearsets`).
   if (handlers.onGearSets && (name.endsWith('.gearsets.json') || name.endsWith('.gearsets'))) {
     await handlers.onGearSets(file, context)
+    return
+  }
+  // Saved dynamic-override sets (`.overrides.json` / `.overrides`). Checked before the
+  // localization branch only for readability — the suffixes are disjoint, so the order
+  // among these compound-suffix branches carries no meaning.
+  if (handlers.onDynamicOverrides && isDynamicOverridesPresetFilename(name)) {
+    await handlers.onDynamicOverrides(file, context)
     return
   }
   // Runtime localization patches (`.l10n.json` / `.i18n.json` / `.l10n`).

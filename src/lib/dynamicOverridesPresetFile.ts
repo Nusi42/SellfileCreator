@@ -21,6 +21,7 @@
 import { SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
 import {
   DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION,
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION_BARE,
   dynamicOverridesPresetFilename,
 } from './filenames'
 import { PRESET_NAME_MAX_LENGTH, createPresetId } from '../state/presetUtils'
@@ -40,12 +41,26 @@ export const DYNAMIC_OVERRIDES_PRESET_FILE_VERSION = 1
  * extension filenames.ts names — so a change to either can never leave the chooser
  * filtering for a file the exporter no longer produces.
  */
-export const DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT =
-  `${SFC_EXPORT_CONTENT_TYPE},${DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION}`
+export const DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT = [
+  SFC_EXPORT_CONTENT_TYPE,
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION,
+  DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION_BARE,
+].join(',')
+
+/**
+ * Does this filename look like an override-set backup? The one test the file router
+ * and the picker both defer to, so "what counts as this file type" is defined once.
+ * Name-only: the compound extension is exactly what makes a content sniff unnecessary.
+ */
+export function isDynamicOverridesPresetFilename(filename: string): boolean {
+  const name = String(filename || '').toLowerCase()
+  return name.endsWith(DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION)
+    || name.endsWith(DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION_BARE)
+}
 
 // The filename helper lives with the app's other export names (SSOT); re-exported here
 // so the menu keeps importing everything about this file format from one module.
-export { dynamicOverridesPresetFilename }
+export { dynamicOverridesPresetFilename, DYNAMIC_OVERRIDES_PRESET_FILE_EXTENSION }
 
 /** The on-disk document: a marker, a version, and the saved sets verbatim. */
 export type DynamicOverridesPresetFile = {
@@ -229,4 +244,45 @@ export function mergeImportedDynamicOverridesPresets(
     added.push(accepted)
   })
   return { presets: [...added, ...existing], added: added.length, renamed, duplicates }
+}
+
+/**
+ * Outcome of importing one file: the merge counts on success, or the rejection
+ * reason. Both the menu's report dialog and the drag/drop toast render from this,
+ * so the two entry points can never disagree about what an import did.
+ */
+export type DynamicOverridesPresetImportOutcome =
+  | { ok: true; added: number; renamed: number; skipped: number; duplicates: number; presets: DynamicOverridesPreset[] }
+  | { ok: false; reason: DynamicOverridesPresetFileErrorReason }
+
+/**
+ * Read a dropped or picked file and merge it against `existing`.
+ *
+ * The whole import path lives here so the menu entry and the file drop share one
+ * definition of it: read the text, parse, merge, report. Callers differ only in
+ * where they get `existing` and how they surface the outcome — never in the logic.
+ * A read failure (permissions, unreadable media) reports as 'unreadable', which is
+ * what a user sees anyway: the file did not come in.
+ */
+export async function importDynamicOverridesPresetFile(
+  file: File,
+  existing: readonly DynamicOverridesPreset[],
+): Promise<DynamicOverridesPresetImportOutcome> {
+  let text: string
+  try {
+    text = await file.text()
+  } catch {
+    return { ok: false, reason: 'unreadable' }
+  }
+  const parsed = parseDynamicOverridesPresetFile(text)
+  if (!parsed.ok) return { ok: false, reason: parsed.reason }
+  const merged = mergeImportedDynamicOverridesPresets(existing, parsed.presets)
+  return {
+    ok: true,
+    added: merged.added,
+    renamed: merged.renamed,
+    duplicates: merged.duplicates,
+    skipped: parsed.skipped,
+    presets: merged.presets,
+  }
 }

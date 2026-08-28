@@ -107,7 +107,9 @@ test.describe('normal mode', () => {
     const downloadPromise = page.waitForEvent('download', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     await menu.getByRole('menuitem', { name: EXPORT_ENTRY }).click()
     const download = await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/^SellfileCreatorOverrideSets_\d{8}_\d{4}\.json$/)
+    // Compound extension: the `.overrides` stem is what lets a dropped backup be
+    // routed on name alone, so the export filename must keep carrying it.
+    expect(download.suggestedFilename()).toMatch(/^SellfileCreatorOverrideSets_\d{8}_\d{4}\.overrides\.json$/)
     const exported = await download.path()
     expect(exported).toBeTruthy()
 

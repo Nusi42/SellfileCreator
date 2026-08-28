@@ -5,6 +5,7 @@ import {
   DYNAMIC_OVERRIDES_PRESET_FILE_VERSION,
   buildDynamicOverridesPresetFile,
   dynamicOverridesPresetFilename,
+  isDynamicOverridesPresetFilename,
   dynamicOverridesPresetIdentity,
   makeUniquePresetName,
   mergeImportedDynamicOverridesPresets,
@@ -40,9 +41,24 @@ test('export document carries the kind marker and current version', () => {
   assert.equal(doc.version, DYNAMIC_OVERRIDES_PRESET_FILE_VERSION)
 })
 
-test('filename is timestamped and JSON', () => {
+test('filename is timestamped and carries the compound extension', () => {
   const name = dynamicOverridesPresetFilename(new Date(2026, 7, 28, 14, 5))
-  assert.equal(name, 'SellfileCreatorOverrideSets_20260828_1405.json')
+  assert.equal(name, 'SellfileCreatorOverrideSets_20260828_1405.overrides.json')
+})
+
+// The compound extension is the whole reason a dropped backup can be routed without
+// reading it. If it ever collapses back to a bare `.json`, drag/drop silently breaks.
+test('the export filename is recognized by the file-router predicate', () => {
+  assert.ok(isDynamicOverridesPresetFilename(dynamicOverridesPresetFilename(new Date(2026, 7, 28))))
+  // The bare variant is accepted too, for a download that lost the `.json` tail.
+  assert.ok(isDynamicOverridesPresetFilename('backup.overrides'))
+  // Case must not matter: the router lowercases, and so must the predicate.
+  assert.ok(isDynamicOverridesPresetFilename('BACKUP.OVERRIDES.JSON'))
+  // A plain .json is NOT ours — it belongs to the unknown-file path.
+  assert.equal(isDynamicOverridesPresetFilename('something.json'), false)
+  // Sibling formats must keep their own routes.
+  assert.equal(isDynamicOverridesPresetFilename('patch.gearsets.json'), false)
+  assert.equal(isDynamicOverridesPresetFilename('patch.l10n.json'), false)
 })
 
 // Rejection paths: each must be distinguishable so the dialog can explain what went wrong.
