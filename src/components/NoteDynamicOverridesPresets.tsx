@@ -18,15 +18,23 @@
  *  - <DynamicOverridesPresetMenuItems>: the list + save-as rows, rendered INSIDE the menu;
  *  - <DynamicOverridesPresetDialogs>: the save/delete dialogs, rendered OUTSIDE the menu
  *    so they survive the menu unmounting on close (the menu's children unmount with it).
+ *
+ * The same section also offers file backup: "Export All to File" writes every saved
+ * set as one JSON document, and "Import from File" merges a document back in. The
+ * file format lives in lib/dynamicOverridesPresetFile.ts; import never replaces an
+ * existing set (exact duplicates are skipped, colliding names are suffixed), so a
+ * backup can never cost user data.
  */
 import React from 'react'
 import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Popper, Stack, TextField, Tooltip, Typography, Button, Divider } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SaveAsIcon from '@mui/icons-material/SaveAs'
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CasinoIcon from '@mui/icons-material/Casino'
-import { useI18n } from '../lib/i18n'
+import { useI18n, type I18nKey } from '../lib/i18n'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import { ClippedScrollBody } from './ClippedScrollBody'
 import { DynamicOverridesPresetSummaryTable } from './DynamicOverridesPresetSummaryTable'
@@ -38,10 +46,19 @@ import {
   SAFE_TEXT_LINE_HEIGHT,
 } from '../lib/constants'
 import {
+  getDynamicOverridesPresetsSnapshot,
   useDynamicOverridesPresetsPreference,
   type DynamicOverridesPreset,
 } from '../state/dynamicOverridesPresetsPreference'
 import { createPresetId, sanitizePresetName } from '../state/presetUtils'
+import {
+  DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT,
+  dynamicOverridesPresetFileToBlob,
+  dynamicOverridesPresetFilename,
+  mergeImportedDynamicOverridesPresets,
+  parseDynamicOverridesPresetFile,
+  type DynamicOverridesPresetFileErrorReason,
+} from '../lib/dynamicOverridesPresetFile'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import { legendaryGlow } from '../lib/celebrationKeyframes'
 import {
@@ -94,7 +111,22 @@ export type DynamicOverridesPresetController = {
   overwriteTarget: DynamicOverridesPreset | null
   closeOverwriteDialog: () => void
   confirmOverwrite: () => void
+  // File backup wiring: download every saved set, or merge a previously exported file.
+  exportToFile: () => void
+  importFromFile: (file: File) => void
+  // Ref for the hidden file input (rendered by the dialogs component) and the opener
+  // the menu entry calls — the input must live outside the menu to survive its unmount.
+  importInputRef: React.RefObject<HTMLInputElement | null>
+  openImportPicker: () => void
+  // Post-import report (null when no report is pending) — success counts or a failure reason.
+  importReport: DynamicOverridesPresetImportReport | null
+  closeImportReport: () => void
 }
+
+/** What the import produced, shown in a small confirmation dialog after the merge. */
+export type DynamicOverridesPresetImportReport =
+  | { ok: true; added: number; renamed: number; skipped: number; duplicates: number }
+  | { ok: false; reason: DynamicOverridesPresetFileErrorReason }
 
 /** Owns preset state + the save/load/delete handlers shared by both menus. */
 export function useDynamicOverridesPresetController({
@@ -215,6 +247,64 @@ export function useDynamicOverridesPresetController({
     })
   }, [note, lang, recipeAnswers, safeguardAnswers, setPresets])
 
+  // ---------------------------------------------------------------------------
+  // File backup: export all sets / import a previously exported file
+  // ---------------------------------------------------------------------------
+
+  // Report shown after an import attempt (counts on success, a reason on failure).
+  const [importReport, setImportReport] = React.useState<DynamicOverridesPresetImportReport | null>(null)
+  const closeImportReport = React.useCallback(() => setImportReport(null), [])
+
+  // Write every saved set to one JSON file. Same anchor-click download the SFC save uses.
+  const exportToFile = React.useCallback(() => {
+    onCloseMenu()
+    // Nothing saved yet: the menu entry is disabled, but guard so a stray call is a no-op.
+    if (presets.length === 0) return
+    const blob = dynamicOverridesPresetFileToBlob(presets)
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = dynamicOverridesPresetFilename()
+    anchor.click()
+    // Release the object URL immediately — the click has already handed the blob to the browser.
+    URL.revokeObjectURL(url)
+  }, [onCloseMenu, presets])
+
+  // The hidden <input type="file"> lives in the dialogs component; the menu entry
+  // reaches it through this ref so closing the menu cannot cancel the chooser.
+  const importInputRef = React.useRef<HTMLInputElement | null>(null)
+  const openImportPicker = React.useCallback(() => {
+    onCloseMenu()
+    // Click after the menu-close commit so the input is definitely still mounted.
+    importInputRef.current?.click()
+  }, [onCloseMenu])
+
+  // Read a picked file and merge its sets in. Never replaces: exact duplicates are
+  // skipped and a colliding name with different content is suffixed.
+  const importFromFile = React.useCallback((file: File) => {
+    onCloseMenu()
+    void file.text().then((text) => {
+      const parsed = parseDynamicOverridesPresetFile(text)
+      if (!parsed.ok) { setImportReport({ ok: false, reason: parsed.reason }); return }
+      // Merge against the store snapshot (not the render-time `presets`) so a set saved
+      // while the file was being read is still counted. Reading the snapshot rather than
+      // merging inside the updater keeps the merge a single pure evaluation, so the
+      // renamed/added counts we report cannot be skewed by a double-invoked updater.
+      const merged = mergeImportedDynamicOverridesPresets(getDynamicOverridesPresetsSnapshot(), parsed.presets)
+      setPresets(merged.presets)
+      setImportReport({
+        ok: true,
+        added: merged.added,
+        renamed: merged.renamed,
+        skipped: parsed.skipped,
+        duplicates: merged.duplicates,
+      })
+    }).catch(() => {
+      // Read failure (permissions, unreadable media) reads the same as a bad file to the user.
+      setImportReport({ ok: false, reason: 'unreadable' })
+    })
+  }, [onCloseMenu, setPresets])
+
   return {
     note,
     presets,
@@ -235,6 +325,12 @@ export function useDynamicOverridesPresetController({
     overwriteTarget,
     closeOverwriteDialog,
     confirmOverwrite,
+    exportToFile,
+    importFromFile,
+    importInputRef,
+    openImportPicker,
+    importReport,
+    closeImportReport,
   }
 }
 
@@ -433,7 +529,13 @@ function DynamicOverridesPresetRow({
  */
 export function DynamicOverridesPresetMenuItems({ controller }: { controller: DynamicOverridesPresetController }) {
   const { t } = useI18n()
-  const { note, presets, handleLoad, requestDelete, requestOverwrite, openSaveDialog } = controller
+  // openImportPicker opens the native chooser through the controller's input ref. The
+  // input itself lives in <DynamicOverridesPresetDialogs>, outside the menu: the menu
+  // unmounts on click, which would cancel a chooser opened from within it.
+  const {
+    note, presets, handleLoad, requestDelete, requestOverwrite, openSaveDialog,
+    exportToFile, openImportPicker,
+  } = controller
   return (
     <>
       {/* Visually separate the saved-sets section from the reset/disable actions above. */}
@@ -459,13 +561,34 @@ export function DynamicOverridesPresetMenuItems({ controller }: { controller: Dy
         <BookmarkAddIcon fontSize="small" />
         {t('noteDynamicOverridesPresetsSaveAs')}
       </MenuItem>
+      {/* File backup: one document holds every saved set, so a user can move their
+          sets between machines or keep them across a browser-storage reset. */}
+      <Divider sx={{ my: 0.5 }} />
+      <MenuItem onClick={exportToFile} disabled={presets.length === 0} sx={{ gap: 0.75 }}>
+        <FileDownloadIcon fontSize="small" />
+        {t('noteDynamicOverridesPresetsExportFile')}
+      </MenuItem>
+      <MenuItem onClick={openImportPicker} sx={{ gap: 0.75 }}>
+        <FileUploadIcon fontSize="small" />
+        {t('noteDynamicOverridesPresetsImportFile')}
+      </MenuItem>
     </>
   )
 }
 
+/** Map an import failure reason to its catalog key — one definition for the dialog. */
+function importFailureMessageKey(reason: DynamicOverridesPresetFileErrorReason | undefined): I18nKey {
+  // 'empty' means the document parsed but held no usable set; the others mean wrong file.
+  if (reason === 'empty') return 'noteDynamicOverridesPresetsImportEmpty'
+  if (reason === 'wrongKind') return 'noteDynamicOverridesPresetsImportWrongKind'
+  return 'noteDynamicOverridesPresetsImportUnreadable'
+}
+
 /**
- * The save-name + delete-confirm dialogs, rendered OUTSIDE the menu so they
- * persist after the menu (and its children) unmount on close.
+ * The save-name + delete-confirm dialogs, the import-report dialog, and the hidden
+ * file input — all rendered OUTSIDE the menu so they persist after the menu (and its
+ * children) unmount on close. The input in particular must outlive the menu: the
+ * native chooser is cancelled if the element that opened it is removed.
  */
 export function DynamicOverridesPresetDialogs({ controller }: { controller: DynamicOverridesPresetController }) {
   const { t } = useI18n()
@@ -473,6 +596,7 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
     saveOpen, saveName, setSaveName, reshuffleSaveName, saveFun, closeSaveDialog, confirmSave,
     deleteTarget, closeDeleteDialog, confirmDelete,
     overwriteTarget, closeOverwriteDialog, confirmOverwrite,
+    importInputRef, importFromFile, importReport, closeImportReport,
   } = controller
   const saveNameRef = React.useRef<HTMLInputElement>(null)
   return (
@@ -549,6 +673,65 @@ export function DynamicOverridesPresetDialogs({ controller }: { controller: Dyna
           <Button onClick={confirmDelete} color="error" variant="contained">
             {t('delete')}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Hidden file input backing "Import from File". Resetting value on every change
+          lets the user re-pick the same file after a failed import. */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept={DYNAMIC_OVERRIDES_PRESET_FILE_ACCEPT}
+        style={{ display: 'none' }}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          // Clear first so picking the same path again still fires a change event.
+          event.target.value = ''
+          if (file) importFromFile(file)
+        }}
+      />
+
+      {/* Import report: what the merge added/renamed/skipped, or why the file was rejected. */}
+      <Dialog open={Boolean(importReport)} onClose={closeImportReport} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {importReport?.ok
+            ? t('noteDynamicOverridesPresetsImportDoneTitle')
+            : t('noteDynamicOverridesPresetsImportFailedTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={1}>
+            <Typography variant="body2">
+              {importReport?.ok
+                // Nothing added because every set was already held: say that plainly
+                // instead of reporting "Added 0", which reads like a failure.
+                ? (importReport.added === 0 && importReport.duplicates > 0
+                  ? t('noteDynamicOverridesPresetsImportAllDuplicates')
+                  : t('noteDynamicOverridesPresetsImportDoneMessage', { count: importReport.added }))
+                : t(importFailureMessageKey(importReport?.reason))}
+            </Typography>
+            {/* Duplicates are reported only when some were also added — otherwise the
+                headline above already says everything was a duplicate. */}
+            {importReport?.ok && importReport.duplicates > 0 && importReport.added > 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {t('noteDynamicOverridesPresetsImportDuplicates', { count: importReport.duplicates })}
+              </Typography>
+            ) : null}
+            {/* Renamed/skipped are reported only when they happened, so the common
+                case stays a single clear line. */}
+            {importReport?.ok && importReport.renamed > 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {t('noteDynamicOverridesPresetsImportRenamed', { count: importReport.renamed })}
+              </Typography>
+            ) : null}
+            {importReport?.ok && importReport.skipped > 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {t('noteDynamicOverridesPresetsImportSkipped', { count: importReport.skipped })}
+              </Typography>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeImportReport} variant="contained">{t('close')}</Button>
         </DialogActions>
       </Dialog>
 

@@ -101,6 +101,13 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | Dynamic-overrides presets | `sellfileCreator.dynamicOverridesPresets.v1` | `state/dynamicOverridesPresetsPreference.ts` |
 | **Normalized-overlay presets** (weights/variants library) | `sellfileCreator.gearInspector.grid.normalizedOverlay.presets.v1` | `state/gearInspectorGridNormalizedOverlayPreferences.ts` |
 
+> **Dynamic-overrides presets also have a file path.** The Dynamic Overrides menu can export the
+> whole library to a JSON document and merge one back (`lib/dynamicOverridesPresetFile.ts`), so the
+> sets survive a cleared browser storage and can move between machines. Import re-uses this store's
+> validator, skips exact duplicates (same name and answers), and never replaces an existing
+> set — a colliding name with different content is suffixed instead. See
+> [Application Behavior](app-behavior.md) for the menu behavior.
+
 > **Normalized overlay: two keys.** The **presets** library above and the **applied selection**
 > (`normalizedOverlay.applied.v1` — `useSortWeights`/`enabledPresetIds`/`lastEnabledPresetIds`),
 > both always-persisted. Backward-compat: a one-time migration splits the legacy combined

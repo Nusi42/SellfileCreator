@@ -73,7 +73,12 @@ const sanitizeSavedLabels = (raw: unknown): DynamicOverridesPresetSavedLabels | 
   return raw as DynamicOverridesPresetSavedLabels
 }
 
-const sanitizePreset = (raw: unknown): DynamicOverridesPreset | null => {
+/**
+ * Validate one raw record into a preset, or null when unusable. Exported because
+ * the file import/export module must apply exactly these rules (SSOT) — a second
+ * validator would let a hand-edited export file smuggle shapes localStorage rejects.
+ */
+export const sanitizeDynamicOverridesPreset = (raw: unknown): DynamicOverridesPreset | null => {
   // Top-level record validation prevents partially-written localStorage from breaking the menu.
   if (!raw || typeof raw !== 'object') return null
   const rec = raw as Record<string, unknown>
@@ -105,7 +110,7 @@ const parsePresets = (raw: string | null): DynamicOverridesPreset[] => {
     if (!Array.isArray(parsed)) return []
     const sanitized: DynamicOverridesPreset[] = []
     parsed.forEach((entry) => {
-      const preset = sanitizePreset(entry)
+      const preset = sanitizeDynamicOverridesPreset(entry)
       if (!preset) return
       sanitized.push(preset)
     })
