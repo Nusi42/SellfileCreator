@@ -704,11 +704,19 @@ empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx`). Conse
   **accepted autosave restore → Save**, since a restore is `recovered` and therefore lands dirty
   (see [provenance](#sfc-dirty-flag-provenance-decides-not-history-position)) — including when its
   content happens to match a preset, because `sfcDirty` wins the ternary outright.
-- Besides the existing first-run-Help and tutorial-completion triggers, the nudge now also fires
-  **once on startup** when a restored session comes back dirty (`restoredDirtySfc`), skipped while
-  the first-run Help is open because dismissing that already fires its own nudge. Without this the
+- Besides the existing first-run-Help and tutorial-completion triggers, the nudge also fires
+  **once on startup** when the session settles with work still unsaved, skipped while the
+  first-run Help is open because dismissing that already fires its own nudge. Without this the
   arrows only ever appeared on first run, so the returning user — precisely the one who loses work
   — was never shown anything.
+- **The startup nudge waits for the restore dialog, and reads the settled state.** That dialog is
+  what *decides* whether there is unsaved work, so nothing is knowable until it closes: the effect
+  is declared after `restoreDlgOpen` and returns early while it is up. It also triggers on the
+  **live** `isDirty` rather than a flag frozen at mount from the persisted stamp. Previously it
+  could fire while the modal was still covering the screen — pointing the arrows at a button the
+  user could not reach — and it pointed at Save even when the user went on to *dismiss* the
+  restore, leaving a clean document. Now accepting a restore nudges toward Save and dismissing
+  nudges nothing. (The express note-blink waits on the same dialog for the same reason.)
 - **The fan is portalled to `<body>` and `position: fixed`**, anchored to a measured
   `getBoundingClientRect()` of its target (`targetRef`), re-measured on resize/scroll. It is
   deliberately *not* an absolutely-positioned child of the header: the fan hangs ~90 px above the

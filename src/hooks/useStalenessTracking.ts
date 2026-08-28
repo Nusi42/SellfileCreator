@@ -58,8 +58,6 @@ export interface StalenessTracking {
   hsfDirtySince: number | null
   /** Advances on every tick so consumers re-render as the ramp progresses. */
   now: number
-  /** True when a restored session came back with SFC work already unsaved. */
-  restoredDirtySfc: boolean
 }
 
 /**
@@ -90,11 +88,6 @@ export function useStalenessTracking(
 ): StalenessTracking {
   // Restore once, at mount, before any edge has been observed this session.
   const [restored] = useState(() => readPersistedStamps(Date.now()))
-  // Whether the SFC came back from storage already dirty — the startup nudge reads
-  // this to decide it should point at Save. Frozen at mount (a plain initializer,
-  // never updated) because a later save clears the stamp while the nudge still
-  // needs to know how the session STARTED.
-  const [restoredDirtySfc] = useState(() => restored.sfc !== null)
 
   const [sfcDirtySince, setSfcDirtySince] = useState<number | null>(restored.sfc)
   const [hsfDirtySince, setHsfDirtySince] = useState<number | null>(restored.hsf)
@@ -234,6 +227,5 @@ export function useStalenessTracking(
     sfcDirtySince,
     hsfDirtySince,
     now,
-    restoredDirtySfc,
   }
 }

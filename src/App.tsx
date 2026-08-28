@@ -4464,7 +4464,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     sfcDirtySince,
     hsfDirtySince,
     now: stalenessNow,
-    restoredDirtySfc,
   } = useStalenessTracking(isDirty, hsfDirty, sfcRecovery)
   // Mirrored into a ref so buildAutosavePayload can stamp the divergence moment without
   // taking the stamp as a dependency — that would rebuild the payload callback (and so
@@ -4474,29 +4473,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // uses for the preset-origin stamp written by the very same payload builder.
   useLayoutEffect(() => { sfcDirtySinceRef.current = sfcDirtySince })
 
-  // Startup nudge for the RETURNING user: a restored session that came back with
-  // unsaved work gets the arrows pointed at Save. Without this the arrows only ever
-  // fire from first-run Help / tutorial completion, so the user who restarts on day
-  // thirty — precisely the one who loses work — is never shown anything. Skipped
-  // while the first-run Help is up, because dismissing that already fires its own
-  // nudge and two would collide. Fires at most once per session — the ref latches on
-  // the first successful trigger and is never re-armed.
-  const startupNudgeFiredRef = useRef(false)
-  // Destructured so the effect depends on the two members it actually uses rather
-  // than on the whole tutorial object, which changes identity every render.
+  // Destructured so the startup-nudge effect (declared after restoreDlgOpen, below)
+  // depends on the two members it actually uses rather than on the whole tutorial
+  // object, which changes identity every render.
   const { helpOpen: tutorialHelpOpen, triggerSfcLoadNudge } = tutorial
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- there is no
-     event to hang this on: the trigger is "the app finished starting up with restored
-     work already dirty", which only the first post-mount render can observe. */
-  useEffect(() => {
-    if (startupNudgeFiredRef.current) return
-    if (!restoredDirtySfc) return
-    // Wait out the first-run Help; its own dismissal path owns the nudge.
-    if (tutorialHelpOpen) return
-    startupNudgeFiredRef.current = true
-    triggerSfcLoadNudge()
-  }, [restoredDirtySfc, tutorialHelpOpen, triggerSfcLoadNudge])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
@@ -4582,6 +4562,39 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Suppress in express simple mode — the preset SFC is the source of truth there.
   // When express was requested but expert was already on (isSimpleViewAtStart=false), restore normally.
   const restoreDlgOpen = !isSimpleViewAtStart && !tutorial.helpOpen && (restoreDialogPending || Boolean(gearInspectorRestoreDraft))
+
+  // Startup nudge for the RETURNING user: a session that comes back with unsaved work
+  // gets the arrows pointed at Save. Without this the arrows only ever fire from
+  // first-run Help / tutorial completion, so the user who restarts on day thirty —
+  // precisely the one who loses work — is never shown anything.
+  //
+  // Deliberately declared AFTER restoreDlgOpen and gated on it: the restore dialog is
+  // what DECIDES whether there is unsaved work at all. Firing before the user answers
+  // it pointed the arrows at a button behind the modal, and pointed them at Save even
+  // when the user went on to dismiss the restore (leaving a clean document). Waiting
+  // also means the target is read from the settled state — the same reason the express
+  // note-blink above waits for this dialog.
+  //
+  // The trigger is the LIVE dirty flag. It previously read a flag frozen at mount from
+  // the persisted stamp — i.e. from before any choice was made — so accepting a restore
+  // and dismissing it produced the same nudge. Now accepting nudges toward Save and
+  // dismissing (a clean document) correctly nudges nothing.
+  // Fires at most once per session — the ref latches on the first successful trigger.
+  const startupNudgeFiredRef = useRef(false)
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- there is no
+     event to hang this on: the trigger is "startup settled with work still unsaved",
+     which is only observable by watching the dialog close and the flag settle. */
+  useEffect(() => {
+    if (startupNudgeFiredRef.current) return
+    // The restore dialog owns the decision; nothing is knowable until it closes.
+    if (restoreDlgOpen) return
+    // Wait out the first-run Help; its own dismissal path owns the nudge.
+    if (tutorialHelpOpen) return
+    if (!isDirty) return
+    startupNudgeFiredRef.current = true
+    triggerSfcLoadNudge()
+  }, [restoreDlgOpen, tutorialHelpOpen, isDirty, triggerSfcLoadNudge])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   // Silent gear-only restore used when starting in express mode.
   // Applies the saved Gear Inspector items without touching recipes, notes, or any other SFC data.
