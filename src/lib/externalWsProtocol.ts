@@ -47,6 +47,16 @@ export const AUTOSAVE_SIMPLE_EXPERT_MODE_KEY = 'SimpleExpertMode'
 // Absent on entries written before this field existed; the reader falls back to "unknown".
 export const AUTOSAVE_DIVERGED_AT_KEY = 'DivergedAt'
 
+// Autosave payload key recording that the body was CLEAN when written — its content existed
+// somewhere durable the user can reopen (the .sfc they just saved or loaded, a bundled
+// preset), so restoring it whole loses nothing and must not present as unsaved work. This is
+// the general answer to "is this restored body recoverable?" (lib/sfcProvenance.ts), recorded
+// ONCE at write time by the one payload writer instead of being re-derived per restore path
+// from special-case markers. Complementary to DivergedAt by construction: a write carries
+// exactly one of the two, decided by the same clean/dirty predicate. Absent on entries from
+// before the field existed, which the reader treats as "not anchored" — today's behaviour.
+export const AUTOSAVE_ANCHORED_KEY = 'Anchored'
+
 // The simple-mode toggle selections we persist. 'custom' means the user's own SFC.
 export type SimpleVariant = 'beginner' | 'lategame' | 'custom'
 // Guard a raw localStorage string against the known variant tokens.

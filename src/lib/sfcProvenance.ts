@@ -21,7 +21,7 @@
  * question, and each load site already knows its own answer.
  */
 
-import { AUTOSAVE_DIVERGED_AT_KEY } from './externalWsProtocol'
+import { AUTOSAVE_ANCHORED_KEY, AUTOSAVE_DIVERGED_AT_KEY } from './externalWsProtocol'
 
 /**
  * Where a freshly-loaded document's content came from, in terms of what the user
@@ -81,4 +81,36 @@ export function readAutosaveDivergedAt(payload: unknown, now: number = Date.now(
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
   // A future stamp cannot describe an elapsed age; treat it as unknown.
   return raw <= now ? raw : null
+}
+
+/**
+ * Read the anchored marker out of an autosave payload: was the body CLEAN when written?
+ *
+ * Only a literal `true` counts; anything else (absent on pre-field entries, malformed)
+ * reads as not anchored, so the worst failure is today's recovered reading — never a
+ * false "saved".
+ */
+export function readAutosaveAnchored(payload: unknown): boolean {
+  if (typeof payload !== 'object' || payload === null) return false
+  return (payload as Record<string, unknown>)[AUTOSAVE_ANCHORED_KEY] === true
+}
+
+/**
+ * Which provenance an autosave restore actually has.
+ *
+ * A restore is 'recovered' by default — the body came back from autosave, which never
+ * touches disk. The exception is a body that is RECOVERABLE without this tab: one written
+ * while the document was clean (just saved, just loaded, undone back to its save point) or
+ * one byte-identical to a bundled preset — and restored WHOLE, so the result is exactly
+ * that recoverable content rather than a mix with session state. That satisfies the clean
+ * contract at the top of this file; reporting it as 'recovered' put a dirty dot and a
+ * "you still have unsaved work" nudge on a document the user had just saved, which is the
+ * false alarm that teaches users to ignore the dot.
+ *
+ * `anchored` is the caller's verdict on both halves (the entry's markers AND the
+ * whole-body restore); this function only owns the mapping so the two provenances have
+ * exactly one home.
+ */
+export function restoreProvenance(anchored: boolean): SfcProvenance {
+  return anchored ? 'anchored' : 'recovered'
 }

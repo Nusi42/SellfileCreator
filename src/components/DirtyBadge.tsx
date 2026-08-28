@@ -81,6 +81,8 @@ function DirtyBadge({ active, children, sx, ref, tooltip, dirtySince, now, ...re
         <Tooltip title={tooltip ?? ''} disableHoverListener={!tooltip} arrow>
           <Box
             component="span"
+            // Stable hook for end-to-end checks of "is this document dirty?".
+            data-testid="dirty-dot"
             // When the dot has its own tooltip, swallow hover events so an ancestor
             // tooltip (e.g. the export button's MarkdownTooltip wrapping this badge)
             // doesn't pop up simultaneously and stack on top of the dot's tooltip.

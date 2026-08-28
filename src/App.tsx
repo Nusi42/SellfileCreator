@@ -8,7 +8,7 @@
  * - Color management for substat chips and various dialogs
  */
 import { scopeColorsText } from './lib/colorScope'
-import { provenanceIsClean, readAutosaveDivergedAt, type SfcProvenance } from './lib/sfcProvenance'
+import { provenanceIsClean, readAutosaveDivergedAt, restoreProvenance, type SfcProvenance } from './lib/sfcProvenance'
 import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type ReactNode } from 'react'
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE } from './lib/hsfIO'
@@ -29,6 +29,7 @@ import {
   getSimpleVariant,
   setSimpleVariant as persistSimpleVariant,
   AUTOSAVE_PRESET_ORIGIN_KEY,
+  AUTOSAVE_ANCHORED_KEY,
   AUTOSAVE_DIVERGED_AT_KEY,
   AUTOSAVE_SIMPLE_EXPERT_MODE_KEY,
   getRslHelperConnectEnabled,
@@ -233,8 +234,11 @@ import { EMPTY_GEAR_ANALYTICS_DIM, improvChanceBinsToRange, rangeToImprovChanceB
 import {
   useAutosaveRestore,
   restoreDraftMetasetsDiffer,
+  restoreDraftIsAnchored,
+  offeredRestoreSfcIdentityKeys,
   substatTargetsSignature,
 } from './hooks/useAutosaveRestore'
+import { restoreCoversWholeSfcBody } from './types/restoreAutosaveSelection'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 import { TINT } from './lib/colorTints'
 import { buildTagVocabulary } from './lib/tagHelpers'
@@ -4560,6 +4564,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDraft?.substatTargets) return false
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
+  // The SFC-identity rows the restore dialog is offering for this draft, from the same
+  // predicate the dialog itself uses. The restore handler needs them to tell a
+  // whole-body restore from a partial one when choosing the restored provenance.
+  const restoreOfferedIdentityKeys = useMemo(
+    () => offeredRestoreSfcIdentityKeys(restoreDraft, {
+      metasetsDiffer: restoreMetasetsDiffer,
+      targetsDiffer: restoreTargetsDiffer,
+    }),
+    [restoreDraft, restoreMetasetsDiffer, restoreTargetsDiffer],
+  )
   // Filter/sort/collapse view state is ephemeral and no longer saved, so there is no
   // "View, Filter & Sort" restore unit and no pre-dialog reset of it.
   const [prevRestoreDialogPending, setPrevRestoreDialogPending] = useState(restoreDialogPending)
@@ -5439,11 +5453,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(simpleMode ? { [AUTOSAVE_SIMPLE_EXPERT_MODE_KEY]: expertMode } : {}),
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       AutosaveSavedAt: new Date().toISOString(),
-      // WHEN this document first diverged from its last save/load — pinned at the dirty
-      // rising edge, unlike AutosaveSavedAt above which bumps on every write. Travels with
-      // the body so a restore can show the document's REAL unsaved age even in a session
-      // that never saved (see AUTOSAVE_DIVERGED_AT_KEY). Omitted while clean.
-      ...(sfcDirtySinceRef.current !== null ? { [AUTOSAVE_DIVERGED_AT_KEY]: sfcDirtySinceRef.current } : {}),
+      // The document's clean/dirty state at write time, recorded as exactly ONE of two
+      // complementary fields decided by the same predicate — so a restore never has to
+      // guess it back from special cases (see AUTOSAVE_ANCHORED_KEY):
+      //  - dirty: WHEN it first diverged from its last save/load, pinned at the dirty
+      //    rising edge (unlike AutosaveSavedAt above, which bumps on every write), so a
+      //    restore can show the REAL unsaved age even in a session that never saved;
+      //  - clean: the Anchored marker, so restoring this body whole presents as saved —
+      //    it exists in the .sfc the user just saved/loaded, or is a bundled preset.
+      ...(sfcDirtySinceRef.current !== null
+        ? { [AUTOSAVE_DIVERGED_AT_KEY]: sfcDirtySinceRef.current }
+        : { [AUTOSAVE_ANCHORED_KEY]: true }),
       // Capture current selections so they can be restored alongside their content.
       // Not included in autosavePayloadSignal, so selection-only changes do not trigger writes.
       ...(typeof selectedRecipeIdx === 'number' ? { SelectedRecipeIndex: selectedRecipeIdx } : {}),
@@ -5470,6 +5490,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Mutable references are enough to trigger autosave scheduling; avoid expensive payload
   // serialization in render by passing this signal instead of an eagerly-built object.
   const autosavePayloadSignal = useMemo(() => ({
+    // Clean/dirty is PART of the persisted payload (Anchored vs DivergedAt above), and a
+    // save flips it without touching any content — so without this member the stored
+    // entry would keep its dirty-era shape after a save and the next restore would present
+    // the freshly saved document as unsaved work. The boolean (not the stamp) keeps the
+    // signal still across clock ticks.
+    sfcClean: sfcDirtySince === null,
     recipes: customRecipes,
     metasets,
     substatTargets,
@@ -5500,6 +5526,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     trimmedSfcNote,
     expertMode,
+    sfcDirtySince,
   ])
   useAutosave({
     key: AUTOSAVE_KEY,
@@ -8170,6 +8197,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       tutorial.setHelpFirstRunMode(false)
       try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
     }
+    // A user-picked file arms divergence as usual; the express boot's OWN startup load
+    // must not, or it re-arms the dismissal the boot deliberately left unarmed and its
+    // own load then reads as the user's first edit (see loadArmsRestoreDismissal).
     if (restoreDialogPending) dismissRestore()
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
     await importSfcFile(file, context)
@@ -8256,12 +8286,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Loads the beginner or lategame preset SFC directly without a confirmation dialog.
   // Used by the express-mode preset toggle in NoteDialog. Persists the chosen
   // variant so the selection survives reloads.
-  const handleLoadSimplePreset = useCallback((variant: PresetVariant) => {
+  //
+  // Returns the load promise so the startup restore can SEQUENCE on it. It used to be
+  // discarded (fire-and-forget), which let the boot's waitForLoadedNote start its frame
+  // cap while the preset was still being read and parsed — on a slow boot (file:// URL,
+  // 15MB single-file page) the cap expired with the note still empty, the saved override
+  // answers were pruned against that empty note, and the next autosave write persisted
+  // the answer-less state: the user's overrides were destroyed by the reload itself.
+  const handleLoadSimplePreset = useCallback((variant: PresetVariant): Promise<void> => {
     persistSimpleVariant(variant)
     // Raw text + filename come from the preset SSOT (sfcPresetMatch) so the bundled
     // preset is consumed in exactly one place across the app.
     const file = new File([presetRaw(variant)], presetFilename(variant), { type: 'application/json' })
-    void handleManualFileSelection(file, { shiftKey: false })
+    return handleManualFileSelection(file, { shiftKey: false })
   }, [handleManualFileSelection])
 
   // Saved dynamic-override state for the simple-mode startup restore: the tuned
@@ -8338,9 +8375,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // safeguard sliders from the loaded recipe defaults, and restore the disabled flag.
   const applySavedSimpleOverrideAnswers = useCallback((saved: SavedSimpleOverrides) => {
     const note = sfcNoteRef.current ?? ''
-    const prunedRecipeAnswers = pruneNoteRecipeOverridesAnswers(note, saved.recipeAnswers)
+    // Pruning drops answers for questions the note no longer asks. An EMPTY note here
+    // does not mean "no questions" — it means the loaded note has not committed yet
+    // (waitForLoadedNote bailed on its cap). Pruning against it would drop every saved
+    // answer, and the next autosave write would then persist that destruction. Apply
+    // unpruned instead: stale answers for vanished questions are inert and get pruned
+    // by the next load that has a real note.
+    const noteMissing = note.length === 0
+    const prunedRecipeAnswers = noteMissing
+      ? saved.recipeAnswers
+      : pruneNoteRecipeOverridesAnswers(note, saved.recipeAnswers)
     setNoteRecipeOverridesAnswers(prunedRecipeAnswers)
-    const prunedSafeguardAnswers = pruneNoteSafeguardOverridesAnswers(note, saved.safeguardAnswers)
+    const prunedSafeguardAnswers = noteMissing
+      ? saved.safeguardAnswers
+      : pruneNoteSafeguardOverridesAnswers(note, saved.safeguardAnswers)
     setNoteSafeguardOverridesAnswers(seedSafeguardAnswersFromRecipeDefaults(note, prunedRecipeAnswers, prunedSafeguardAnswers))
     setNoteOverridesDisabled(saved.disabled)
   }, [setNoteRecipeOverridesAnswers, setNoteSafeguardOverridesAnswers, setNoteOverridesDisabled])
@@ -8391,9 +8439,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const savedAnswers = readSavedSimpleOverrideAnswers()
     // Resolve the SFC source: the current built-in (preset origin) or the saved body.
     const source = resolveSimpleStartupSource()
+    // BOTH branches must return the real load promise: waitForLoadedNote's frame cap
+    // only covers commit lag, so its clock must not start until the file read + parse
+    // work is done (see handleLoadSimplePreset).
     const loadPromise = source.kind === 'custom'
       ? loadSavedCustomSfc()
-      : (handleLoadSimplePreset(source.variant), Promise.resolve())
+      : handleLoadSimplePreset(source.variant)
     // Re-apply saved override answers AFTER the loaded note has actually committed.
     // applySavedSimpleOverrideAnswers prunes the saved answers against sfcNoteRef.current,
     // so it must not run until the load's note has landed in that ref (synced via a
@@ -10485,16 +10536,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 requestSelectionScroll(SELECTION_SCROLL_SOURCE_USER, null, sgSelIdx + 1)
               }
             }
-            // Recovered: this content came back from autosave, so it has NEVER been
-            // written to disk. It is exactly the "user loses a session's work" case the
-            // staleness ramp exists to warn about, yet it used to anchor as saved and
-            // reset the clock — presenting unsaved work as safe. It now lands dirty, and
+            // Recovered by default: this content came back from autosave, so it has
+            // NEVER been written to disk. It is exactly the "user loses a session's work"
+            // case the staleness ramp exists to warn about, yet it used to anchor as saved
+            // and reset the clock — presenting unsaved work as safe. It lands dirty, and
             // useStalenessTracking resumes the persisted stamp so the dot shows the real
             // age instead of restarting at zero.
             //
+            // The exception is a body that is RECOVERABLE without this tab (the entry's
+            // anchored markers: written while clean, or a bundled preset) and restored
+            // WHOLE, so the result is exactly that recoverable content. Both halves have
+            // one definition each; a partial restore mixes in session content and stays
+            // recovered whatever the markers say.
+            const restoredWholeBody = restoreCoversWholeSfcBody(selection, restoreOfferedIdentityKeys)
+            const restoredProvenance = restoreProvenance(restoreDraftIsAnchored(draft) && restoredWholeBody)
             // The HSF export baseline still resets: nothing has been exported this
             // session regardless of where the SFC content came from.
-            anchorNextSnapshot('recovered')
+            anchorNextSnapshot(restoredProvenance)
             // Adopt the divergence moment the restored body carries, so the dot shows the
             // document's REAL unsaved age rather than restarting at zero. Written by
             // buildAutosavePayload; absent on entries from before the field existed.
@@ -10503,8 +10561,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               divergedAt: readAutosaveDivergedAt(draft),
               // Same provenance the history anchor above was given: the hook decides
               // whether to resume the stamp from it, so the two can never disagree.
-              provenance: 'recovered',
+              provenance: restoredProvenance,
             }))
+            // An anchored restore still has to be force-cleaned AFTER its snapshot lands:
+            // anchorNextSnapshot only arms the flag, and the restore commits across a
+            // transition. Reuse the existing load safety net, which fires in the right
+            // commit and is a no-op for a non-clean provenance.
+            if (provenanceIsClean(restoredProvenance)) {
+              setSfcLoadNonce((prev) => ({ seq: (prev?.seq ?? 0) + 1, provenance: restoredProvenance }))
+            }
             setLastExportedHash(null)
             setExportBaselineResetPending(true)
             // Coalesce downstream rebuilds into a single pass.

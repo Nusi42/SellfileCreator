@@ -10,8 +10,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { loadAutosave, removeAutosave } from '../lib/autosave'
 import { parseSfcObject } from '../lib/sfcIO'
 import { presetDraftFields, type PresetVariant } from '../lib/sfcPresetMatch'
-import { AUTOSAVE_PRESET_ORIGIN_KEY, AUTOSAVE_DIVERGED_AT_KEY } from '../lib/externalWsProtocol'
-import { readAutosaveDivergedAt } from '../lib/sfcProvenance'
+import { AUTOSAVE_PRESET_ORIGIN_KEY, AUTOSAVE_DIVERGED_AT_KEY, AUTOSAVE_ANCHORED_KEY } from '../lib/externalWsProtocol'
+import { readAutosaveAnchored, readAutosaveDivergedAt } from '../lib/sfcProvenance'
 import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderRecipe } from '../lib/hsfBuilder'
@@ -39,6 +39,7 @@ import {
   type NoteSafeguardOverridesAnswers,
 } from '../lib/noteSafeguardOverrides'
 import type { BuilderPanelCollapsedSections } from '../state/builderPreferences'
+import type { RestoreOptionKey } from '../types/restoreAutosaveSelection'
 
 export type RestoreDraft = {
   Version?: string
@@ -63,6 +64,19 @@ export type RestoreDraft = {
    * unsaved age; see lib/sfcProvenance.ts.
    */
   DivergedAt?: number
+  /**
+   * Which bundled preset this saved body still matched when it was written, or absent
+   * for a custom setup. One of the two anchored markers (see restoreDraftIsAnchored):
+   * the content is one click away from the preset buttons.
+   */
+  PresetOrigin?: PresetVariant
+  /**
+   * The body was CLEAN when written — just saved, just loaded, or undone back to its
+   * save point — so it exists somewhere durable. The other anchored marker; see
+   * AUTOSAVE_ANCHORED_KEY. Absent on dirty-era entries and on entries from before the
+   * field existed.
+   */
+  Anchored?: true
   LogicHubDialogTab?: LogicHubDialogTab
 }
 
@@ -191,6 +205,57 @@ export const restoreDraftMetasetsDiffer = (
   return metasetRefsUnsatisfied(referenced, sessionMetasets)
 }
 
+
+/**
+ * Which SFC-identity rows the restore dialog offers for this draft.
+ *
+ * SSOT for the row conditions: the dialog renders exactly these rows, and the restore
+ * handler needs the same set to judge whether a restore covered the whole saved body
+ * (see restoreCoversWholeSfcBody). Writing the conditions in both places would let the
+ * two drift, and a drifted set would silently mis-anchor a restored preset.
+ *
+ * A row is offered only when the draft HAS that content, and for metasets/targets only
+ * when it also differs from the session — an unoffered row therefore means the session
+ * already equals the draft there.
+ */
+export function offeredRestoreSfcIdentityKeys(
+  draft: RestoreDraft | null | undefined,
+  opts: { metasetsDiffer: boolean; targetsDiffer: boolean },
+): Set<RestoreOptionKey> {
+  const offered = new Set<RestoreOptionKey>()
+  if (!draft) return offered
+  if ((draft.Recipes?.length ?? 0) > 0) offered.add('recipes')
+  if ((draft.Metasets?.length ?? 0) > 0 && opts.metasetsDiffer) offered.add('metasets')
+  if (draft.substatTargets && opts.targetsDiffer) offered.add('targets')
+  // The note row stands for the whole note slice: its text and both override answer maps.
+  if (
+    (draft.Note && draft.Note.trim())
+    || Object.keys(draft.NoteRecipeOverridesAnswers ?? {}).length > 0
+    || Object.keys(draft.NoteSafeguardOverridesAnswers ?? {}).length > 0
+    || draft.NoteRecipeOverridesDisabled
+  ) offered.add('note')
+  if ((draft.Safeguards?.length ?? 0) > 0) offered.add('safeguards')
+  return offered
+}
+
+/**
+ * Is the body this draft restores RECOVERABLE without the tab?
+ *
+ * The single definition of "which autosave markers make a restore clean", so the
+ * restore handler asks one question instead of inspecting fields. Two markers answer it,
+ * each a statement of recoverability in its own right: the body was clean when written
+ * (Anchored — it exists in the .sfc the user saved or loaded), or it is byte-identical
+ * to a bundled preset (PresetOrigin — one click away from the preset buttons, and the
+ * projection above already swapped in the CURRENT preset body). A pre-field entry has
+ * neither and stays recovered, which is exactly today's behaviour.
+ *
+ * Whether the restore is WHOLE is the caller's other half (restoreCoversWholeSfcBody);
+ * a partial restore mixes in session content and is unsaved work regardless of markers.
+ */
+export function restoreDraftIsAnchored(draft: RestoreDraft | null | undefined): boolean {
+  if (!draft) return false
+  return draft.Anchored === true || draft.PresetOrigin !== undefined
+}
 
 export const substatTargetsSignature = (targets?: SubstatTargetTable | null): string => {
   if (!targets) return ''
@@ -349,6 +414,14 @@ function computeInitialAutosaveState(args: {
             // allowlist projection, so anything not named here is dropped and the
             // restore would fall back to "age unknown" (stamping now).
             ...(divergedAtRaw !== null ? { [AUTOSAVE_DIVERGED_AT_KEY]: divergedAtRaw } : {}),
+            // Forwarded whenever the marker named a valid built-in — which is exactly
+            // when presetSwap ran, so the preset-identity slices in this draft ARE the
+            // current bundled preset body. Without it the projection would drop the
+            // marker (it is an allowlist) and a restored, never-edited preset would
+            // land dirty.
+            ...(presetOrigin ? { [AUTOSAVE_PRESET_ORIGIN_KEY]: presetOrigin } : {}),
+            // The clean-at-write marker (same allowlist rule: name it or lose it).
+            ...(readAutosaveAnchored(payload) ? { [AUTOSAVE_ANCHORED_KEY]: true as const } : {}),
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']

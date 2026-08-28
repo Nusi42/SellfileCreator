@@ -157,13 +157,22 @@ export function useAutosave(opts: UseAutosaveOptions) {
   // Flush on unload / when tab becomes hidden
   useEffect(() => {
     if (!enabled) return
-    // On unload/when tab gets hidden, persist the latest known payload.
-    // Fall back to a fresh payload resolve if we never wrote yet.
+    // A change made just before the tab goes away is only known as PENDING work — the
+    // debounce/idle handles hold it, not lastRef. lastRef is the payload of the last
+    // COMPLETED write, so persisting it here re-wrote what storage already held while
+    // the cancel below discarded the pending change: an edit inside the debounce window
+    // (e.g. flip an override, hit F5) was silently dropped on every reload. When work is
+    // pending, the flush must rebuild from the LIVE state instead.
     const flush = () => {
+      // Snapshot BEFORE clearing — clearScheduledWrite nulls both handles.
+      const pending = debounceRef.current !== null || idleRef.current !== null
       clearScheduledWrite()
       try {
-        const cur = lastRef.current ?? resolvePayload()
-        saveAutosave(key, cur)
+        // No pending work and a write already landed: storage is current, nothing to do.
+        // (Skipping also keeps tab-hides on an idle session write-free.)
+        if (!pending && lastRef.current !== null) return
+        // Pending change, or nothing ever written: persist a fresh snapshot now.
+        writeSnapshot()
       } catch {}
     }
     const onVis = () => { if (document.hidden) flush() }
@@ -173,5 +182,5 @@ export function useAutosave(opts: UseAutosaveOptions) {
       window.removeEventListener('beforeunload', flush)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [clearScheduledWrite, enabled, key, resolvePayload])
+  }, [clearScheduledWrite, enabled, writeSnapshot])
 }

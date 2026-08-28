@@ -3,9 +3,18 @@ import assert from 'node:assert/strict'
 import {
   provenanceIsClean,
   provenanceKeepsStalenessStamp,
+  readAutosaveAnchored,
   readAutosaveDivergedAt,
+  restoreProvenance,
   type SfcProvenance,
 } from '../../src/lib/sfcProvenance.js'
+import { restoreDraftIsAnchored } from '../../src/hooks/useAutosaveRestore.js'
+import {
+  RESTORE_SELECTION_DEFAULT,
+  restoreCoversWholeSfcBody,
+  type RestoreOptionKey,
+  type RestoreSelection,
+} from '../../src/types/restoreAutosaveSelection.js'
 import { resolveDirtySince } from '../../src/lib/stalenessRamp.js'
 import { clampSavedIndex } from '../../src/hooks/useSfcHistory.js'
 
@@ -250,4 +259,153 @@ test('a rising edge stamps even when the previous-dirty ref is mutated before th
     dirty: true, wasDirty: prevDirtyRef.current, current: null, restorePending: false, keepStamp: false, now,
   })
   assert.equal(viaMutatedRef.next, null, 'reading the mutated ref reproduces the bug')
+})
+
+// ---------------------------------------------------------------------------
+// restoreProvenance — the never-edited preset that came back dirty.
+// ---------------------------------------------------------------------------
+
+// The reported bug: load a bundled preset, change nothing, restart. Autosave had
+// written the preset body (stamped with its PresetOrigin marker), the restore anchored
+// it 'recovered' unconditionally, and the app came up with a dirty dot plus the
+// "you still have unsaved work" arrows — on a document the user never touched. The
+// content is one click away from the preset buttons, so the clean contract says clean.
+test('a whole-body restore of a preset-stamped draft is clean, not recovered', () => {
+  assert.equal(restoreProvenance(true), 'anchored')
+  assert.equal(provenanceIsClean(restoreProvenance(true)), true)
+})
+
+// The default must not move: a custom body restored from autosave has never touched
+// disk, which is the whole reason the staleness ramp exists.
+test('a restore that is not preset-anchored stays recovered', () => {
+  assert.equal(restoreProvenance(false), 'recovered')
+  assert.equal(provenanceIsClean(restoreProvenance(false)), false)
+  // And it still resumes the persisted age rather than restarting the clock.
+  assert.equal(provenanceKeepsStalenessStamp(restoreProvenance(false)), true)
+})
+
+// Regression companion to the DivergedAt projection test above: restoreDraft is an
+// ALLOWLIST, so the preset marker has to be named there too. If it is dropped between
+// the autosave write and the restore read, every restored preset falls back to
+// 'recovered' and the never-edited preset is dirty again — the original bug, restored
+// by omission rather than by logic. This pins the field name both sides agree on.
+test('the preset marker key is the one the autosave payload writes', () => {
+  // What buildAutosavePayload stamps, and what the projection must forward under the
+  // same key for restoreProvenance to ever see it.
+  const rawPayload: Record<string, unknown> = { Recipes: [], PresetOrigin: 'lategame' }
+  const forwarded = rawPayload['PresetOrigin']
+  assert.equal(forwarded, 'lategame')
+  assert.equal(restoreProvenance(Boolean(forwarded)), 'anchored')
+  // A custom body carries no marker, so the restore stays recovered.
+  assert.equal(restoreProvenance(Boolean(({ Recipes: [] } as Record<string, unknown>)['PresetOrigin'])), 'recovered')
+})
+
+// ---------------------------------------------------------------------------
+// restoreCoversWholeSfcBody — whole restore vs. partial.
+// ---------------------------------------------------------------------------
+
+const selectionOf = (...keys: RestoreOptionKey[]): RestoreSelection => {
+  const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
+  for (const key of keys) next[key] = true
+  return next
+}
+
+// The typical preset restart: the dialog offers recipes and note (a preset has both),
+// the user accepts both, and the result is the preset body whole.
+test('accepting every offered identity row covers the whole body', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes', 'note'])
+  assert.equal(restoreCoversWholeSfcBody(selectionOf('recipes', 'note'), offered), true)
+})
+
+// Leaving one offered row unchecked mixes session content into the result, so it is no
+// longer the preset and must not be anchored clean.
+test('declining an offered identity row is a partial restore', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes', 'note'])
+  assert.equal(restoreCoversWholeSfcBody(selectionOf('recipes'), offered), false)
+  assert.equal(restoreCoversWholeSfcBody(RESTORE_SELECTION_DEFAULT, offered), false)
+})
+
+// A row is only offered when it has content AND (metasets/targets) differs from the
+// session. An unoffered row therefore means the session already equals the draft there,
+// so the body is still whole without the user checking anything for it.
+test('rows that were never offered do not block a whole-body restore', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes'])
+  // metasets/targets/note/safeguards were not offered — already equal, or absent.
+  assert.equal(restoreCoversWholeSfcBody(selectionOf('recipes'), offered), true)
+})
+
+// Gear Inspector items and runtime gear sets live outside the SFC body, so they can be
+// declined (or accepted) without changing whether the document is the preset.
+test('gear rows do not affect whether the SFC body was fully restored', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes', 'note'])
+  const withoutGear = selectionOf('recipes', 'note')
+  const withGear = selectionOf('recipes', 'note', 'gearInspector', 'gearSets')
+  assert.equal(restoreCoversWholeSfcBody(withoutGear, offered), true)
+  assert.equal(restoreCoversWholeSfcBody(withGear, offered), true)
+})
+
+// The two rules compose into the actual App decision: marker present AND whole body.
+test('the restore decision needs both the marker and a whole-body restore', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes', 'note'])
+  const whole = restoreCoversWholeSfcBody(selectionOf('recipes', 'note'), offered)
+  const partial = restoreCoversWholeSfcBody(selectionOf('recipes'), offered)
+  // The two drafts the handler distinguishes: one still a built-in, one the user's own.
+  const presetDraft: { PresetOrigin?: string } = { PresetOrigin: 'lategame' }
+  const customDraft: { PresetOrigin?: string } = {}
+  // Mirrors App.tsx: marker present AND the whole body restored.
+  const decide = (draft: { PresetOrigin?: string }, covered: boolean) =>
+    restoreProvenance(Boolean(draft.PresetOrigin) && covered)
+  // Preset marker + whole body -> clean. This is the reported bug's fix.
+  assert.equal(decide(presetDraft, whole), 'anchored')
+  // Preset marker but a partial restore -> the result is not the preset.
+  assert.equal(decide(presetDraft, partial), 'recovered')
+  // A custom body is recovered however much of it was restored.
+  assert.equal(decide(customDraft, whole), 'recovered')
+})
+
+// ---------------------------------------------------------------------------
+// The anchored marker — the general "was this body recoverable when written?" answer.
+// ---------------------------------------------------------------------------
+
+// The reported bug: modify, SAVE, reload, restore -> dirty dot and "unsaved work" arrows on
+// a document that had just been written to disk. The entry now records clean/dirty at
+// write time (Anchored vs DivergedAt, one predicate), so the restore reads it back instead
+// of guessing from special cases.
+test('the anchored marker reads back only as a literal true', () => {
+  assert.equal(readAutosaveAnchored({ Recipes: [], Anchored: true }), true)
+  // Absent (pre-field entry) or anything but a literal true must degrade to "not anchored"
+  // — today's recovered reading — never to a false "saved".
+  assert.equal(readAutosaveAnchored({ Recipes: [] }), false)
+  assert.equal(readAutosaveAnchored({ Anchored: 'true' }), false)
+  assert.equal(readAutosaveAnchored({ Anchored: 1 }), false)
+  assert.equal(readAutosaveAnchored(null), false)
+  assert.equal(readAutosaveAnchored('nope'), false)
+})
+
+// The one decision every restore funnels through: either marker anchors, neither stays
+// recovered. PresetOrigin remains an anchor in its own right (byte-identical to a bundled
+// preset is recoverable whatever the history state said at write time).
+test('a draft is anchored by the clean-at-write marker or by a preset origin', () => {
+  assert.equal(restoreDraftIsAnchored({ Anchored: true }), true)
+  assert.equal(restoreDraftIsAnchored({ PresetOrigin: 'lategame' }), true)
+  assert.equal(restoreDraftIsAnchored({ Anchored: true, PresetOrigin: 'beginner' }), true)
+  // A dirty-era entry (DivergedAt, no marker) and a pre-field entry both stay recovered.
+  assert.equal(restoreDraftIsAnchored({ DivergedAt: NOW_MS - 60_000 }), false)
+  assert.equal(restoreDraftIsAnchored({ Recipes: [] }), false)
+  assert.equal(restoreDraftIsAnchored(null), false)
+  assert.equal(restoreDraftIsAnchored(undefined), false)
+})
+
+// The full chain the save-then-reload report exercises, in the terms the handler uses.
+test('a saved document restored whole is clean; restored partially it is not', () => {
+  const offered = new Set<RestoreOptionKey>(['recipes', 'note'])
+  const savedDraft = { Anchored: true as const }
+  const whole = restoreCoversWholeSfcBody(selectionOf('recipes', 'note'), offered)
+  const partial = restoreCoversWholeSfcBody(selectionOf('recipes'), offered)
+  assert.equal(restoreProvenance(restoreDraftIsAnchored(savedDraft) && whole), 'anchored')
+  assert.equal(restoreProvenance(restoreDraftIsAnchored(savedDraft) && partial), 'recovered')
+  // And the never-saved session keeps its warning — plus its real age.
+  const unsavedDraft = { DivergedAt: NOW_MS - 95 * 60_000 }
+  assert.equal(restoreProvenance(restoreDraftIsAnchored(unsavedDraft) && whole), 'recovered')
+  assert.equal(readAutosaveDivergedAt(unsavedDraft, NOW_MS), NOW_MS - 95 * 60_000)
 })

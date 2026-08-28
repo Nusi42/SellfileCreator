@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { formatLocalDateTime } from '../../lib/dateDisplay'
 import EllipsisTooltip from '../EllipsisTooltip'
-import type { RestoreDraft } from '../../hooks/useAutosaveRestore'
+import { offeredRestoreSfcIdentityKeys, type RestoreDraft } from '../../hooks/useAutosaveRestore'
 import { RESTORE_SELECTION_DEFAULT, RESTORE_SELECTION_KEYS, type RestoreOptionKey, type RestoreSelection } from '../../types/restoreAutosaveSelection'
 import { useRestoreAutosaveSelectionPreference } from '../../state/restoreAutosaveSelection'
 import {
@@ -87,14 +87,16 @@ export default function RestoreAutosaveDialog({
   // Gear sets are not embedded in autosave/SFC, so only storage matters here.
   // Why: contributors share `.gearsets.json` separately.
   const gearSetsCount = storedGearSetsCount ?? 0
-  const hasTargets = Boolean(draft?.substatTargets)
-  const hasNote = Boolean(
-    (draft?.Note && draft.Note.trim())
-    || (draft?.NoteRecipeOverridesAnswers && Object.keys(draft.NoteRecipeOverridesAnswers).length > 0)
-    || (draft?.NoteSafeguardOverridesAnswers && Object.keys(draft.NoteSafeguardOverridesAnswers).length > 0)
-    || draft?.NoteRecipeOverridesDisabled
+  // Which SFC-identity rows this draft offers, from the shared predicate the restore
+  // handler also consults — so "was the whole saved body restored?" can never be judged
+  // against a different set of rows than the one the user actually saw.
+  const offeredIdentityKeys = useMemo(
+    () => offeredRestoreSfcIdentityKeys(draft, { metasetsDiffer, targetsDiffer }),
+    [draft, metasetsDiffer, targetsDiffer],
   )
-  const hasSafeguards = (draft?.Safeguards?.length ?? 0) > 0
+  const hasTargets = offeredIdentityKeys.has('targets')
+  const hasNote = offeredIdentityKeys.has('note')
+  const hasSafeguards = offeredIdentityKeys.has('safeguards')
   // Only offer the Gear Inspector restore when the saved snapshot has at least one item.
   // An empty snapshot equals the app's default state — restoring it would be a no-op.
   const hasGearInspectorContent = Boolean(gearInspectorDraft && gearInspectorDraft.count > 0)
@@ -102,18 +104,16 @@ export default function RestoreAutosaveDialog({
   const gearInspectorSavedAt = formatSavedAt(gearInspectorDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
     const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
-    if (recipesCount > 0) next.recipes = true
-    if (metasCount > 0 && metasetsDiffer) next.metasets = true
-    if (hasTargets && targetsDiffer) next.targets = true
-    if (hasNote) next.note = true
-    if (hasSafeguards) next.safeguards = true
+    // Every offered identity row starts checked; the shared predicate decides which
+    // rows are offered at all (see offeredRestoreSfcIdentityKeys).
+    for (const key of offeredIdentityKeys) next[key] = true
     // Skip Gear Inspector if snapshot is empty — that equals the default state.
     // Also skip when disabled: the endpoint data has superseded the snapshot, so
     // offering its restore would be a no-op (the row stays visible but unchecked).
     if (hasGearInspectorContent && !gearInspectorDisabled) next.gearInspector = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [recipesCount, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled])
+  }, [offeredIdentityKeys, gearSetsCount, hasGearInspectorContent, gearInspectorDisabled])
 
   // Merge persisted and default selection during render when the dialog is open.
   // This replaces a useEffect to avoid an extra re-render cycle — the React-blessed
@@ -127,21 +127,21 @@ export default function RestoreAutosaveDialog({
 
   const options = useMemo<RestoreOption[]>(() => {
     const rows: RestoreOption[] = []
-    if (recipesCount > 0) {
+    if (offeredIdentityKeys.has('recipes')) {
       rows.push({
         key: 'recipes',
         label: t('restoreAutosaveRecipesLabel', { count: recipesCount }),
         helper: t('restoreAutosaveRecipesHelper'),
       })
     }
-    if (metasCount > 0 && metasetsDiffer) {
+    if (offeredIdentityKeys.has('metasets')) {
       rows.push({
         key: 'metasets',
         label: t('restoreAutosaveMetasetsLabel', { count: metasCount }),
         helper: t('restoreAutosaveMetasetsHelper'),
       })
     }
-    if (hasTargets && targetsDiffer) {
+    if (hasTargets) {
       rows.push({
         key: 'targets',
         label: t('restoreAutosaveTargetsLabel'),
@@ -188,7 +188,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [draft?.Safeguards?.length, recipesCount, gearSetsCount, hasNote, hasSafeguards, hasTargets, metasCount, metasetsDiffer, targetsDiffer, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
+  }, [draft?.Safeguards?.length, offeredIdentityKeys, recipesCount, gearSetsCount, hasTargets, hasNote, hasSafeguards, metasCount, hasGearInspectorContent, gearInspectorDisabled, gearInspectorDraft, t])
 
   // Apply the same metaset dependency rule as Shift-load import options.
   // Why: autosave restore can also import recipes/safeguards without metasets.

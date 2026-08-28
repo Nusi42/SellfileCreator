@@ -283,6 +283,7 @@ export default function HeaderActions(props: {
         <Box ref={sfcSaveRef} sx={(theme) => nudgeTarget === 'save' ? { position: 'relative', zIndex: theme.zIndex.tooltip + 1, animation: `${sfcNudgeKf} 1.4s ease-in-out 5`, flexShrink: 1, minWidth: 0, display: 'inline-flex' } : { position: 'relative', flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
         <DirtyBadge
           active={sfcDirty}
+          data-testid="sfc-dirty-badge"
           tooltip={sfcDirtyTooltip}
           dirtySince={sfcDirtySince}
           now={stalenessNow}
