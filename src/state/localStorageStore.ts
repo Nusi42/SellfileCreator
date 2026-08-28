@@ -95,9 +95,9 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
 
   const equality: EqualityFn<T> = equals ?? ((a, b) => Object.is(a, b))
 
-  // Raw presence probe: null means "this key is not on disk", which readFromStorage cannot
-  // report (it maps an absent key to the fallback VALUE). Never throws — a storage-less
-  // environment reports absence, matching the safeStorage contract.
+  // Single definition of the guarded raw read. Returns null both for "key absent" and for
+  // "storage unreachable" (SSR, private mode, blocked cookies) — every caller treats those
+  // the same way, so collapsing them keeps one error contract instead of two.
   const readRawKey = (): string | null => {
     if (!isWindowDefined()) return null
     try { return window.localStorage.getItem(key) } catch { return null }
@@ -162,8 +162,13 @@ export function createLocalStorageStore<T>(options: LocalStorageStoreOptions<T>)
     // this the very act of CHOOSING the current default would look like a no-op and the
     // choice would never be recorded — leaving the next session free to resolve a different
     // default. For ordinary stores an equal value genuinely is a no-op.
-    const needsFirstWrite = persistDefault && persistsNow() && readRawKey() === null
-    if (equality(previous, next) && !needsFirstWrite) return
+    //
+    // Probed only when the value is unchanged: that is the sole case where the answer can
+    // change the outcome, so a normal changed-value write skips the extra storage read.
+    if (equality(previous, next)) {
+      const needsFirstWrite = persistDefault && persistsNow() && readRawKey() === null
+      if (!needsFirstWrite) return
+    }
     const previousSerialized = currentSerialized
     current = next
     // When persistence is off (rememberable-view store, toggle OFF) hold the value in memory only.

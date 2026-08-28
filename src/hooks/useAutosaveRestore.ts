@@ -6,7 +6,7 @@
  * change after dismissing. Exposes dialog state and whether autosave is
  * currently enabled.
  */
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { loadAutosave, removeAutosave } from '../lib/autosave'
 import { parseSfcObject } from '../lib/sfcIO'
 import { presetDraftFields, type PresetVariant } from '../lib/sfcPresetMatch'
@@ -469,14 +469,39 @@ export function useAutosaveRestore(opts: {
     logicHubDialogTab,
   ])
 
-  // Live mirror of everything rearmDivergence needs, synced in a layout effect so a
-  // deferred caller sees the latest COMMITTED values rather than the render scope it
-  // happened to close over — see rearmDivergence for why that matters. Layout (not plain)
-  // effect so the mirror is current before any paint-triggered callback can read it.
-  const liveDivergenceStateRef = useRef({ enabled, restoreDlgOpen, snapshot })
-  useLayoutEffect(() => {
-    liveDivergenceStateRef.current = { enabled, restoreDlgOpen, snapshot }
-  }, [enabled, restoreDlgOpen, snapshot])
+  // Single definition of "baseline divergence against this snapshot from now on", shared by
+  // the dismissal and re-arm paths so both can never drift apart. The guard mirrors the
+  // React state setter's own failure mode: if the snapshot cannot be stored, fall back to
+  // null (unarmed) rather than leaving a half-written baseline behind.
+  const captureDivergenceBaseline = (nextBaseline: string) => {
+    try { setDismissBaseline(nextBaseline) } catch { setDismissBaseline(null) }
+  }
+
+  // Pending-re-arm latch, held as STATE (not a ref) so it can be read and consumed during
+  // render. rearmDivergence() cannot baseline synchronously: its caller has typically just
+  // ENQUEUED the state updates that finish the startup load (React batches them, so nothing
+  // has re-rendered yet) and baselining now would capture the PRE-load snapshot —
+  // re-introducing the overwrite this exists to prevent. So the call only bumps `requested`;
+  // the render-time block below consumes it on the first render in which the snapshot memo
+  // reflects those updates.
+  //
+  // Bumping a counter also GUARANTEES such a render: when the caller enqueued no state
+  // updates of its own (no saved answers to re-apply) nothing else would re-render, and a
+  // latch with no following render would never be consumed — leaving the session unarmed
+  // and silently dropping every later edit. `served` tracks which request has been handled,
+  // so a re-render cannot re-baseline against a later (already user-edited) snapshot.
+  const [rearm, setRearm] = useState({ requested: 0, served: 0 })
+
+  // Render-time state adjustment, the same sanctioned pattern as the divergence check
+  // below: consume the latch while rendering rather than in an effect, so the baseline
+  // lands without an extra cascading commit.
+  if (rearm.requested !== rearm.served) {
+    setRearm({ requested: rearm.requested, served: rearm.requested })
+    // Never override an already-enabled session, and never re-baseline while the prompt is
+    // still up (the user has not decided yet — dismiss/accept own that transition). The
+    // request is consumed either way rather than lingering and firing later.
+    if (!enabled && !restoreDlgOpen) captureDivergenceBaseline(snapshot)
+  }
 
   // After dismissing, enable autosave only after divergence from baseline.
   // Render-time state adjustment: when snapshot diverges from baseline, enable immediately.
@@ -507,7 +532,7 @@ export function useAutosaveRestore(opts: {
     setRestoreDlgOpen(false)
     // Default true: a bare dismiss() is the user closing the dialog.
     if (opts?.armDivergence === false) return
-    try { setDismissBaseline(snapshot) } catch { setDismissBaseline(null) }
+    captureDivergenceBaseline(snapshot)
     // Keep previous autosave intact by not enabling here
   }
 
@@ -526,18 +551,20 @@ export function useAutosaveRestore(opts: {
    * here on, only a real user change diverges, and autosave re-enables exactly as it would
    * after a normal dismissal. Without this the express session would never re-enable
    * autosave at all and genuine edits would be lost, which is worse than the bug it fixes.
+   *
+   * Deliberately asynchronous: callers finish their load by ENQUEUEING state updates (the
+   * express boot re-applies the saved override answers on the line above the call), and
+   * React batches those, so no snapshot readable at call time — closure OR ref — yet
+   * includes them. Baselining here would capture the pre-load state and let the load's own
+   * updates read as the user's first edit. Instead this only requests a re-arm; the
+   * render-time latch above performs it on the first render in which the caller's updates
+   * are live. Stable identity so callers can list it in an effect dependency array honestly.
    */
-  const rearmDivergence = () => {
-    // Read through the ref, not the closure: this is invoked from a deferred promise once
-    // the startup load settles, so the captured render scope would be several renders stale
-    // and would baseline against the PRE-load snapshot — reintroducing the very overwrite
-    // this exists to prevent.
-    const live = liveDivergenceStateRef.current
-    // Never override an already-enabled session, and never re-baseline while the prompt is
-    // still up (the user has not decided yet — dismiss/accept own that transition).
-    if (live.enabled || live.restoreDlgOpen) return
-    try { setDismissBaseline(live.snapshot) } catch { setDismissBaseline(null) }
-  }
+  const rearmDivergence = useCallback(() => {
+    // Bumping `requested` both records the request and forces a render, so the latch is
+    // consumed even when the caller enqueued no state updates of its own.
+    setRearm((prev) => ({ ...prev, requested: prev.requested + 1 }))
+  }, [])
 
   return {
     restoreDlgOpen,

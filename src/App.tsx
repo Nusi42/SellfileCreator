@@ -8377,12 +8377,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     void loadPromise
       .then(() => waitForLoadedNote())
       .then(() => {
-        // Answers are part of the startup load, so they must land BEFORE the re-arm below —
-        // otherwise re-applying them would itself read as the user's first edit.
+        // Answers are part of the startup load, so they must be included in the baseline the
+        // re-arm captures — otherwise re-applying them would itself read as the user's first
+        // edit. These setState calls are only ENQUEUED here (React batches them), which is
+        // exactly why rearmAutosaveDivergence defers its baseline to the commit that lands
+        // them rather than reading state back on the next line.
         // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
         if (savedAnswers) applySavedSimpleOverrideAnswers(savedAnswers)
-        // The startup load is now fully committed. Re-arm divergence against THIS state so
-        // real user edits from here on re-enable autosave normally. The dismissal above
+        // Request the re-arm: divergence is re-baselined once the load above has committed,
+        // so real user edits from here on re-enable autosave normally. The dismissal above
         // deliberately left it unarmed so this programmatic load could not be mistaken for
         // an edit and overwrite the user's stored document.
         rearmAutosaveDivergence()
