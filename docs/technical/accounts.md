@@ -186,7 +186,7 @@ enforcement point; scoped keys become `sellfileCreator.acc.<id>.<rest>`):
 | `autosave.gearInspector.v1` | the gear queue is one account's inventory |
 | `autosave.restoreSelection.v1` | refers to the account's own autosaves |
 | `builder.userDefaults.v1`, `safeguardBuilder.userDefaults.v1` | encode the account's gear strategy |
-| `simple.variant.v1` | beginner/lategame tracks account progression |
+| `simple.variant.v1` | beginner/lategame/custom tracks account progression (consulted only when no autosave entry exists — the entry's `PresetOrigin` marker otherwise decides the startup source) |
 | `sellfile.autoPush.v1` | auto-push is a per-account contract with RSL Helper; tri-state raw value — '1' / '0' / absent — where "absent" means never configured: express simple mode defaults auto-push ON only then (`hasExplicitSellfileAutoPushForAccount`), so an explicit off survives simple starts and account switches |
 | `sellfile.dedupDefault.v1`, `sellfile.omitDisabled.v1` | per-account export transforms — the background push applies the TARGET account's dedup/omit (read via `getSellfileDedupForAccount`/`getSellfileOmitDisabledForAccount`), so they must partition per account like auto-push |
 | `sellfile.lastPush.v1` | ISO timestamp of the account's last SUCCESSFUL upload (written by both the foreground and background push; shown in the switcher's row summary) |

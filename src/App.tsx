@@ -8913,10 +8913,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // An express SFC counts as "empty" when it has no note and no custom recipes.
   // Emptiness alone does NOT decide custom-ness: an empty SAVED doc is the user's own
-  // (custom) setup — e.g. a freshly created account — while an empty live doc WITHOUT
-  // a saved doc is the transient fresh-start state that gets a preset loaded into it
-  // (startup does this; handleGoSimple covers the in-session entry). The forbidden
-  // state "preset selected but nothing loaded" must never exist.
+  // (custom) setup — e.g. a freshly created account — while an empty live doc is
+  // otherwise just the transient state before a load lands (startup and handleGoSimple
+  // both load the startup source into it). Only those two entry points decide the empty
+  // case, from the persisted document; the custom latch never fires on an empty doc.
+  // The forbidden state "preset selected but nothing loaded" must never exist.
   const sfcIsEmpty = !notePresent && customRecipes.length === 0
 
   // Which simple-mode preset the live SFC matches: 'beginner' | 'lategame' | null.
@@ -8930,37 +8931,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return matchedPreset(currentSfcFields)
   }, [isSimpleView, sfcIsEmpty, currentSfcFields])
 
-  // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
-  // the express startup effect; this path must do the same when there is NOTHING yet —
-  // an empty live doc with no saved doc gets the startup source loaded immediately, so
-  // "Midgame+ selected but nothing loaded (empty note)" cannot exist. An existing saved
-  // doc (even an empty one) is the user's own custom setup and stays untouched.
-  const handleGoSimple = useCallback(() => {
-    setExpertMode(false)
-    persistSimpleExpertMode(false)
-    stampSimpleExpertModeIntoAutosave(false)
-    if (sfcIsEmpty && loadAutosave(AUTOSAVE_KEY) === null) {
-      const source = resolveSimpleStartupSource()
-      if (source.kind === 'preset') handleLoadSimplePreset(source.variant)
-      else void loadSavedCustomSfc()
-    }
-  }, [setExpertMode, sfcIsEmpty, resolveSimpleStartupSource, handleLoadSimplePreset, loadSavedCustomSfc])
-
-  // Shadow the current setup fields so the debounced autosave-build callback (defined
-  // far above) can compute the preset-origin marker lazily — only when a write actually
-  // fires (1s debounce), never on the render hot path.
-  useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
-
-  // Latch: once the live SFC is a real custom setup (non-preset, non-empty) in
+  // Latch: once the live SFC is a real custom setup (non-preset, NON-EMPTY) in
   // simple view, the Old/Custom button stays available for the rest of the
   // session even after the user switches to a preset. Reset on entering expert.
   //
-  // Seeded synchronously from autosave at startup: when express mode restores a
-  // custom setup (resolveSimpleStartupSource → 'custom'), the live SFC won't
-  // match a preset once it finishes loading, so the latch effect below WILL set
-  // this true — but only after the async load + commit settles. Seeding it here
-  // lets the toggle render 'custom' from the first paint instead of flashing the
-  // 'lategame' fallback, which is especially visible in the embedded-window tool.
+  // The EMPTY document is decided here and in handleGoSimple — never by the latch
+  // effect further down, which does not fire on an empty document. Empty can mean
+  // three things, and only the persisted document tells them apart: the startup/Go
+  // Simple load is still on its way, the app's own first empty autosave write, or the
+  // user's genuinely empty saved setup. The latch used to guess from "any autosave
+  // entry exists", which is true in all three cases, so a reload of a plain preset
+  // session (and even a first launch) latched Custom on the void.
+  //
+  // Seeded synchronously from the entry captured BEFORE any write: when express mode
+  // restores a custom setup (resolveSimpleStartupSource → 'custom'), the toggle can
+  // render 'custom' from the first paint instead of flashing the 'lategame' fallback
+  // while the async load settles — especially visible in the embedded-window tool.
   const [customAvailable, setCustomAvailable] = useState(
     () => isSimpleViewAtStart && resolveSimpleStartupSource().kind === 'custom',
   )
@@ -8975,8 +8961,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   // Snapshot of the latest custom SFC text so the Old/Custom button can restore
   // it after the user tries a preset. Same serialization as save/autosave so the
-  // restored File round-trips byte-faithfully.
+  // restored File round-trips byte-faithfully. Null until the latch has fired.
   const customSfcSnapshotRef = useRef<string | null>(null)
+
+  // Entering simple view IN-SESSION (Go Simple). Startup entries load their content via
+  // the express startup effect; this path must do the same when there is NOTHING yet —
+  // an empty live doc with no saved doc gets the startup source loaded immediately, so
+  // "Midgame+ selected but nothing loaded (empty note)" cannot exist. An existing saved
+  // doc (even an empty one) is the user's own custom setup and stays untouched — and is
+  // offered as Custom here, explicitly, because the latch below never fires on an empty
+  // document.
+  const handleGoSimple = useCallback(() => {
+    setExpertMode(false)
+    persistSimpleExpertMode(false)
+    stampSimpleExpertModeIntoAutosave(false)
+    if (!sfcIsEmpty) return
+    if (loadAutosave(AUTOSAVE_KEY) === null) {
+      const source = resolveSimpleStartupSource()
+      if (source.kind === 'preset') void handleLoadSimplePreset(source.variant)
+      else void loadSavedCustomSfc()
+      return
+    }
+    // The user's own empty setup (e.g. a fresh account): Custom is the truthful selected
+    // button, rather than a preset that was never loaded.
+    setCustomAvailable(true)
+  }, [setExpertMode, sfcIsEmpty, resolveSimpleStartupSource, handleLoadSimplePreset, loadSavedCustomSfc])
+
+  // Shadow the current setup fields so the debounced autosave-build callback (defined
+  // far above) can compute the preset-origin marker lazily — only when a write actually
+  // fires (1s debounce), never on the render hot path.
+  useLayoutEffect(() => { currentSfcFieldsRef.current = currentSfcFields })
 
   /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect, react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-derived-state -- customAvailable is a *latching* derived signal: it must persist across renders after the source condition clears (user switches to a preset), so it cannot be pure-derived during render. The snapshot ref is updated alongside it. */
   // Detect a custom setup and refresh its snapshot whenever the live SFC is in a
@@ -8984,11 +8998,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     if (!isSimpleView) return
     if (simplePresetMatch !== null) return
-    // Empty is custom ONLY when a saved doc exists (the user's own empty setup, e.g. a
-    // fresh account). Empty WITHOUT a saved doc is the transient window while a preset
-    // load is on its way — latching there would snapshot the void and hijack the
-    // persisted variant. The autosave parse is trivial here (the doc is empty).
-    if (sfcIsEmpty && loadAutosave(AUTOSAVE_KEY) === null) return
+    // Never on an EMPTY document. Emptiness cannot tell "the load is still on its way"
+    // (boot, Go Simple) from "the user's setup is empty", and latching in the former
+    // snapshots the void and shows Custom for a plain preset session after a reload.
+    // The empty case is owned by the startup seed and handleGoSimple (see the state
+    // declaration above), which consult the persisted document instead of guessing.
+    if (sfcIsEmpty) return
     // Serialize identically to sfcToBlob (JSON.stringify(payload, null, 2)). Shares the
     // document writer with "Save .sfc": the latch stands in for the user's whole custom
     // document, so it must carry exactly the same fields — overrides included.
@@ -9020,13 +9035,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Restore the snapshotted custom SFC through the normal load path used by the
   // preset buttons, so it round-trips through parse/normalize identically.
   const handleLoadSimpleCustom = useCallback(() => {
-    const text = customSfcSnapshotRef.current
-    if (!text) return
     // Persist 'custom' so the next reload restores the custom SFC, not a preset.
     persistSimpleVariant('custom')
+    const text = customSfcSnapshotRef.current
+    // No in-session snapshot: the custom setup was seeded from autosave at startup and
+    // the latch has not fired (an empty custom setup never does). Restore the persisted
+    // body through the startup path instead of silently doing nothing, which left the
+    // toggle holding a "Custom" press that no load could ever confirm.
+    if (!text) { void loadSavedCustomSfc(); return }
     const file = new File([text], 'custom.sfc', { type: 'application/json' })
     void handleManualFileSelection(file, { shiftKey: false })
-  }, [handleManualFileSelection])
+  }, [handleManualFileSelection, loadSavedCustomSfc])
 
   // Serialize the current document exactly like "Save .sfc" (same writer, same formatting)
   // so the shift-switch merge carry round-trips through the regular parse/normalize path.
