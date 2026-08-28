@@ -84,17 +84,23 @@ export function stalenessColor(minutes: number | null, anchors: StalenessRampAnc
   if (!warning || !error) return anchors.neutral
 
   const { aging, stale, critical } = STALENESS_TIER_MINUTES
-  // Segment 1 — neutral → warning across the first tier boundary.
-  if (minutes < aging) return anchors.neutral
-  if (minutes < stale) {
-    return rgbToCss(mixRgb(neutral, warning, (minutes - aging) / (stale - aging)))
+  // The segment is chosen by the SAME tier predicate that drives the pulse and the
+  // tooltip, never by restating its boundary comparisons here — otherwise the dot's
+  // colour and its tier-driven behaviour could drift apart on any future retune.
+  switch (stalenessTier(minutes)) {
+    // Still inside the quiet window: today's neutral dot.
+    case 'fresh':
+      return anchors.neutral
+    // Segment 1 — neutral → warning across the first tier boundary.
+    case 'aging':
+      return rgbToCss(mixRgb(neutral, warning, (minutes - aging) / (stale - aging)))
+    // Segment 2 — warning → error across the second boundary.
+    case 'stale':
+      return rgbToCss(mixRgb(warning, error, (minutes - stale) / (critical - stale)))
+    // Past the last stop the ramp holds at full error; it cannot escalate further.
+    case 'critical':
+      return anchors.error
   }
-  // Segment 2 — warning → error across the second boundary.
-  if (minutes < critical) {
-    return rgbToCss(mixRgb(warning, error, (minutes - stale) / (critical - stale)))
-  }
-  // Past the last stop the ramp holds at full error; it cannot escalate further.
-  return anchors.error
 }
 
 /**

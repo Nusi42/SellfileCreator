@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { STALENESS_SINCE_KEY, STALENESS_TICK_MS } from '../lib/constants'
 import { resolveDirtySince } from '../lib/stalenessRamp'
+import { provenanceKeepsStalenessStamp, type SfcProvenance } from '../lib/sfcProvenance'
 
 /** Persisted shape: epoch-ms stamps, either null when that document is clean. */
 interface StalenessSinceRecord {
@@ -77,9 +78,17 @@ export interface StalenessTracking {
 export interface SfcRecoverySignal {
   seq: number
   divergedAt: number | null
+  /**
+   * What the load that bumped `seq` actually was. Carried rather than assumed so the
+   * "does this edge resume the persisted stamp?" question is answered by the ONE
+   * exported predicate (provenanceKeepsStalenessStamp), never re-derived here from
+   * the bare fact that a counter moved. A future provenance is then handled by that
+   * predicate alone instead of silently taking the recovery path.
+   */
+  provenance: SfcProvenance
 }
 
-const NO_RECOVERY: SfcRecoverySignal = { seq: 0, divergedAt: null }
+const NO_RECOVERY: SfcRecoverySignal = { seq: 0, divergedAt: null, provenance: 'anchored' }
 
 export function useStalenessTracking(
   sfcDirty: boolean,
@@ -141,7 +150,10 @@ export function useStalenessTracking(
   useEffect(() => {
     const wasDirty = prevSfcDirtyRef.current
     const restorePendingNow = sfcRestoredPendingRef.current
+    // Only a provenance that OWNS a pre-session age arms an adoption (SSOT predicate);
+    // an anchored or derived load that bumped the counter must stamp normally.
     const pendingRecovery = sfcRecovery.seq !== armedRecoveredSeqRef.current
+      && provenanceKeepsStalenessStamp(sfcRecovery.provenance)
     // A recovery only applies on the clean→dirty edge; until then it stays armed.
     const recovering = pendingRecovery && sfcDirty && !wasDirty
     const recoveredStamp = recovering ? sfcRecovery.divergedAt : null

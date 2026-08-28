@@ -573,7 +573,11 @@ cover every call site:
   rising edge normally means "a real edit — restart the clock"; a recovery instead adopts the
   divergence stamp, so a document unsaved for hours comes back red rather than as a fresh,
   calm-looking dot. The counter (rather than a boolean) arms the adoption exactly once, so the
-  next genuine edit stamps normally.
+  next genuine edit stamps normally. The signal carries its `provenance` and the arming test runs
+  it through **`provenanceKeepsStalenessStamp`**, so "which provenance resumes the stamp" keeps one
+  definition — the predicate — rather than being re-derived inline from the bare fact that a
+  counter moved. A future provenance is then handled by that predicate (and its tests) instead of
+  silently falling into the recovery path.
 - **The divergence moment travels INSIDE the autosave payload** (`AUTOSAVE_DIVERGED_AT_KEY` =
   `DivergedAt`, stamped by `buildAutosavePayload` from the live `sfcDirtySince`; read back by
   `readAutosaveDivergedAt`). It records when the document first diverged from its last save/load —
@@ -649,6 +653,17 @@ therefore encodes *how long* the document has been unsaved.
 - **Only `critical` animates** (a slow 2.4 s pulse), and it yields to `prefers-reduced-motion`. If
   every tier moved, motion would be wallpaper and the one tier that must break through would have
   no escalation left to spend.
+- **The dot's geometry is SSOT because an ancestor clips on it.** `DIRTY_BADGE_DOT_SIZE_PX` /
+  `_OFFSET_PX` / `_BORDER_PX` / `_CRITICAL_PULSE_SCALE` / `_CRITICAL_PULSE_DURATION_S`
+  (`constants.ts`) drive `DirtyBadge`, and `DIRTY_BADGE_OVERHANG_PAD_PX` is **computed from them**
+  — resting overhang (offset + border) plus the pulse's `SIZE x (SCALE - 1) / 2` growth plus 1 px
+  slack. The header's action row clips horizontally (`overflowX: 'clip'`, so the dot's intentional
+  overhang cannot raise a scrollbar in the builder column's scroll box) and pads by that value so
+  the dot still paints in full. It previously borrowed `BUILDER_SECTION_GRID_BADGE_PAD_PX`, which
+  is documented as sized for the **roll badge's** ~2 px overhang: at 4 px it was already under the
+  dot's 5 px resting overhang, so the red pulsing dot — the single state the ramp exists to make
+  unmissable — was flat-cut on its right edge. Raising the pulse scale now widens the pad
+  automatically instead of silently clipping harder.
 - **Colour is never the only carrier.** Past the fresh tier the badge tooltip leads with the
   elapsed span ("Unsaved for 1h 20m — not saved since …"), built by `buildDirtyTooltip`
   (`lib/dateDisplay.ts`). The unit words live in the i18n catalogs (`dirtyBadgeDurationHours` /
@@ -689,21 +704,34 @@ therefore encodes *how long* the document has been unsaved.
   to resume it falls back to stamping now, and the flag never leaks past the restore, so the next
   genuine edit re-stamps normally.
 
-### SFC nudge arrows: one derived target
+### SFC nudge arrows: the trigger names its target
 
 The bouncing arrow fan (`components/SfcNudgeArrows.tsx`, shared by both buttons) points at
-whichever control the user needs next. The target is **derived, not configured**:
-`sfcDirty ? 'save' : 'load'`, with the whole nudge skipped when it is inactive.
+whichever control the user needs next. The target (`SfcNudgeTarget` in `lib/constants.ts`, one of
+`'load' | 'save'`) is set by **whoever raises the nudge** — `triggerSfcLoadNudge(target)`, which
+defaults to `'load'` — and is carried on the tutorial-coach state as `sfcNudgeTarget`. Only one
+nudge is ever active, so the arrows can never point two ways at once.
 
-The two nudges are mutually exclusive *by construction* — one ternary, `sfcDirty ? 'save' :
-'load'`, so no flag can put them out of sync. A dirty document holds unsaved user work (→ Save);
-the Load nudge is only reached when the document is clean, and is further suppressed unless it is
-empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx`). Consequences:
+**It is deliberately NOT derived from `sfcDirty`.** An earlier version used
+`sfcDirty ? 'save' : 'load'`, arguing the two nudges were mutually exclusive because "the Load
+nudge is only ever raised for a document that is empty or still matches a bundled preset". That
+premise is false for three existing triggers: first-run Help dismissal, tutorial close
+(`handleTutorialClose`) and tutorial completion all raise the nudge to mean *"load something"*,
+and none of them touches the dirty flag — `restoreFromTutorialSnapshot()` restores content, not
+save state. So a user who had unsaved work when they opened Help got the onboarding arrows aimed
+at **Save**, the opposite of what those call sites intend. Naming the target at the trigger makes
+the intent explicit instead of inferring it from an unrelated flag.
+
+Consequences:
 
 - Fresh install, empty document → **Load**; freshly loaded and untouched → **nothing**; an
-  **accepted autosave restore → Save**, since a restore is `recovered` and therefore lands dirty
-  (see [provenance](#sfc-dirty-flag-provenance-decides-not-history-position)) — including when its
-  content happens to match a preset, because `sfcDirty` wins the ternary outright.
+  **accepted autosave restore → Save**, because the startup nudge below passes `'save'` (a restore
+  is `recovered` and therefore lands dirty — see
+  [provenance](#sfc-dirty-flag-provenance-decides-not-history-position)).
+- **`sfcMatchesPreset` only gates the Load target.** That suppression means "you already have a
+  preset loaded, so telling you to load one is redundant" — reasoning that does not transfer to a
+  Save nudge, which says "your unsaved work is aging" and is just as true for a document that
+  happens to match a preset. It is therefore scoped to `sfcNudgeTarget === 'load'`.
 - Besides the existing first-run-Help and tutorial-completion triggers, the nudge also fires
   **once on startup** when the session settles with work still unsaved, skipped while the
   first-run Help is open because dismissing that already fires its own nudge. Without this the
@@ -716,7 +744,8 @@ empty or still matches a bundled preset (`sfcMatchesPreset` in `App.tsx`). Conse
   could fire while the modal was still covering the screen — pointing the arrows at a button the
   user could not reach — and it pointed at Save even when the user went on to *dismiss* the
   restore, leaving a clean document. Now accepting a restore nudges toward Save and dismissing
-  nudges nothing. (The express note-blink waits on the same dialog for the same reason.)
+  nudges nothing. (The express note-blink waits on the same dialog for the same reason.) It is the
+  **only** trigger that passes `'save'`; every other one keeps the `'load'` default.
 - **The fan is portalled to `<body>` and `position: fixed`**, anchored to a measured
   `getBoundingClientRect()` of its target (`targetRef`), re-measured on resize/scroll. It is
   deliberately *not* an absolutely-positioned child of the header: the fan hangs ~90 px above the

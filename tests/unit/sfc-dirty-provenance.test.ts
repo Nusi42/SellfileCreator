@@ -180,6 +180,49 @@ test('a recovery stays armed across the commit where dirty has not flipped yet',
   assert.equal(cur, NOW_MS, 'a later edit stamps now')
 })
 
+// Regression: the recovery arming test used to be the bare counter comparison
+// `seq !== armedSeq`, with `provenanceKeepsStalenessStamp` exported, documented as the SSOT
+// for the rule, and called from nowhere but this file. The rule therefore had two homes: the
+// tested-but-unused predicate, and untested inline logic in the hook. Routing the arming
+// THROUGH the predicate means a provenance that must not resume an age cannot do so just by
+// bumping the counter — which is what any future non-recovery load reaching that signal would
+// otherwise do.
+test('only a stamp-resuming provenance arms the adoption, not the bare counter', () => {
+  const diverged = NOW_MS - 95 * 60_000
+  let prevDirty = false
+  let armedSeq = 0
+  let cur: number | null = null
+
+  // Mirrors useStalenessTracking: the counter moving is necessary but NOT sufficient.
+  const step = (dirty: boolean, seq: number, provenance: SfcProvenance) => {
+    const pendingRecovery = seq !== armedSeq && provenanceKeepsStalenessStamp(provenance)
+    const recovering = pendingRecovery && dirty && !prevDirty
+    if (recovering) armedSeq = seq
+    const r = resolveDirtySince({
+      dirty,
+      wasDirty: prevDirty,
+      current: recovering ? diverged : cur,
+      restorePending: false,
+      keepStamp: recovering,
+      now: NOW_MS,
+    })
+    cur = r.next; prevDirty = dirty
+    return recovering
+  }
+
+  // A DERIVED load that bumps the counter must not adopt a pre-session age — the document
+  // was genuinely created just now, so its clock starts at zero.
+  assert.equal(step(true, 1, 'derived'), false, 'derived must not arm an adoption')
+  assert.equal(cur, NOW_MS, 'a derived load stamps now')
+
+  // A recovery on the same counter movement does adopt it.
+  prevDirty = false
+  armedSeq = 0
+  cur = null
+  assert.equal(step(true, 1, 'recovered'), true, 'recovered arms the adoption')
+  assert.equal(cur, diverged, 'the restored age is resumed')
+})
+
 // Regression: the edge effects passed `wasDirty` by reading a mutable ref from INSIDE the
 // setState updater. A state updater is DEFERRED — React invokes it after the effect body
 // has finished, by which point the body's trailing `prevDirtyRef.current = dirty` has

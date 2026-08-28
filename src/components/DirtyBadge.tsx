@@ -2,15 +2,25 @@ import { Box, Tooltip, useColorScheme, useTheme } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { HTMLAttributes, ReactNode, Ref } from 'react'
+import {
+  DIRTY_BADGE_CRITICAL_PULSE_DURATION_S,
+  DIRTY_BADGE_CRITICAL_PULSE_SCALE,
+  DIRTY_BADGE_DOT_BORDER_PX,
+  DIRTY_BADGE_DOT_OFFSET_PX,
+  DIRTY_BADGE_DOT_SIZE_PX,
+} from '../lib/constants'
 import { stalenessColor, stalenessMinutes, stalenessTier } from '../lib/stalenessRamp'
 import { resolveSchemePalette, schemeModeFromColorScheme } from '../lib/themeCustomTokens'
 
 // Slow breathing pulse, reserved for the critical tier. Deliberately the ONLY
 // animated tier: if every tier moved, motion would become wallpaper and the one
 // state that must break through would have no escalation left to spend.
+// The peak scale is the SSOT constant, because the ancestor clip padding
+// (DIRTY_BADGE_OVERHANG_PAD_PX) is computed from it — raising it here without that
+// link would silently clip the pulse instead of making it more visible.
 const criticalPulseKf = keyframes`
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.25); }
+  50%      { transform: scale(${DIRTY_BADGE_CRITICAL_PULSE_SCALE}); }
 `
 
 interface DirtyBadgeProps extends HTMLAttributes<HTMLDivElement> {
@@ -83,15 +93,15 @@ function DirtyBadge({ active, children, sx, ref, tooltip, dirtySince, now, ...re
               const borderColor = palette.background.paper
               return {
                 position: 'absolute',
-                top: -3,
-                right: -3,
-                width: 10,
-                height: 10,
+                top: -DIRTY_BADGE_DOT_OFFSET_PX,
+                right: -DIRTY_BADGE_DOT_OFFSET_PX,
+                width: DIRTY_BADGE_DOT_SIZE_PX,
+                height: DIRTY_BADGE_DOT_SIZE_PX,
                 borderRadius: '50%',
                 // Colour encodes HOW LONG the document has been unsaved; at the fresh
                 // tier this resolves to the same neutral the badge has always worn.
                 backgroundColor: dotColor,
-                border: `2px solid ${borderColor}`,
+                border: `${DIRTY_BADGE_DOT_BORDER_PX}px solid ${borderColor}`,
                 boxShadow: theme.shadows[2],
                 // Hover-interactive only when a tooltip is present, so the explanation
                 // is reachable; otherwise the dot stays purely decorative.
@@ -100,7 +110,7 @@ function DirtyBadge({ active, children, sx, ref, tooltip, dirtySince, now, ...re
                 // yields entirely to a reduced-motion preference — colour alone still
                 // carries the state for users who suppress animation.
                 ...(tier === 'critical' && {
-                  animation: `${criticalPulseKf} 2.4s ease-in-out infinite`,
+                  animation: `${criticalPulseKf} ${DIRTY_BADGE_CRITICAL_PULSE_DURATION_S}s ease-in-out infinite`,
                   '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
                 }),
               }

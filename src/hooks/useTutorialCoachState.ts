@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { flushSync } from 'react-dom'
 
 import { APP_VERSION } from '../version'
-import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY, SFC_NUDGE_SEEN_KEY, SFC_NUDGE_VISIBLE_FIRST_MS, SFC_NUDGE_VISIBLE_REPEAT_MS, SFC_NUDGE_FADE_OUT_MS } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY, SFC_NUDGE_SEEN_KEY, SFC_NUDGE_VISIBLE_FIRST_MS, SFC_NUDGE_VISIBLE_REPEAT_MS, SFC_NUDGE_FADE_OUT_MS, type SfcNudgeTarget } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderRecipe, type SubstatTargetTable } from '../lib/hsfBuilder'
 import { cloneBuilderRecipe } from '../lib/recipeMultiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
@@ -343,7 +343,9 @@ export type UseTutorialCoachStateResult = {
   handleTutorialNext: () => void
   sfcLoadNudgeActive: boolean
   sfcLoadNudgeFading: boolean
-  triggerSfcLoadNudge: () => void
+  /** Which control the active nudge points at; see SfcNudgeTarget. */
+  sfcNudgeTarget: SfcNudgeTarget
+  triggerSfcLoadNudge: (target?: SfcNudgeTarget) => void
   clearSfcLoadNudge: () => void
 }
 
@@ -427,6 +429,12 @@ export function useTutorialCoachState({
 
   const [sfcLoadNudgeActive, setSfcLoadNudgeActive] = useState(false)
   const [sfcLoadNudgeFading, setSfcLoadNudgeFading] = useState(false)
+  // Which control the arrows point at. Set by the TRIGGER, because only the trigger
+  // knows what it is asking for — the onboarding paths (first-run Help, tutorial close
+  // and tutorial completion) always mean "load something", even when the user happens
+  // to have unsaved work at that moment, while the startup nudge means "save it".
+  // Inferring this from the live dirty flag pointed the onboarding arrows at Save.
+  const [sfcNudgeTarget, setSfcNudgeTarget] = useState<SfcNudgeTarget>('load')
   const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nudgeFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1934,10 +1942,13 @@ export function useTutorialCoachState({
     tutorialSteps,
   ])
 
-  const triggerSfcLoadNudge = useCallback(() => {
+  // `target` defaults to 'load': every onboarding caller wants the Load button, and
+  // only the startup "you still have unsaved work" nudge passes 'save'.
+  const triggerSfcLoadNudge = useCallback((target: SfcNudgeTarget = 'load') => {
     if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current)
     if (nudgeFadeTimerRef.current) clearTimeout(nudgeFadeTimerRef.current)
     setSfcLoadNudgeFading(false)
+    setSfcNudgeTarget(target)
     setSfcLoadNudgeActive(true)
     // First ever show lingers a little longer so it registers; later replays are brief.
     const firstTime = localStorage.getItem(SFC_NUDGE_SEEN_KEY) !== '1'
@@ -2133,6 +2144,7 @@ export function useTutorialCoachState({
     handleTutorialNext,
     sfcLoadNudgeActive,
     sfcLoadNudgeFading,
+    sfcNudgeTarget,
     triggerSfcLoadNudge,
     clearSfcLoadNudge,
   }

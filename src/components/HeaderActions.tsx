@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, Typography } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import type { MouseEvent } from 'react'
-import { ACCEPT_SFC_FILE_DIALOG, BUILDER_SECTION_GRID_BADGE_PAD_PX, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX } from '../lib/constants'
+import { ACCEPT_SFC_FILE_DIALOG, DIRTY_BADGE_OVERHANG_PAD_PX, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX, SPLIT_BUTTON_MAIN_SX, SPLIT_BUTTON_CHEVRON_SX, type SfcNudgeTarget } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -40,6 +40,10 @@ export default function HeaderActions(props: {
   chipLabel?: string
   sfcLoadNudgeActive?: boolean
   sfcLoadNudgeFading?: boolean
+  // Which control the active nudge points at, decided by whoever raised it. NOT
+  // derived from sfcDirty here: the onboarding triggers mean "load" even when the
+  // document happens to be dirty (see SfcNudgeTarget).
+  sfcNudgeTarget?: SfcNudgeTarget
   onSfcLoadNudgeDismiss?: () => void
 }) {
   const {
@@ -55,6 +59,7 @@ export default function HeaderActions(props: {
     stalenessNow,
     sfcLoadNudgeActive = false,
     sfcLoadNudgeFading = false,
+    sfcNudgeTarget = 'load',
     onSfcLoadNudgeDismiss,
   } = props
   const { t } = useI18n()
@@ -108,14 +113,12 @@ export default function HeaderActions(props: {
     void onSelectFile(file, { shiftKey: false })
   }, [pendingPreset, onSelectFile])
 
-  // Which control the arrows point at. The two nudges are MUTUALLY EXCLUSIVE by
-  // logic, not by a flag: a dirty document has unsaved user work (→ Save), while
-  // the Load nudge is only ever raised for a document that is empty or still
-  // matches a bundled preset (→ Load). Those cannot both hold, so one derived
-  // target can serve both cases and the arrows can never point two ways at once.
-  const nudgeTarget: 'save' | 'load' | null = !sfcLoadNudgeActive
-    ? null
-    : sfcDirty ? 'save' : 'load'
+  // Which control the arrows point at, straight from the trigger. Deriving it from
+  // sfcDirty instead looked equivalent but was not: the onboarding triggers (first-run
+  // Help, tutorial close, tutorial completion) all raise the nudge to say "load
+  // something", and a user who had unsaved work when they opened Help got those arrows
+  // aimed at Save. Only one target is ever active, so the arrows cannot point two ways.
+  const nudgeTarget: SfcNudgeTarget | null = sfcLoadNudgeActive ? sfcNudgeTarget : null
 
 
   return (
@@ -184,9 +187,10 @@ export default function HeaderActions(props: {
           // and raises a horizontal scrollbar the moment the document goes dirty.
           // overflowY stays visible so the dot is not cut off at the top.
           overflowX: 'clip',
-          // Move the clip edge past the dot's intentional overhang so it still paints in full
-          // (SSOT: BUILDER_SECTION_GRID_BADGE_PAD_PX, shared with both builder grids).
-          pr: `${BUILDER_SECTION_GRID_BADGE_PAD_PX}px`,
+          // Move the clip edge past the dot's intentional overhang so it still paints in
+          // full, INCLUDING the critical tier's scale-up pulse (SSOT:
+          // DIRTY_BADGE_OVERHANG_PAD_PX, derived from the dot's own geometry).
+          pr: `${DIRTY_BADGE_OVERHANG_PAD_PX}px`,
         }}
       >
         {/* Glow-pulse wrapper: animates the button for ~7 s while the nudge points here. */}

@@ -940,6 +940,49 @@ export const SFC_NUDGE_VISIBLE_FIRST_MS = 4 * 1000
 export const SFC_NUDGE_VISIBLE_REPEAT_MS = 2 * 1000
 // How long the fade-out animation runs before the arrows are removed from the DOM.
 export const SFC_NUDGE_FADE_OUT_MS = 700
+/**
+ * Which control the nudge arrows point at. Set by whoever RAISES the nudge, never
+ * inferred downstream from the dirty flag: the onboarding triggers (first-run Help,
+ * tutorial close, tutorial completion) always mean "load something" even when the
+ * user happens to have unsaved work at that moment, while the startup nudge for a
+ * returning session with unsaved work means "save it". Deriving the target from
+ * `sfcDirty` in the header conflated the two and aimed onboarding at Save.
+ */
+export type SfcNudgeTarget = 'load' | 'save'
+
+// Dirty-badge dot geometry (components/DirtyBadge.tsx). The dot deliberately overhangs
+// its button's top-right corner, so any ancestor that clips horizontally has to leave
+// room for it — these are the SSOT for that arithmetic.
+// Diameter of the dot's coloured circle.
+export const DIRTY_BADGE_DOT_SIZE_PX = 10
+// How far the dot is pulled outside its button on each axis (top/right offsets).
+export const DIRTY_BADGE_DOT_OFFSET_PX = 3
+// Ring drawn in the surface colour so the dot reads as separate from the button.
+export const DIRTY_BADGE_DOT_BORDER_PX = 2
+// Peak scale of the critical-tier breathing pulse. It grows the dot about its centre,
+// so it pushes the right edge a further SIZE x (SCALE - 1) / 2 outward.
+export const DIRTY_BADGE_CRITICAL_PULSE_SCALE = 1.25
+// One full breath of that pulse. Slow on purpose: it must read as "look at me", not
+// as a spinner.
+export const DIRTY_BADGE_CRITICAL_PULSE_DURATION_S = 2.4
+/**
+ * Right padding an overflowX:'clip' ancestor needs so the dot paints in full.
+ *
+ * = offset + border (the resting overhang past the button's edge)
+ *   + SIZE x (SCALE - 1) / 2 (the extra the critical pulse adds at its peak)
+ *   + 1px sub-pixel slack.
+ *
+ * Sized from the dot's own geometry rather than borrowing the builder grids'
+ * BUILDER_SECTION_GRID_BADGE_PAD_PX, which is tuned for the ROLL badge's ~2px
+ * overhang: at 4px it was already under the dot's 5px resting overhang, so the red
+ * pulsing dot — the one state the ramp exists to make unmissable — was flat-cut.
+ */
+export const DIRTY_BADGE_OVERHANG_PAD_PX = Math.ceil(
+  DIRTY_BADGE_DOT_OFFSET_PX
+  + DIRTY_BADGE_DOT_BORDER_PX
+  + (DIRTY_BADGE_DOT_SIZE_PX * (DIRTY_BADGE_CRITICAL_PULSE_SCALE - 1)) / 2
+  + 1,
+)
 
 // Staleness ramp (see lib/stalenessRamp.ts): minutes of unsaved age at which the
 // dirty-badge dot enters each tier. The dot interpolates continuously BETWEEN these

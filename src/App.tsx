@@ -219,7 +219,7 @@ import RslHelperConnectButton from './components/RslHelperConnectButton'
 import PongFlyout from './components/PongFlyout'
 import SellfallFlyout from './components/SellfallFlyout'
 import { useAutosave } from './hooks/useAutosave'
-import { useStalenessTracking } from './hooks/useStalenessTracking'
+import { useStalenessTracking, type SfcRecoverySignal } from './hooks/useStalenessTracking'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
@@ -2249,8 +2249,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // been unsaved since the ORIGINAL session (see lib/sfcProvenance.ts). `divergedAt` is
   // null when the entry predates the field, in which case the age is genuinely unknown
   // and the edge stamps now.
-  const [sfcRecovery, setSfcRecovery] = useState<{ seq: number; divergedAt: number | null }>(
-    { seq: 0, divergedAt: null },
+  const [sfcRecovery, setSfcRecovery] = useState<SfcRecoverySignal>(
+    { seq: 0, divergedAt: null, provenance: 'anchored' },
   )
   const {
     undo,
@@ -4592,7 +4592,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (tutorialHelpOpen) return
     if (!isDirty) return
     startupNudgeFiredRef.current = true
-    triggerSfcLoadNudge()
+    // Explicitly 'save': this is the ONE trigger that means "you still have unsaved
+    // work", so it is the only one that aims the arrows at Save. Every other trigger
+    // (first-run Help, tutorial close/completion) keeps the default 'load'.
+    triggerSfcLoadNudge('save')
   }, [restoreDlgOpen, tutorialHelpOpen, isDirty, triggerSfcLoadNudge])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
@@ -8799,12 +8802,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Suppress the "load a preset" arrows when the current setup already matches a
   // bundled preset (ignoring dynamic overrides) — the nudge would be redundant.
-  // Only computed while the nudge is active so the payload build stays off the
+  // Scoped to the LOAD target: a Save nudge says "your unsaved work is aging", which
+  // is just as true for a document that happens to match a preset, so this
+  // redundancy test does not apply to it.
+  // Only computed while the load nudge is active so the payload build stays off the
   // hot path for the common case.
   const sfcMatchesPreset = useMemo(() => {
-    if (!tutorial.sfcLoadNudgeActive) return false
+    if (!tutorial.sfcLoadNudgeActive || tutorial.sfcNudgeTarget !== 'load') return false
     return currentSfcMatchesAnyPreset(currentSfcFields)
-  }, [tutorial.sfcLoadNudgeActive, currentSfcFields])
+  }, [tutorial.sfcLoadNudgeActive, tutorial.sfcNudgeTarget, currentSfcFields])
 
   // An express SFC counts as "empty" when it has no note and no custom recipes.
   // Emptiness alone does NOT decide custom-ness: an empty SAVED doc is the user's own
@@ -9006,6 +9012,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       stalenessNow={stalenessNow}
       sfcLoadNudgeActive={tutorial.sfcLoadNudgeActive && !sfcMatchesPreset}
       sfcLoadNudgeFading={tutorial.sfcLoadNudgeFading}
+      sfcNudgeTarget={tutorial.sfcNudgeTarget}
       onSfcLoadNudgeDismiss={tutorial.clearSfcLoadNudge}
     />
   )
@@ -10458,6 +10465,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setSfcRecovery((prev) => ({
               seq: prev.seq + 1,
               divergedAt: readAutosaveDivergedAt(draft),
+              // Same provenance the history anchor above was given: the hook decides
+              // whether to resume the stamp from it, so the two can never disagree.
+              provenance: 'recovered',
             }))
             setLastExportedHash(null)
             setExportBaselineResetPending(true)
