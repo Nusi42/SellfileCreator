@@ -1345,6 +1345,8 @@ const overrides: Catalog = {
   gearInspectorSelectionClearAll: "Зняти вибір",
   gearInspectorSelectionSingleSelectMode: "Перейти до одиночного вибору",
   gearInspectorSelectionMultiSelectMode: "Перейти до множинного вибору",
+  gearInspectorSelectionSellMode: "Перейти в режим продажу",
+  gearInspectorSelectionViewMode: "Перейти в режим перегляду",
   recipeFilterOn: "Увімк.",
   gearInspectorFilterRecipesOff: "Вимкнено",
   gearInspectorFilterRecipesFirst: "Перша",

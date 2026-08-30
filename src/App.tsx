@@ -7238,9 +7238,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Silently swallow errors; the optimistic update stands regardless. The account stamp
     // guards against applying the selection to the wrong roster once Helper consumes it.
     // `multiSelect` tells the client HOW the selection was made: false means the grid is in
-    // single-select mode, so the payload can only ever name one item and each new click
-    // replaces it. Read from the shared store (not props) — the toggle lives on the grid's
-    // toolbar, and this callback must see its current value without re-subscribing.
+    // single-select mode, where a plain click replaces the previous pick rather than adding to
+    // it. It is not a length cap — ctrl/shift-click and select-all still build longer lists in
+    // that mode — so the id array stays authoritative. (A client announcing autoSellSupported
+    // is the exception: the grid enforces a hard one-item cap for it.) Read from the shared
+    // store (not props):
+    // the toggle lives on the grid's toolbar, and this callback must see its current value
+    // without re-subscribing.
     // The push only runs while gear selection is enabled, so the stored flag is the
     // effective one here (the grid's own gearSelectionEnabled gate agrees).
     void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, {

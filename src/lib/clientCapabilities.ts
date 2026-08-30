@@ -13,16 +13,28 @@
  * not of the launch: it arrives after startup and is dropped when the socket goes away.
  */
 import { adoptClientName } from './runtimeConfig'
+import { createListenerSet } from './listenerSet'
 
 // The client wants the .sfc RECIPE DOCUMENT pushed via `uploadSfcFile` instead of the
 // compiled .hsf sellfile via `uploadSellfile`. Named so no feature gate spells it inline.
 export const CAPABILITY_SFC_FILE_AS_SELLFILE = 'SfcFileAsSellfile'
+
+// The client acts on the Gear Inspector's selection mode as a SELL/VIEW state of its own:
+// multi-select means "these are the items to sell", single-select means "show me this one".
+// Two effects, both local to the grid — the wire payload is unchanged and keeps reporting the
+// mode through `selectArtifacts`'s existing `multiSelect` flag:
+//   1. the mode toggle is re-labelled (cart/eye icons instead of the multi/single pair), and
+//   2. single-select becomes STRICT — a hard one-item cap that ctrl/shift-click and the
+//      select-all controls cannot exceed, because "view these five" is not a state such a
+//      client can represent. Without the token the modifiers keep their permissive behavior.
+export const CAPABILITY_AUTO_SELL_SUPPORTED = 'autoSellSupported'
 
 // Every feature a client may advertise. Extend this list (and the docs) when a new
 // negotiated behavior lands — an unknown token is ignored rather than rejected, so an older
 // SFC build stays compatible with a newer client naming features it has never heard of.
 export const CLIENT_CAPABILITIES = [
   CAPABILITY_SFC_FILE_AS_SELLFILE,
+  CAPABILITY_AUTO_SELL_SUPPORTED,
 ] as const
 
 export type ClientCapability = (typeof CLIENT_CAPABILITIES)[number]
@@ -41,13 +53,30 @@ export const isClientCapability = (token: string): token is ClientCapability =>
 // therefore the RSL Helper baseline, NOT every token above: a capability only belongs here
 // once RSL Helper itself ships it. Adding one changes behavior for every client that stays
 // silent, so a feature RSL Helper does not implement (SfcFileAsSellfile — it has no
-// `uploadSfcFile` handler) stays out and must be announced explicitly.
+// `uploadSfcFile` handler) stays out and must be announced explicitly. autoSellSupported is
+// out for the same reason: RSL Helper has no sell/view state to mirror, so its users must
+// keep seeing the plain multi/single-select control.
 export const DEFAULT_CLIENT_CAPABILITIES: readonly ClientCapability[] = []
+
+// True when two capability lists hold the same tokens in the same order. One definition, so
+// adopt and reset cannot disagree about what "the effective set changed" means.
+const sameCapabilities = (a: readonly ClientCapability[], b: readonly ClientCapability[]): boolean =>
+  a.length === b.length && a.every((cap, i) => b[i] === cap)
 
 // Null until a `capabilities` packet is received; the announced set afterwards. Null and an
 // empty array are deliberately different: null means "nothing announced" (apply the default),
 // [] means "announced, and none of the tokens are ours".
 let announced: readonly ClientCapability[] | null = null
+
+// Subscribers notified when the effective capability set changes. Feature gates that run at
+// push time read on demand and need none of this, but UI that PRESENTS a capability (the
+// Gear Inspector's mode toggle re-skins itself for autoSellSupported) must repaint when a
+// packet lands mid-session — and again when the socket drops and the set resets.
+const capabilityListeners = createListenerSet()
+
+// Subscribe to capability-set changes; returns an unsubscribe. The `useSyncExternalStore`
+// subscribe shape, so React consumers need no adapter.
+export const subscribeClientCapabilities = capabilityListeners.subscribe
 
 /**
  * Adopt an announced capability list. Unknown tokens are dropped and duplicates collapse,
@@ -68,13 +97,20 @@ export function adoptClientCapabilities(tokens: readonly string[]): boolean {
   announced = next
   // Compare against what was in force BEFORE, so the first packet announcing exactly the
   // default set is correctly reported as "no change".
-  return before.length !== next.length || next.some((cap, i) => before[i] !== cap)
+  const changed = !sameCapabilities(before, next)
+  // Only a real change repaints; a client re-announcing the same set must not churn the UI.
+  if (changed) capabilityListeners.notify()
+  return changed
 }
 
 // Forget the announced set — called when the socket drops, so a reconnect to a DIFFERENT
 // client cannot inherit the previous one's features.
 export function resetClientCapabilities(): void {
+  // Compare what was in force against what the reset restores, so a client that announced
+  // exactly the default set (or announced nothing at all) repaints nobody.
+  const changed = !sameCapabilities(getClientCapabilities(), DEFAULT_CLIENT_CAPABILITIES)
   announced = null
+  if (changed) capabilityListeners.notify()
 }
 
 // The capability set in force. Nothing announced → the RSL Helper baseline. Single place

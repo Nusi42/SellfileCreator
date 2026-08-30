@@ -18,6 +18,8 @@ import ChecklistIcon from '@mui/icons-material/Checklist'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import SortIcon from '@mui/icons-material/Sort'
 // alpha is used in the scroll-hint overlay background; the card's tints are handled in GearInspectorGridCard.
 import { useTheme, type Theme } from '@mui/material/styles'
@@ -96,6 +98,8 @@ import { GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT } from '../lib/gearInspectorNorm
 import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorSubstatSortPreferences } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorSelectionModePreference } from '../state/gearInspectorSelectionModePreference'
+import { useClientCapability } from '../hooks/useClientCapability'
+import { CAPABILITY_AUTO_SELL_SUPPORTED } from '../lib/clientCapabilities'
 import {
   type GearInspectorGridNormalizedPresetId,
   useGearInspectorGridNormalizedOverlayPreferences,
@@ -1498,6 +1502,46 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   // Only active while gearSelectionEnabled is true; derived as false when the feature is off.
   const { singleSelectMode, toggleSingleSelectMode } = useGearInspectorSelectionModePreference()
   const effectiveSingleSelectMode = gearSelectionEnabled ? singleSelectMode : false
+  // A client announcing autoSellSupported drives its own sell/view state from this very mode:
+  // multi-select = "sell these", single-select = "view this one". That re-labels the toggle
+  // (cart/eye) AND tightens it — see strictSingleSelect below. A silent client (RSL Helper)
+  // keeps both the plain select wording and today's permissive behaviour.
+  const sellViewMode = useClientCapability(CAPABILITY_AUTO_SELL_SUPPORTED)
+  // View mode must mean EXACTLY ONE item for such a client: it mirrors the mode as a view
+  // state, and "view these five" is not a state it can represent. So single-select stops
+  // being merely the plain-click rule and becomes a hard cap that ctrl/shift-click and the
+  // select-all controls cannot exceed. Without the capability the modifiers keep working,
+  // which is why this is gated rather than applied to single-select generally.
+  const strictSingleSelect = effectiveSingleSelectMode && sellViewMode
+  // Clamp a proposed selection to the active mode. Every path that produces a selection runs
+  // through here, so no call site can bypass the cap by constructing its own Set.
+  // Keeps the LAST id of the proposal: for a range or select-all that is the item the user
+  // most recently pointed at, which is the one a view state should land on.
+  const clampSelectionToMode = useCallback((proposed: Set<number>): Set<number> => {
+    if (!strictSingleSelect || proposed.size <= 1) return proposed
+    let last: number | undefined
+    for (const id of proposed) last = id
+    return last === undefined ? proposed : new Set([last])
+  }, [strictSingleSelect])
+  // Entering strict view mode with a longer selection already standing must not leave the
+  // client holding a multi-id "view" state. Both entry paths land here: the user flipping the
+  // toggle sell -> view, and a capabilities packet arriving after the selection was made.
+  // Reducing here (rather than only at click time) also re-pushes the trimmed list, so the
+  // client's view state and the grid agree.
+  useEffect(() => {
+    if (!strictSingleSelect || !onGearItemsSelect) return
+    const current = selectedGearItemIds
+    if (!current || current.size <= 1) return
+    onGearItemsSelect(clampSelectionToMode(new Set(current)))
+  }, [strictSingleSelect, selectedGearItemIds, onGearItemsSelect, clampSelectionToMode])
+  // The toggle advertises the mode it switches TO, so single-select offers multi/sell and
+  // vice versa. One lookup feeds tooltip, aria-label and glyph together.
+  const selectionModeToggleLabelKey = effectiveSingleSelectMode
+    ? (sellViewMode ? 'gearInspectorSelectionSellMode' : 'gearInspectorSelectionMultiSelectMode')
+    : (sellViewMode ? 'gearInspectorSelectionViewMode' : 'gearInspectorSelectionSingleSelectMode')
+  const SelectionModeToggleIcon = effectiveSingleSelectMode
+    ? (sellViewMode ? ShoppingCartIcon : ChecklistIcon)
+    : (sellViewMode ? VisibilityIcon : RadioButtonCheckedIcon)
   // Flat ordered list of artifact IDs in display order; used for shift-range selection.
   const flatOrderedArtifactIds = useMemo(() => {
     const ids: number[] = []
@@ -1566,8 +1610,10 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
       }
       setAnchorArtifactId(artifactId)
     }
-    onGearItemsSelect(nextSelection)
+    // Clamped: in strict view mode a ctrl/shift result collapses to the item just clicked.
+    onGearItemsSelect(clampSelectionToMode(nextSelection))
   }, [
+    clampSelectionToMode,
     gearSelectionEnabled,
     onGearItemsSelect,
     anchorArtifactId,
@@ -2387,7 +2433,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
                       onClick={(e) => {
                         e.stopPropagation()
                         const ids = collectGroupArtifactIds(group)
-                        onGearItemsSelect(new Set([...(selectedGearItemIds ?? []), ...ids]))
+                        onGearItemsSelect(clampSelectionToMode(new Set([...(selectedGearItemIds ?? []), ...ids])))
                       }}
                       aria-label={t('gearInspectorSelectionSelectAll')}
                     >
@@ -3111,7 +3157,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           <Tooltip title={t('gearInspectorSelectionSelectAll')}>
             <IconButton
               size="small"
-              onClick={() => onGearItemsSelect(new Set(flatOrderedArtifactIds))}
+              onClick={() => onGearItemsSelect(clampSelectionToMode(new Set(flatOrderedArtifactIds)))}
               aria-label={t('gearInspectorSelectionSelectAll')}
             >
               <PlaylistAddCheckIcon fontSize="small" />
@@ -3130,22 +3176,18 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               </IconButton>
             </span>
           </Tooltip>
-          {/* Toggle between single-select (plain click = one card) and multi-select modes. */}
-          <Tooltip title={effectiveSingleSelectMode
-            ? t('gearInspectorSelectionMultiSelectMode')
-            : t('gearInspectorSelectionSingleSelectMode')}
-          >
+          {/* Toggle between single-select (plain click = one card) and multi-select modes.
+              Labelled as sell/view instead when the client mirrors the mode (autoSellSupported).
+              Both the label and the icon name the mode the click SWITCHES TO, and both are
+              derived once so the tooltip, the aria-label and the glyph cannot disagree. */}
+          <Tooltip title={t(selectionModeToggleLabelKey)}>
             <IconButton
               size="small"
               onClick={toggleSingleSelectMode}
               color={effectiveSingleSelectMode ? 'primary' : 'default'}
-              aria-label={effectiveSingleSelectMode
-                ? t('gearInspectorSelectionMultiSelectMode')
-                : t('gearInspectorSelectionSingleSelectMode')}
+              aria-label={t(selectionModeToggleLabelKey)}
             >
-              {effectiveSingleSelectMode
-                ? <ChecklistIcon fontSize="small" />
-                : <RadioButtonCheckedIcon fontSize="small" />}
+              <SelectionModeToggleIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Box>

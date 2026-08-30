@@ -1345,6 +1345,8 @@ const overrides: Catalog = {
   gearInspectorSelectionClearAll: "Tout désélectionner",
   gearInspectorSelectionSingleSelectMode: "Passer en sélection unique",
   gearInspectorSelectionMultiSelectMode: "Passer en sélection multiple",
+  gearInspectorSelectionSellMode: "Passer en mode vente",
+  gearInspectorSelectionViewMode: "Passer en mode affichage",
   recipeFilterOn: "Activé",
   gearInspectorFilterRecipesOff: "Désactivé",
   gearInspectorFilterRecipesFirst: "Première",

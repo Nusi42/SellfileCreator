@@ -9,6 +9,7 @@ import { SAMPLE_SMALL_SFC_PATH, SAMPLE_SMALL_DB_PATH } from './fixture-paths'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 import { GEAR_INSPECTOR_SINGLE_SELECT_KEY } from '../../src/lib/constants'
+import { CAPABILITY_AUTO_SELL_SUPPORTED } from '../../src/lib/clientCapabilities'
 
 // RSL Helper default WebSocket endpoint; provides the selection UI via gearSelectionEnabled.
 const ENDPOINT_URL = 'ws://localhost:8080/'
@@ -35,9 +36,23 @@ const getFirstCardIds = async (page: Parameters<typeof test>[0]['page'], limit =
 
 // Boots the app with a mocked WS endpoint, loads the small SFC+DB, and navigates to the
 // Gear Inspector. Returns the row IDs of the first two visible cards.
-const setupWithCards = async (page: Parameters<typeof test>[0]['page']): Promise<[number, number]> => {
+const setupWithCards = async (
+  page: Parameters<typeof test>[0]['page'],
+  // Feature tokens the mocked client announces on connect. Empty (the default) mimics RSL
+  // Helper, which sends no capabilities packet at all.
+  capabilities: readonly string[] = [],
+): Promise<[number, number]> => {
   // Accept WebSocket connections from the app so gearSelectionEnabled stays true.
   await page.routeWebSocket(ENDPOINT_URL, (ws: WebSocketRoute) => {
+    // Announce up front, the way a real client does: the packet must be in force before any
+    // UI that presents a capability paints.
+    if (capabilities.length > 0) {
+      ws.send(JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'capabilities',
+        params: { capabilities: [...capabilities] },
+      }))
+    }
     ws.onMessage(() => { /* discard outbound requests */ })
   })
   await prepareApp(page)
@@ -180,5 +195,70 @@ test.describe('gear-inspector-selection-mode', () => {
       () => page.evaluate((key: string) => localStorage.getItem(key), GEAR_INSPECTOR_SINGLE_SELECT_KEY),
       { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
     ).toBe('1')
+  })
+
+  test('autoSellSupported relabels the mode toggle as sell/view and makes view mode strict', async ({ page }) => {
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    const [id0, id1] = await setupWithCards(page, [CAPABILITY_AUTO_SELL_SUPPORTED])
+
+    const card0 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id0}"]`)
+    const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
+
+    // Multi-select is the default, so the toggle offers the mode it switches TO: view mode.
+    const toView = page.getByRole('button', { name: 'Switch to view mode' })
+    await expect(toView).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // The plain select wording must be gone entirely — this client sees sell/view only.
+    await expect(page.getByRole('button', { name: 'Switch to single select' })).toHaveCount(0)
+
+    // Switching to view mode offers the way back to sell mode.
+    await toView.click()
+    await expect(page.getByRole('button', { name: 'Switch to sell mode' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+
+    // Plain click replaces, as in ordinary single-select.
+    await card0.click()
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await card1.click()
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Strict view mode: ctrl-click must NOT gather a second id — it collapses to the item
+    // just clicked. This is the behavioral difference from plain single-select, where the
+    // very same gesture reaches '2 selected' (see the ctrl/shift test above).
+    await card0.click({ modifiers: ['Control'] })
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Shift-click is capped the same way — a range cannot escape the one-item view state.
+    await card1.click({ modifiers: ['Shift'] })
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+
+    // The relabel rides the same stored preference, so the key still records single-select.
+    await expect.poll(
+      () => page.evaluate((key: string) => localStorage.getItem(key), GEAR_INSPECTOR_SINGLE_SELECT_KEY),
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
+    ).toBe('1')
+  })
+
+  test('entering view mode trims a selection that was already longer than one item', async ({ page }) => {
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    const [id0, id1] = await setupWithCards(page, [CAPABILITY_AUTO_SELL_SUPPORTED])
+
+    const card0 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id0}"]`)
+    const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
+
+    // Build a two-item selection while still in sell mode, where that is legitimate.
+    await card0.click()
+    await card1.click()
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('2 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+
+    // Switching to view mode must reconcile it down to one, so the client is never left
+    // holding a multi-id view state.
+    await page.getByRole('button', { name: 'Switch to view mode' }).click()
+    await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  })
+
+  test('a client announcing nothing keeps the plain multi/single-select wording', async ({ page }) => {
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    // Guards the additive promise: RSL Helper sends no capabilities packet and must be
+    // unaffected by the sell/view relabel.
+    await setupWithCards(page)
+    await expect(page.getByRole('button', { name: 'Switch to single select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expect(page.getByRole('button', { name: 'Switch to view mode' })).toHaveCount(0)
   })
 })

@@ -16,6 +16,7 @@ import {
   __resetRuntimeConfigForTests,
 } from '../../src/lib/runtimeConfig.js'
 import {
+  CAPABILITY_AUTO_SELL_SUPPORTED,
   CAPABILITY_SFC_FILE_AS_SELLFILE,
   CLIENT_CAPABILITIES,
   DEFAULT_CLIENT_CAPABILITIES,
@@ -25,6 +26,7 @@ import {
   hasClientCapability,
   isClientCapability,
   resetClientCapabilities,
+  subscribeClientCapabilities,
 } from '../../src/lib/clientCapabilities.js'
 import {
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
@@ -349,4 +351,61 @@ test('every capability token is unique and non-empty', () => {
   // check silently wrong for a whole feature.
   assert.equal(new Set(CLIENT_CAPABILITIES).size, CLIENT_CAPABILITIES.length)
   for (const token of CLIENT_CAPABILITIES) assert.ok(token.trim().length > 0)
+})
+
+test('autoSellSupported is a recognized token that is off by default', () => {
+  // Recognized, so a client announcing it is not silently ignored...
+  assert.ok(isClientCapability(CAPABILITY_AUTO_SELL_SUPPORTED))
+  // ...but out of the silent-client baseline: RSL Helper has no sell/view state to mirror,
+  // so its users must keep seeing the plain multi/single-select control.
+  assert.ok(!DEFAULT_CLIENT_CAPABILITIES.includes(CAPABILITY_AUTO_SELL_SUPPORTED))
+  withEnvironment(BASE, () => {
+    assert.equal(hasClientCapability(CAPABILITY_AUTO_SELL_SUPPORTED), false)
+    adoptClientCapabilities([CAPABILITY_AUTO_SELL_SUPPORTED])
+    assert.equal(hasClientCapability(CAPABILITY_AUTO_SELL_SUPPORTED), true)
+    // Independent of the other feature: announcing one must not imply the other.
+    assert.equal(hasClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE), false)
+  })
+})
+
+test('capability subscribers fire on real changes only', () => {
+  withEnvironment(BASE, () => {
+    let notifications = 0
+    const unsubscribe = subscribeClientCapabilities(() => { notifications += 1 })
+    try {
+      // First announcement changes the effective set → one repaint.
+      adoptClientCapabilities([CAPABILITY_AUTO_SELL_SUPPORTED])
+      assert.equal(notifications, 1)
+      // Re-announcing the same set must not churn the UI.
+      adoptClientCapabilities([CAPABILITY_AUTO_SELL_SUPPORTED])
+      assert.equal(notifications, 1)
+      // An unknown token is dropped, so the effective set is unchanged — still no repaint.
+      adoptClientCapabilities([CAPABILITY_AUTO_SELL_SUPPORTED, 'NotARealFeature'])
+      assert.equal(notifications, 1)
+      // Losing the socket reverts to the baseline → the toggle must relabel itself back.
+      resetClientCapabilities()
+      assert.equal(notifications, 2)
+      assert.equal(hasClientCapability(CAPABILITY_AUTO_SELL_SUPPORTED), false)
+      // A redundant reset (already at the baseline) repaints nobody.
+      resetClientCapabilities()
+      assert.equal(notifications, 2)
+    } finally {
+      unsubscribe()
+    }
+  })
+})
+
+test('a capabilities packet announcing exactly the default set reports no change', () => {
+  withEnvironment(BASE, () => {
+    let notifications = 0
+    const unsubscribe = subscribeClientCapabilities(() => { notifications += 1 })
+    try {
+      // The default is the RSL Helper baseline; announcing it changes nothing in force.
+      assert.equal(adoptClientCapabilities([...DEFAULT_CLIENT_CAPABILITIES]), false)
+      assert.equal(notifications, 0)
+      assert.deepEqual(getClientCapabilities(), DEFAULT_CLIENT_CAPABILITIES)
+    } finally {
+      unsubscribe()
+    }
+  })
 })

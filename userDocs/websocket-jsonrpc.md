@@ -236,17 +236,12 @@ with a standard success for acknowledgement or omit a response entirely.
 - `playerName` (string, optional): the player's name.
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
   An empty array means "nothing selected".
-- `multiSelect` (boolean): which selection mode the Gear Inspector is in, so you can tell a
-  one-item selection apart from a deliberate list of one.
-  - `true` — multi-select. Clicks add and remove items, and shift-click picks a whole range,
-    so the list can grow to any length.
-  - `false` — single select. At most one item is ever selected: every click replaces the
-    previous pick, and clicking the selected item again clears it. The array holds one id
-    or none.
-
-  The flag is sent with every selection message and always describes the mode in force for
-  that message. The user can flip the mode at any time from the Gear Inspector — the switch
-  alone does not send a message, so read the mode from the next selection that arrives.
+- `multiSelect` (boolean): the Gear Inspector's selection mode — `true` = multi-select,
+  `false` = single select. It reports the picking mode, **not** a length limit: either value
+  can come with any number of ids, so always read `artifactIds` in full. Sent with every
+  selection message; flipping the mode does not itself send one.
+  With `autoSellSupported` announced it is the sell/view state, and `false` carries at most
+  one id.
 
 **Request examples**
 ```json
@@ -294,6 +289,7 @@ handshake never has to be implemented just to keep working.
 | Token | Effect |
 |---|---|
 | `SfcFileAsSellfile` | Push the **`.sfc` recipe document** via [`uploadSfcFile`](#uploadsfcfile) instead of the compiled `.hsf` sellfile via `uploadSellfile`. Use it when the client wants the editable source document rather than the generated ruleset. |
+| `autoSellSupported` | Present the Gear Inspector's selection mode as a **sell / view** state (sell = multi, view = single), and cap view mode at one item. Reported through the existing `multiSelect` flag on [`selectArtifacts`](#selectartifacts); no new param. |
 
 **Example**
 ```json

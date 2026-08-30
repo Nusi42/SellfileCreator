@@ -261,7 +261,11 @@ export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
 export const EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE = 'uploadSfcFile'
 // Sends the current gear-inspector selection to RSL Helper.
 // Params: { artifactIds: number[], multiSelect: boolean } — multiSelect false means the grid is
-// in single-select mode, so the array can only ever hold one id and each click replaces it.
+// in single-select mode, where a plain click replaces the previous pick instead of adding to it.
+// It describes HOW the user is picking, not a length cap: ctrl/shift-click and the select-all
+// buttons stay live in that mode, so the array can still hold several ids. The exception is a
+// client announcing autoSellSupported, for which single-select is enforced as a hard one-item
+// cap (see lib/clientCapabilities.ts).
 export const EXTERNAL_WS_METHOD_SELECT_ARTIFACTS = 'selectArtifacts'
 // Asks RSL Helper to push all its current datasets immediately after connection.
 export const EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC = 'requestSfcSync'
