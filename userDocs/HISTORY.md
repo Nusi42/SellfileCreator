@@ -1,6 +1,12 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.46 — 2026-08-30
+- **New champion portrait added.**
+
+Deutsch:
+- **Neues Champion-Porträt hinzugefügt.**
+
 ## v1.0.45 — 2026-08-28
 English:
 - **New: The unsaved-changes dot next to Save now gradually shifts color the longer your work stays unsaved** — neutral, then a warning color, then red at the 5, 20, and 60 minute marks — and its tooltip tells you exactly how long it's been. This timer now survives closing and reopening the app.
