@@ -236,10 +236,24 @@ with a standard success for acknowledgement or omit a response entirely.
 - `playerName` (string, optional): the player's name.
 - `artifactIds` (array of number): Artifact instance ids that are now selected.
   An empty array means "nothing selected".
+- `multiSelect` (boolean): which selection mode the Gear Inspector is in, so you can tell a
+  one-item selection apart from a deliberate list of one.
+  - `true` — multi-select. Clicks add and remove items, and shift-click picks a whole range,
+    so the list can grow to any length.
+  - `false` — single select. At most one item is ever selected: every click replaces the
+    previous pick, and clicking the selected item again clears it. The array holds one id
+    or none.
 
-**Request example**
+  The flag is sent with every selection message and always describes the mode in force for
+  that message. The user can flip the mode at any time from the Gear Inspector — the switch
+  alone does not send a message, so read the mode from the next selection that arrives.
+
+**Request examples**
 ```json
-{"jsonrpc":"2.0","id":7,"method":"selectArtifacts","params":{"artifactIds":[235431,312005]}}
+{"jsonrpc":"2.0","id":7,"method":"selectArtifacts","params":{"artifactIds":[235431,312005],"multiSelect":true}}
+```
+```json
+{"jsonrpc":"2.0","id":8,"method":"selectArtifacts","params":{"artifactIds":[235431],"multiSelect":false}}
 ```
 
 **Result**

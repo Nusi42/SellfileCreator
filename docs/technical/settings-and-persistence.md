@@ -87,7 +87,7 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | Rules table columns (order/visibility/width) | `sellfileCreator.rulesTableCols.v5` | `state/rulesTableColumnsPreference.ts` |
 | Rules table wrap rows | `sellfileCreator.rulesTableWrapRows.v1` | (App.tsx raw) |
 | Gear Inspector grid toggles (columns, first-match, match line/index, other matches, champ icons, rule templates, keep-sell highlight, safeguard rank mode, improvement chance) | `sellfileCreator.gearInspector.grid.*` | `state/gearInspectorGridPreferences.ts` |
-| Gear Inspector single-select mode | `sellfileCreator.gearInspector.singleSelectMode.v1` | (GearInspectorItemsGrid raw) |
+| Gear Inspector single-select mode | `sellfileCreator.gearInspector.singleSelectMode.v1` | `state/gearInspectorSelectionModePreference.ts` |
 | Sets display order | `sellfileCreator.setsOrder.v1` | `state/setsOrderPreference.ts` |
 | Layout splitter ratio | `sellfileCreator.layout.splitterRatio.v1` | `state/splitterPreference.ts` |
 | Builder column split ratio (per builder mode) | `sellfileCreator.layout.builderSplitterRatio.v1` | `state/builderSplitterPreference.ts` |

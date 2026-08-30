@@ -196,6 +196,7 @@ import { setGearInspectorSubstatSortState, useGearInspectorSubstatSortPreference
 import { mergeSortState, subtractSortState, reapplySortScalars, sortStateContains, sortStateHasContribution } from './lib/gearInspectorSortMerge'
 import { useGearInspectorGridNormalizedOverlayPreferences } from './state/gearInspectorGridNormalizedOverlayPreferences'
 import { useShowSafeguardImprovementChance } from './state/gearInspectorGridPreferences'
+import { getGearInspectorSingleSelectMode } from './state/gearInspectorSelectionModePreference'
 import { FILTER_PRESETS_VERSION, filterPresetSnapshotsEqual, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import { sortPresetSnapshotsEqual, useSortPresetsPreference, type SortPreset } from './state/sortPresetsPreference'
 import { createPresetId } from './state/presetUtils'
@@ -7236,7 +7237,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!pushExportEndpoint) return
     // Silently swallow errors; the optimistic update stands regardless. The account stamp
     // guards against applying the selection to the wrong roster once Helper consumes it.
-    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, { ...buildAccountRpcParams(), artifactIds: [...nextIds] }).catch(() => {})
+    // `multiSelect` tells the client HOW the selection was made: false means the grid is in
+    // single-select mode, so the payload can only ever name one item and each new click
+    // replaces it. Read from the shared store (not props) — the toggle lives on the grid's
+    // toolbar, and this callback must see its current value without re-subscribing.
+    // The push only runs while gear selection is enabled, so the stored flag is the
+    // effective one here (the grid's own gearSelectionEnabled gate agrees).
+    void sendExternalRequest(EXTERNAL_WS_METHOD_SELECT_ARTIFACTS, {
+      ...buildAccountRpcParams(),
+      artifactIds: [...nextIds],
+      multiSelect: !getGearInspectorSingleSelectMode(),
+    }).catch(() => {})
   }, [pushExportEndpoint, sendExternalRequest, setSelectedGearItemIds])
   // Dirty flag: builder differs from currently selected recipe
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customRecipes), [customRecipes])

@@ -259,7 +259,9 @@ export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
 // uploadSellfile only when the client advertised the SfcFileAsSellfile capability — a client
 // that never asks for it must never receive this method (see lib/runtimeConfig.ts).
 export const EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE = 'uploadSfcFile'
-// Sends the current gear-inspector selection to RSL Helper; params: { artifactIds: number[] }.
+// Sends the current gear-inspector selection to RSL Helper.
+// Params: { artifactIds: number[], multiSelect: boolean } — multiSelect false means the grid is
+// in single-select mode, so the array can only ever hold one id and each click replaces it.
 export const EXTERNAL_WS_METHOD_SELECT_ARTIFACTS = 'selectArtifacts'
 // Asks RSL Helper to push all its current datasets immediately after connection.
 export const EXTERNAL_WS_METHOD_REQUEST_SFC_SYNC = 'requestSfcSync'

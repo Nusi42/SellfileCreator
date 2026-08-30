@@ -58,7 +58,6 @@ import { useContextMenuButtonHint } from '../hooks/useContextMenuButtonHint'
 import { buildGearInspectorNormalizedPresetTooltipMarkdown, formatGearInspectorNormalizedPresetButtonLabel } from '../lib/gearInspectorNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
-  GEAR_INSPECTOR_SINGLE_SELECT_KEY,
   FONT_FAMILY_MONO,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
@@ -96,6 +95,7 @@ import {
 import { GEAR_INSPECTOR_NORMALIZED_PRESET_COUNT } from '../lib/gearInspectorNormalizedPresets'
 import type { GearInspectorSubstatSortState } from '../state/gearInspectorSubstatSortPreferences'
 import { useGearInspectorSubstatSortPreferences } from '../state/gearInspectorSubstatSortPreferences'
+import { useGearInspectorSelectionModePreference } from '../state/gearInspectorSelectionModePreference'
 import {
   type GearInspectorGridNormalizedPresetId,
   useGearInspectorGridNormalizedOverlayPreferences,
@@ -1492,14 +1492,11 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   const stickyHeadersBottomPx = stickyStack.length * accordionSummaryHeightPx
   // Anchor for shift-range selection: the last item clicked without shift held.
   const [anchorArtifactId, setAnchorArtifactId] = useState<number | null>(null)
-  // Single-select mode: plain click selects only one card; persisted to localStorage.
+  // Single-select mode: plain click selects only one card. Held in a shared store rather than
+  // component state because the outbound `selectArtifacts` push stamps the same flag (App.tsx) —
+  // one live value, no drift between the toolbar and the wire payload.
   // Only active while gearSelectionEnabled is true; derived as false when the feature is off.
-  const [singleSelectMode, setSingleSelectMode] = useState(() => {
-    try { return localStorage.getItem(GEAR_INSPECTOR_SINGLE_SELECT_KEY) === '1' } catch { return false }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(GEAR_INSPECTOR_SINGLE_SELECT_KEY, singleSelectMode ? '1' : '0') } catch {}
-  }, [singleSelectMode])
+  const { singleSelectMode, toggleSingleSelectMode } = useGearInspectorSelectionModePreference()
   const effectiveSingleSelectMode = gearSelectionEnabled ? singleSelectMode : false
   // Flat ordered list of artifact IDs in display order; used for shift-range selection.
   const flatOrderedArtifactIds = useMemo(() => {
@@ -3140,7 +3137,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
           >
             <IconButton
               size="small"
-              onClick={() => setSingleSelectMode(m => !m)}
+              onClick={toggleSingleSelectMode}
               color={effectiveSingleSelectMode ? 'primary' : 'default'}
               aria-label={effectiveSingleSelectMode
                 ? t('gearInspectorSelectionMultiSelectMode')
