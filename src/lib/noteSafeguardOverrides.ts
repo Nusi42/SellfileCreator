@@ -17,7 +17,7 @@
  *   normalizeNoteSafeguardOverridesAnswers — decode persisted payload
  */
 import type { StatVariant, RankValue, FactionId, ArtifactSetId } from './types'
-import { artifactSetNames } from './types'
+import { artifactSetNames, findArtifactSetIdByName } from './types'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import type {
   RecipeOverridesSelectorBlock, RecipeOverridesInstructions, RecipeOverridesOperation,
@@ -44,7 +44,6 @@ import {
   pruneSafeguardsSubstatWeights,
   factionIdByName,
   rarityCodeByName,
-  artifactSetIdByName,
   SAFEGUARD_REQUIRED_COUNT_MIN,
   SAFEGUARD_REQUIRED_COUNT_MAX,
   // Group helpers — membership questions and settings identity, so this module never
@@ -706,7 +705,7 @@ const parseOperations = (
       // `gearsets=any` clears the explicit set list back to "any gear set".
       if (isClearListTokens(parsed)) { operations.push({ kind: 'sets', mode: 'replace', values: [] }); continue }
       const resolveId = (name: string): ArtifactSetId | undefined =>
-        artifactSetIdByName.get(name.trim().toLowerCase())
+        findArtifactSetIdByName(name) ?? undefined
       if (listMode === 'replace') {
         const values = parsed
           .map((t) => resolveId(t.value))

@@ -75,7 +75,6 @@ import {
   formatOverridesStatKeyMutateList,
 } from './noteOverridesParser'
 // Case-insensitive set display name → ArtifactSetId (SSOT defined next to the tuple parser).
-import { artifactSetIdByName } from './safeguards'
 import { normalizeRollTargetEntry, quantizeTargetValueForVariant } from './hsfBuilder/targets'
 import { cloneBuilderRecipe } from './recipeMultiEditDraft'
 import { countPositiveSubstats } from './recipeNormalization'
@@ -98,6 +97,7 @@ import {
   // substat vocabulary, `mainstats=` only what a slot can actually carry as a main.
   statKeyToVariant,
   mainStatKeyToVariant,
+  findArtifactSetIdByName,
 } from './types'
 import { retainAllowedMainStats, retainAllowedSubstats } from './statCompatibility'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
@@ -1978,7 +1978,7 @@ const parseOperations = (
       // `gearsets=any` clears the explicit set list back to "any gear set".
       if (isClearListTokens(parsed)) { operations.push({ kind: 'artifactSets', mode: 'replace', ids: [] }); continue }
       const resolveId = (name: string): ArtifactSetId | undefined =>
-        artifactSetIdByName.get(name.trim().toLowerCase())
+        findArtifactSetIdByName(name) ?? undefined
       if (listMode === 'replace') {
         // No-prefix tokens → plain includes only (no excluded flag in replace mode).
         const ids = parsed.map((t) => resolveId(t.value)).filter((v): v is ArtifactSetId => v != null)

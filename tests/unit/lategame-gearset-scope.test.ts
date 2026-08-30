@@ -23,7 +23,7 @@ import {
   resolveNoteSafeguardOverridesTags,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import { ArtifactSet } from '../../src/lib/artifactSets.js'
-import { artifactSetIdByName } from '../../src/lib/safeguards.js'
+import { findArtifactSetIdByName } from '../../src/lib/types.js'
 import { resolveArtifactSetSelections } from '../../src/lib/gearSets/selection.js'
 import type { BuilderRecipe } from '../../src/lib/hsfBuilder/types.js'
 
@@ -74,7 +74,7 @@ const clickSequence = (clicks: ReadonlyArray<OverrideClick>) => {
 
 /** Resolve a gear-set display name to its numeric id (throws on a preset typo). */
 const setIdByName = (name: string): number => {
-  const id = artifactSetIdByName.get(name.trim().toLowerCase())
+  const id = findArtifactSetIdByName(name)
   assert.ok(id != null, `preset names an unknown gear set: ${name}`)
   return Number(id)
 }

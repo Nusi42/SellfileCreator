@@ -16,14 +16,14 @@ import {
 } from '../../src/lib/noteSafeguardOverrides'
 import { resolveRecipeOverridesTags } from '../../src/lib/noteRecipeOverrides'
 import {
-  artifactSetIdByName,
   createFactorySafeguardBuilderDefaults,
   type SafeguardRule,
 } from '../../src/lib/safeguards'
+import { findArtifactSetIdByName } from '../../src/lib/types'
 
-const DAZE = artifactSetIdByName.get('daze')!
-const SPEED = artifactSetIdByName.get('speed')!
-const LIFESTEAL = artifactSetIdByName.get('lifesteal')!
+const DAZE = findArtifactSetIdByName('daze')!
+const SPEED = findArtifactSetIdByName('speed')!
+const LIFESTEAL = findArtifactSetIdByName('lifesteal')!
 assert.ok(DAZE != null && SPEED != null && LIFESTEAL != null, 'test set names must resolve')
 
 // One utility-tagged rule with a metaset plus an included Daze entry, one untagged bystander.

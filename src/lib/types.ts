@@ -358,6 +358,19 @@ export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
   return mergeSetIds(ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, extras)
 }
 
+const NO_GEAR_SET_FALLBACK_NAME = 'No Gear-Set'
+
+/**
+ * The ONE folding rule for gear-set name matching: trim + lowercase.
+ *
+ * Exported so no caller has to re-implement it before handing a label to
+ * findArtifactSetIdByName; that resolver already folds its own input.
+ */
+export const foldSetName = (name: string): string => name.trim().toLowerCase()
+
+// Fold the sentinel once at module load instead of on every lookup.
+const NO_GEAR_SET_FOLDED_NAME = foldSetName(NO_GEAR_SET_FALLBACK_NAME)
+
 /**
  * Resolve a gear-set display name to its numeric ID — the ONE name -> id definition.
  *
@@ -370,13 +383,13 @@ export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
  */
 export function findArtifactSetIdByName(name: string): ArtifactSetId | null {
   // Normalize once; every comparison below is against this folded key.
-  const needle = name.trim().toLowerCase()
+  const needle = foldSetName(name)
   if (!needle) return null
   // Handle the synthetic "no set" sentinel before scanning the baked catalog.
-  if (needle === NO_GEAR_SET_FALLBACK_NAME.toLowerCase()) return ACCESSORY_NO_SET_ID as ArtifactSetId
+  if (needle === NO_GEAR_SET_FOLDED_NAME) return ACCESSORY_NO_SET_ID as ArtifactSetId
   ensureRuntimeGearSetCache()
   for (const [id, label] of runtimeGearSetCache.entries) {
-    if (label.trim().toLowerCase() === needle) {
+    if (foldSetName(label) === needle) {
       return Number(id) as ArtifactSetId
     }
   }
@@ -1032,8 +1045,6 @@ export function formatArtifactSets(sets?: ArtifactSetId[]): string {
   const sorted = [...sets].sort(compareArtifactSets)
   return sorted.map((s) => artifactSetNames[Number(s)] ?? ``).join(', ')
 }
-
-const NO_GEAR_SET_FALLBACK_NAME = 'No Gear-Set'
 
 // Convenience: safe lookup that accepts either enum || number, with a readable fallback
 export function artifactSetName(id: ArtifactSetId): string {

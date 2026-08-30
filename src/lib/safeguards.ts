@@ -23,6 +23,7 @@ import {
   compareArtifactTypes,
   factionNames,
   findArtifactSetIdByName,
+  foldSetName,
   getArtifactFixedSetIds,
   getArtifactVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
@@ -1040,19 +1041,18 @@ const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
 )
 
 // The only capability the named-or-numeric parser needs from a catalog: fold a label to an id.
-// Structural, so a plain lowercase-keyed Map and a resolver-backed lookup both satisfy it.
-type NameLookup = { get(name: string): number | undefined }
+// Structural, so a plain lowercase-keyed Map (slots, factions) and the gear-set resolver
+// function both satisfy it without a wrapper object.
+type NameLookup = (name: string) => number | undefined
 
-// Exported: the note-overrides DSL (recipe + safeguard gearsets fields) and the note icon
-// tokens resolve set display names through this same lookup — one definition for name → id.
-//
-// Map-shaped (a `get`) purely so call sites read unchanged, but it delegates to
-// findArtifactSetIdByName rather than snapshotting a table: a private copy of the catalog would
-// miss both the "no set" sentinel (−99) and any runtime set added after module load, and a miss
-// here means a set the user selected is silently dropped on load.
-export const artifactSetIdByName: NameLookup = {
-  get: (name: string) => findArtifactSetIdByName(name) ?? undefined,
-}
+/** Adapt a lowercase-keyed Map to the NameLookup shape (slots, factions). */
+const lookupFromMap = (map: ReadonlyMap<string, number>): NameLookup => (name) => map.get(name)
+
+// The note-overrides DSL (recipe + safeguard gearsets fields), the note icon tokens and the SFC
+// tuple readers all resolve set display names through findArtifactSetIdByName — one definition
+// for name -> id. It knows the "no set" sentinel (-99) and any runtime set added after module
+// load, which a snapshotted table would miss, and a miss here silently drops a user's set.
+export const resolveArtifactSetIdByName: NameLookup = (name) => findArtifactSetIdByName(name) ?? undefined
 
 export const factionIdByName = new Map<string, FactionId>(
   Object.entries(factionNames)
@@ -1167,9 +1167,11 @@ const collectRecursive = (value: unknown, collectLeaf: (leaf: unknown) => void):
 // Named-or-numeric parser is reused by slot/set/faction readers.
 const parseNamedOrNumeric = (value: unknown, lookup: NameLookup): number | null => {
   if (typeof value === 'string') {
-    const trimmed = value.trim().toLowerCase()
-    if (!trimmed) return null
-    const mapped = lookup.get(trimmed)
+    // Fold once here for the Map-backed lookups; the gear-set resolver folds its own input too,
+    // so passing an already-folded key is harmless either way.
+    const folded = foldSetName(value)
+    if (!folded) return null
+    const mapped = lookup(folded)
     if (mapped != null) return mapped
   }
   return toFiniteFloor(value)
@@ -1182,14 +1184,14 @@ const parseSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
     const record = toRecord(leaf)
     if (record) {
       const source = record.id ?? record.setId ?? record.name ?? record.label
-      const parsedId = parseNamedOrNumeric(source, artifactSetIdByName)
+      const parsedId = parseNamedOrNumeric(source, resolveArtifactSetIdByName)
       if (parsedId == null) return
       collected.push(record.excluded === true
         ? { id: parsedId as ArtifactSetId, excluded: true }
         : { id: parsedId as ArtifactSetId })
       return
     }
-    const parsed = parseNamedOrNumeric(leaf, artifactSetIdByName)
+    const parsed = parseNamedOrNumeric(leaf, resolveArtifactSetIdByName)
     if (parsed == null) return
     collected.push({ id: parsed as ArtifactSetId })
   })
@@ -1315,7 +1317,7 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
   const metaSetNames: string[] = []
 
   collectRecursive(record.slots, (leaf) => {
-    const parsed = parseNamedOrNumeric(leaf, artifactTypeIdByName)
+    const parsed = parseNamedOrNumeric(leaf, lookupFromMap(artifactTypeIdByName))
     if (parsed == null) return
     slots.push(parsed as ArtifactTypeId)
   })
@@ -1336,7 +1338,7 @@ export function normalizeSafeguardCombination(value: unknown): SafeguardCombinat
   })
   collectRecursive(record.factions, (leaf) => {
     if (typeof leaf === 'string' && leaf.trim().length === 0) return
-    const parsed = parseNamedOrNumeric(leaf, factionIdByName)
+    const parsed = parseNamedOrNumeric(leaf, lookupFromMap(factionIdByName))
     if (parsed == null) return
     factions.push(parsed as FactionId)
   })

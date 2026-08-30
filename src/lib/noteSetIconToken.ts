@@ -13,7 +13,7 @@
  * Deliberately mirrors the `{buff:…}` / `{debuff:…}` convention already used by
  * setDescriptions + SetTooltip so authors meet one bracket-token style, not two.
  */
-import { artifactSetIdByName } from './safeguards'
+import { findArtifactSetIdByName } from './types'
 import { artifactSetName, type ArtifactSetId } from './types'
 
 /** Token keyword — the part before the colon. The single spelling every consumer builds on. */
@@ -37,8 +37,8 @@ export const noteSetIconTokenRegex = (): RegExp => new RegExp(NOTE_SET_ICON_TOKE
  * dropping the words: a typo'd or newly-renamed set must stay readable, never vanish.
  */
 export const resolveNoteSetIconId = (rawName: string): ArtifactSetId | null => {
-  const id = artifactSetIdByName.get(rawName.trim().toLowerCase())
-  return id == null ? null : id
+  // The resolver folds case/whitespace itself, so no pre-normalization here.
+  return findArtifactSetIdByName(rawName)
 }
 
 /**
