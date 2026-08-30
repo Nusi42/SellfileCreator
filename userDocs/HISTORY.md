@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v1.0.47 — 2026-08-30
+English:
+- **Fixed: A safeguard rule set to protect only gear with no gear-set (like loose, unset accessories) could quietly start protecting gear from every set instead, after the file was saved and reopened** — the app's internal translation from your saved setting back into a rule lost track of the "no set" option and treated it as "any set" instead.
+
+Deutsch:
+- **Behoben: Eine Schutzregel, die nur Ausrüstung ohne Set schützen sollte (z. B. lose Accessoires ohne Set), konnte nach dem Speichern und erneuten Öffnen der Datei still auf Ausrüstung aus jedem Set umschalten** — die interne Übersetzung deiner gespeicherten Einstellung zurück in eine Regel verlor die Option „kein Set” und behandelte sie stattdessen wie „jedes Set”.
+
 ## v1.0.46 — 2026-08-30
 - **New champion portrait added.**
 
