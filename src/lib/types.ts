@@ -358,12 +358,25 @@ export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
   return mergeSetIds(ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, extras)
 }
 
+/**
+ * Resolve a gear-set display name to its numeric ID — the ONE name -> id definition.
+ *
+ * Matching is case- and whitespace-insensitive: SFC tuples, the note-overrides DSL and note
+ * icon tokens all hand us user-typed or re-serialized labels, and none of them should have to
+ * keep a second, differently-cased lookup table of its own.
+ *
+ * Covers the synthetic "no set" sentinel and runtime (post-update) sets as well as the baked
+ * catalog, so a caller cannot silently drop a set it does not recognize.
+ */
 export function findArtifactSetIdByName(name: string): ArtifactSetId | null {
+  // Normalize once; every comparison below is against this folded key.
+  const needle = name.trim().toLowerCase()
+  if (!needle) return null
   // Handle the synthetic "no set" sentinel before scanning the baked catalog.
-  if (name === NO_GEAR_SET_FALLBACK_NAME) return ACCESSORY_NO_SET_ID as ArtifactSetId
+  if (needle === NO_GEAR_SET_FALLBACK_NAME.toLowerCase()) return ACCESSORY_NO_SET_ID as ArtifactSetId
   ensureRuntimeGearSetCache()
   for (const [id, label] of runtimeGearSetCache.entries) {
-    if (label === name) {
+    if (label.trim().toLowerCase() === needle) {
       return Number(id) as ArtifactSetId
     }
   }

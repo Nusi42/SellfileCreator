@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseSfcText, buildReadableRecipe } from '../../src/lib/sfcIO.js'
+import { parseSfcText, buildReadableRecipe, parseReadableSafeguardEntries, buildReadableSafeguardEntries } from '../../src/lib/sfcIO.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
 import type { SubstatTargetTable } from '../../src/lib/hsfBuilder/types.js'
 
@@ -71,4 +71,45 @@ test('no-gear-set SFC fixture survives a full parse → serialize → re-parse r
       `round-trip recipe ${i} set id should still be -99`,
     )
   }
+})
+
+// Safeguards carry the SAME `{ "name": "No Gear-Set" }` set entries as recipes, but load through
+// their own tuple parser. That parser used a private name -> id table that knew nothing about the
+// -99 sentinel, so the entry resolved to null, was dropped, and the rule silently reopened to
+// "Any" gear-set — matching every set instead of only setless accessories.
+test('safeguard tuples resolve "No Gear-Set" instead of widening the rule to Any', () => {
+  const [rule] = parseReadableSafeguardEntries([
+    {
+      requiredCount: 1,
+      tuple: {
+        slots: ['Ring'],
+        sets: [{ name: 'No Gear-Set' }],
+        metaSetNames: [], ranks: [], rarities: [], mainStats: ['HP'], factions: [],
+      },
+      substats: ['HP%'],
+    },
+  ])
+  assert.ok(rule, 'the safeguard rule should load')
+  const sets = rule.combination.sets ?? []
+  // An empty selection is precisely the "Any gear-set" state, so length is the assertion.
+  assert.equal(sets.length, 1, 'the no-set selection must survive the load, not fall back to Any')
+  assert.equal(Number(sets[0]!.id), ACCESSORY_NO_SET_ID, 'safeguard set id should be -99')
+})
+
+// Write -> read for the safeguard path, mirroring the recipe round-trip above.
+test('safeguard no-gear-set selection survives serialize -> re-parse', () => {
+  const original = parseReadableSafeguardEntries([
+    {
+      requiredCount: 2,
+      tuple: {
+        slots: ['Amulet'],
+        sets: [{ name: 'No Gear-Set' }],
+        metaSetNames: [], ranks: [], rarities: [], mainStats: [], factions: [],
+      },
+    },
+  ])
+  const reparsed = parseReadableSafeguardEntries(buildReadableSafeguardEntries(original))
+  const sets = reparsed[0]?.combination.sets ?? []
+  assert.equal(sets.length, 1, 'round-tripped safeguard should retain its one set entry')
+  assert.equal(Number(sets[0]!.id), ACCESSORY_NO_SET_ID, 'round-tripped safeguard set id should still be -99')
 })

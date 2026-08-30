@@ -18,11 +18,11 @@ import {
   RankCode,
   RarityCode,
   StatVariant as StatVariantEnum,
-  artifactSetNames,
   artifactTypeNames,
   compareArtifactSets,
   compareArtifactTypes,
   factionNames,
+  findArtifactSetIdByName,
   getArtifactFixedSetIds,
   getArtifactVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
@@ -1039,11 +1039,20 @@ const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
   Object.entries(artifactTypeNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactTypeId]),
 )
 
-// Exported: the note-overrides DSL (recipe + safeguard gearsets fields) resolves
-// set display names through this same map — one definition for name → id.
-export const artifactSetIdByName = new Map<string, ArtifactSetId>(
-  Object.entries(artifactSetNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactSetId]),
-)
+// The only capability the named-or-numeric parser needs from a catalog: fold a label to an id.
+// Structural, so a plain lowercase-keyed Map and a resolver-backed lookup both satisfy it.
+type NameLookup = { get(name: string): number | undefined }
+
+// Exported: the note-overrides DSL (recipe + safeguard gearsets fields) and the note icon
+// tokens resolve set display names through this same lookup — one definition for name → id.
+//
+// Map-shaped (a `get`) purely so call sites read unchanged, but it delegates to
+// findArtifactSetIdByName rather than snapshotting a table: a private copy of the catalog would
+// miss both the "no set" sentinel (−99) and any runtime set added after module load, and a miss
+// here means a set the user selected is silently dropped on load.
+export const artifactSetIdByName: NameLookup = {
+  get: (name: string) => findArtifactSetIdByName(name) ?? undefined,
+}
 
 export const factionIdByName = new Map<string, FactionId>(
   Object.entries(factionNames)
@@ -1156,7 +1165,7 @@ const collectRecursive = (value: unknown, collectLeaf: (leaf: unknown) => void):
 }
 
 // Named-or-numeric parser is reused by slot/set/faction readers.
-const parseNamedOrNumeric = (value: unknown, lookup: ReadonlyMap<string, number>): number | null => {
+const parseNamedOrNumeric = (value: unknown, lookup: NameLookup): number | null => {
   if (typeof value === 'string') {
     const trimmed = value.trim().toLowerCase()
     if (!trimmed) return null
