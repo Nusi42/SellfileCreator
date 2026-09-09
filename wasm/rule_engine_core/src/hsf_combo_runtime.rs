@@ -74,15 +74,13 @@ pub(crate) fn execute_hsf_combo_runtime_core(input: &ExecuteHsfComboRuntimeIn) -
     }
 
     // Intro assignments depend on level-local additions and required prefixes.
-    let intro_assignments = build_hsf_intro_assignments_for_level_core(
-        &BuildHsfIntroAssignmentsForLevelIn {
-            count: m,
-            base_slots: input.base_start_by_branch.min(m),
-            required_count: input.required_v.len() as i32,
-            addition_timeline_all: input.addition_timeline_all.clone(),
-            level: input.level,
-        },
-    );
+    let intro_assignments = build_hsf_intro_assignments_for_level_core(&BuildHsfIntroAssignmentsForLevelIn {
+        count: m,
+        base_slots: input.base_start_by_branch.min(m),
+        required_count: input.required_v.len() as i32,
+        addition_timeline_all: input.addition_timeline_all.clone(),
+        level: input.level,
+    });
     if intro_assignments.is_empty() {
         return Vec::<RuleRaw>::new();
     }
@@ -110,9 +108,7 @@ pub(crate) fn execute_hsf_combo_runtime_core(input: &ExecuteHsfComboRuntimeIn) -
     let sum_locked_min = combo_vectors.sum_locked_min;
 
     // Any rarity can grant one synthetic mythical pre-roll when needed.
-    let myth_pre_extra = if input.rarity_code == RARITY_CODE_ANY
-        && (sum_min >= 5 || input.aggregate_min_value >= 5)
-    {
+    let myth_pre_extra = if input.rarity_code == RARITY_CODE_ANY && (sum_min >= 5 || input.aggregate_min_value >= 5) {
         1
     } else {
         0

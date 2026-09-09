@@ -1,9 +1,9 @@
 use super::*;
+use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
+use crate::SafeguardCollectedAndProtectedSnapshotOut;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
-use crate::matcher_evaluator::{collect_safeguard_candidates_core, prepare_rule, BucketedRules};
-use crate::SafeguardCollectedAndProtectedSnapshotOut;
 // ts-rs trait import enables `#[derive(TS)]` on the wasm wire structs below; ts-rs
 // emits one .ts file per derived type into the rust-types/ output directory at
 // `cargo test` time (see ensure-rule-engine-wasm.mjs for the TS_RS_* env vars).
@@ -28,13 +28,8 @@ mod group_tests;
 pub use fast_path_types::SafeguardWasmArtifactIn;
 // Pull in internal types and conversion helpers used by the functions below.
 use fast_path_types::{
-    SafeguardWasmCandidateFastIn,
-    SafeguardWasmCandidateIn,
-    SafeguardWasmMainStatRawIn,
-    SafeguardCollectRowFastIn,
-    safeguard_collect_row_from_fast_payload,
-    safeguard_convert_fast_artifact,
-    safeguard_main_stat_from_fast_payload,
+    safeguard_collect_row_from_fast_payload, safeguard_convert_fast_artifact, safeguard_main_stat_from_fast_payload,
+    SafeguardCollectRowFastIn, SafeguardWasmCandidateFastIn, SafeguardWasmCandidateIn, SafeguardWasmMainStatRawIn,
 };
 
 // Epsilon is used only for tie expansion at the score boundary.
@@ -61,9 +56,7 @@ const SAFEGUARD_EQUIPPED_LOCATION_VAULT: &str = "vault";
 const SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT: &str = "reserveVault";
 
 // Convert fast-path candidates into protection candidates with deterministic fallbacks.
-fn safeguard_candidate_from_fast_payload(
-    candidate: SafeguardWasmCandidateFastIn,
-) -> SafeguardWasmCandidateIn {
+fn safeguard_candidate_from_fast_payload(candidate: SafeguardWasmCandidateFastIn) -> SafeguardWasmCandidateIn {
     let (artifact, _) = safeguard_convert_fast_artifact(candidate.artifact);
     let bucket_key = candidate
         .bucket_key
@@ -90,12 +83,7 @@ pub fn safeguard_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
 
 // Bucket-key dimensions always normalize faction the same way before encoding.
 // Export this so matcher and parser call sites reuse one formatting helper.
-pub fn safeguard_bucket_key_from_parts(
-    slot: i64,
-    set: i64,
-    main_stat: i64,
-    faction_raw: i64,
-) -> String {
+pub fn safeguard_bucket_key_from_parts(slot: i64, set: i64, main_stat: i64, faction_raw: i64) -> String {
     let normalized_faction = safeguard_normalized_faction_for_slot(slot, faction_raw);
     format!("{slot}:{set}:{main_stat}:{normalized_faction}")
 }
@@ -103,12 +91,7 @@ pub fn safeguard_bucket_key_from_parts(
 // Bucket-key helper keeps fallback key generation identical to collect-core rules.
 // Non-accessory slots normalize faction to zero before hashing dimensions.
 fn safeguard_bucket_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> String {
-    safeguard_bucket_key_from_parts(
-        artifact.slot,
-        artifact.set,
-        artifact.main_stat,
-        artifact.faction,
-    )
+    safeguard_bucket_key_from_parts(artifact.slot, artifact.set, artifact.main_stat, artifact.faction)
 }
 
 // Shared row decoder centralizes collect-row normalization for both bindings.
@@ -262,7 +245,12 @@ impl ImprovementChanceThresholdIn {
                 l8.clamp(0.0, 100.0),
                 l12.clamp(0.0, 100.0),
             ],
-            Self::Object { at_level_0, at_level_4, at_level_8, at_level_12 } => {
+            Self::Object {
+                at_level_0,
+                at_level_4,
+                at_level_8,
+                at_level_12,
+            } => {
                 let l0 = at_level_0.clamp(0.0, 100.0);
                 let l4 = at_level_4.unwrap_or(l0).clamp(0.0, 100.0);
                 let l8 = at_level_8.unwrap_or(l4).clamp(0.0, 100.0);
@@ -480,7 +468,9 @@ pub struct SafeguardWasmExpectedBucketsPayloadIn {
 
 // Normalize safeguard expected-bucket domain arrays/maps in Rust so sorting,
 // de-duplication, and slot ordering remain single-sourced with matcher logic.
-pub fn normalize_safeguard_expected_bucket_domain_core(parsed: SafeguardWasmExpectedBucketDomainIn) -> SafeguardWasmExpectedBucketDomainIn {
+pub fn normalize_safeguard_expected_bucket_domain_core(
+    parsed: SafeguardWasmExpectedBucketDomainIn,
+) -> SafeguardWasmExpectedBucketDomainIn {
     // Slot order uses domain helper so fallback ordering stays consistent.
     let slot_order = safeguard_domain_slot_order(&parsed);
     // Set/faction arrays collapse to sorted unique integer domains.
@@ -838,7 +828,10 @@ pub(crate) fn stash_detection_placeholders(detection: &mut SafeguardWasmSnapshot
     });
     detection.placeholder_state_id = Some(state_id);
     RESIDENT_PLACEHOLDERS.with(|cell| {
-        *cell.borrow_mut() = Some(ResidentPlaceholderState { state_id, entries: resident_entries });
+        *cell.borrow_mut() = Some(ResidentPlaceholderState {
+            state_id,
+            entries: resident_entries,
+        });
     });
 }
 
@@ -846,9 +839,7 @@ pub(crate) fn stash_detection_placeholders(detection: &mut SafeguardWasmSnapshot
 /// emission. Entries whose skipped field is already populated (tests / native callers
 /// that never stash) win untouched. Errors are LOUD: a missing/stale/mismatched store
 /// must fail the merge rather than silently emit no placeholder rules.
-pub fn rehydrate_detection_placeholders(
-    detection: &mut SafeguardWasmSnapshotOut,
-) -> Result<(), String> {
+pub fn rehydrate_detection_placeholders(detection: &mut SafeguardWasmSnapshotOut) -> Result<(), String> {
     let Some(expected_id) = detection.placeholder_state_id else {
         // Never stashed (or nothing was stashed) — direct-populated fields still apply.
         return Ok(());
@@ -1085,9 +1076,7 @@ fn safeguard_default_count_mode() -> SafeguardWasmCountMode {
 }
 
 // Resolve optional count-mode payloads into the canonical sanitized shape.
-pub fn safeguard_resolve_count_mode(
-    mode: Option<SafeguardWasmCountMode>,
-) -> SafeguardWasmCountMode {
+pub fn safeguard_resolve_count_mode(mode: Option<SafeguardWasmCountMode>) -> SafeguardWasmCountMode {
     let seeded = mode.unwrap_or_else(safeguard_default_count_mode);
     safeguard_sanitize_count_mode(seeded)
 }
@@ -1284,9 +1273,7 @@ fn safeguard_flat_to_percent_substat(variant: i64) -> Option<i64> {
         .map(|&(percent, _)| percent)
 }
 
-pub fn safeguard_normalize_set_selections(
-    values: &[SafeguardWasmSetSelection],
-) -> Vec<SafeguardWasmSetSelection> {
+pub fn safeguard_normalize_set_selections(values: &[SafeguardWasmSetSelection]) -> Vec<SafeguardWasmSetSelection> {
     // Use map-by-id so duplicates collapse deterministically.
     let mut by_id = BTreeMap::<i64, SafeguardWasmSetSelection>::new();
     for entry in values {
@@ -1384,10 +1371,7 @@ fn safeguard_domain_slot_order(domain: &SafeguardWasmExpectedBucketDomainIn) -> 
     safeguard_sort_unique_slots(&domain.slot_order)
 }
 
-fn safeguard_domain_allowed_mains_for_slot(
-    domain: &SafeguardWasmExpectedBucketDomainIn,
-    slot: i64,
-) -> Vec<i64> {
+fn safeguard_domain_allowed_mains_for_slot(domain: &SafeguardWasmExpectedBucketDomainIn, slot: i64) -> Vec<i64> {
     // Object keys cross the JS/WASM boundary as strings, so index by string slot id.
     let key = slot.to_string();
     let values = domain.allowed_main_by_slot.get(&key).cloned().unwrap_or_default();
@@ -1437,7 +1421,10 @@ fn safeguard_resolve_slot_candidates(
             if allowed_mains.is_empty() {
                 continue;
             }
-            let matches_main = combination.main_stats.iter().any(|variant| allowed_mains.contains(variant));
+            let matches_main = combination
+                .main_stats
+                .iter()
+                .any(|variant| allowed_mains.contains(variant));
             if !matches_main {
                 continue;
             }
@@ -1683,13 +1670,7 @@ fn safeguard_build_expected_buckets_for_rule(
         for set_id in &set_candidates {
             for faction in &faction_candidates {
                 for main_stat in &main_stat_candidates {
-                    let key = safeguard_count_key_from_parts(
-                        slot,
-                        *set_id,
-                        *faction,
-                        *main_stat,
-                        count_mode,
-                    );
+                    let key = safeguard_count_key_from_parts(slot, *set_id, *faction, *main_stat, count_mode);
                     if !seen.insert(key.clone()) {
                         continue;
                     }
@@ -1959,11 +1940,7 @@ fn safeguard_build_substats_for_artifact(substats: &[SafeguardWasmSubstatOut]) -
         if id == STAT_ID_ANY {
             continue;
         }
-        let value = if sub.value.is_finite() {
-            sub.value.max(0.0)
-        } else {
-            0.0
-        };
+        let value = if sub.value.is_finite() { sub.value.max(0.0) } else { 0.0 };
         cloned[idx] = RuleSubRaw {
             ID: Some(id),
             Value: Some(value),
@@ -1979,9 +1956,7 @@ fn safeguard_build_substats_for_artifact(substats: &[SafeguardWasmSubstatOut]) -
 // Encode improvement-watch corner substat floors with the same `>=` absolute-value
 // semantics as safeguard_build_substats_for_artifact (id + flat bit from the variant,
 // non-finite/negative values clamped to zero, unknown variants skipped).
-fn safeguard_build_watch_corner_substats(
-    substats: &[&SafeguardWatchCornerSubstatOut],
-) -> Vec<RuleSubRaw> {
+fn safeguard_build_watch_corner_substats(substats: &[&SafeguardWatchCornerSubstatOut]) -> Vec<RuleSubRaw> {
     // Start from the Any-padded template so unused slots stay non-constraints.
     let mut cloned = safeguard_clone_any_substats();
     let mut idx = 0usize;
@@ -1996,7 +1971,11 @@ fn safeguard_build_watch_corner_substats(
             continue;
         }
         // Clamp the floor to a finite non-negative raw value, mirroring artifact encoding.
-        let value = if sub.min_value.is_finite() { sub.min_value.max(0.0) } else { 0.0 };
+        let value = if sub.min_value.is_finite() {
+            sub.min_value.max(0.0)
+        } else {
+            0.0
+        };
         cloned[idx] = RuleSubRaw {
             ID: Some(id),
             Value: Some(value),
@@ -2073,9 +2052,15 @@ where
 // Used to generate permutation rules for min-count substat anticipation.
 // pub(super) so improvement_watch enumerates corner substat subsets with the same helper.
 pub(super) fn safeguard_combinations(pool: &[i64], k: usize) -> Vec<Vec<i64>> {
-    if k == 0 { return vec![vec![]]; }
-    if k > pool.len() { return Vec::new(); }
-    if k == pool.len() { return vec![pool.to_vec()]; }
+    if k == 0 {
+        return vec![vec![]];
+    }
+    if k > pool.len() {
+        return Vec::new();
+    }
+    if k == pool.len() {
+        return vec![pool.to_vec()];
+    }
     let mut result = Vec::new();
     // Recursive: include pool[0] in the combination, or skip it.
     let first = pool[0];
@@ -2119,7 +2104,6 @@ fn safeguard_build_placeholder_substats_bucket(variants: &[i64]) -> Vec<RuleSubR
     }
     cloned
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct SafeguardCanonicalSubstatKey {
@@ -2233,7 +2217,10 @@ fn safeguard_consolidate_rank_options(ranks: &[i64]) -> Vec<i64> {
         return vec![gte_code];
     }
     // Non-GTE selection: emit one exact code per rank value (1..6 map directly).
-    sorted.into_iter().map(|v| v.clamp(RANK_CODE_ONE, RANK_CODE_SIX)).collect()
+    sorted
+        .into_iter()
+        .map(|v| v.clamp(RANK_CODE_ONE, RANK_CODE_SIX))
+        .collect()
 }
 
 // Consolidate placeholder rarity values into pre-computed HSF rarity codes.
@@ -2308,10 +2295,14 @@ fn safeguard_build_placeholder_base_rules(
     let no_set_only = set_values.len() == 1 && set_values[0] == ACCESSORY_NO_SET_ID;
     let slot_values = if no_set_only && !slot_values.is_empty() {
         // Keep only accessory slots; skip the combination entirely if none remain.
-        let accessory: Vec<i64> = slot_values.iter().copied()
+        let accessory: Vec<i64> = slot_values
+            .iter()
+            .copied()
             .filter(|&s| safeguard_is_accessory_slot(s))
             .collect();
-        if accessory.is_empty() { return Vec::new(); }
+        if accessory.is_empty() {
+            return Vec::new();
+        }
         accessory
     } else {
         slot_values
@@ -2342,11 +2333,15 @@ fn safeguard_build_placeholder_base_rules(
                     // where that mainstat is actually allowed. Skip the combination entirely
                     // when no slots remain — avoids unmatchable rules like Weapon + HP%.
                     let effective_slots: Vec<i64> = if !slot_values.is_empty() && *main_variant != STAT_VARIANT_ANY {
-                        slot_values.iter().copied().filter(|&s| {
-                            ALLOWED_MAINS_BY_SLOT.iter().any(|&(allowed_slot, mains)| {
-                                allowed_slot == s && mains.contains(main_variant)
+                        slot_values
+                            .iter()
+                            .copied()
+                            .filter(|&s| {
+                                ALLOWED_MAINS_BY_SLOT
+                                    .iter()
+                                    .any(|&(allowed_slot, mains)| allowed_slot == s && mains.contains(main_variant))
                             })
-                        }).collect()
+                            .collect()
                     } else {
                         slot_values.clone()
                     };
@@ -2448,9 +2443,7 @@ fn safeguard_build_placeholder_rules(
     if placeholders.is_empty() {
         return Vec::new();
     }
-    let normalized_substat_match = safeguard_normalize_substat_match(
-        rule.substat_match.as_deref().unwrap_or(""),
-    );
+    let normalized_substat_match = safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
     let selected_substats = rule.substats.clone().unwrap_or_default();
     let has_substat_filter = !selected_substats.is_empty();
     let substat_match = if has_substat_filter {
@@ -2462,27 +2455,18 @@ fn safeguard_build_placeholder_rules(
     let normalized_rule_id = rule.id.as_deref().unwrap_or("");
     let mut rules = Vec::<RuleRaw>::new();
     for placeholder in placeholders {
-        let combination = placeholder
-            .combination
-            .clone();
+        let combination = placeholder.combination.clone();
         let hash = safeguard_hash_combination(&combination);
         if placeholder.missing <= 0 {
             // Satisfied buckets emit ONLY improvement-watch corner rules. A zero-missing
             // placeholder without corners means nothing viable can clear the chance bar
             // (or the rule is not in watch mode) — no rule, fresh drops sell normally.
-            let Some(corners) = placeholder
-                .watch_corners
-                .as_ref()
-                .filter(|corners| !corners.is_empty())
-            else {
+            let Some(corners) = placeholder.watch_corners.as_ref().filter(|corners| !corners.is_empty()) else {
                 continue;
             };
             // Corners apply to every combination-pinned base variant the placeholder spans.
-            let base_rules = safeguard_build_placeholder_base_rules(
-                &combination,
-                recipe_id,
-                normalized_name.as_deref(),
-            );
+            let base_rules =
+                safeguard_build_placeholder_base_rules(&combination, recipe_id, normalized_name.as_deref());
             for (base_rule, main_variant, effective_slots) in &base_rules {
                 // Same possibility filter as the deficit path below (SSOT helpers).
                 let slot_filter = safeguard_slot_substat_filter(effective_slots);
@@ -2491,13 +2475,7 @@ fn safeguard_build_placeholder_rules(
                     let possible: Vec<&SafeguardWatchCornerSubstatOut> = corner
                         .substats
                         .iter()
-                        .filter(|sub| {
-                            safeguard_placeholder_substat_possible(
-                                sub.variant,
-                                *main_variant,
-                                slot_filter,
-                            )
-                        })
+                        .filter(|sub| safeguard_placeholder_substat_possible(sub.variant, *main_variant, slot_filter))
                         .collect();
                     // Every probed substat conflicting with this variant means the corner
                     // cannot describe a real piece here — skip instead of over-keeping.
@@ -2532,11 +2510,7 @@ fn safeguard_build_placeholder_rules(
             }
             continue;
         }
-        let base_rules = safeguard_build_placeholder_base_rules(
-            &combination,
-            recipe_id,
-            normalized_name.as_deref(),
-        );
+        let base_rules = safeguard_build_placeholder_base_rules(&combination, recipe_id, normalized_name.as_deref());
         let placeholder_substats = if substat_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT
             && placeholder
                 .substat_variants
@@ -2557,9 +2531,7 @@ fn safeguard_build_placeholder_rules(
                 let possible_substats: Vec<i64> = placeholder_substats
                     .iter()
                     .copied()
-                    .filter(|&v| {
-                        safeguard_placeholder_substat_possible(v, *main_variant, slot_sub_filter)
-                    })
+                    .filter(|&v| safeguard_placeholder_substat_possible(v, *main_variant, slot_sub_filter))
                     .collect();
                 // No possible substats means every selected substat conflicts with this
                 // mainstat — no valid placeholder rule can be emitted for this combination.
@@ -2591,9 +2563,7 @@ fn safeguard_build_placeholder_rules(
                 } else if min_count >= possible_substats.len() {
                     // All required: one bucketed rule with every possible substat.
                     let mut substat_rule = base_rule.clone();
-                    substat_rule.Substats = Some(safeguard_build_placeholder_substats_bucket(
-                        &possible_substats,
-                    ));
+                    substat_rule.Substats = Some(safeguard_build_placeholder_substats_bucket(&possible_substats));
                     safeguard_apply_rule_meta(
                         &mut substat_rule,
                         normalized_rule_id,
@@ -2936,7 +2906,8 @@ fn safeguard_build_placeholder_combination(
             }
         } else {
             // Explicit slot list: keep only slots belonging to the matching class.
-            clone.slots
+            clone
+                .slots
                 .iter()
                 .copied()
                 .filter(|s| safeguard_is_accessory_slot(*s) == is_accessory_bucket)
@@ -3035,7 +3006,9 @@ fn safeguard_close_group_run(
     for candidate_idx in pending.drain(..) {
         // Candidates and both state vectors are parallel (all sized from the parsed candidate
         // list), so one lookup bounds-checks the index for all three.
-        let Some(candidate) = context.candidates.get(candidate_idx) else { continue };
+        let Some(candidate) = context.candidates.get(candidate_idx) else {
+            continue;
+        };
         if !survivors.contains(&candidate.item_key) {
             continue;
         }
@@ -3067,12 +3040,13 @@ fn safeguard_close_group_run(
 /// run's survivors are known BEFORE the next rule reads cumulative state. `context` is the
 /// scan-wide read-only input (see `GroupCapContext`); `entries` is a disjoint borrow, so the
 /// artifact references in it stay valid across the mutation below.
-fn safeguard_apply_group_cap(
-    context: &GroupCapContext<'_>,
-    head: usize,
-    entries: &mut [SafeguardWasmEntryOut],
-) {
-    let GroupCapContext { groups, group_settings, artifact_by_item_key, .. } = context;
+fn safeguard_apply_group_cap(context: &GroupCapContext<'_>, head: usize, entries: &mut [SafeguardWasmEntryOut]) {
+    let GroupCapContext {
+        groups,
+        group_settings,
+        artifact_by_item_key,
+        ..
+    } = context;
     // Only ever called at a run's head; anything else has no group to cap.
     if groups.run_starts.get(head).copied().unwrap_or(-1) != head as i64 {
         return;
@@ -3080,7 +3054,9 @@ fn safeguard_apply_group_cap(
     let members = safeguard_group_run_members(groups, head, entries.len());
     // The head's settings are the group's settings. A count below 1 would mean "keep
     // nothing", so it clamps like every other required count.
-    let Some(settings) = group_settings.get(head).and_then(Option::as_ref) else { return };
+    let Some(settings) = group_settings.get(head).and_then(Option::as_ref) else {
+        return;
+    };
     let demand = settings.required_count.unwrap_or(1).max(1);
     // The group's own count mode defines the merged buckets — "merged based on the
     // bucket-defining properties". Members' chips still shape their OWN feed; they just do
@@ -3099,7 +3075,9 @@ fn safeguard_apply_group_cap(
     // lib/safeguardGroupPool.ts — the flyout's pooled view must not disagree with the scan.
     let mut pooled_item_keys = BTreeSet::<i64>::new();
     for (member_order, member_index) in members.clone().enumerate() {
-        let Some(entry) = entries.get(member_index) else { continue };
+        let Some(entry) = entries.get(member_index) else {
+            continue;
+        };
         // An inactive member feeds nothing in practice — build_safeguard_rules_core skips
         // it — but its entry can still carry scored item_keys for the UI. Letting those
         // into the pool would have a switched-Off rule silently crowd out its siblings.
@@ -3152,7 +3130,9 @@ fn safeguard_apply_group_cap(
     // set the placeholder decision below reads, not the per-member credit.
     let mut kept_item_keys = BTreeSet::<i64>::new();
     for candidate in &pooled {
-        let Some(artifact) = artifact_by_item_key.get(&candidate.item_key) else { continue };
+        let Some(artifact) = artifact_by_item_key.get(&candidate.item_key) else {
+            continue;
+        };
         let key = safeguard_count_key_from_parts(
             artifact.slot,
             artifact.set,
@@ -3163,12 +3143,17 @@ fn safeguard_apply_group_cap(
         let left = room.entry(key).or_insert(demand);
         if *left > 0 {
             *left -= 1;
-            survivors.entry(candidate.member_index).or_default().push(candidate.item_key);
+            survivors
+                .entry(candidate.member_index)
+                .or_default()
+                .push(candidate.item_key);
             kept_item_keys.insert(candidate.item_key);
         }
     }
     for member_index in members {
-        let Some(entry) = entries.get_mut(member_index) else { continue };
+        let Some(entry) = entries.get_mut(member_index) else {
+            continue;
+        };
         if safeguard_is_activation_off(&entry.rule_activation) {
             continue;
         }
@@ -3177,7 +3162,10 @@ fn safeguard_apply_group_cap(
         // Judged against what the GROUP kept, not what was credited to this member: overlapping
         // members routinely feed the same piece, and losing it to the first feeder's column is
         // not the bucket saying no.
-        let fed_piece_dropped = entry.item_keys.iter().any(|item_key| !kept_item_keys.contains(item_key));
+        let fed_piece_dropped = entry
+            .item_keys
+            .iter()
+            .any(|item_key| !kept_item_keys.contains(item_key));
         let mut kept = survivors.remove(&member_index).unwrap_or_default();
         // Restore this member's own ranked order within what survived, so the UI's rank
         // overlays and the preview rows stay in the order the member scored them.
@@ -3212,10 +3200,7 @@ struct PooledGroupCandidate {
     own_rank: u32,
 }
 
-fn safeguard_artifact_matches_rule(
-    artifact: &SafeguardWasmArtifactIn,
-    rule: &SafeguardWasmPreparedRule,
-) -> bool {
+fn safeguard_artifact_matches_rule(artifact: &SafeguardWasmArtifactIn, rule: &SafeguardWasmPreparedRule) -> bool {
     // Equipped filters are optional and short-circuit before tuple matching.
     if rule.ignore_equipped_in_collection && artifact.equipped_in_collection {
         return false;
@@ -3254,10 +3239,7 @@ fn safeguard_artifact_matches_rule(
     true
 }
 
-fn safeguard_count_selected_substats(
-    artifact: &SafeguardWasmArtifactIn,
-    selected_substats: &HashSet<i64>,
-) -> usize {
+fn safeguard_count_selected_substats(artifact: &SafeguardWasmArtifactIn, selected_substats: &HashSet<i64>) -> usize {
     // No selected substats means nothing to count.
     if selected_substats.is_empty() {
         return 0;
@@ -3315,10 +3297,7 @@ fn safeguard_candidate_matches_substats(
 // pub(super) so improvement_chance can resolve weights with the shared fallback rule.
 pub(super) fn safeguard_weight_for_variant(weights: &BTreeMap<i64, f64>, variant: i64) -> f64 {
     // Missing entries fall back to canonical default weight.
-    weights
-        .get(&variant)
-        .copied()
-        .unwrap_or(SAFEGUARD_WEIGHT_DEFAULT)
+    weights.get(&variant).copied().unwrap_or(SAFEGUARD_WEIGHT_DEFAULT)
 }
 
 fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant: i64) -> f64 {
@@ -3356,10 +3335,7 @@ fn safeguard_stat_value_for_variant(artifact: &SafeguardWasmArtifactIn, variant:
 // Flat classification is by variant token via the percent↔flat pairs table — never the wire
 // is_flat flag (SPD/RES/ACC are wire-flat but count as useful non-flat lines here).
 // Mirrors TS unselectedSubstatEpsilonBonus (substatRollNormalization.ts).
-fn safeguard_unselected_substat_epsilon_bonus(
-    artifact: &SafeguardWasmArtifactIn,
-    selected_substats: &[i64],
-) -> f64 {
+fn safeguard_unselected_substat_epsilon_bonus(artifact: &SafeguardWasmArtifactIn, selected_substats: &[i64]) -> f64 {
     // Slot-level gate: a known pool without any percent variant (amulet) skips the ladder.
     let slot_pool = improvement_chance::allowed_substats_for_slot(artifact.slot);
     if !slot_pool.is_empty()
@@ -3422,10 +3398,7 @@ pub(super) fn glyph_average_for_variant(rank: i64, variant: i64) -> f64 {
 // concrete main stat can never roll, so a pass ranking only by that variant is vacuous for
 // this piece and must not be gated on presence. This is exactly the `> 0` case of the shared
 // counting rule the substat-match gates use, so it delegates rather than restating it.
-fn safeguard_any_ranked_substat_possible(
-    artifact: &SafeguardWasmArtifactIn,
-    ranked_substats: &[i64],
-) -> bool {
+fn safeguard_any_ranked_substat_possible(artifact: &SafeguardWasmArtifactIn, ranked_substats: &[i64]) -> bool {
     safeguard_possible_substat_count(ranked_substats, artifact.main_stat) > 0
 }
 
@@ -3641,9 +3614,7 @@ fn safeguard_select_top_scored_candidates(
                 continue;
             }
             // Only strict "better than" decisions reduce eligibility.
-            if safeguard_compare_scored_candidates_tie_only(challenger, candidate, candidates)
-                == Ordering::Less
-            {
+            if safeguard_compare_scored_candidates_tie_only(challenger, candidate, candidates) == Ordering::Less {
                 better_count += 1;
                 if better_count >= required {
                     break;
@@ -3656,20 +3627,12 @@ fn safeguard_select_top_scored_candidates(
         }
     }
     // Normalize emitted order without using encounter index as a ranking tie-break.
-    selected.sort_unstable_by(|left, right| {
-        safeguard_compare_scored_candidate_identity(left, right, candidates)
-    });
+    selected.sort_unstable_by(|left, right| safeguard_compare_scored_candidate_identity(left, right, candidates));
     selected
 }
 
 fn safeguard_count_key(artifact: &SafeguardWasmArtifactIn, mode: SafeguardWasmCountMode) -> SafeguardCountKey {
-    safeguard_count_key_from_parts(
-        artifact.slot,
-        artifact.set,
-        artifact.faction,
-        artifact.main_stat,
-        mode,
-    )
+    safeguard_count_key_from_parts(artifact.slot, artifact.set, artifact.faction, artifact.main_stat, mode)
 }
 
 // pub(super) so improvement_chance can build count keys to bucket challengers correctly.
@@ -3689,7 +3652,11 @@ pub(super) fn safeguard_count_key_from_parts(
     let scoped = SafeguardCountKey::Scoped {
         slot: if mode.per_slot { Some(slot) } else { None },
         set: if mode.per_set { Some(set) } else { None },
-        faction: if mode.per_faction { Some(normalized_faction) } else { None },
+        faction: if mode.per_faction {
+            Some(normalized_faction)
+        } else {
+            None
+        },
         main_stat: if mode.per_main_stat { Some(main_stat) } else { None },
     };
     // No active dimensions still maps to the global bucket.
@@ -3712,7 +3679,8 @@ pub(super) fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
         set,
         faction,
         main_stat,
-    } = key else {
+    } = key
+    else {
         return SAFEGUARD_COUNT_KEY_GLOBAL.to_string();
     };
     // Scoped bucket stringifies only active dimensions.
@@ -3739,7 +3707,10 @@ pub(super) fn safeguard_count_key_to_string(key: &SafeguardCountKey) -> String {
 
 // Expose safeguard count-key derivation so JS expected-bucket precomputation
 // uses the exact same bucketing semantics as Rust detection scans.
-pub fn safeguard_count_key_core(parsed_artifact: SafeguardWasmCountKeyArtifactIn, parsed_mode: SafeguardWasmCountMode) -> String {
+pub fn safeguard_count_key_core(
+    parsed_artifact: SafeguardWasmCountKeyArtifactIn,
+    parsed_mode: SafeguardWasmCountMode,
+) -> String {
     // Sanitize count-mode flags before key computation.
     let mode = safeguard_sanitize_count_mode(parsed_mode);
     // Delegate to the shared Rust helper so key semantics stay SSOT.
@@ -3767,7 +3738,10 @@ pub fn safeguard_item_key_core(parsed_artifact: SafeguardWasmItemKeyArtifactIn) 
         .gear_inspector_item
         .as_ref()
         .and_then(|gear_inspector_item| gear_inspector_item.item_id);
-    artifact_id.or(gear_inspector_preview_id).or(gear_inspector_item_id).unwrap_or(0)
+    artifact_id
+        .or(gear_inspector_preview_id)
+        .or(gear_inspector_item_id)
+        .unwrap_or(0)
 }
 
 // Expose bucket-key derivation so TS reuses Rust accessory-faction normalization.
@@ -3882,9 +3856,8 @@ fn safeguard_build_entry_for_substats(
     // zero-missing placeholders alive so fresh drops that clear the improvement-chance
     // bar stay protected until the next sync re-ranks them. Without a threshold the
     // mode intentionally degrades to anticipateGaps semantics (deficit placeholders only).
-    let improvement_watch =
-        safeguard_is_activation_anticipate_improvements(&prepared_rule.activation)
-            && prepared_rule.improvement_chance_threshold.is_some();
+    let improvement_watch = safeguard_is_activation_anticipate_improvements(&prepared_rule.activation)
+        && prepared_rule.improvement_chance_threshold.is_some();
     // Resolve expected-bucket payload into internal sample struct once.
     let expected_buckets = prepared_rule
         .expected_buckets
@@ -3894,7 +3867,7 @@ fn safeguard_build_entry_for_substats(
             // Bucket lookups use typed keys derived from the canonical sample.
             key: {
                 let _provided_key = bucket.key.trim();
-            // Derive typed keys from sample dimensions so lookups stay typed.
+                // Derive typed keys from sample dimensions so lookups stay typed.
                 safeguard_count_key_from_parts(
                     bucket.sample.slot,
                     bucket.sample.set,
@@ -3944,7 +3917,9 @@ fn safeguard_build_entry_for_substats(
                 // `selected_substats` is this pass's ranked slice (one variant on the perSubstat
                 // path); the rule's full selection classifies the epsilon ladder separately.
                 let score = safeguard_compute_score_for_pass(
-                    &candidate.artifact, selected_substats, &prepared_rule.selected_substats,
+                    &candidate.artifact,
+                    selected_substats,
+                    &prepared_rule.selected_substats,
                     &prepared_rule.weights,
                     prepared_rule.weight_main_stat_by_rank,
                     prepared_rule.main_stat_rank_weight_factor,
@@ -4057,9 +4032,7 @@ fn safeguard_build_entry_for_substats(
                     if challenger.candidate_idx == entry.candidate_idx {
                         continue;
                     }
-                    if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates)
-                        == Ordering::Less
-                    {
+                    if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates) == Ordering::Less {
                         better += 1;
                     }
                 }
@@ -4072,8 +4045,7 @@ fn safeguard_build_entry_for_substats(
             // rather than replacing the current-value selection.
             let selected: Vec<SafeguardWasmScoredCandidate> =
                 if let Some(ref thresholds) = prepared_rule.improvement_chance_threshold {
-                    let top_n_indices: HashSet<usize> =
-                        top_n.iter().map(|e| e.candidate_idx).collect();
+                    let top_n_indices: HashSet<usize> = top_n.iter().map(|e| e.candidate_idx).collect();
                     let mut expanded = top_n;
                     for e in bucket.iter() {
                         if top_n_indices.contains(&e.candidate_idx) {
@@ -4109,8 +4081,7 @@ fn safeguard_build_entry_for_substats(
             }
             // within_quota_set covers ALL top-N candidates (both kept and sold) so is_within_quota
             // is set correctly. selected_candidate_indices tracks only the sold subset for cascade.
-            let within_quota_set: HashSet<usize> =
-                selected.iter().map(|e| e.candidate_idx).collect();
+            let within_quota_set: HashSet<usize> = selected.iter().map(|e| e.candidate_idx).collect();
             let mut group_total = 0i64;
             let mut group_kept = 0i64;
             let mut group_sold = 0i64;
@@ -4170,8 +4141,7 @@ fn safeguard_build_entry_for_substats(
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count + if prepared_rule.rule_active { sold_count } else { 0 };
         // Build global ranked candidate output: sort all by score desc and assign ranks.
-        raw_candidates_for_output
-            .sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
+        raw_candidates_for_output.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
         // is_within_quota uses the full within_quota_indices (kept + sold top-N), not just sold.
         let candidates_out: Vec<SafeguardWasmCandidateOut> = raw_candidates_for_output
             .iter()
@@ -4243,9 +4213,13 @@ fn safeguard_build_entry_for_substats(
         // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count
             + if prepared_rule.rule_active {
-                if has_substat_filter { sold_count.min(needed) }
-                else if needed > 0 { sold_count }
-                else { 0 }
+                if has_substat_filter {
+                    sold_count.min(needed)
+                } else if needed > 0 {
+                    sold_count
+                } else {
+                    0
+                }
             } else {
                 0
             };
@@ -4255,8 +4229,7 @@ fn safeguard_build_entry_for_substats(
         // zero deficit. Per-rule mode has no bucket sample, so the watch placeholder falls
         // back to the deterministic combination-derived default sample for corner probes.
         if deficit > 0 || improvement_watch {
-            let watch_sample =
-                (deficit == 0).then(|| safeguard_default_bucket_sample(&prepared_rule.combination));
+            let watch_sample = (deficit == 0).then(|| safeguard_default_bucket_sample(&prepared_rule.combination));
             placeholders.push(safeguard_build_placeholder(
                 prepared_rule.combination.clone(),
                 deficit,
@@ -4286,8 +4259,7 @@ fn safeguard_build_entry_for_substats(
                 score: 0.0,
                 candidate_rank: 0,
                 bucket_rank: 0,
-                is_within_quota: !candidate_sold_state[*idx]
-                    || selected_sold_set.contains(idx),
+                is_within_quota: !candidate_sold_state[*idx] || selected_sold_set.contains(idx),
                 // Non-ranking path never feeds the perSubstat merge (that path always ranks).
                 substat_buckets: Vec::new(),
             })
@@ -4438,9 +4410,13 @@ fn safeguard_build_entry_for_substats(
         let needed = (required_per_bucket - kept_count).max(0);
         let projected_bucket = kept_count
             + if prepared_rule.rule_active {
-                if has_substat_filter { sold_count.min(needed) }
-                else if needed > 0 { sold_count }
-                else { 0 }
+                if has_substat_filter {
+                    sold_count.min(needed)
+                } else if needed > 0 {
+                    sold_count
+                } else {
+                    0
+                }
             } else {
                 0
             };
@@ -4490,10 +4466,7 @@ fn safeguard_build_entry_for_substats(
     }
 
     // item_keys tracks only at-risk (sold) items selected for protection.
-    let item_keys = at_risk
-        .iter()
-        .map(|idx| candidates[*idx].item_key)
-        .collect::<Vec<_>>();
+    let item_keys = at_risk.iter().map(|idx| candidates[*idx].item_key).collect::<Vec<_>>();
     // Non-ranking bucketed: emit all matching candidates with rank=0.
     // Within-quota: already kept OR in at-risk selection.
     let at_risk_set: HashSet<usize> = at_risk.iter().copied().collect();
@@ -4615,9 +4588,7 @@ fn safeguard_merge_substat_entries(
                 if let Some(bucket) = sub_bucket {
                     // Promote top-level fields to the better (lower-rank) substat; keep within-quota
                     // sticky across substats so an item kept for ANY substat reads as protected.
-                    if bucket.bucket_rank > 0
-                        && (merged.bucket_rank == 0 || bucket.bucket_rank < merged.bucket_rank)
-                    {
+                    if bucket.bucket_rank > 0 && (merged.bucket_rank == 0 || bucket.bucket_rank < merged.bucket_rank) {
                         merged.bucket_rank = bucket.bucket_rank;
                         merged.score = candidate.score;
                         merged.candidate_rank = candidate.candidate_rank;
@@ -4715,10 +4686,7 @@ fn compute_safeguard_protection_core(
     // `safeguard_groups_value`, so what the user sees and what the engine evaluates agree.
     let resolved_groups = groups::resolve_safeguard_groups(&group_entries);
     // The group settings each member carries, index-aligned; the cap pass reads each run's head.
-    let group_settings = parsed_rules
-        .iter()
-        .map(|rule| rule.group.clone())
-        .collect::<Vec<_>>();
+    let group_settings = parsed_rules.iter().map(|rule| rule.group.clone()).collect::<Vec<_>>();
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
@@ -4755,15 +4723,14 @@ fn compute_safeguard_protection_core(
                 .unwrap_or(SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT);
             // Resolve per-level thresholds to a concrete [f64; 4] array, clamping each slot.
             // Single/Array/Object variants are all normalized via into_slots_clamped().
-            let improvement_chance_threshold = rule.improvement_chance_threshold
+            let improvement_chance_threshold = rule
+                .improvement_chance_threshold
                 .clone()
                 .map(|v| v.into_slots_clamped());
             // Required count is clamped to at least one.
             let required_per_bucket = rule.required_count.unwrap_or(1).max(1);
             // Normalize match mode token for deterministic branching.
-            let normalized_match = safeguard_normalize_substat_match(
-                rule.substat_match.as_deref().unwrap_or(""),
-            );
+            let normalized_match = safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
             let selected_substats = rule.substats.unwrap_or_default();
             let has_substat_filter = !selected_substats.is_empty();
             // No selected substats always implies `any` behavior.
@@ -4939,11 +4906,7 @@ fn compute_safeguard_protection_core(
                     )
                 })
                 .collect::<Vec<_>>();
-            safeguard_merge_substat_entries(
-                prepared_rule,
-                prepared_rule.required_per_bucket,
-                per_substat_entries,
-            )
+            safeguard_merge_substat_entries(prepared_rule, prepared_rule.required_per_bucket, per_substat_entries)
         } else {
             // Single-variant `persubstat` behaves like `any` for that variant.
             let effective_match = if prepared_rule.substat_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT {
@@ -5005,7 +4968,11 @@ fn compute_safeguard_protection_core(
 
     // Snapshot timestamp is sanitized to finite number for stable payloads.
     let scanned_at = if now.is_finite() { now } else { 0.0 };
-    SafeguardWasmSnapshotOut { scanned_at, entries, placeholder_state_id: None }
+    SafeguardWasmSnapshotOut {
+        scanned_at,
+        entries,
+        placeholder_state_id: None,
+    }
 }
 
 pub fn compute_safeguard_protection_core_pub(
@@ -5236,11 +5203,18 @@ fn score_and_bucket_preview_candidates(
         .enumerate()
         .filter_map(|(idx, candidate)| {
             let score = safeguard_compute_score_for_pass(
-                &candidate.artifact, substats, rule_substats, weights, weight_main_stat_by_rank,
+                &candidate.artifact,
+                substats,
+                rule_substats,
+                weights,
+                weight_main_stat_by_rank,
                 main_stat_rank_weight_factor,
             );
             if score > 0.0 {
-                Some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
+                Some(SafeguardWasmScoredCandidate {
+                    candidate_idx: idx,
+                    score,
+                })
             } else {
                 None
             }
@@ -5278,9 +5252,7 @@ fn score_and_bucket_preview_candidates(
                 if challenger.candidate_idx == entry.candidate_idx {
                     continue;
                 }
-                if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates)
-                    == Ordering::Less
-                {
+                if safeguard_compare_scored_candidates_tie_only(challenger, entry, candidates) == Ordering::Less {
                     better += 1;
                 }
             }
@@ -5333,9 +5305,14 @@ pub fn score_safeguard_candidates_for_preview_core(
     // ordered list. This is the SSOT for the cutoff divider position, unchanged from before.
     // Combined pass: ranked slice and rule selection are the same list here.
     let (within_quota_indices, bucket_rank_by_idx) = score_and_bucket_preview_candidates(
-        &candidates, &input.substats, &input.substats, &input.weights,
+        &candidates,
+        &input.substats,
+        &input.substats,
+        &input.weights,
         input.weight_main_stat_by_rank,
-        input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
+        input.main_stat_rank_weight_factor,
+        count_mode,
+        required_per_bucket,
     );
 
     // perSubstat rules keep the best substat's quota per bucket, so compute one sub-bucket per
@@ -5357,16 +5334,24 @@ pub fn score_safeguard_candidates_for_preview_core(
             let single_weight: BTreeMap<i64, f64> =
                 input.weights.get(&variant).map(|&w| (variant, w)).into_iter().collect();
             let (sub_within, sub_bucket_rank) = score_and_bucket_preview_candidates(
-                &candidates, &[variant], &input.substats, &single_weight,
+                &candidates,
+                &[variant],
+                &input.substats,
+                &single_weight,
                 input.weight_main_stat_by_rank,
-                input.main_stat_rank_weight_factor, count_mode, required_per_bucket,
+                input.main_stat_rank_weight_factor,
+                count_mode,
+                required_per_bucket,
             );
             for (&idx, &bucket_rank) in &sub_bucket_rank {
-                sub_buckets_by_idx.entry(idx).or_default().push(SafeguardWasmSubstatBucketOut {
-                    variant,
-                    bucket_rank,
-                    is_within_quota: sub_within.contains(&idx),
-                });
+                sub_buckets_by_idx
+                    .entry(idx)
+                    .or_default()
+                    .push(SafeguardWasmSubstatBucketOut {
+                        variant,
+                        bucket_rank,
+                        is_within_quota: sub_within.contains(&idx),
+                    });
             }
         }
     }
@@ -5377,10 +5362,16 @@ pub fn score_safeguard_candidates_for_preview_core(
         .enumerate()
         .filter_map(|(idx, candidate)| {
             let score = safeguard_compute_score(
-                &candidate.artifact, &input.substats, &input.weights, input.weight_main_stat_by_rank,
+                &candidate.artifact,
+                &input.substats,
+                &input.weights,
+                input.weight_main_stat_by_rank,
                 input.main_stat_rank_weight_factor,
             );
-            (score > 0.0).then_some(SafeguardWasmScoredCandidate { candidate_idx: idx, score })
+            (score > 0.0).then_some(SafeguardWasmScoredCandidate {
+                candidate_idx: idx,
+                score,
+            })
         })
         .collect();
     // Sort all scored entries by score descending for rank assignment in output order.
@@ -5504,12 +5495,18 @@ mod score_safeguard_candidates_for_preview_core_tests {
         // OFF: substat-only scoring → the 5★ outscores the 6★ (the original bug).
         let six_off = safeguard_compute_score(&six, &selected, &weights, false, f);
         let five_off = safeguard_compute_score(&five, &selected, &weights, false, f);
-        assert!(five_off > six_off, "with the toggle off the 5★ should still win on substats");
+        assert!(
+            five_off > six_off,
+            "with the toggle off the 5★ should still win on substats"
+        );
 
         // ON: the main-stat rank bonus flips it so the 6★ wins.
         let six_on = safeguard_compute_score(&six, &selected, &weights, true, f);
         let five_on = safeguard_compute_score(&five, &selected, &weights, true, f);
-        assert!(six_on > five_on, "with the toggle on the 6★ should overtake the near-equal 5★");
+        assert!(
+            six_on > five_on,
+            "with the toggle on the 6★ should overtake the near-equal 5★"
+        );
 
         // The bonus is level-independent: an unleveled 6★ scores the same main-stat term as a maxed one.
         let mut six_low = make_boots_spd_artifact(3, 6, 4.0);
@@ -5539,11 +5536,17 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let bare = make_boots_spd_artifact(1, 6, 4.0);
         let mut with_flat = make_boots_spd_artifact(2, 6, 4.0);
         with_flat.substats.push(SafeguardWasmSubstatIn {
-            variant: STAT_VARIANT_HP_FLAT, is_flat: true, value: 300.0, rolls: Some(1),
+            variant: STAT_VARIANT_HP_FLAT,
+            is_flat: true,
+            value: 300.0,
+            rolls: Some(1),
         });
         let mut with_spd = make_boots_spd_artifact(3, 6, 4.0);
         with_spd.substats.push(SafeguardWasmSubstatIn {
-            variant: STAT_VARIANT_SPD, is_flat: true, value: 5.0, rolls: Some(1),
+            variant: STAT_VARIANT_SPD,
+            is_flat: true,
+            value: 5.0,
+            rolls: Some(1),
         });
 
         let bare_score = safeguard_compute_score(&bare, &selected, &weights, false, f);
@@ -5553,7 +5556,10 @@ mod score_safeguard_candidates_for_preview_core_tests {
         assert_eq!(flat_score, bare_score, "flat HP must not earn the epsilon tie-break");
         // A useful extra line wins the tie — and by more than the ranking tie window,
         // otherwise safeguard_select_top_scored_candidates would still treat them as tied.
-        assert!(spd_score > flat_score, "an unselected SPD line must outrank a flat line");
+        assert!(
+            spd_score > flat_score,
+            "an unselected SPD line must outrank a flat line"
+        );
         assert!(
             spd_score - flat_score > SAFEGUARD_SCORE_TIE_EPSILON,
             "epsilon term must clear the score tie window to affect quota selection",
@@ -5565,10 +5571,15 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let better_cr = make_boots_spd_artifact(4, 6, 4.05);
         let mut stacked = make_boots_spd_artifact(5, 6, 4.0);
         for (variant, value) in [
-            (STAT_VARIANT_SPD, 6.0), (STAT_VARIANT_ACC, 12.0), (STAT_VARIANT_RES, 12.0),
+            (STAT_VARIANT_SPD, 6.0),
+            (STAT_VARIANT_ACC, 12.0),
+            (STAT_VARIANT_RES, 12.0),
         ] {
             stacked.substats.push(SafeguardWasmSubstatIn {
-                variant, is_flat: true, value, rolls: Some(1),
+                variant,
+                is_flat: true,
+                value,
+                rolls: Some(1),
             });
         }
         assert!(
@@ -5611,7 +5622,10 @@ mod score_safeguard_candidates_for_preview_core_tests {
                 substats: substats
                     .iter()
                     .map(|&(variant, value)| SafeguardWasmSubstatIn {
-                        variant, is_flat: false, value, rolls: Some(1),
+                        variant,
+                        is_flat: false,
+                        value,
+                        rolls: Some(1),
                     })
                     .collect(),
             }
@@ -5619,26 +5633,48 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
         // The rule selects three percent substats and ranks each independently.
         let rule_substats = [
-            SAFEGUARD_MAIN_HP_PERCENT, SAFEGUARD_MAIN_ATK_PERCENT, SAFEGUARD_MAIN_DEF_PERCENT,
+            SAFEGUARD_MAIN_HP_PERCENT,
+            SAFEGUARD_MAIN_ATK_PERCENT,
+            SAFEGUARD_MAIN_DEF_PERCENT,
         ];
         let weights = BTreeMap::<i64, f64>::new(); // all default (1.0)
-        // Rank 6 carrying HP%/ATK% but NO DEF% — the piece from the bug report.
-        let no_def = ring(1, 6, &[(SAFEGUARD_MAIN_HP_PERCENT, 6.0), (SAFEGUARD_MAIN_ATK_PERCENT, 17.0)]);
+                                                   // Rank 6 carrying HP%/ATK% but NO DEF% — the piece from the bug report.
+        let no_def = ring(
+            1,
+            6,
+            &[(SAFEGUARD_MAIN_HP_PERCENT, 6.0), (SAFEGUARD_MAIN_ATK_PERCENT, 17.0)],
+        );
         // Rank 5 that genuinely has DEF%.
-        let has_def = ring(2, 5, &[(SAFEGUARD_MAIN_HP_PERCENT, 9.0), (SAFEGUARD_MAIN_DEF_PERCENT, 10.0)]);
+        let has_def = ring(
+            2,
+            5,
+            &[(SAFEGUARD_MAIN_HP_PERCENT, 9.0), (SAFEGUARD_MAIN_DEF_PERCENT, 10.0)],
+        );
 
         // DEF% pass: the piece without DEF% scores exactly zero, so the caller's `score <= 0`
         // filter drops it and it never earns a DEF% sub-bucket — with the rank toggle ON, which
         // is what previously carried it over the line.
         let no_def_in_def_pass = safeguard_compute_score_for_pass(
-            &no_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &weights, true, f);
+            &no_def,
+            &[SAFEGUARD_MAIN_DEF_PERCENT],
+            &rule_substats,
+            &weights,
+            true,
+            f,
+        );
         assert_eq!(
             no_def_in_def_pass, 0.0,
             "a piece without DEF% must score 0 in the DEF% pass regardless of rank bonus/epsilons",
         );
         // The piece that HAS DEF% still scores in that pass.
         let has_def_in_def_pass = safeguard_compute_score_for_pass(
-            &has_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &weights, true, f);
+            &has_def,
+            &[SAFEGUARD_MAIN_DEF_PERCENT],
+            &rule_substats,
+            &weights,
+            true,
+            f,
+        );
         assert!(
             has_def_in_def_pass > 0.0,
             "a piece with DEF% must still rank in the DEF% pass",
@@ -5651,13 +5687,25 @@ mod score_safeguard_candidates_for_preview_core_tests {
         heavy_hp.insert(SAFEGUARD_MAIN_HP_PERCENT, 50.0);
         assert_eq!(
             safeguard_compute_score_for_pass(
-                &no_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &heavy_hp, true, f),
+                &no_def,
+                &[SAFEGUARD_MAIN_DEF_PERCENT],
+                &rule_substats,
+                &heavy_hp,
+                true,
+                f
+            ),
             0.0,
             "raising the HP% weight must not admit a DEF%-less piece into the DEF% bucket",
         );
         assert_eq!(
             safeguard_compute_score_for_pass(
-                &has_def, &[SAFEGUARD_MAIN_DEF_PERCENT], &rule_substats, &heavy_hp, true, f),
+                &has_def,
+                &[SAFEGUARD_MAIN_DEF_PERCENT],
+                &rule_substats,
+                &heavy_hp,
+                true,
+                f
+            ),
             has_def_in_def_pass,
             "the DEF% pass score must be independent of the HP% weight",
         );
@@ -5666,9 +5714,21 @@ mod score_safeguard_candidates_for_preview_core_tests {
         // scoring the HP% pass against the full rule selection equals scoring it against a
         // selection where ATK%/DEF% are likewise known-selected (i.e. no extra epsilon appears).
         let hp_pass = safeguard_compute_score_for_pass(
-            &no_def, &[SAFEGUARD_MAIN_HP_PERCENT], &rule_substats, &weights, false, f);
+            &no_def,
+            &[SAFEGUARD_MAIN_HP_PERCENT],
+            &rule_substats,
+            &weights,
+            false,
+            f,
+        );
         let hp_only_selection = safeguard_compute_score_for_pass(
-            &no_def, &[SAFEGUARD_MAIN_HP_PERCENT], &[SAFEGUARD_MAIN_HP_PERCENT], &weights, false, f);
+            &no_def,
+            &[SAFEGUARD_MAIN_HP_PERCENT],
+            &[SAFEGUARD_MAIN_HP_PERCENT],
+            &weights,
+            false,
+            f,
+        );
         assert!(
             hp_pass < hp_only_selection,
             "the rule's other picks must be excluded from the epsilon ladder, not counted as padding",
@@ -5683,15 +5743,23 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn vacuous_ranked_substat_still_scores() {
         // DEF%-MAIN ring: DEF% is unrollable as a substat here.
         let art = SafeguardWasmArtifactIn {
-            id: Some(9), slot: SAFEGUARD_SLOT_RING, set: 1, rank: 6, rarity: 6,
-            level: 12, exact_level: Some(12), faction: 0,
+            id: Some(9),
+            slot: SAFEGUARD_SLOT_RING,
+            set: 1,
+            rank: 6,
+            rarity: 6,
+            level: 12,
+            exact_level: Some(12),
+            faction: 0,
             main_stat: SAFEGUARD_MAIN_DEF_PERCENT,
-            equipped_in_collection: false, equipped_in_vault: false,
-            substats: vec![
-                SafeguardWasmSubstatIn {
-                    variant: STAT_VARIANT_SPD, is_flat: true, value: 10.0, rolls: Some(2),
-                },
-            ],
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: vec![SafeguardWasmSubstatIn {
+                variant: STAT_VARIANT_SPD,
+                is_flat: true,
+                value: 10.0,
+                rolls: Some(2),
+            }],
         };
         let selected = [SAFEGUARD_MAIN_DEF_PERCENT];
         let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
@@ -5716,15 +5784,23 @@ mod score_safeguard_candidates_for_preview_core_tests {
     fn impossible_substat_does_not_inflate_min_count() {
         // DEF%-MAIN ring holding only SPD: DEF% is unrollable as a substat here.
         let art = SafeguardWasmArtifactIn {
-            id: Some(11), slot: SAFEGUARD_SLOT_RING, set: 1, rank: 6, rarity: 6,
-            level: 12, exact_level: Some(12), faction: 0,
+            id: Some(11),
+            slot: SAFEGUARD_SLOT_RING,
+            set: 1,
+            rank: 6,
+            rarity: 6,
+            level: 12,
+            exact_level: Some(12),
+            faction: 0,
             main_stat: SAFEGUARD_MAIN_DEF_PERCENT,
-            equipped_in_collection: false, equipped_in_vault: false,
-            substats: vec![
-                SafeguardWasmSubstatIn {
-                    variant: STAT_VARIANT_SPD, is_flat: true, value: 10.0, rolls: Some(2),
-                },
-            ],
+            equipped_in_collection: false,
+            equipped_in_vault: false,
+            substats: vec![SafeguardWasmSubstatIn {
+                variant: STAT_VARIANT_SPD,
+                is_flat: true,
+                value: 10.0,
+                rolls: Some(2),
+            }],
         };
         // Only SPD is possible, so the shared counting rule must report exactly 1 of 2.
         let selected = [SAFEGUARD_MAIN_DEF_PERCENT, STAT_VARIANT_SPD];
@@ -5828,8 +5904,16 @@ mod score_safeguard_candidates_for_preview_core_tests {
 
         // Fixed per-line semantics: the bonus marks the line's category, never its roll
         // quality — a weak and a max-rolled unselected SPD line earn the identical epsilon.
-        let weak_spd = make(11, STAT_VARIANT_HP_PERCENT, &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 1.0)]);
-        let god_spd = make(12, STAT_VARIANT_HP_PERCENT, &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 30.0)]);
+        let weak_spd = make(
+            11,
+            STAT_VARIANT_HP_PERCENT,
+            &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 1.0)],
+        );
+        let god_spd = make(
+            12,
+            STAT_VARIANT_HP_PERCENT,
+            &[(STAT_VARIANT_HP_PERCENT, 5.0), (STAT_VARIANT_SPD, 30.0)],
+        );
         assert_eq!(
             score(&weak_spd, &hp_selected),
             score(&god_spd, &hp_selected),
@@ -5859,7 +5943,10 @@ mod score_safeguard_candidates_for_preview_core_tests {
                 substats: substats
                     .iter()
                     .map(|&(variant, value)| SafeguardWasmSubstatIn {
-                        variant, is_flat: true, value, rolls: Some(1),
+                        variant,
+                        is_flat: true,
+                        value,
+                        rolls: Some(1),
                     })
                     .collect(),
             }
@@ -5867,9 +5954,8 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let weights = BTreeMap::<i64, f64>::new();
         let f = SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT;
         let selected = [STAT_VARIANT_ACC];
-        let score = |artifact: &SafeguardWasmArtifactIn| {
-            safeguard_compute_score(artifact, &selected, &weights, false, f)
-        };
+        let score =
+            |artifact: &SafeguardWasmArtifactIn| safeguard_compute_score(artifact, &selected, &weights, false, f);
         let acc_line = (STAT_VARIANT_ACC, 20.0);
 
         // On an amulet NO unselected line earns any epsilon — neither an extra flat HP …
@@ -6004,11 +6090,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         assert_eq!(out.len(), 3);
-        let kept: Vec<i64> = out
-            .iter()
-            .filter(|c| c.is_within_quota)
-            .map(|c| c.item_key)
-            .collect();
+        let kept: Vec<i64> = out.iter().filter(|c| c.is_within_quota).map(|c| c.item_key).collect();
         assert_eq!(kept.len(), 2, "perRule mode keeps only required_count globally");
         assert!(kept.contains(&1));
         assert!(kept.contains(&2));
@@ -6047,11 +6129,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         };
         let out = score_safeguard_candidates_for_preview_core(input);
         // Three bucket winners → in_quota even though required_count = 1.
-        let kept: Vec<i64> = out
-            .iter()
-            .filter(|c| c.is_within_quota)
-            .map(|c| c.item_key)
-            .collect();
+        let kept: Vec<i64> = out.iter().filter(|c| c.is_within_quota).map(|c| c.item_key).collect();
         // Order in `kept` follows score-desc rank emission, not bucket order.
         assert_eq!(kept.len(), 3, "one winner per set bucket");
         assert!(kept.contains(&1), "set 10 winner kept");
@@ -6089,11 +6167,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
             substat_match: None,
         };
         let out = score_safeguard_candidates_for_preview_core(input);
-        let kept: Vec<i64> = out
-            .iter()
-            .filter(|c| c.is_within_quota)
-            .map(|c| c.item_key)
-            .collect();
+        let kept: Vec<i64> = out.iter().filter(|c| c.is_within_quota).map(|c| c.item_key).collect();
         assert_eq!(kept.len(), 2, "one winner per slot bucket");
         assert!(kept.contains(&1), "slot 1 winner kept despite weak score");
         assert!(kept.contains(&3), "slot 2 strongest kept; slot 2 second drops");
@@ -6166,10 +6240,7 @@ mod score_safeguard_candidates_for_preview_core_tests {
         let input = SafeguardWasmScorePreviewIn {
             weight_main_stat_by_rank: false,
             main_stat_rank_weight_factor: 1.0,
-            artifacts: vec![
-                make_artifact(1, 1, 10, 0, 1, 7.0),
-                make_artifact(2, 1, 10, 0, 1, 3.0),
-            ],
+            artifacts: vec![make_artifact(1, 1, 10, 0, 1, 7.0), make_artifact(2, 1, 10, 0, 1, 3.0)],
             substats: vec![TEST_VARIANT],
             weights: cr_weights(1.0),
             required_count: 0,
@@ -6187,8 +6258,8 @@ mod score_safeguard_candidates_for_preview_core_tests {
     #[test]
     fn count_mode_field_is_optional_on_wire() {
         let json = r#"{"artifacts":[],"substats":[],"weights":{},"requiredCount":1}"#;
-        let parsed: SafeguardWasmScorePreviewIn = serde_json::from_str(json)
-            .expect("count_mode must be optional on the deserialized wire form");
+        let parsed: SafeguardWasmScorePreviewIn =
+            serde_json::from_str(json).expect("count_mode must be optional on the deserialized wire form");
         assert!(parsed.count_mode.is_none(), "omitted field deserializes as None");
     }
 }
@@ -6239,10 +6310,10 @@ mod improvement_chance_threshold_tests {
     fn level_to_slot(level: i64) -> usize {
         // Mirror of the gating logic in safeguard_run_for_rule_impl (~line 2845).
         match level {
-            0..=3  => 0,
-            4..=7  => 1,
+            0..=3 => 0,
+            4..=7 => 1,
             8..=11 => 2,
-            _      => 3,
+            _ => 3,
         }
     }
 
@@ -6334,7 +6405,10 @@ mod no_substat_protect_all_tests {
             hash: "test-hash".to_string(),
             combination: SafeguardWasmCombination {
                 slots: vec![slot],
-                sets: vec![SafeguardWasmSetSelection { id: set, excluded: false }],
+                sets: vec![SafeguardWasmSetSelection {
+                    id: set,
+                    excluded: false,
+                }],
                 meta_set_names: vec![],
                 ranks: vec![6],
                 rarities: vec![5, 6],
@@ -6396,7 +6470,14 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
@@ -6411,15 +6492,20 @@ mod no_substat_protect_all_tests {
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
-        let candidates: Vec<_> = (201..=207)
-            .map(|id| sold(id, slot, set, 6, 6, faction))
-            .collect();
+        let candidates: Vec<_> = (201..=207).map(|id| sold(id, slot, set, 6, 6, faction)).collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.item_keys.len(), 7, "all 7 sold items must be protected");
         assert_eq!(result.selected_candidate_indices.len(), 7);
@@ -6447,9 +6533,19 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(3, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
-        assert!(result.entry.item_keys.is_empty(), "sold items must not be protected when quota is already met by kept items");
+        assert!(
+            result.entry.item_keys.is_empty(),
+            "sold items must not be protected when quota is already met by kept items"
+        );
     }
 
     #[test]
@@ -6472,11 +6568,22 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
-        assert_eq!(keys, vec![303, 304, 305, 306], "all 4 sold items protected; kept items not re-listed");
+        assert_eq!(
+            keys,
+            vec![303, 304, 305, 306],
+            "all 4 sold items protected; kept items not re-listed"
+        );
     }
 
     #[test]
@@ -6498,7 +6605,14 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         // 1 kept + 3 sold = 4 projected (not capped at needed=4 since sold<needed).
         assert_eq!(result.entry.projected_count, 4);
@@ -6523,9 +6637,19 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(2, slot, set); // kept=3 satisfies requiredCount=2
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
-        assert_eq!(result.entry.projected_count, 3, "projected must be kept_count only when quota met");
+        assert_eq!(
+            result.entry.projected_count, 3,
+            "projected must be kept_count only when quota met"
+        );
     }
 
     #[test]
@@ -6546,7 +6670,14 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert!(
             result.entry.candidates.iter().all(|c| c.is_within_quota),
@@ -6572,9 +6703,19 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(1, slot, set); // kept=2 satisfies requiredCount=1
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
-        let sold_candidates: Vec<_> = result.entry.candidates.iter()
+        let sold_candidates: Vec<_> = result
+            .entry
+            .candidates
+            .iter()
             .filter(|c| c.item_key == 513 || c.item_key == 514)
             .collect();
         assert!(
@@ -6590,16 +6731,20 @@ mod no_substat_protect_all_tests {
         let slot = ARTIFACT_TYPE_BANNER;
         let set = 99i64;
         let faction = 3i64;
-        let candidates = vec![
-            sold(601, slot, set, 6, 6, faction),
-            sold(602, slot, set, 6, 6, faction),
-        ];
+        let candidates = vec![sold(601, slot, set, 6, 6, faction), sold(602, slot, set, 6, 6, faction)];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_per_rule_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
@@ -6611,15 +6756,20 @@ mod no_substat_protect_all_tests {
         let slot = ARTIFACT_TYPE_BANNER;
         let set = 99i64;
         let faction = 3i64;
-        let candidates: Vec<_> = (701..=708)
-            .map(|id| sold(id, slot, set, 6, 6, faction))
-            .collect();
+        let candidates: Vec<_> = (701..=708).map(|id| sold(id, slot, set, 6, 6, faction)).collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         let rule = make_per_rule_rule(5, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.item_keys.len(), 8, "all 8 sold items must be protected");
     }
@@ -6656,16 +6806,27 @@ mod no_substat_protect_all_tests {
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &selected_substats,
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(
-            result.entry.item_keys.len(), 3,
+            result.entry.item_keys.len(),
+            3,
             "with substats and distinct scores the engine selects only the top-N",
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
-        assert_eq!(keys, vec![804, 805, 806], "the three highest-scored items must be selected");
+        assert_eq!(
+            keys,
+            vec![804, 805, 806],
+            "the three highest-scored items must be selected"
+        );
     }
 
     // ── ignore_previous_safeguards: ranking-path pool exclusion ─────────────
@@ -6703,13 +6864,20 @@ mod no_substat_protect_all_tests {
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &selected_substats,
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
         assert_eq!(
-            keys, vec![902, 903, 904],
+            keys,
+            vec![902, 903, 904],
             "ignore_previous_safeguards=true must skip already-protected items and pick the next top-N",
         );
     }
@@ -6744,13 +6912,20 @@ mod no_substat_protect_all_tests {
         let selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &selected_substats, SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &selected_substats,
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         let mut keys = result.entry.item_keys.clone();
         keys.sort_unstable();
         assert_eq!(
-            keys, vec![904, 905, 906],
+            keys,
+            vec![904, 905, 906],
             "ignore_previous_safeguards=false must include every matching item in the ranking pool",
         );
     }
@@ -6763,9 +6938,7 @@ mod no_substat_protect_all_tests {
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
-        let candidates: Vec<_> = (901..=906)
-            .map(|id| sold(id, slot, set, 6, 6, faction))
-            .collect();
+        let candidates: Vec<_> = (901..=906).map(|id| sold(id, slot, set, 6, 6, faction)).collect();
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let mut protected_state: Vec<bool> = vec![false; candidates.len()];
         protected_state[4] = true;
@@ -6774,12 +6947,19 @@ mod no_substat_protect_all_tests {
         rule.ignore_previous_safeguards = true;
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         // All six items must still surface (no substat → no quality basis to drop them).
         assert_eq!(
-            result.entry.item_keys.len(), 6,
+            result.entry.item_keys.len(),
+            6,
             "non-ranking path must ignore protected_state and protect every sold match",
         );
     }
@@ -6803,10 +6983,20 @@ mod no_substat_protect_all_tests {
         let rule = make_bucketed_rule(2, slot, set);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
-        assert!(result.entry.placeholders.is_empty(), "gaps mode must not emit placeholders at zero deficit");
+        assert!(
+            result.entry.placeholders.is_empty(),
+            "gaps mode must not emit placeholders at zero deficit"
+        );
     }
 
     #[test]
@@ -6828,7 +7018,14 @@ mod no_substat_protect_all_tests {
         rule.improvement_chance_threshold = None;
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
         assert!(
@@ -6856,14 +7053,31 @@ mod no_substat_protect_all_tests {
         rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
-        assert_eq!(result.entry.placeholders.len(), 1, "improvement watch must emit one placeholder per observed bucket");
+        assert_eq!(
+            result.entry.placeholders.len(),
+            1,
+            "improvement watch must emit one placeholder per observed bucket"
+        );
         let placeholder = &result.entry.placeholders[0];
-        assert_eq!(placeholder.missing, 0, "satisfied quota reports missing=0, not a fake deficit");
+        assert_eq!(
+            placeholder.missing, 0,
+            "satisfied quota reports missing=0, not a fake deficit"
+        );
         // Watch placeholders must carry the bucket sample so corner probing has concrete dims.
-        let sample = placeholder.sample.as_ref().expect("watch placeholder must carry a bucket sample");
+        let sample = placeholder
+            .sample
+            .as_ref()
+            .expect("watch placeholder must carry a bucket sample");
         assert_eq!(sample.slot, slot);
         assert_eq!(sample.set, set);
         assert_eq!(sample.faction, faction);
@@ -6898,14 +7112,23 @@ mod no_substat_protect_all_tests {
         rule.selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &[spd], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[spd],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
         assert_eq!(result.entry.placeholders.len(), 1);
         assert_eq!(result.entry.placeholders[0].missing, 0);
         // Ranking path also stamps the concrete bucket sample onto the watch placeholder.
-        assert!(result.entry.placeholders[0].sample.is_some(), "ranking watch placeholder must carry the bucket sample");
+        assert!(
+            result.entry.placeholders[0].sample.is_some(),
+            "ranking watch placeholder must carry the bucket sample"
+        );
     }
 
     #[test]
@@ -6937,8 +7160,14 @@ mod no_substat_protect_all_tests {
         rule.selected_substats = vec![spd];
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state,
-            &[spd], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[spd],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
         assert!(
@@ -6954,10 +7183,7 @@ mod no_substat_protect_all_tests {
         let slot = ARTIFACT_TYPE_AMULET;
         let set = 42i64;
         let faction = 7i64;
-        let candidates = vec![
-            kept(631, slot, set, 6, 6, faction),
-            kept(632, slot, set, 6, 6, faction),
-        ];
+        let candidates = vec![kept(631, slot, set, 6, 6, faction), kept(632, slot, set, 6, 6, faction)];
         let sold_state: Vec<bool> = candidates.iter().map(|c| c.is_sold).collect();
         let protected_state: Vec<bool> = vec![false; candidates.len()];
         let mut rule = make_per_rule_rule(2, slot, set);
@@ -6965,7 +7191,14 @@ mod no_substat_protect_all_tests {
         rule.improvement_chance_threshold = Some([50.0, 50.0, 50.0, 50.0]);
         let improvement_chances = BTreeMap::new();
         let result = safeguard_build_entry_for_substats(
-            &rule, &candidates, &sold_state, &protected_state, &[], SAFEGUARD_SUBSTAT_ANY, 1, &improvement_chances,
+            &rule,
+            &candidates,
+            &sold_state,
+            &protected_state,
+            &[],
+            SAFEGUARD_SUBSTAT_ANY,
+            1,
+            &improvement_chances,
         );
         assert_eq!(result.entry.deficit, 0);
         assert_eq!(result.entry.placeholders.len(), 1);
@@ -6973,7 +7206,10 @@ mod no_substat_protect_all_tests {
         assert_eq!(result.entry.placeholders[0].reason, SAFEGUARD_REASON_GLOBAL);
         // Per-rule mode has no observed bucket sample; the deterministic combination
         // default (first selected slot) must be attached for corner probing instead.
-        let sample = result.entry.placeholders[0].sample.as_ref().expect("per-rule watch placeholder must carry the default sample");
+        let sample = result.entry.placeholders[0]
+            .sample
+            .as_ref()
+            .expect("per-rule watch placeholder must carry the default sample");
         assert_eq!(sample.slot, slot, "default sample uses the first combination slot");
     }
 
@@ -6984,7 +7220,10 @@ mod no_substat_protect_all_tests {
         // one rule per corner carrying the corner's Rank/Rarity/LVLForCheck/Substats.
         let combination = SafeguardWasmCombination {
             slots: vec![ARTIFACT_TYPE_AMULET],
-            sets: vec![SafeguardWasmSetSelection { id: 42, excluded: false }],
+            sets: vec![SafeguardWasmSetSelection {
+                id: 42,
+                excluded: false,
+            }],
             meta_set_names: vec![],
             ranks: vec![6],
             rarities: vec![5],
@@ -7060,9 +7299,7 @@ mod no_substat_protect_all_tests {
             SAFEGUARD_ACTIVATION_ANTICIPATE_GAPS,
             SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
         ] {
-            let rules = safeguard_build_placeholder_rules(
-                &make_rule(activation), &bare_entry, -1, 1, None,
-            );
+            let rules = safeguard_build_placeholder_rules(&make_rule(activation), &bare_entry, -1, 1, None);
             assert!(
                 rules.is_empty(),
                 "zero-missing placeholders without corners must emit no rules ({activation})",
@@ -7103,7 +7340,11 @@ mod no_substat_protect_all_tests {
         ];
         let corner_entry = make_entry(make_placeholder(Some(corners.clone())));
         let watch_rules = safeguard_build_placeholder_rules(
-            &make_rule(SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS), &corner_entry, -1, 1, None,
+            &make_rule(SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS),
+            &corner_entry,
+            -1,
+            1,
+            None,
         );
         // Every corner here maps to exactly ONE rarity code (exact codes for singleton
         // runs; GTE_EPIC for the 4..6 run), so rules and corners still pair one-to-one.
@@ -7113,9 +7354,7 @@ mod no_substat_protect_all_tests {
             "one emitted rule per corner (single base variant, single rarity code each)",
         );
         let expected_rarity_codes = [RARITY_CODE_LEGENDARY, RARITY_CODE_EPIC, RARITY_CODE_GTE_EPIC];
-        for ((rule, corner), expected_code) in
-            watch_rules.iter().zip(&corners).zip(expected_rarity_codes)
-        {
+        for ((rule, corner), expected_code) in watch_rules.iter().zip(&corners).zip(expected_rarity_codes) {
             // Corner cell pins override the base rule's rank/rarity/level.
             assert_eq!(rule.Rank, Some(safeguard_clamp_rank_or_rarity_value(corner.rank)));
             assert_eq!(

@@ -12,13 +12,8 @@ use ts_rs::TS;
 use crate::generated_domain_constants::*;
 use crate::safeguards::safeguard_variant_to_sub;
 use crate::{
-    auto_rarity_addition_mask_for_code,
-    auto_rarity_count_levels_up_to_mask,
-    auto_rarity_includes_mythical,
-    auto_rarity_roll_mask_for_code,
-    deserialize_i64_key_map,
-    EmitHsfSubstatIn,
-    FILTER_OPTION_NONE_I32,
+    auto_rarity_addition_mask_for_code, auto_rarity_count_levels_up_to_mask, auto_rarity_includes_mythical,
+    auto_rarity_roll_mask_for_code, deserialize_i64_key_map, EmitHsfSubstatIn, FILTER_OPTION_NONE_I32,
 };
 
 // ---------------------------------------------------------------------------
@@ -304,9 +299,7 @@ pub(crate) struct BuildHsfPreflightFlagsOut {
 // Expand builder rarity branches exactly like hsfBuilder.ts.
 
 // Shared rarity-branch core keeps Late+Auto supplement expansion single-sourced.
-pub(crate) fn build_hsf_rarity_branches_core(
-    input: &BuildHsfRarityBranchesIn,
-) -> Vec<BuildHsfRarityBranchOut> {
+pub(crate) fn build_hsf_rarity_branches_core(input: &BuildHsfRarityBranchesIn) -> Vec<BuildHsfRarityBranchOut> {
     // Base branch always includes the resolved rarity code.
     let base_code = input.rarity_code;
     let mut branches = vec![BuildHsfRarityBranchOut {
@@ -316,10 +309,7 @@ pub(crate) fn build_hsf_rarity_branches_core(
 
     // Late+Auto adds supplemental ≥ rarity tiers on [4, 8, 12].
     if input.rarity_mode.as_deref() == Some("auto") && input.early_keep_mode.as_deref() == Some("late") {
-        let threshold = input
-            .auto_rarity_supplements_threshold
-            .as_deref()
-            .unwrap_or("rare");
+        let threshold = input.auto_rarity_supplements_threshold.as_deref().unwrap_or("rare");
         let min_code = if threshold == "uncommon" {
             RARITY_CODE_GTE_UNCOMMON
         } else if threshold == "epic" {
@@ -388,8 +378,16 @@ pub(crate) fn build_hsf_branch_collapse_profile_core(
     let rolls_up_to_16 = auto_rarity_count_levels_up_to_mask(roll_mask, LEVEL_MILESTONE_16);
     let rolls_up_to_start = auto_rarity_count_levels_up_to_mask(roll_mask, input.effective_start);
     // Mythical rarity contributes one pre-roll at level 0.
-    let pre_rolls = if auto_rarity_includes_mythical(input.rarity_code) { 1 } else { 0 };
-    let pre_rolls_by_start = if input.effective_start <= LEVEL_MILESTONE_0 { pre_rolls } else { 0 };
+    let pre_rolls = if auto_rarity_includes_mythical(input.rarity_code) {
+        1
+    } else {
+        0
+    };
+    let pre_rolls_by_start = if input.effective_start <= LEVEL_MILESTONE_0 {
+        pre_rolls
+    } else {
+        0
+    };
     // Match TS max-roll-at-target semantics across baseline modes.
     let max_rolls_at_target = if baseline_up_to_level {
         rolls_up_to_16 + pre_rolls
@@ -419,9 +417,7 @@ pub(crate) fn build_hsf_branch_collapse_profile_core(
 // Build preflight flags used before branch expansion in hsfBuilder.
 
 // Shared preflight core keeps cap-feasibility + circled-mode logic in one path.
-pub(crate) fn build_hsf_preflight_flags_core(
-    input: &BuildHsfPreflightFlagsIn,
-) -> BuildHsfPreflightFlagsOut {
+pub(crate) fn build_hsf_preflight_flags_core(input: &BuildHsfPreflightFlagsIn) -> BuildHsfPreflightFlagsOut {
     // "Circled" means at least one selected stat has an explicit minimum roll.
     let mut has_circled = input.aggregate_min_active;
     if !has_circled {
@@ -508,10 +504,13 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
     // Roll masks for LTE codes already match their upper-bound concretes; addition masks do not —
     // normalize LTE codes so base_start reflects the correct substat count at each milestone.
     let roll_mask = auto_rarity_roll_mask_for_code(input.rarity_code);
-    let addition_mask = auto_rarity_addition_mask_for_code(
-        crate::auto_rarity_runtime::rarity_for_schedule(input.rarity_code),
-    );
-    let pre_rolls = if auto_rarity_includes_mythical(input.rarity_code) { 1 } else { 0 };
+    let addition_mask =
+        auto_rarity_addition_mask_for_code(crate::auto_rarity_runtime::rarity_for_schedule(input.rarity_code));
+    let pre_rolls = if auto_rarity_includes_mythical(input.rarity_code) {
+        1
+    } else {
+        0
+    };
     // After-start mode subtracts rolls up to the configured start.
     let rolls_up_to_start = auto_rarity_count_levels_up_to_mask(roll_mask, input.effective_start);
     // Target rows always compare against the +16 ceiling.
@@ -553,7 +552,11 @@ pub(crate) fn build_hsf_level_contexts_core(input: &BuildHsfLevelContextsIn) -> 
         let rolls_up_to_level = auto_rarity_count_levels_up_to_mask(roll_mask, level);
         let adds_so_far = auto_rarity_count_levels_up_to_mask(addition_mask, level);
         // In after-start mode, only include pre-roll when start is at/before +0.
-        let pre_rolls_by_start = if input.effective_start <= LEVEL_MILESTONE_0 { pre_rolls } else { 0 };
+        let pre_rolls_by_start = if input.effective_start <= LEVEL_MILESTONE_0 {
+            pre_rolls
+        } else {
+            0
+        };
         let raw_rolls_for_this_level = if baseline_up_to_level {
             rolls_up_to_level + pre_rolls
         } else {
@@ -604,8 +607,7 @@ pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<
     let required_count = input.required_v.len() as i32;
     // Flex opens early only once enough rolls exist, with aggregate-min parity.
     let allow_flex_at_level = input.flex_active
-        && (input.num_rolls_for_this_level >= 2
-            || (input.aggregate_min_active && input.num_rolls_for_this_level > 0));
+        && (input.num_rolls_for_this_level >= 2 || (input.aggregate_min_active && input.num_rolls_for_this_level > 0));
     // Level-local min/max counts mirror the TS builder flow.
     let level_min_count = present.min(min_target_count);
     let level_max_count = present.min(if allow_flex_at_level {
@@ -641,10 +643,8 @@ pub(crate) fn build_hsf_level_combos_core(input: &BuildHsfLevelCombosIn) -> Vec<
             return Vec::<Vec<i32>>::new();
         }
         // Enumerate deterministic optional combos and prepend required slots.
-        let optional_combos = crate::hsf_distribution_runtime::compute_combinations_i32(
-            &input.optional_pool_v,
-            need_optional,
-        );
+        let optional_combos =
+            crate::hsf_distribution_runtime::compute_combinations_i32(&input.optional_pool_v, need_optional);
         optional_combos
             .into_iter()
             .map(|optional| {
@@ -709,7 +709,11 @@ pub(crate) fn build_hsf_timeline_caps_core(input: &BuildHsfTimelineCapsIn) -> Ve
             }
             // Pre-roll contributes only when the substat can exist at +0.
             let include_pre = if baseline_up_to_level {
-                if *intro <= 0 { pre_rolls } else { 0 }
+                if *intro <= 0 {
+                    pre_rolls
+                } else {
+                    0
+                }
             } else if *intro <= 0 && input.effective_start <= 0 {
                 pre_rolls
             } else {
@@ -727,9 +731,7 @@ pub(crate) fn build_hsf_timeline_caps_core(input: &BuildHsfTimelineCapsIn) -> Ve
 // Build intro assignments for one (combo, level) pair from branch timeline input.
 
 // Shared intro-assignment core keeps ordering and filtering single-sourced.
-pub(crate) fn build_hsf_intro_assignments_for_level_core(
-    input: &BuildHsfIntroAssignmentsForLevelIn,
-) -> Vec<Vec<i32>> {
+pub(crate) fn build_hsf_intro_assignments_for_level_core(input: &BuildHsfIntroAssignmentsForLevelIn) -> Vec<Vec<i32>> {
     // Clamp requested dimensions into non-negative integer domains.
     let count = input.count.max(0);
     let base_slots = input.base_slots.max(0);
@@ -902,29 +904,26 @@ pub(crate) fn build_hsf_combo_policy_vectors_core(
     }
 
     // Virtual sink is only needed for locked-only aggregate rows with no extras.
-    let prefer_virtual_sink = if !input.aggregate_targets_locked
-        || input.global_min <= 0
-        || input.others_count != 0
-        || input.avail <= 0
-    {
-        false
-    } else {
-        let mut has_targeted = false;
-        let mut has_non_targeted = false;
-        let mut blocked = false;
-        for idx in 0..len {
-            if *input.targeted_mask.get(idx).unwrap_or(&0) != 0 {
-                has_targeted = true;
-                continue;
+    let prefer_virtual_sink =
+        if !input.aggregate_targets_locked || input.global_min <= 0 || input.others_count != 0 || input.avail <= 0 {
+            false
+        } else {
+            let mut has_targeted = false;
+            let mut has_non_targeted = false;
+            let mut blocked = false;
+            for idx in 0..len {
+                if *input.targeted_mask.get(idx).unwrap_or(&0) != 0 {
+                    has_targeted = true;
+                    continue;
+                }
+                has_non_targeted = true;
+                if *input.mins.get(idx).unwrap_or(&0) != 0 {
+                    blocked = true;
+                    break;
+                }
             }
-            has_non_targeted = true;
-            if *input.mins.get(idx).unwrap_or(&0) != 0 {
-                blocked = true;
-                break;
-            }
-        }
-        !blocked && has_targeted && has_non_targeted
-    };
+            !blocked && has_targeted && has_non_targeted
+        };
 
     BuildHsfComboPolicyVectorsOut {
         sum_min_targeted,
@@ -995,10 +994,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
             continue;
         }
         // Factory base must exist for this star/variant pair.
-        let factory_base = factory_base_by_variant
-            .get(&variant_id)
-            .copied()
-            .flatten();
+        let factory_base = factory_base_by_variant.get(&variant_id).copied().flatten();
         let Some(factory_base_value) = factory_base else {
             factory_eligible = false;
             continue;
@@ -1009,10 +1005,7 @@ pub(crate) fn build_hsf_factory_combo_rows_from_parts(
             continue;
         }
         // Per-stat target overrides can only keep collapse when equal to factory.
-        let target_override_base = target_base_override_by_variant
-            .get(&variant_id)
-            .copied()
-            .flatten();
+        let target_override_base = target_base_override_by_variant.get(&variant_id).copied().flatten();
         if let Some(target_base) = target_override_base {
             if target_base != factory_base_value {
                 factory_eligible = false;

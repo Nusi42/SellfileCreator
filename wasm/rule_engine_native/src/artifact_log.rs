@@ -35,33 +35,41 @@ use rule_engine_core::resolve_accessory_faction;
 #[derive(Debug, Clone, PartialEq)]
 pub struct NativeArtifactIn {
     // Artifact ID (primary key; used in ImprovementChanceEntry.artifact_id).
-    pub id:     Option<i64>,
+    pub id: Option<i64>,
     // Slot id matching ArtifactType enum (1=Weapon … 9=Banner).
-    pub slot:   i64,
+    pub slot: i64,
     // Star rank (1–6).
-    pub rank:   Option<i64>,
+    pub rank: Option<i64>,
     // Rarity code (1=Common … 6=Legendary).
     pub rarity: Option<i64>,
     // Level milestone (0 / 4 / 8 / 12 / 16); raw level preserved verbatim (no snapping here).
-    pub lvl:    Option<i64>,
+    pub lvl: Option<i64>,
     // Chaos Ore rework count (0 = never reworked). Drives the if_reworked / if_not_reworked
     // rule gate via TestItemRaw.reroll_count; the name mirrors the DB column REROLLCOUNT.
     pub reroll_count: Option<i64>,
     // Set id for artifact slots (slot ≤ 6).
-    pub aset:   Option<i64>,
+    pub aset: Option<i64>,
     // Set id for accessory slots (slot > 6) — carries the raw requiredFraction code.
     pub accset: Option<i64>,
     // Main stat numeric id.
-    pub mid:    Option<i64>,
+    pub mid: Option<i64>,
     // Main stat flat flag (0 = percentage, 1 = flat).
-    pub mfl:    Option<i64>,
+    pub mfl: Option<i64>,
     // Substats: id / roll-count / flat flag for slots 1–4.
-    pub s1id: Option<i64>, pub s1lvl: Option<i64>, pub s1fl: Option<i64>,
-    pub s2id: Option<i64>, pub s2lvl: Option<i64>, pub s2fl: Option<i64>,
-    pub s3id: Option<i64>, pub s3lvl: Option<i64>, pub s3fl: Option<i64>,
-    pub s4id: Option<i64>, pub s4lvl: Option<i64>, pub s4fl: Option<i64>,
+    pub s1id: Option<i64>,
+    pub s1lvl: Option<i64>,
+    pub s1fl: Option<i64>,
+    pub s2id: Option<i64>,
+    pub s2lvl: Option<i64>,
+    pub s2fl: Option<i64>,
+    pub s3id: Option<i64>,
+    pub s3lvl: Option<i64>,
+    pub s3fl: Option<i64>,
+    pub s4id: Option<i64>,
+    pub s4lvl: Option<i64>,
+    pub s4fl: Option<i64>,
     // Equipped champion id — Some(id>0) marks the artifact equipped_in_collection.
-    pub c_id:    Option<i64>,
+    pub c_id: Option<i64>,
     // Pre-resolved faction id (from accset via resolve_accessory_faction); 0 = Any.
     pub faction: i64,
 }
@@ -80,12 +88,21 @@ pub struct NativeArtifactIn {
 // document it, but are not read — hence `dead_code` is allowed for them.
 #[derive(Debug, Default, Deserialize)]
 pub struct RawStatBlock {
-    #[serde(default)] pub id:          Value,
-    #[serde(default)] pub level:       Value,
-    #[serde(default, rename = "isAbsolute")] pub is_absolute: Value,
-    #[serde(default, rename = "statValue")]  #[allow(dead_code)] pub stat_value:  Value,
-    #[serde(default, rename = "glyphValue")] #[allow(dead_code)] pub glyph_value: Value,
-    #[serde(default, rename = "mValue")]     #[allow(dead_code)] pub m_value:     Value,
+    #[serde(default)]
+    pub id: Value,
+    #[serde(default)]
+    pub level: Value,
+    #[serde(default, rename = "isAbsolute")]
+    pub is_absolute: Value,
+    #[serde(default, rename = "statValue")]
+    #[allow(dead_code)]
+    pub stat_value: Value,
+    #[serde(default, rename = "glyphValue")]
+    #[allow(dead_code)]
+    pub glyph_value: Value,
+    #[serde(default, rename = "mValue")]
+    #[allow(dead_code)]
+    pub m_value: Value,
 }
 
 // A raw ArtifactLog row (the `artifacts` / `inboxArtifacts` element). Also serves as
@@ -93,28 +110,41 @@ pub struct RawStatBlock {
 // lacks a top-level `kindId`.
 #[derive(Debug, Default, Deserialize)]
 pub struct RawArtifactLogRow {
-    #[serde(default)] pub id:      Value,
-    #[serde(default, rename = "kindId")]   pub kind_id:   Value,
-    #[serde(default, rename = "rankId")]   pub rank_id:   Value,
-    #[serde(default, rename = "rarityId")] pub rarity_id: Value,
-    #[serde(default, rename = "setKindId")]        pub set_kind_id:       Value,
-    #[serde(default, rename = "requiredFraction")] pub required_fraction: Value,
-    #[serde(default)] pub level: Value,
+    #[serde(default)]
+    pub id: Value,
+    #[serde(default, rename = "kindId")]
+    pub kind_id: Value,
+    #[serde(default, rename = "rankId")]
+    pub rank_id: Value,
+    #[serde(default, rename = "rarityId")]
+    pub rarity_id: Value,
+    #[serde(default, rename = "setKindId")]
+    pub set_kind_id: Value,
+    #[serde(default, rename = "requiredFraction")]
+    pub required_fraction: Value,
+    #[serde(default)]
+    pub level: Value,
     // Chaos Ore rework counter. RSL Helper spells it `rerollsCount` on the wire; the
     // TS importer folds it into the REROLLCOUNT column, which feeds the rule Ore gate.
-    #[serde(default, rename = "rerollsCount")] pub rerolls_count: Value,
-    #[serde(default)] pub primary:   Option<RawStatBlock>,
-    #[serde(default)] pub secondary: Vec<RawStatBlock>,
+    #[serde(default, rename = "rerollsCount")]
+    pub rerolls_count: Value,
+    #[serde(default)]
+    pub primary: Option<RawStatBlock>,
+    #[serde(default)]
+    pub secondary: Vec<RawStatBlock>,
     // Inbox-item envelope: a nested row array under `artifacts` (present only on envelopes).
-    #[serde(default)] pub artifacts: Option<Vec<RawArtifactLogRow>>,
+    #[serde(default)]
+    pub artifacts: Option<Vec<RawArtifactLogRow>>,
 }
 
 // A raw champion row — only the fields needed for the artifact→champion join. The
 // endpoint sends lowercase `id`; `artifacts` maps slot number (string key) → artifact id.
 #[derive(Debug, Default, Deserialize)]
 pub struct RawChampionRow {
-    #[serde(default, alias = "ID")] pub id: Value,
-    #[serde(default)] pub artifacts: BTreeMap<String, Value>,
+    #[serde(default, alias = "ID")]
+    pub id: Value,
+    #[serde(default)]
+    pub artifacts: BTreeMap<String, Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -187,9 +217,9 @@ fn parse_artifact_log_row(
     equipped_by_artifact: &BTreeMap<i64, i64>,
 ) -> Option<NativeArtifactIn> {
     // Reject gate: id/kindId/rankId/rarityId must all be present AND > 0.
-    let id     = to_number(&row.id)?;
-    let slot   = to_number(&row.kind_id)?;
-    let rank   = to_number(&row.rank_id)?;
+    let id = to_number(&row.id)?;
+    let slot = to_number(&row.kind_id)?;
+    let rank = to_number(&row.rank_id)?;
     let rarity = to_number(&row.rarity_id)?;
     if id <= 0.0 || slot <= 0.0 || rank <= 0.0 || rarity <= 0.0 {
         return None;
@@ -205,21 +235,29 @@ fn parse_artifact_log_row(
     let c_id = equipped_by_artifact.get(&id).copied().filter(|&c| c > 0);
 
     let mut result = NativeArtifactIn {
-        id:     Some(id),
-        slot:   slot as i64,
-        rank:   Some(rank as i64),
+        id: Some(id),
+        slot: slot as i64,
+        rank: Some(rank as i64),
         rarity: Some(rarity as i64),
-        lvl:    Some(to_i64_or(&row.level, 0)),
+        lvl: Some(to_i64_or(&row.level, 0)),
         // Mirrors the TS `toNumber(row.rerollsCount) ?? 0` fold into REROLLCOUNT.
         reroll_count: Some(to_i64_or(&row.rerolls_count, 0)),
-        aset:   Some(to_i64_or(&row.set_kind_id, 0)),
+        aset: Some(to_i64_or(&row.set_kind_id, 0)),
         accset: Some(to_i64_or(&row.required_fraction, 0)),
-        mid:    Some(to_i64_or(primary_field(|p| &p.id), 0)),
-        mfl:    Some(to_i64_or(primary_field(|p| &p.is_absolute), 0)),
-        s1id: Some(0), s1lvl: Some(0), s1fl: Some(0),
-        s2id: Some(0), s2lvl: Some(0), s2fl: Some(0),
-        s3id: Some(0), s3lvl: Some(0), s3fl: Some(0),
-        s4id: Some(0), s4lvl: Some(0), s4fl: Some(0),
+        mid: Some(to_i64_or(primary_field(|p| &p.id), 0)),
+        mfl: Some(to_i64_or(primary_field(|p| &p.is_absolute), 0)),
+        s1id: Some(0),
+        s1lvl: Some(0),
+        s1fl: Some(0),
+        s2id: Some(0),
+        s2lvl: Some(0),
+        s2fl: Some(0),
+        s3id: Some(0),
+        s3lvl: Some(0),
+        s3fl: Some(0),
+        s4id: Some(0),
+        s4lvl: Some(0),
+        s4fl: Some(0),
         c_id,
         // Resolve faction from the raw accessory code (SSOT generated map); 0 = Any.
         // Gated on accessory slots (slot > 6) to mirror determineFaction's isAccessorySlot
@@ -242,9 +280,9 @@ fn parse_artifact_log_row(
     for (index, (id_col, lvl_col, fl_col)) in slots.into_iter().enumerate() {
         let stat = row.secondary.get(index);
         let field = |f: fn(&RawStatBlock) -> &Value| stat.map(f).unwrap_or(&Value::Null);
-        *id_col  = Some(to_i64_or(field(|s| &s.id), 0));
+        *id_col = Some(to_i64_or(field(|s| &s.id), 0));
         *lvl_col = Some(to_i64_or(field(|s| &s.level), 0));
-        *fl_col  = Some(to_i64_or(field(|s| &s.is_absolute), 0));
+        *fl_col = Some(to_i64_or(field(|s| &s.is_absolute), 0));
     }
 
     Some(result)
@@ -294,20 +332,19 @@ mod tests {
     fn to_number_matches_js_coercion() {
         assert_eq!(to_number(&json!(5)), Some(5.0));
         assert_eq!(to_number(&json!(5.5)), Some(5.5));
-        assert_eq!(to_number(&json!("7")), Some(7.0));   // numeric string
-        assert_eq!(to_number(&json!("")), Some(0.0));     // Number("") === 0
+        assert_eq!(to_number(&json!("7")), Some(7.0)); // numeric string
+        assert_eq!(to_number(&json!("")), Some(0.0)); // Number("") === 0
         assert_eq!(to_number(&json!("  9 ")), Some(9.0)); // trimmed
-        assert_eq!(to_number(&json!("abc")), None);        // NaN → null
+        assert_eq!(to_number(&json!("abc")), None); // NaN → null
         assert_eq!(to_number(&Value::Null), None);
-        assert_eq!(to_number(&json!(true)), None);         // bools are not numbers here
+        assert_eq!(to_number(&json!(true)), None); // bools are not numbers here
     }
 
     #[test]
     fn reject_gate_drops_incomplete_rows() {
         let equipped = BTreeMap::new();
         // Missing rarityId → rejected.
-        let row: RawArtifactLogRow =
-            serde_json::from_value(json!({ "id": 1, "kindId": 1, "rankId": 5 })).unwrap();
+        let row: RawArtifactLogRow = serde_json::from_value(json!({ "id": 1, "kindId": 1, "rankId": 5 })).unwrap();
         assert!(parse_artifact_log_row(&row, &equipped).is_none());
         // Zero id → rejected.
         let row: RawArtifactLogRow =
@@ -329,15 +366,16 @@ mod tests {
             "requiredFraction": 4, "setKindId": 0,
             "primary": { "id": 3, "isAbsolute": 1 },
             "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1 }, { "id": 6, "level": 0, "isAbsolute": 1 } ]
-        })).unwrap();
+        }))
+        .unwrap();
         let compact = parse_artifact_log_row(&row, &equipped).expect("row should parse");
         assert_eq!(compact.slot, 7);
-        assert_eq!(compact.faction, 13);         // 4 → Barbarians alias
-        assert_eq!(compact.c_id, Some(900));      // equipped
+        assert_eq!(compact.faction, 13); // 4 → Barbarians alias
+        assert_eq!(compact.c_id, Some(900)); // equipped
         assert_eq!(compact.s1id, Some(4));
         assert_eq!(compact.s1lvl, Some(4));
         assert_eq!(compact.s2id, Some(6));
-        assert_eq!(compact.s3id, Some(0));        // empty slot defaults to 0
+        assert_eq!(compact.s3id, Some(0)); // empty slot defaults to 0
         assert_eq!(compact.mid, Some(3));
     }
 
@@ -349,7 +387,8 @@ mod tests {
             { "inboxItemId": 5, "artifacts": [
                 { "id": 200, "kindId": 2, "rankId": 5, "rarityId": 4 }
             ] }
-        ])).unwrap();
+        ]))
+        .unwrap();
         let out = parse_artifact_log_array(&rows, &equipped);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, Some(200));

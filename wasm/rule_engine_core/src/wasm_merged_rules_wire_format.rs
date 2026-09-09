@@ -19,13 +19,10 @@
 //
 // Conversion impls translate to/from the canonical core types so the core
 // compute_merged_rules_core function is unchanged.
+use crate::{FinalSellRemainderIn, RuleRaw, RuleSubRaw, SafeguardWasmRuleIn, SafeguardWasmSnapshotOut};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use ts_rs::TS;
-use crate::{
-    FinalSellRemainderIn, RuleRaw, RuleSubRaw,
-    SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
-};
-use serde::{Deserialize, Serialize};
 
 // Wire form of RuleSubRaw — one substat inside a rule.  Skips serialising
 // None fields to keep the output compact; the original struct does the same.
@@ -126,25 +123,61 @@ pub struct RuleRawWire {
     pub rank_mask: Option<i64>,
     #[serde(rename = "_ram", alias = "__rarityMask", skip_serializing_if = "Option::is_none")]
     pub rarity_mask: Option<i64>,
-    #[serde(rename = "_sri", alias = "__safeguardRuleId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sri",
+        alias = "__safeguardRuleId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_rule_id: Option<String>,
-    #[serde(rename = "_sro", alias = "__safeguardRuleOrdinal", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sro",
+        alias = "__safeguardRuleOrdinal",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_rule_ordinal: Option<i64>,
     #[serde(rename = "_sh", alias = "__safeguardHash", skip_serializing_if = "Option::is_none")]
     pub safeguard_hash: Option<String>,
-    #[serde(rename = "_srq", alias = "__safeguardRequired", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_srq",
+        alias = "__safeguardRequired",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_required: Option<i64>,
-    #[serde(rename = "_ssm", alias = "__safeguardScanMs", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_ssm",
+        alias = "__safeguardScanMs",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_scan_ms: Option<f64>,
-    #[serde(rename = "_sp", alias = "__safeguardProjected", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sp",
+        alias = "__safeguardProjected",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_projected: Option<i64>,
-    #[serde(rename = "_sd", alias = "__safeguardDeficit", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sd",
+        alias = "__safeguardDeficit",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_deficit: Option<i64>,
-    #[serde(rename = "_sik", alias = "__safeguardItemKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sik",
+        alias = "__safeguardItemKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_item_key: Option<i64>,
-    #[serde(rename = "_sph", alias = "__safeguardPlaceholder", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_sph",
+        alias = "__safeguardPlaceholder",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_placeholder: Option<bool>,
-    #[serde(rename = "_spm", alias = "__safeguardPlaceholderMissing", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "_spm",
+        alias = "__safeguardPlaceholderMissing",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub safeguard_placeholder_missing: Option<i64>,
 }
 
@@ -313,8 +346,7 @@ mod tests {
             "Keep": true,
             "Substats": [{"ID": 1, "Value": 2.5, "IsFlat": false}]
         }"#;
-        let wire: RuleRawWire = serde_json::from_str(long_json)
-            .expect("should parse long-form keys via alias");
+        let wire: RuleRawWire = serde_json::from_str(long_json).expect("should parse long-form keys via alias");
         assert_eq!(wire.recipe_id, Some(42));
         assert_eq!(wire.recipe_name.as_deref(), Some("test"));
         assert_eq!(wire.keep, Some(true));
@@ -335,8 +367,8 @@ mod tests {
             "safeguardEnabled": false,
             "safeguardRules": []
         }"#;
-        let wire: CacheGeneratedRulesInWire = serde_json::from_str(long_json)
-            .expect("should parse long-form envelope keys via alias");
+        let wire: CacheGeneratedRulesInWire =
+            serde_json::from_str(long_json).expect("should parse long-form envelope keys via alias");
         assert!(wire.base_rules.is_empty());
         assert!(wire.custom_rules.is_empty());
     }
@@ -347,8 +379,8 @@ mod tests {
             "safeguardDetection": null,
             "safeguardRecipeIdBase": null
         }"#;
-        let wire: ComputeMergedRulesCachedInWire = serde_json::from_str(long_json)
-            .expect("should parse long-form per-push keys via alias");
+        let wire: ComputeMergedRulesCachedInWire =
+            serde_json::from_str(long_json).expect("should parse long-form per-push keys via alias");
         assert!(wire.safeguard_detection.is_none());
         assert!(wire.safeguard_recipe_id_base.is_none());
     }

@@ -31,23 +31,33 @@
 use super::{
     // Shared chance machinery (improvement_chance.rs, widened to pub(super) for reuse).
     improvement_chance::{
-        build_scenarios, extract_synthetic_boundaries, prepare_synthetic_cell_prober,
-        prepare_upgrade_rules, resolve_roll_range, synthetic_cell_chance_lane, StateKey,
-        SyntheticBoundaries, UpgradeScenario, ROLL_MILESTONES,
+        build_scenarios, extract_synthetic_boundaries, prepare_synthetic_cell_prober, prepare_upgrade_rules,
+        resolve_roll_range, synthetic_cell_chance_lane, StateKey, SyntheticBoundaries, UpgradeScenario,
+        ROLL_MILESTONES,
     },
     // Wire structs and SSOT helpers from mod.rs.
-    safeguard_combinations, safeguard_default_bucket_sample,
-    safeguard_is_activation_anticipate_improvements, safeguard_normalize_substat_match,
-    safeguard_placeholder_substat_possible, safeguard_slot_substat_filter,
-    safeguard_substat_min_count, safeguard_threshold_slot_for_level, safeguard_variant_to_sub,
-    safeguard_weight_for_variant, SafeguardWasmCombination, SafeguardWasmBucketSample,
-    SafeguardWasmPlaceholderOut, SafeguardWasmRuleIn, SafeguardWasmSnapshotOut,
-    SafeguardWatchCornerOut, SafeguardWatchCornerSubstatOut,
+    safeguard_combinations,
+    safeguard_default_bucket_sample,
+    safeguard_is_activation_anticipate_improvements,
+    safeguard_normalize_substat_match,
+    safeguard_placeholder_substat_possible,
+    safeguard_slot_substat_filter,
+    safeguard_substat_min_count,
+    safeguard_threshold_slot_for_level,
+    safeguard_variant_to_sub,
+    safeguard_weight_for_variant,
+    SafeguardWasmBucketSample,
+    SafeguardWasmCombination,
+    SafeguardWasmPlaceholderOut,
+    SafeguardWasmRuleIn,
+    SafeguardWasmSnapshotOut,
+    SafeguardWatchCornerOut,
+    SafeguardWatchCornerSubstatOut,
 };
 use crate::safeguards::fast_path_types::{SafeguardWasmArtifactIn, SafeguardWasmSubstatIn};
 use crate::{
-    SafeguardCollectRowIn, HSF_SUBSTAT_SLOT_COUNT, SAFEGUARD_SUBSTAT_PER_SUBSTAT,
-    STAT_VARIANT_ANY, STAT_VARIANT_ROLL_COUNT,
+    SafeguardCollectRowIn, HSF_SUBSTAT_SLOT_COUNT, SAFEGUARD_SUBSTAT_PER_SUBSTAT, STAT_VARIANT_ANY,
+    STAT_VARIANT_ROLL_COUNT,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -63,14 +73,14 @@ const WATCH_RARITY_MAX: i64 = 6;
 // Fallback axes when the rule combination leaves the dimension unconstrained.
 const WATCH_DEFAULT_RANKS: [i64; 2] = [5, 6];
 const WATCH_DEFAULT_RARITIES: [i64; 2] = [4, 5]; // epic, legendary
-// Binary-search iterations for the passing scale factor λ. The λ search only needs to
-// land the per-component INTEGER binary descent below in the right neighborhood — the
-// descent re-searches each axis over [domain floor, λ start] in O(log range) probes
-// regardless of how tight λ is, so extra λ precision buys nothing the descent doesn't
-// already get logarithmically. Four iterations resolve λ to 1/16 of each axis (SPD's
-// widest span ≈ 25 raw units → ~2 integers; even flat HP's ≈ 2600-unit span leaves a
-// residual the descent absorbs in ~8 probes) while spending 4 instead of 10 probes
-// per profile. The λ endpoint is still always a PASSING probe (descent start invariant).
+                                                 // Binary-search iterations for the passing scale factor λ. The λ search only needs to
+                                                 // land the per-component INTEGER binary descent below in the right neighborhood — the
+                                                 // descent re-searches each axis over [domain floor, λ start] in O(log range) probes
+                                                 // regardless of how tight λ is, so extra λ precision buys nothing the descent doesn't
+                                                 // already get logarithmically. Four iterations resolve λ to 1/16 of each axis (SPD's
+                                                 // widest span ≈ 25 raw units → ~2 integers; even flat HP's ≈ 2600-unit span leaves a
+                                                 // residual the descent absorbs in ~8 probes) while spending 4 instead of 10 probes
+                                                 // per profile. The λ endpoint is still always a PASSING probe (descent start invariant).
 const WATCH_LAMBDA_ITERATIONS: u32 = 4;
 // Cap on enumerated substat subsets per placeholder — the SSOT
 // SAFEGUARD_SUBSTAT_COMBINATION_CAP shared with the deficit-placeholder emission in
@@ -278,8 +288,7 @@ pub(super) fn attach_watch_corners(
         probe_watch_context(*key, context, &mut memo);
     }
     // ── phase 3: assemble ────────────────────────────────────────────────────
-    let mut corners_by_target: BTreeMap<(usize, usize), Vec<SafeguardWatchCornerOut>> =
-        BTreeMap::new();
+    let mut corners_by_target: BTreeMap<(usize, usize), Vec<SafeguardWatchCornerOut>> = BTreeMap::new();
     for plan in plans {
         let corners = assemble_watch_corners(&plan, &contexts);
         corners_by_target.insert((plan.entry_idx, plan.placeholder_idx), corners);
@@ -365,7 +374,11 @@ fn plan_watch_placeholder<'a>(
     thresholds: &[f64; 4],
     contexts: &mut BTreeMap<WatchContextKey, WatchContext<'a>>,
 ) -> PlaceholderPlan {
-    let unviable = PlaceholderPlan { entry_idx, placeholder_idx, probe: None };
+    let unviable = PlaceholderPlan {
+        entry_idx,
+        placeholder_idx,
+        probe: None,
+    };
     // No challenger model means the chance recursion has nothing to select against.
     if scenarios.is_empty() {
         return unviable;
@@ -377,12 +390,7 @@ fn plan_watch_placeholder<'a>(
         .clone()
         .unwrap_or_else(|| safeguard_default_bucket_sample(combination));
     // Rank/rarity probe axes from the rule combination, clamped to the watch windows.
-    let ranks = resolve_watch_axis(
-        &combination.ranks,
-        WATCH_RANK_MIN,
-        WATCH_RANK_MAX,
-        &WATCH_DEFAULT_RANKS,
-    );
+    let ranks = resolve_watch_axis(&combination.ranks, WATCH_RANK_MIN, WATCH_RANK_MAX, &WATCH_DEFAULT_RANKS);
     let rarities = resolve_watch_axis(
         &combination.rarities,
         WATCH_RARITY_MIN,
@@ -403,8 +411,7 @@ fn plan_watch_placeholder<'a>(
     // Subset size from the shared min-count resolver; perSubstat probes singles. A drop
     // holding MORE focus substats than the minimum still matches the M-subset rule and
     // its chance is strictly higher, so probing exactly-M subsets is keep-biased coverage.
-    let normalized_match =
-        safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
+    let normalized_match = safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
     let subsets: Vec<Vec<i64>> = if normalized_match == SAFEGUARD_SUBSTAT_PER_SUBSTAT {
         pool.iter().map(|&variant| vec![variant]).collect()
     } else {
@@ -491,11 +498,7 @@ fn plan_watch_placeholder<'a>(
 // compute_synthetic_chance_multi answers all needed indices per traversal and memoizes
 // the whole vector per state, so index k's search re-probing a value vector index j
 // already visited is a root-level memo hit instead of a fresh recursion.
-fn probe_watch_context(
-    key: WatchContextKey,
-    context: &mut WatchContext<'_>,
-    memo: &mut BTreeMap<StateKey, Vec<f64>>,
-) {
+fn probe_watch_context(key: WatchContextKey, context: &mut WatchContext<'_>, memo: &mut BTreeMap<StateKey, Vec<f64>>) {
     let (_, _, _, rank) = key;
     // Split-borrow the context so the oracle closure (boundary_vecs, scenarios, sample)
     // and the results sink can coexist.
@@ -537,10 +540,8 @@ fn probe_watch_context(
         // distinguishes all remaining variation (probe values).
         memo.clear();
         let needed_indices: Vec<usize> = needed.iter().copied().collect();
-        let boundary_refs: Vec<&SyntheticBoundaries> = needed_indices
-            .iter()
-            .map(|&index| &boundary_vecs[index])
-            .collect();
+        let boundary_refs: Vec<&SyntheticBoundaries> =
+            needed_indices.iter().map(|&index| &boundary_vecs[index]).collect();
         // Value-free probe template carrying the cell dims. id -1 can never collide
         // with a real challenger id, so the leaf's self-exclusion stays inert.
         let template = SafeguardWasmArtifactIn {
@@ -562,23 +563,28 @@ fn probe_watch_context(
         // artifact and its root state are built.
         let prober = prepare_synthetic_cell_prober(&template, scenarios, &boundary_refs);
         for (local, &index) in needed_indices.iter().enumerate() {
-            let floors = probe_subset_profile_floors(&domains, threshold, &mut |values, memo| {
-                let artifact = SafeguardWasmArtifactIn {
-                    substats: subset
-                        .iter()
-                        .zip(values)
-                        .map(|(&variant, &value)| SafeguardWasmSubstatIn {
-                            variant,
-                            // Flat bit derived from the variant like HSF sub encoding.
-                            is_flat: safeguard_variant_to_sub(variant).1,
-                            value,
-                            rolls: None,
-                        })
-                        .collect(),
-                    ..template.clone()
-                };
-                synthetic_cell_chance_lane(&prober, &artifact, local, memo)
-            }, memo);
+            let floors = probe_subset_profile_floors(
+                &domains,
+                threshold,
+                &mut |values, memo| {
+                    let artifact = SafeguardWasmArtifactIn {
+                        substats: subset
+                            .iter()
+                            .zip(values)
+                            .map(|(&variant, &value)| SafeguardWasmSubstatIn {
+                                variant,
+                                // Flat bit derived from the variant like HSF sub encoding.
+                                is_flat: safeguard_variant_to_sub(variant).1,
+                                value,
+                                rolls: None,
+                            })
+                            .collect(),
+                        ..template.clone()
+                    };
+                    synthetic_cell_chance_lane(&prober, &artifact, local, memo)
+                },
+                memo,
+            );
             results.insert((*level, subset.clone(), *rarity, index), floors);
         }
     }
@@ -604,9 +610,7 @@ fn assemble_watch_corners(
         let Some(&index) = probe.boundary_index_by_rank.get(&rank) else {
             continue;
         };
-        let Some(context) =
-            contexts.get(&(probe.rule_ordinal, probe.sample_slot, probe.sample_main, rank))
-        else {
+        let Some(context) = contexts.get(&(probe.rule_ordinal, probe.sample_slot, probe.sample_main, rank)) else {
             continue;
         };
         for &level in &WATCH_LEVELS {
@@ -629,18 +633,13 @@ fn assemble_watch_corners(
                 // Profiles correspond across rarities by index (balanced, lead-0, ...),
                 // so rarity-run consolidation merges per profile index. The count comes
                 // from the probe result — d=1 subsets skip the redundant lead profile.
-                let profile_count = per_rarity
-                    .first()
-                    .map(|(_, floors)| floors.len())
-                    .unwrap_or(0);
+                let profile_count = per_rarity.first().map(|(_, floors)| floors.len()).unwrap_or(0);
                 for profile_idx in 0..profile_count {
                     let entries: Vec<(i64, Vec<i64>)> = per_rarity
                         .iter()
                         .map(|(rarity, floors)| (*rarity, floors[profile_idx].clone()))
                         .collect();
-                    for (run, floors) in
-                        merge_rarity_runs(entries, WATCH_RARITY_MERGE_KEEP_BIASED)
-                    {
+                    for (run, floors) in merge_rarity_runs(entries, WATCH_RARITY_MERGE_KEEP_BIASED) {
                         corners.push(SafeguardWatchCornerOut {
                             rank,
                             rarities: run,
@@ -672,10 +671,7 @@ fn assemble_watch_corners(
 //   - With `keep_biased`, differing vectors in a contiguous run merge to the
 //     component-wise MINIMUM (see WATCH_RARITY_MERGE_KEEP_BIASED for the soundness
 //     argument); otherwise they start a new run (lossless fallback behavior).
-fn merge_rarity_runs(
-    entries: Vec<(i64, Vec<i64>)>,
-    keep_biased: bool,
-) -> Vec<(Vec<i64>, Vec<i64>)> {
+fn merge_rarity_runs(entries: Vec<(i64, Vec<i64>)>, keep_biased: bool) -> Vec<(Vec<i64>, Vec<i64>)> {
     let mut runs = Vec::<(Vec<i64>, Vec<i64>)>::new();
     for (rarity, floors) in entries {
         if let Some((run, run_floors)) = runs.last_mut() {
@@ -714,11 +710,7 @@ fn watch_subset_priority(weights: &BTreeMap<i64, f64>, variants: impl Iterator<I
 // rule's stable substat-variant order (pool order → combination order). `cap` is a
 // parameter so tests can exercise the bound with small values while production passes
 // the WATCH_SUBSET_CAP knob.
-fn rank_and_cap_subsets(
-    mut subsets: Vec<Vec<i64>>,
-    weights: &BTreeMap<i64, f64>,
-    cap: usize,
-) -> Vec<Vec<i64>> {
+fn rank_and_cap_subsets(mut subsets: Vec<Vec<i64>>, weights: &BTreeMap<i64, f64>, cap: usize) -> Vec<Vec<i64>> {
     subsets.sort_by(|a, b| {
         let priority_a = watch_subset_priority(weights, a.iter().copied());
         let priority_b = watch_subset_priority(weights, b.iter().copied());
@@ -925,13 +917,10 @@ mod improvement_watch_tests {
     use crate::safeguards::improvement_chance::{
         compute_synthetic_chance_for_scenarios, reduce_scenarios_for_synthetic,
     };
-    use crate::safeguards::{
-        ImprovementChanceThresholdIn, SafeguardWasmCountMode, SafeguardWasmEntryOut,
-    };
+    use crate::safeguards::{ImprovementChanceThresholdIn, SafeguardWasmCountMode, SafeguardWasmEntryOut};
     use crate::{
-        TestItemRaw, ARTIFACT_TYPE_BOOTS, SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS,
-        SAFEGUARD_REASON_BUCKET, STAT_VARIANT_ACC, STAT_VARIANT_CR, STAT_VARIANT_HP_PERCENT,
-        STAT_VARIANT_RES, STAT_VARIANT_SPD,
+        TestItemRaw, ARTIFACT_TYPE_BOOTS, SAFEGUARD_ACTIVATION_ANTICIPATE_IMPROVEMENTS, SAFEGUARD_REASON_BUCKET,
+        STAT_VARIANT_ACC, STAT_VARIANT_CR, STAT_VARIANT_HP_PERCENT, STAT_VARIANT_RES, STAT_VARIANT_SPD,
     };
 
     const TEST_SET: i64 = 10;
@@ -1081,7 +1070,10 @@ mod improvement_watch_tests {
     }
 
     // Snapshot factory: one entry (ordinal 1) holding one zero-missing watch placeholder.
-    fn make_snapshot(rule: &SafeguardWasmRuleIn, extra_placeholders: Vec<SafeguardWasmPlaceholderOut>) -> SafeguardWasmSnapshotOut {
+    fn make_snapshot(
+        rule: &SafeguardWasmRuleIn,
+        extra_placeholders: Vec<SafeguardWasmPlaceholderOut>,
+    ) -> SafeguardWasmSnapshotOut {
         let combination = rule.combination.clone().unwrap_or_default();
         let sample = SafeguardWasmBucketSample {
             slot: ARTIFACT_TYPE_BOOTS,
@@ -1143,8 +1135,7 @@ mod improvement_watch_tests {
     ) -> f64 {
         let prepared = prepare_upgrade_rules(rules);
         let (scenarios, _) = build_scenarios(rows, &prepared);
-        let scenario_refs: Vec<&UpgradeScenario> =
-            scenarios.iter().filter(|s| s.rule_order == 0).collect();
+        let scenario_refs: Vec<&UpgradeScenario> = scenarios.iter().filter(|s| s.rule_order == 0).collect();
         let artifact = SafeguardWasmArtifactIn {
             id: Some(-1),
             slot: ARTIFACT_TYPE_BOOTS,
@@ -1176,12 +1167,13 @@ mod improvement_watch_tests {
     }
 
     // Convenience wrapper: probe at the corner's own floors plus a uniform bump.
-    fn probe_chance(rules: &[SafeguardWasmRuleIn], rows: &[SafeguardCollectRowIn], corner: &SafeguardWatchCornerOut, value_bump: f64) -> f64 {
-        let values: Vec<f64> = corner
-            .substats
-            .iter()
-            .map(|sub| sub.min_value + value_bump)
-            .collect();
+    fn probe_chance(
+        rules: &[SafeguardWasmRuleIn],
+        rows: &[SafeguardCollectRowIn],
+        corner: &SafeguardWatchCornerOut,
+        value_bump: f64,
+    ) -> f64 {
+        let values: Vec<f64> = corner.substats.iter().map(|sub| sub.min_value + value_bump).collect();
         probe_corner_values(rules, rows, corner, &values)
     }
 
@@ -1226,7 +1218,10 @@ mod improvement_watch_tests {
         }
         // Level-16 corners are deterministic: the frontier sits exactly at the challenger
         // tie point (SPD 20), and integerization must land on it exactly.
-        let level16 = corners.iter().find(|c| c.level == 16).expect("level-16 corner expected");
+        let level16 = corners
+            .iter()
+            .find(|c| c.level == 16)
+            .expect("level-16 corner expected");
         assert_eq!(
             level16.substats[0].min_value, 20.0,
             "level-16 corner floor must sit exactly at the integer challenger tie point",
@@ -1241,7 +1236,10 @@ mod improvement_watch_tests {
             rank,
             rarities: vec![5],
             level,
-            substats: vec![SafeguardWatchCornerSubstatOut { variant, min_value: value }],
+            substats: vec![SafeguardWatchCornerSubstatOut {
+                variant,
+                min_value: value,
+            }],
         };
         let pruned = prune_watch_corners(vec![
             corner(6, 8, STAT_VARIANT_SPD, 12.0), // dominated by the 10.0 twin below
@@ -1264,8 +1262,14 @@ mod improvement_watch_tests {
             rarities: vec![5],
             level: 0,
             substats: vec![
-                SafeguardWatchCornerSubstatOut { variant: STAT_VARIANT_SPD, min_value: spd },
-                SafeguardWatchCornerSubstatOut { variant: STAT_VARIANT_RES, min_value: res },
+                SafeguardWatchCornerSubstatOut {
+                    variant: STAT_VARIANT_SPD,
+                    min_value: spd,
+                },
+                SafeguardWatchCornerSubstatOut {
+                    variant: STAT_VARIANT_RES,
+                    min_value: res,
+                },
             ],
         };
         let incomparable = prune_watch_corners(vec![multi(10.0, 20.0), multi(12.0, 18.0)]);
@@ -1312,7 +1316,11 @@ mod improvement_watch_tests {
             vec![&vec![STAT_VARIANT_ACC, STAT_VARIANT_RES]],
             "the lowest-priority pairs are dropped first; stable order breaks their tie",
         );
-        assert_eq!(unweighted[0], subsets.last().expect("cap output is non-empty"), "lowest priority sorts last");
+        assert_eq!(
+            unweighted[0],
+            subsets.last().expect("cap output is non-empty"),
+            "lowest priority sorts last"
+        );
         // Equal-priority subsets keep their stable enumeration order (CR pairs enumerate
         // in pool order: ACC before RES before HP%).
         let cr_pairs: Vec<&Vec<i64>> = subsets
@@ -1371,7 +1379,10 @@ mod improvement_watch_tests {
             rank: 6,
             rarities: vec![6],
             level: 0,
-            substats: vec![SafeguardWatchCornerSubstatOut { variant, min_value: 10.0 }],
+            substats: vec![SafeguardWatchCornerSubstatOut {
+                variant,
+                min_value: 10.0,
+            }],
         };
         let tied = sort_watch_corners(vec![cell(STAT_VARIANT_ACC), cell(STAT_VARIANT_SPD)], &spd_weights);
         assert_eq!(
@@ -1399,8 +1410,14 @@ mod improvement_watch_tests {
         attach_watch_corners(&mut snapshot, &rules, &rows);
         let placeholders = &snapshot.entries[0].placeholders;
         assert_eq!(placeholders.len(), 1, "only the deficit placeholder may survive");
-        assert_eq!(placeholders[0].missing, 2, "deficit placeholders pass through untouched");
-        assert!(placeholders[0].watch_corners.is_none(), "deficit placeholders never gain corners");
+        assert_eq!(
+            placeholders[0].missing, 2,
+            "deficit placeholders pass through untouched"
+        );
+        assert!(
+            placeholders[0].watch_corners.is_none(),
+            "deficit placeholders never gain corners"
+        );
     }
 
     // Brute-force minimal integer SPD floor for a (rank, rarity, level) probe cell:
@@ -1462,7 +1479,10 @@ mod improvement_watch_tests {
             );
         }
         // The deterministic level-16 cell: challenger tie point at exactly 20.
-        let level16 = corners.iter().find(|c| c.level == 16).expect("level-16 corner expected");
+        let level16 = corners
+            .iter()
+            .find(|c| c.level == 16)
+            .expect("level-16 corner expected");
         assert_eq!(level16.substats[0].min_value, 20.0);
     }
 
@@ -1514,9 +1534,8 @@ mod improvement_watch_tests {
             // Per-component minimality: one integer lower on any axis breaks the pass.
             for idx in 0..values.len() {
                 let variant = corner.substats[idx].variant;
-                let (domain_lo, _) =
-                    resolve_watch_value_domain(corner.rank, variant, corner.level)
-                        .expect("probed variants always have roll data");
+                let (domain_lo, _) = resolve_watch_value_domain(corner.rank, variant, corner.level)
+                    .expect("probed variants always have roll data");
                 if values[idx] <= domain_lo.ceil() {
                     // Descent never goes below one minimal roll — nothing to assert.
                     continue;
@@ -1554,10 +1573,22 @@ mod improvement_watch_tests {
         let subset = vec![STAT_VARIANT_SPD];
         for &quantum in &[0.1f64, 0.5, 2.0] {
             let (exact, _) = reduce_scenarios_for_synthetic(
-                &refs, sample.slot, sample.set, sample.faction, sample.main_stat, 6, 0.0,
+                &refs,
+                sample.slot,
+                sample.set,
+                sample.faction,
+                sample.main_stat,
+                6,
+                0.0,
             );
             let (coarse, _) = reduce_scenarios_for_synthetic(
-                &refs, sample.slot, sample.set, sample.faction, sample.main_stat, 6, quantum,
+                &refs,
+                sample.slot,
+                sample.set,
+                sample.faction,
+                sample.main_stat,
+                6,
+                quantum,
             );
             let exact_refs: Vec<&UpgradeScenario> = exact.iter().collect();
             let coarse_refs: Vec<&UpgradeScenario> = coarse.iter().collect();
@@ -1585,34 +1616,24 @@ mod improvement_watch_tests {
                     };
                     let mut memo_a: BTreeMap<StateKey, f64> = BTreeMap::new();
                     let mut memo_b: BTreeMap<StateKey, f64> = BTreeMap::new();
-                    let chance_exact =
-                        compute_synthetic_chance_for_scenarios(&artifact, &exact_refs, &mut memo_a);
-                    let chance_coarse = compute_synthetic_chance_for_scenarios(
-                        &artifact, &coarse_refs, &mut memo_b,
-                    );
+                    let chance_exact = compute_synthetic_chance_for_scenarios(&artifact, &exact_refs, &mut memo_a);
+                    let chance_coarse = compute_synthetic_chance_for_scenarios(&artifact, &coarse_refs, &mut memo_b);
                     assert!(
                         chance_coarse >= chance_exact,
                         "quantum {quantum} must never lower a chance (level {level}, value {value}: {chance_coarse} < {chance_exact})",
                     );
                 }
                 // Corner floors never rise under a coarser quantum.
-                let floors_exact =
-                    probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &exact_refs);
-                let floors_coarse =
-                    probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &coarse_refs);
+                let floors_exact = probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &exact_refs);
+                let floors_coarse = probe_floors_scalar(&subset, &sample, 6, 5, level, 50.0, &coarse_refs);
                 match (floors_exact, floors_coarse) {
                     // Exact-unreachable cells may stay unreachable or open up under the
                     // floored boundary — both are keep-safe; nothing to compare.
                     (None, _) => {}
                     (Some(exact_floors), coarse) => {
-                        let coarse_floors = coarse
-                            .expect("a coarser quantum must never close a reachable cell");
-                        for (exact_profile, coarse_profile) in
-                            exact_floors.iter().zip(&coarse_floors)
-                        {
-                            for (exact_floor, coarse_floor) in
-                                exact_profile.iter().zip(coarse_profile)
-                            {
+                        let coarse_floors = coarse.expect("a coarser quantum must never close a reachable cell");
+                        for (exact_profile, coarse_profile) in exact_floors.iter().zip(&coarse_floors) {
+                            for (exact_floor, coarse_floor) in exact_profile.iter().zip(coarse_profile) {
                                 assert!(
                                     coarse_floor <= exact_floor,
                                     "quantum {quantum} raised a floor at level {level} ({coarse_floor} > {exact_floor})",
@@ -1641,7 +1662,14 @@ mod improvement_watch_tests {
             .enumerate()
             .map(|(idx, refs)| {
                 plan_watch_placeholder(
-                    0, idx, rule, 1, &combination, placeholder, refs, thresholds,
+                    0,
+                    idx,
+                    rule,
+                    1,
+                    &combination,
+                    placeholder,
+                    refs,
+                    thresholds,
                     &mut contexts,
                 )
             })
@@ -1682,8 +1710,7 @@ mod improvement_watch_tests {
             scenarios_a.iter().collect(),
             scenarios_d.iter().collect(),
         ];
-        let (corners, boundary_vecs, probed) =
-            run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
+        let (corners, boundary_vecs, probed) = run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
         assert_eq!(
             boundary_vecs, 2,
             "[20], [20,15] and the repeat share one boundary index; [25] adds the second",
@@ -1721,23 +1748,16 @@ mod improvement_watch_tests {
             vec![make_row(2, 6, 5, 16, 25.0)],
             vec![make_row(3, 6, 5, 16, 20.7)],
         ];
-        let scenario_lists: Vec<Vec<UpgradeScenario>> = pools
-            .iter()
-            .map(|rows| build_scenarios(rows, &prepared).0)
-            .collect();
-        let sets: Vec<Vec<&UpgradeScenario>> = scenario_lists
-            .iter()
-            .map(|list| list.iter().collect())
-            .collect();
+        let scenario_lists: Vec<Vec<UpgradeScenario>> =
+            pools.iter().map(|rows| build_scenarios(rows, &prepared).0).collect();
+        let sets: Vec<Vec<&UpgradeScenario>> = scenario_lists.iter().map(|list| list.iter().collect()).collect();
         // Shared run: all three buckets in one contexts map.
-        let (shared, boundary_vecs, _) =
-            run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
+        let (shared, boundary_vecs, _) = run_watch_pipeline(&rules[0], &placeholder, &sets, &thresholds);
         assert_eq!(boundary_vecs, 3, "three distinct boundaries expected");
         // Isolated runs: one bucket per pipeline.
         for (idx, set) in sets.iter().enumerate() {
             let single = vec![set.clone()];
-            let (isolated, _, _) =
-                run_watch_pipeline(&rules[0], &placeholder, &single, &thresholds);
+            let (isolated, _, _) = run_watch_pipeline(&rules[0], &placeholder, &single, &thresholds);
             assert_eq!(
                 shared[idx], isolated[0],
                 "bucket {idx} corners must be identical to its isolated run",
@@ -1763,7 +1783,10 @@ mod improvement_watch_tests {
             corners.iter().all(|c| c.rarities == vec![5, 6]),
             "identical per-rarity vectors must merge into the full contiguous run",
         );
-        let level16 = corners.iter().find(|c| c.level == 16).expect("level-16 corner expected");
+        let level16 = corners
+            .iter()
+            .find(|c| c.level == 16)
+            .expect("level-16 corner expected");
         assert_eq!(
             level16.substats[0].min_value, 20.0,
             "lossless merge must not alter the shared floor",
@@ -1775,10 +1798,7 @@ mod improvement_watch_tests {
         // Direct merge semantics. Rarity 4's frontier (24) sits above rarity 5/6's (20):
         // keep-biased merges the whole contiguous run to the component-wise minimum,
         // while a rarity gap must always split runs regardless of the flag.
-        let merged = merge_rarity_runs(
-            vec![(4, vec![24]), (5, vec![20]), (6, vec![20])],
-            true,
-        );
+        let merged = merge_rarity_runs(vec![(4, vec![24]), (5, vec![20]), (6, vec![20])], true);
         assert_eq!(
             merged,
             vec![(vec![4, 5, 6], vec![20])],
@@ -1796,10 +1816,7 @@ mod improvement_watch_tests {
     fn lossless_only_flag_keeps_differing_rarity_vectors_separate() {
         // Fallback switch (WATCH_RARITY_MERGE_KEEP_BIASED = false path): differing
         // vectors split the run; identical contiguous tails still merge losslessly.
-        let runs = merge_rarity_runs(
-            vec![(4, vec![24]), (5, vec![20]), (6, vec![20])],
-            false,
-        );
+        let runs = merge_rarity_runs(vec![(4, vec![24]), (5, vec![20]), (6, vec![20])], false);
         assert_eq!(
             runs,
             vec![(vec![4], vec![24]), (vec![5, 6], vec![20])],

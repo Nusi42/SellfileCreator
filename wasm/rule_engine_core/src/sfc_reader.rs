@@ -8,8 +8,8 @@
 // same stat/slot/faction constant sets used by the TypeScript layer — no magic
 // numbers inline.
 
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::*;
 
@@ -23,35 +23,51 @@ pub fn stat_variant_from_label(label: &str) -> Option<i64> {
     // Normalise to lowercase for case-insensitive matching.
     let norm = label.trim().to_lowercase();
     match norm.as_str() {
-        "spd" | "speed"                                         => Some(STAT_VARIANT_SPD),
-        "cr%" | "crit rate" | "cr"                             => Some(STAT_VARIANT_CR),
-        "cdmg%" | "crit dmg" | "c.dmg" | "cdmg"               => Some(STAT_VARIANT_CDMG),
-        "res" | "res%"                                          => Some(STAT_VARIANT_RES),
-        "acc" | "acc%"                                          => Some(STAT_VARIANT_ACC),
-        "hp%" | "hp"                                            => {
+        "spd" | "speed" => Some(STAT_VARIANT_SPD),
+        "cr%" | "crit rate" | "cr" => Some(STAT_VARIANT_CR),
+        "cdmg%" | "crit dmg" | "c.dmg" | "cdmg" => Some(STAT_VARIANT_CDMG),
+        "res" | "res%" => Some(STAT_VARIANT_RES),
+        "acc" | "acc%" => Some(STAT_VARIANT_ACC),
+        "hp%" | "hp" => {
             // Percent form (HP%) is the default for the two-form stats.
-            if norm.contains('%') { Some(STAT_VARIANT_HP_PERCENT) } else { Some(STAT_VARIANT_HP_FLAT) }
+            if norm.contains('%') {
+                Some(STAT_VARIANT_HP_PERCENT)
+            } else {
+                Some(STAT_VARIANT_HP_FLAT)
+            }
         }
-        "hp flat" | "hp (flat)"                                 => Some(STAT_VARIANT_HP_FLAT),
-        "atk%" | "atk"                                          => {
-            if norm.contains('%') { Some(STAT_VARIANT_ATK_PERCENT) } else { Some(STAT_VARIANT_ATK_FLAT) }
+        "hp flat" | "hp (flat)" => Some(STAT_VARIANT_HP_FLAT),
+        "atk%" | "atk" => {
+            if norm.contains('%') {
+                Some(STAT_VARIANT_ATK_PERCENT)
+            } else {
+                Some(STAT_VARIANT_ATK_FLAT)
+            }
         }
-        "atk flat" | "atk (flat)"                               => Some(STAT_VARIANT_ATK_FLAT),
-        "def%" | "def"                                          => {
-            if norm.contains('%') { Some(STAT_VARIANT_DEF_PERCENT) } else { Some(STAT_VARIANT_DEF_FLAT) }
+        "atk flat" | "atk (flat)" => Some(STAT_VARIANT_ATK_FLAT),
+        "def%" | "def" => {
+            if norm.contains('%') {
+                Some(STAT_VARIANT_DEF_PERCENT)
+            } else {
+                Some(STAT_VARIANT_DEF_FLAT)
+            }
         }
-        "def flat" | "def (flat)"                               => Some(STAT_VARIANT_DEF_FLAT),
-        "roll count" | "rolls" | "roll"                         => Some(STAT_VARIANT_ROLL_COUNT),
+        "def flat" | "def (flat)" => Some(STAT_VARIANT_DEF_FLAT),
+        "roll count" | "rolls" | "roll" => Some(STAT_VARIANT_ROLL_COUNT),
         _ => {
             // Fallback: check canonical label from generated constants.
             for &(variant, label) in STAT_VARIANT_DISPLAY_LABELS {
-                if label.eq_ignore_ascii_case(&norm) { return Some(variant); }
+                if label.eq_ignore_ascii_case(&norm) {
+                    return Some(variant);
+                }
             }
             // Accept the anomalous-substat labels
             // ("PvE DMG +", ...) so SFC documents containing them keep parsing here
             // exactly like in the TS reader (Update 11.70 prep).
             for &(variant, label) in ANOMALOUS_SUBSTAT_LABELS {
-                if label.eq_ignore_ascii_case(&norm) { return Some(variant); }
+                if label.eq_ignore_ascii_case(&norm) {
+                    return Some(variant);
+                }
             }
             None
         }
@@ -65,7 +81,8 @@ pub fn stat_variant_from_label(label: &str) -> Option<i64> {
 /// Parse a human-readable rank label (e.g. "5★", "≥ 4★", "≤ 3★", "Any") to a rank code.
 /// Normalises ASCII substitutes (* → ★, >= → ≥, <= → ≤).
 pub fn rank_code_from_label(raw: &str) -> i64 {
-    let s = raw.trim()
+    let s = raw
+        .trim()
         .replace('*', "★")
         .replace(">=", "≥ ")
         .replace("<=", "≤ ")
@@ -78,16 +95,41 @@ pub fn rank_code_from_label(raw: &str) -> i64 {
     }
     // Parse the star number from the last token (e.g. "5★" → 5).
     let star_digit = s.chars().find(|c| c.is_ascii_digit()).and_then(|c| c.to_digit(10));
-    let n = match star_digit { Some(d) => d as i64, None => return RANK_CODE_ANY };
+    let n = match star_digit {
+        Some(d) => d as i64,
+        None => return RANK_CODE_ANY,
+    };
     if s.starts_with("≥") {
         // ≥ n★ : codes 7..11 (n=1..5)
-        match n { 1 => RANK_CODE_GTE_ONE, 2 => RANK_CODE_GTE_TWO, 3 => RANK_CODE_GTE_THREE, 4 => RANK_CODE_GTE_FOUR, 5 => RANK_CODE_GTE_FIVE, _ => RANK_CODE_ANY }
+        match n {
+            1 => RANK_CODE_GTE_ONE,
+            2 => RANK_CODE_GTE_TWO,
+            3 => RANK_CODE_GTE_THREE,
+            4 => RANK_CODE_GTE_FOUR,
+            5 => RANK_CODE_GTE_FIVE,
+            _ => RANK_CODE_ANY,
+        }
     } else if s.starts_with("≤") {
         // ≤ n★ : codes 12..16 (n=2..6)
-        match n { 2 => RANK_CODE_LTE_TWO, 3 => RANK_CODE_LTE_THREE, 4 => RANK_CODE_LTE_FOUR, 5 => RANK_CODE_LTE_FIVE, 6 => RANK_CODE_LTE_SIX, _ => RANK_CODE_ANY }
+        match n {
+            2 => RANK_CODE_LTE_TWO,
+            3 => RANK_CODE_LTE_THREE,
+            4 => RANK_CODE_LTE_FOUR,
+            5 => RANK_CODE_LTE_FIVE,
+            6 => RANK_CODE_LTE_SIX,
+            _ => RANK_CODE_ANY,
+        }
     } else {
         // Exact n★ : codes 1..6
-        match n { 1 => RANK_CODE_ONE, 2 => RANK_CODE_TWO, 3 => RANK_CODE_THREE, 4 => RANK_CODE_FOUR, 5 => RANK_CODE_FIVE, 6 => RANK_CODE_SIX, _ => RANK_CODE_ANY }
+        match n {
+            1 => RANK_CODE_ONE,
+            2 => RANK_CODE_TWO,
+            3 => RANK_CODE_THREE,
+            4 => RANK_CODE_FOUR,
+            5 => RANK_CODE_FIVE,
+            6 => RANK_CODE_SIX,
+            _ => RANK_CODE_ANY,
+        }
     }
 }
 
@@ -97,7 +139,8 @@ pub fn rank_code_from_label(raw: &str) -> i64 {
 
 pub fn rarity_code_from_label(raw: &str) -> (i64, bool) {
     // Returns (rarity_code, is_auto).
-    let s = raw.trim()
+    let s = raw
+        .trim()
         .replace(">=", "≥ ")
         .replace("<=", "≤ ")
         .split_whitespace()
@@ -111,23 +154,23 @@ pub fn rarity_code_from_label(raw: &str) -> (i64, bool) {
     }
     // Match against rarity names (exact, case-insensitive).
     let code = match s.to_lowercase().as_str() {
-        "common"            => RARITY_CODE_COMMON,
-        "uncommon"          => RARITY_CODE_UNCOMMON,
-        "rare"              => RARITY_CODE_RARE,
-        "epic"              => RARITY_CODE_EPIC,
-        "legendary"         => RARITY_CODE_LEGENDARY,
-        "mythical"          => RARITY_CODE_MYTHICAL,
-        "≥ common"          => RARITY_CODE_GTE_COMMON,
-        "≥ uncommon"        => RARITY_CODE_GTE_UNCOMMON,
-        "≥ rare"            => RARITY_CODE_GTE_RARE,
-        "≥ epic"            => RARITY_CODE_GTE_EPIC,
-        "≤ uncommon"        => RARITY_CODE_LTE_UNCOMMON,
-        "≤ rare"            => RARITY_CODE_LTE_RARE,
-        "≤ epic"            => RARITY_CODE_LTE_EPIC,
-        "≤ legendary"       => RARITY_CODE_LTE_LEGENDARY,
-        "≤ mythical"        => RARITY_CODE_LTE_MYTHICAL,
-        "≥ legendary"       => RARITY_CODE_GTE_LEGENDARY,
-        _                   => RARITY_CODE_ANY,
+        "common" => RARITY_CODE_COMMON,
+        "uncommon" => RARITY_CODE_UNCOMMON,
+        "rare" => RARITY_CODE_RARE,
+        "epic" => RARITY_CODE_EPIC,
+        "legendary" => RARITY_CODE_LEGENDARY,
+        "mythical" => RARITY_CODE_MYTHICAL,
+        "≥ common" => RARITY_CODE_GTE_COMMON,
+        "≥ uncommon" => RARITY_CODE_GTE_UNCOMMON,
+        "≥ rare" => RARITY_CODE_GTE_RARE,
+        "≥ epic" => RARITY_CODE_GTE_EPIC,
+        "≤ uncommon" => RARITY_CODE_LTE_UNCOMMON,
+        "≤ rare" => RARITY_CODE_LTE_RARE,
+        "≤ epic" => RARITY_CODE_LTE_EPIC,
+        "≤ legendary" => RARITY_CODE_LTE_LEGENDARY,
+        "≤ mythical" => RARITY_CODE_LTE_MYTHICAL,
+        "≥ legendary" => RARITY_CODE_GTE_LEGENDARY,
+        _ => RARITY_CODE_ANY,
     };
     (code, false)
 }
@@ -136,13 +179,13 @@ pub fn rarity_code_from_label(raw: &str) -> (i64, bool) {
 // Maps "Common"→1 .. "Mythical"→6.
 pub fn safeguard_rarity_value_from_label(raw: &str) -> Option<i64> {
     match raw.trim().to_lowercase().as_str() {
-        "common"    => Some(1),
-        "uncommon"  => Some(2),
-        "rare"      => Some(3),
-        "epic"      => Some(4),
+        "common" => Some(1),
+        "uncommon" => Some(2),
+        "rare" => Some(3),
+        "epic" => Some(4),
         "legendary" => Some(5),
-        "mythical"  => Some(6),
-        _           => None,
+        "mythical" => Some(6),
+        _ => None,
     }
 }
 
@@ -152,10 +195,14 @@ pub fn safeguard_rarity_value_from_label(raw: &str) -> Option<i64> {
 
 pub fn faction_code_from_label(raw: &str) -> i64 {
     let s = raw.trim();
-    if s.is_empty() || s.eq_ignore_ascii_case("any") { return 0; }
+    if s.is_empty() || s.eq_ignore_ascii_case("any") {
+        return 0;
+    }
     // FACTION_NAME_IDS is sorted by name; use linear scan (16 entries — fast enough).
     for &(name, id) in FACTION_NAME_IDS {
-        if name.eq_ignore_ascii_case(s) { return id; }
+        if name.eq_ignore_ascii_case(s) {
+            return id;
+        }
     }
     0
 }
@@ -168,7 +215,9 @@ pub fn slot_id_from_name(raw: &str) -> Option<i64> {
     let s = raw.trim();
     // ARTIFACT_TYPE_DISPLAY_NAMES is sorted by ID; linear scan over 9 entries.
     for &(id, name) in ARTIFACT_TYPE_DISPLAY_NAMES {
-        if name.eq_ignore_ascii_case(s) { return Some(id); }
+        if name.eq_ignore_ascii_case(s) {
+            return Some(id);
+        }
     }
     None
 }
@@ -180,7 +229,11 @@ pub fn slot_id_from_name(raw: &str) -> Option<i64> {
 pub fn rank_value_from_label(raw: &str) -> Option<i64> {
     let code = rank_code_from_label(raw);
     // Only accept exact ranks (1..6) for safeguard rank values.
-    if (RANK_CODE_ONE..=RANK_CODE_SIX).contains(&code) { Some(code) } else { None }
+    if (RANK_CODE_ONE..=RANK_CODE_SIX).contains(&code) {
+        Some(code)
+    } else {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +426,11 @@ pub struct ReadableSubstatBoundsEntry {
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum ReadableArtifactSetEntry {
-    Object { id: i64, #[serde(default)] excluded: Option<bool> },
+    Object {
+        id: i64,
+        #[serde(default)]
+        excluded: Option<bool>,
+    },
     Id(i64),
 }
 
@@ -419,45 +476,45 @@ pub struct ReadableFinalSell {
 
 /// Parsed / normalised builder inputs derived from one SFC payload.
 pub struct SfcParsed {
-    pub recipes:            Vec<ReadableRecipeParsed>,
-    pub safeguard_rules:    Vec<SafeguardWasmRuleIn>,
+    pub recipes: Vec<ReadableRecipeParsed>,
+    pub safeguard_rules: Vec<SafeguardWasmRuleIn>,
     pub safeguards_enabled: bool,
-    pub final_sell:         Option<FinalSellRemainderIn>,
-    pub all_known_set_ids:  Vec<i64>,
-    pub minima:             Option<SubstatTargetTableIn>,
-    pub metasets:           Vec<SafeguardWasmMetasetIn>,
+    pub final_sell: Option<FinalSellRemainderIn>,
+    pub all_known_set_ids: Vec<i64>,
+    pub minima: Option<SubstatTargetTableIn>,
+    pub metasets: Vec<SafeguardWasmMetasetIn>,
 }
 
 /// Parsed recipe fields needed to call prepare_hsf_builder_recipe_core_fn +
 /// build_hsf_rules_runtime_core_fn.
 pub struct ReadableRecipeParsed {
-    pub rank_code:          i64,
-    pub rarity_code:        i64,
-    pub rarity_mode:        Option<String>,   // Some("auto") when Auto rarity
-    pub faction_code:       i64,
-    pub keep:               bool,
-    pub use_flag:           bool,             // false when Disabled
-    pub is_separator:       bool,
-    pub name:               String,
-    pub main_stat_variants: Vec<i64>,         // StatVariant[]
-    pub substats_v:         Vec<i64>,         // StatVariant[] — full selected pool
-    pub fixed_substats_v:   Vec<i64>,         // StatVariant[] — locked substats
+    pub rank_code: i64,
+    pub rarity_code: i64,
+    pub rarity_mode: Option<String>, // Some("auto") when Auto rarity
+    pub faction_code: i64,
+    pub keep: bool,
+    pub use_flag: bool, // false when Disabled
+    pub is_separator: bool,
+    pub name: String,
+    pub main_stat_variants: Vec<i64>, // StatVariant[]
+    pub substats_v: Vec<i64>,         // StatVariant[] — full selected pool
+    pub fixed_substats_v: Vec<i64>,   // StatVariant[] — locked substats
     pub substat_roll_bounds_v: BTreeMap<i64, BuildHsfComboBoundsIn>,
     pub substat_roll_targets_v: BTreeMap<i64, BuildHsfComboTargetEntryIn>,
-    pub min_count:          i64,
-    pub auto_min_count:     bool,
-    pub auto_substat_flex:  bool,
+    pub min_count: i64,
+    pub auto_min_count: bool,
+    pub auto_substat_flex: bool,
     pub min_required_rolls: i64,
     pub auto_min_required_rolls: bool,
     pub locked_min_required_rolls: i64,
-    pub min_level:          i64,
-    pub max_level:          i64,
-    pub artifact_type_ids:  Vec<i64>,
-    pub artifact_set_ids:   Vec<i64>,         // included set IDs
+    pub min_level: i64,
+    pub max_level: i64,
+    pub artifact_type_ids: Vec<i64>,
+    pub artifact_set_ids: Vec<i64>, // included set IDs
     pub artifact_meta_set_names: Vec<String>,
     // Rework gate resolved from the recipe field, or a legacy tag (ORE_ANY when ungated).
-    pub ore:                i64,
-    pub early_keep_mode:    String,           // "early" | "late"
+    pub ore: i64,
+    pub early_keep_mode: String, // "early" | "late"
     pub auto_rarity_supplements_threshold: Option<String>,
 }
 
@@ -482,7 +539,10 @@ pub struct ReadableRecipeParsed {
 // rename in shared/domain-constants.json fails the build here rather than silently
 // producing a reader that ignores the field.
 const _: () = {
-    assert!(matches!(SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS.as_bytes(), b"IgnoredBySafeguards"));
+    assert!(matches!(
+        SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS.as_bytes(),
+        b"IgnoredBySafeguards"
+    ));
     assert!(matches!(SFC_RECIPE_FIELD_REWORK_GATE.as_bytes(), b"ReworkGate"));
 };
 
@@ -503,8 +563,12 @@ fn sfc_version_at_most(version: Option<&str>, major: i64, minor: i64, patch: i64
     let vmaj = segments.next().unwrap_or(0);
     let vmin = segments.next().unwrap_or(0);
     let vpatch = segments.next().unwrap_or(0);
-    if vmaj != major { return vmaj < major; }
-    if vmin != minor { return vmin < minor; }
+    if vmaj != major {
+        return vmaj < major;
+    }
+    if vmin != minor {
+        return vmin < minor;
+    }
     vpatch <= patch
 }
 
@@ -518,7 +582,9 @@ fn sfc_version_at_most(version: Option<&str>, major: i64, minor: i64, patch: i64
 pub fn uses_legacy_behaviour_tags(version: Option<&str>) -> bool {
     // Parse the ceiling from the shared constant; a malformed segment reads as 0, exactly
     // as the version being compared does.
-    let mut ceiling = LEGACY_RECIPE_TAG_LAST_WRITING_VERSION.split('.').map(|s| s.parse::<i64>().unwrap_or(0));
+    let mut ceiling = LEGACY_RECIPE_TAG_LAST_WRITING_VERSION
+        .split('.')
+        .map(|s| s.parse::<i64>().unwrap_or(0));
     let major = ceiling.next().unwrap_or(0);
     let minor = ceiling.next().unwrap_or(0);
     let patch = ceiling.next().unwrap_or(0);
@@ -539,7 +605,9 @@ pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>, sour
     // Outside the legacy window the tags carry no behaviour: a current file stores the real
     // gate key, so a legacy-looking tag there is a plain user label. Reading it as a gate
     // here would make the native DLL disagree with the TS loader about the same file.
-    if !uses_legacy_behaviour_tags(source_version) { return ORE_ANY; }
+    if !uses_legacy_behaviour_tags(source_version) {
+        return ORE_ANY;
+    }
     // No tags at all leaves the rule unconstrained.
     let Some(tags) = tags else { return ORE_ANY };
     // Track each side so a contradictory legacy pair can be detected.
@@ -566,7 +634,9 @@ pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>, sour
 
 /// Minimal substat target table parsed from SFC Minima section.
 // Default star used when a recipe targets "Any" rank (mirrors anyRankDefaultsTo ?? 6).
-fn default_any_rank_star() -> i64 { 6 }
+fn default_any_rank_star() -> i64 {
+    6
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -574,17 +644,17 @@ pub struct SubstatTargetTableIn {
     // Values are f64: the anomalous mode-damage substats carry fractional percent
     // targets (1.25 per line at rank 5); classic stats keep integral values.
     #[serde(default)]
-    pub one:   BTreeMap<i64, f64>,
+    pub one: BTreeMap<i64, f64>,
     #[serde(default)]
-    pub two:   BTreeMap<i64, f64>,
+    pub two: BTreeMap<i64, f64>,
     #[serde(default)]
     pub three: BTreeMap<i64, f64>,
     #[serde(default)]
-    pub four:  BTreeMap<i64, f64>,
+    pub four: BTreeMap<i64, f64>,
     #[serde(default)]
-    pub five:  BTreeMap<i64, f64>,
+    pub five: BTreeMap<i64, f64>,
     #[serde(default)]
-    pub six:   BTreeMap<i64, f64>,
+    pub six: BTreeMap<i64, f64>,
     // Star bucket to use for "Any"-rank recipes (1..6); mirrors anyRankDefaultsTo in
     // sfcIO.ts. Defaults to 6 (strictest) when absent, matching coerceFallback.
     #[serde(default = "default_any_rank_star", rename = "anyRankDefaultsTo")]
@@ -595,12 +665,12 @@ pub struct SubstatTargetTableIn {
 impl Default for SubstatTargetTableIn {
     fn default() -> Self {
         SubstatTargetTableIn {
-            one:   BTreeMap::new(),
-            two:   BTreeMap::new(),
+            one: BTreeMap::new(),
+            two: BTreeMap::new(),
             three: BTreeMap::new(),
-            four:  BTreeMap::new(),
-            five:  BTreeMap::new(),
-            six:   BTreeMap::new(),
+            four: BTreeMap::new(),
+            five: BTreeMap::new(),
+            six: BTreeMap::new(),
             any_rank_defaults_to: default_any_rank_star(),
         }
     }
@@ -622,8 +692,7 @@ pub struct SfcMetaset {
 /// Parse an SFC JSON string into normalised builder inputs ready for the DLL pipeline.
 pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     // Normalise: allow bare recipe arrays for back-compat.
-    let root: serde_json::Value = serde_json::from_str(sfc_text)
-        .map_err(|e| format!("SFC JSON parse error: {e}"))?;
+    let root: serde_json::Value = serde_json::from_str(sfc_text).map_err(|e| format!("SFC JSON parse error: {e}"))?;
 
     // Bare array → wrap as Recipes list.
     let root = if root.is_array() {
@@ -632,18 +701,25 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
         root
     };
 
-    let sfc: ReadableSfc = serde_json::from_value(root)
-        .map_err(|e| format!("SFC structure error: {e}"))?;
+    let sfc: ReadableSfc = serde_json::from_value(root).map_err(|e| format!("SFC structure error: {e}"))?;
 
     // Parse metasets (used to expand set IDs in safeguard combinations).
-    let metasets: Vec<SafeguardWasmMetasetIn> = sfc.metasets.as_deref().unwrap_or(&[])
+    let metasets: Vec<SafeguardWasmMetasetIn> = sfc
+        .metasets
+        .as_deref()
+        .unwrap_or(&[])
         .iter()
         .filter_map(|m| {
             let name = m.name.as_deref()?.trim().to_string();
-            if name.is_empty() { return None; }
+            if name.is_empty() {
+                return None;
+            }
             // Expand the metaset's member set names → ids via the generated catalog so
             // safeguard combinations referencing this metaset resolve to real sets.
-            let sets: Vec<i64> = m.set_names.as_deref().unwrap_or(&[])
+            let sets: Vec<i64> = m
+                .set_names
+                .as_deref()
+                .unwrap_or(&[])
                 .iter()
                 .filter_map(|n| set_id_from_name(n))
                 .collect();
@@ -656,8 +732,8 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     let mut parsed_recipes = Vec::with_capacity(raw_recipes.len());
     let mut all_set_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
     for (i, raw) in raw_recipes.iter().enumerate() {
-        let recipe: ReadableRecipe = serde_json::from_value(raw.clone())
-            .map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
+        let recipe: ReadableRecipe =
+            serde_json::from_value(raw.clone()).map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
         let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref())?;
         // Collect set IDs for allKnownSetIds.
         for &id in &parsed.artifact_set_ids {
@@ -672,10 +748,10 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 
     // Parse final sell remainder.
     let final_sell = sfc.final_sell_remainder.as_ref().map(|fs| FinalSellRemainderIn {
-        artifacts:   fs.artifacts.unwrap_or(false),
+        artifacts: fs.artifacts.unwrap_or(false),
         accessories: fs.accessories.unwrap_or(false),
-        levels:      fs.levels.clone().unwrap_or_default(),
-        sets_mode:   fs.sets_mode.clone(),
+        levels: fs.levels.clone().unwrap_or_default(),
+        sets_mode: fs.sets_mode.clone(),
     });
 
     // Parse substat target minima table.
@@ -705,7 +781,9 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> Result<ReadableRecipeParsed, String> {
     // Determine export mode. `Separator: true` is the current marker; the
     // visibility label "Separator" is the legacy spelling (still accepted).
-    let vis_raw = rec.visibility.as_deref()
+    let vis_raw = rec
+        .visibility
+        .as_deref()
         .or(rec.export_mode.as_deref())
         .unwrap_or("Active");
     let vis = vis_raw.trim().to_lowercase();
@@ -741,7 +819,10 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
     };
 
     // Main stats.
-    let main_stat_variants: Vec<i64> = rec.main_stats.as_deref().unwrap_or(&[])
+    let main_stat_variants: Vec<i64> = rec
+        .main_stats
+        .as_deref()
+        .unwrap_or(&[])
         .iter()
         .filter_map(|label| stat_variant_from_label(label))
         .collect();
@@ -753,11 +834,23 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
     for entry in rec.substats.as_deref().unwrap_or(&[]) {
         let (label, is_fixed, bounds_opt) = match entry {
             ReadableSubstat::Label(s) => (s.as_str(), false, None),
-            ReadableSubstat::Object { stat, fixed, roll_bounds, legacy_min, legacy_max, legacy_any } => {
+            ReadableSubstat::Object {
+                stat,
+                fixed,
+                roll_bounds,
+                legacy_min,
+                legacy_max,
+                legacy_any,
+            } => {
                 // Merge roll_bounds object with legacy flat fields.
                 let eff_bounds = roll_bounds.clone().or_else(|| {
                     if legacy_min.is_some() || legacy_max.is_some() || legacy_any.is_some() {
-                        Some(ReadableSubstatBoundsEntry { min: *legacy_min, max: *legacy_max, any_flag: *legacy_any, not: None })
+                        Some(ReadableSubstatBoundsEntry {
+                            min: *legacy_min,
+                            max: *legacy_max,
+                            any_flag: *legacy_any,
+                            not: None,
+                        })
                     } else {
                         None
                     }
@@ -765,7 +858,9 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
                 (stat.as_str(), fixed.unwrap_or(false), eff_bounds)
             }
         };
-        let Some(variant) = stat_variant_from_label(label) else { continue };
+        let Some(variant) = stat_variant_from_label(label) else {
+            continue;
+        };
         if !substats_v.contains(&variant) {
             substats_v.push(variant);
         }
@@ -776,12 +871,15 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
             let not_flag = b.not.unwrap_or(false);
             // "not" is mutually exclusive: when set, record only the not flag.
             if not_flag {
-                substat_roll_bounds_v.insert(variant, BuildHsfComboBoundsIn {
-                    min: None,
-                    max: None,
-                    any: None,
-                    not: Some(true),
-                });
+                substat_roll_bounds_v.insert(
+                    variant,
+                    BuildHsfComboBoundsIn {
+                        min: None,
+                        max: None,
+                        any: None,
+                        not: Some(true),
+                    },
+                );
                 continue;
             }
             let min_val = b.min.map(|v| v.max(0.0).min(5.0).floor());
@@ -789,22 +887,30 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
             let any_flag = b.any_flag.unwrap_or(false);
             // Only record bounds when at least one constraint is meaningful.
             if min_val.map(|m| m > 0.0).unwrap_or(false) || max_val.is_some() || any_flag {
-                substat_roll_bounds_v.insert(variant, BuildHsfComboBoundsIn {
-                    min: min_val,
-                    max: max_val,
-                    any: if any_flag { Some(true) } else { None },
-                    not: None,
-                });
+                substat_roll_bounds_v.insert(
+                    variant,
+                    BuildHsfComboBoundsIn {
+                        min: min_val,
+                        max: max_val,
+                        any: if any_flag { Some(true) } else { None },
+                        not: None,
+                    },
+                );
             }
         }
     }
     // Ensure fixed substats are in the selected pool.
     for &fv in &fixed_substats_v {
-        if !substats_v.contains(&fv) { substats_v.push(fv); }
+        if !substats_v.contains(&fv) {
+            substats_v.push(fv);
+        }
     }
 
     // Slot IDs.
-    let artifact_type_ids: Vec<i64> = rec.artifact_type_names.as_deref().unwrap_or(&[])
+    let artifact_type_ids: Vec<i64> = rec
+        .artifact_type_names
+        .as_deref()
+        .unwrap_or(&[])
         .iter()
         .filter_map(|name| slot_id_from_name(name))
         .collect();
@@ -812,7 +918,10 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
     // Set IDs. The current app writes `artifactSetNames` (name-based); older files used
     // numeric `artifactSetIds`. Resolve names → ids via the generated catalog and merge
     // both sources. Excluded entries are filters we drop (an excluded set is not required).
-    let mut artifact_set_ids: Vec<i64> = rec.artifact_set_names.as_deref().unwrap_or(&[])
+    let mut artifact_set_ids: Vec<i64> = rec
+        .artifact_set_names
+        .as_deref()
+        .unwrap_or(&[])
         .iter()
         .filter(|entry| !entry.excluded.unwrap_or(false))
         .filter_map(|entry| entry.name.as_deref().and_then(set_id_from_name))
@@ -821,7 +930,9 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
     for entry in rec.artifact_set_ids.as_deref().unwrap_or(&[]) {
         let id = match entry {
             ReadableArtifactSetEntry::Object { id, excluded } => {
-                if excluded.unwrap_or(false) { continue; }
+                if excluded.unwrap_or(false) {
+                    continue;
+                }
                 *id
             }
             ReadableArtifactSetEntry::Id(id) => *id,
@@ -831,7 +942,10 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         }
     }
 
-    let artifact_meta_set_names: Vec<String> = rec.artifact_meta_set_names.as_deref().unwrap_or(&[])
+    let artifact_meta_set_names: Vec<String> = rec
+        .artifact_meta_set_names
+        .as_deref()
+        .unwrap_or(&[])
         .iter()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
@@ -840,7 +954,11 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
     // Level window — clamp to valid milestones.
     let min_level = clamp_milestone(rec.min_level.unwrap_or(0));
     let max_level = clamp_milestone(rec.max_level.unwrap_or(16));
-    let (min_level, max_level) = if min_level <= max_level { (min_level, max_level) } else { (max_level, min_level) };
+    let (min_level, max_level) = if min_level <= max_level {
+        (min_level, max_level)
+    } else {
+        (max_level, min_level)
+    };
 
     // Roll requirements.
     let min_count = rec.min_count.unwrap_or(0).clamp(0, SUBSTAT_SLOT_COUNT);
@@ -855,7 +973,9 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         Some("late") | Some("reachable") => "late".to_string(),
         _ => "early".to_string(),
     };
-    let auto_rarity_supplements_threshold = rec.auto_rarity_threshold.as_ref()
+    let auto_rarity_supplements_threshold = rec
+        .auto_rarity_threshold
+        .as_ref()
         .filter(|s| matches!(s.as_str(), "uncommon" | "rare" | "epic"))
         .cloned();
 
@@ -896,11 +1016,26 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
 fn parse_sfc_count_mode(v: &serde_json::Value) -> SafeguardWasmCountMode {
     let o = v.as_object();
     SafeguardWasmCountMode {
-        per_rule:      o.and_then(|m| m.get("perRule")).and_then(|v| v.as_bool()).unwrap_or(false),
-        per_set:       o.and_then(|m| m.get("perSet")).and_then(|v| v.as_bool()).unwrap_or(true),
-        per_faction:   o.and_then(|m| m.get("perFaction")).and_then(|v| v.as_bool()).unwrap_or(true),
-        per_main_stat: o.and_then(|m| m.get("perMainStat")).and_then(|v| v.as_bool()).unwrap_or(true),
-        per_slot:      o.and_then(|m| m.get("perSlot")).and_then(|v| v.as_bool()).unwrap_or(false),
+        per_rule: o
+            .and_then(|m| m.get("perRule"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        per_set: o
+            .and_then(|m| m.get("perSet"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        per_faction: o
+            .and_then(|m| m.get("perFaction"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        per_main_stat: o
+            .and_then(|m| m.get("perMainStat"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        per_slot: o
+            .and_then(|m| m.get("perSlot"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     }
 }
 
@@ -928,7 +1063,8 @@ fn is_sfc_safeguard_separator(raw: &serde_json::Value) -> bool {
 fn parse_sfc_safeguard_entries(raws: &[serde_json::Value]) -> Result<Vec<SafeguardWasmRuleIn>, String> {
     let mut out = Vec::with_capacity(raws.len());
     for (i, raw) in raws.iter().enumerate() {
-        let members = raw.as_object()
+        let members = raw
+            .as_object()
             .and_then(|rec| rec.get("members"))
             .and_then(|v| v.as_array());
         // Not a group entry: an ordinary rule or a separator, ungrouped by construction.
@@ -936,15 +1072,19 @@ fn parse_sfc_safeguard_entries(raws: &[serde_json::Value]) -> Result<Vec<Safegua
             out.push(parse_sfc_safeguard_rule(raw).map_err(|e| format!("Safeguard[{i}] parse error: {e}"))?);
             continue;
         };
-        let rec = raw.as_object().ok_or_else(|| format!("Safeguard[{i}] parse error: group entry is not a JSON object"))?;
+        let rec = raw
+            .as_object()
+            .ok_or_else(|| format!("Safeguard[{i}] parse error: group entry is not a JSON object"))?;
         // One id for the whole nested run — the only place a loaded group's id comes from.
-        let settings = rec.get("Group").or_else(|| rec.get("group")).and_then(|v| v.as_object()).map(|g| {
-            SafeguardWasmGroupIn {
+        let settings = rec
+            .get("Group")
+            .or_else(|| rec.get("group"))
+            .and_then(|v| v.as_object())
+            .map(|g| SafeguardWasmGroupIn {
                 id: format!("grp/{i}"),
                 required_count: g.get("requiredCount").and_then(|v| v.as_i64()),
                 count_mode: g.get("countMode").map(parse_sfc_count_mode),
-            }
-        });
+            });
         for (m, member) in members.iter().enumerate() {
             let mut rule = parse_sfc_safeguard_rule(member)
                 .map_err(|e| format!("Safeguard[{i}].members[{m}] parse error: {e}"))?;
@@ -998,7 +1138,8 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // The current app writes `ignorePreviousSafeguards_v2`; older files used the un-suffixed
     // key. Mirror safeguards.ts loader precedence: prefer _v2, fall back to the legacy name.
     // (Reading only the legacy key silently dropped the flag on every current .sfc.)
-    let ignore_prev = rec.get("ignorePreviousSafeguards_v2")
+    let ignore_prev = rec
+        .get("ignorePreviousSafeguards_v2")
         .or_else(|| rec.get("ignorePreviousSafeguards"))
         .and_then(|v| v.as_bool());
     let ignore_coll = rec.get("ignoreEquippedInCollection").and_then(|v| v.as_bool());
@@ -1006,13 +1147,12 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // "Weight by Rank" toggle; absent in older SFC files → None → treated as off downstream.
     let weight_main_stat_by_rank = rec.get("weightMainStatByRank").and_then(|v| v.as_bool());
     // Tunable main-stat rank bonus multiplier; absent in older SFC files → None → SSOT default (1.0).
-    let main_stat_rank_weight_factor = rec
-        .get("mainStatRankWeightFactor")
-        .and_then(|v| v.as_f64());
+    let main_stat_rank_weight_factor = rec.get("mainStatRankWeightFactor").and_then(|v| v.as_f64());
     // Accept the per-level object form (current) or the resolved [f64;4] array form.
     // Legacy bare-number SFC files are normalized to the object form by sfcIO.ts at import,
     // so Rust never needs to handle that case here.
-    let improvement_chance_threshold = rec.get("improvementChanceThreshold")
+    let improvement_chance_threshold = rec
+        .get("improvementChanceThreshold")
         .and_then(|v| serde_json::from_value::<ImprovementChanceThresholdIn>(v.clone()).ok());
 
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
@@ -1030,7 +1170,11 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
             .filter_map(stat_variant_from_label)
             .collect::<Vec<i64>>()
     });
-    let substats = if substats.as_ref().map(|v: &Vec<i64>| v.is_empty()).unwrap_or(true) { None } else { substats };
+    let substats = if substats.as_ref().map(|v: &Vec<i64>| v.is_empty()).unwrap_or(true) {
+        None
+    } else {
+        substats
+    };
 
     // Substat match mode.
     let substat_match = rec.get("substatMatch").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -1048,15 +1192,23 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     let substat_weights = substat_weights.filter(|m| !m.is_empty());
 
     // Combination: stored under "tuple" in the SFC (built by buildReadableSafeguardTuple).
-    let combination = rec.get("tuple")
+    let combination = rec
+        .get("tuple")
         .or_else(|| rec.get("combination"))
         .map(parse_sfc_safeguard_combination);
 
     // Tags: string array used by the safeguard-overrides DSL selector matching in TS.
     let tags = rec.get("tags").and_then(|v| v.as_array()).map(|arr| {
-        arr.iter().filter_map(|v| v.as_str()).map(|s| s.to_string()).collect::<Vec<String>>()
+        arr.iter()
+            .filter_map(|v| v.as_str())
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>()
     });
-    let tags = if tags.as_ref().map(|v: &Vec<String>| v.is_empty()).unwrap_or(true) { None } else { tags };
+    let tags = if tags.as_ref().map(|v: &Vec<String>| v.is_empty()).unwrap_or(true) {
+        None
+    } else {
+        tags
+    };
 
     Ok(SafeguardWasmRuleIn {
         id,
@@ -1085,55 +1237,99 @@ fn parse_sfc_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
     let obj = raw.as_object();
 
     // Slots: string labels → slot IDs.
-    let slots = obj.and_then(|o| o.get("slots")).and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(slot_id_from_name)).collect())
+    let slots = obj
+        .and_then(|o| o.get("slots"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().and_then(slot_id_from_name))
+                .collect()
+        })
         .unwrap_or_default();
 
     // Sets: the current app writes set names (e.g. {name:"Lifesteal"}); older files used
     // {id}. Resolve names via the generated set catalog (set_id_from_name) and accept
     // numeric ids for back-compat. The excluded flag is carried through either way.
-    let sets = obj.and_then(|o| o.get("sets")).and_then(|v| v.as_array())
+    let sets = obj
+        .and_then(|o| o.get("sets"))
+        .and_then(|v| v.as_array())
         .map(|arr| {
-            arr.iter().filter_map(|v| {
-                let excluded = v.get("excluded").and_then(|e| e.as_bool()).unwrap_or(false);
-                // Prefer a numeric id; else resolve the set name to an id.
-                let id = v.get("id").and_then(|n| n.as_i64())
-                    .or_else(|| v.get("name").and_then(|n| n.as_str()).and_then(set_id_from_name));
-                id.map(|id| SafeguardWasmSetSelection { id, excluded })
-            }).collect()
+            arr.iter()
+                .filter_map(|v| {
+                    let excluded = v.get("excluded").and_then(|e| e.as_bool()).unwrap_or(false);
+                    // Prefer a numeric id; else resolve the set name to an id.
+                    let id = v
+                        .get("id")
+                        .and_then(|n| n.as_i64())
+                        .or_else(|| v.get("name").and_then(|n| n.as_str()).and_then(set_id_from_name));
+                    id.map(|id| SafeguardWasmSetSelection { id, excluded })
+                })
+                .collect()
         })
         .unwrap_or_default();
 
     // Ranks: string rank labels → rank values (1..6).
-    let ranks = obj.and_then(|o| o.get("ranks")).and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(rank_value_from_label)).collect())
+    let ranks = obj
+        .and_then(|o| o.get("ranks"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().and_then(rank_value_from_label))
+                .collect()
+        })
         .unwrap_or_default();
 
     // Rarities: string rarity labels → rarity values (1..6).
-    let rarities = obj.and_then(|o| o.get("rarities")).and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(safeguard_rarity_value_from_label)).collect())
+    let rarities = obj
+        .and_then(|o| o.get("rarities"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().and_then(safeguard_rarity_value_from_label))
+                .collect()
+        })
         .unwrap_or_default();
 
     // Main stats: string labels → StatVariant.
-    let main_stats = obj.and_then(|o| o.get("mainStats")).and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().and_then(stat_variant_from_label)).collect())
+    let main_stats = obj
+        .and_then(|o| o.get("mainStats"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().and_then(stat_variant_from_label))
+                .collect()
+        })
         .unwrap_or_default();
 
     // Factions: string names → faction IDs.
-    let factions = obj.and_then(|o| o.get("factions")).and_then(|v| v.as_array())
-        .map(|arr| arr.iter()
-            .filter_map(|v| v.as_str())
-            .map(faction_code_from_label)
-            .filter(|&c| c != 0)
-            .collect())
+    let factions = obj
+        .and_then(|o| o.get("factions"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(faction_code_from_label)
+                .filter(|&c| c != 0)
+                .collect()
+        })
         .unwrap_or_default();
 
     // Metaset names passed through verbatim.
-    let meta_set_names = obj.and_then(|o| o.get("metaSetNames")).and_then(|v| v.as_array())
+    let meta_set_names = obj
+        .and_then(|o| o.get("metaSetNames"))
+        .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|v| v.as_str()).map(|s| s.to_string()).collect())
         .unwrap_or_default();
 
-    SafeguardWasmCombination { slots, sets, meta_set_names, ranks, rarities, main_stats, factions }
+    SafeguardWasmCombination {
+        slots,
+        sets,
+        meta_set_names,
+        ranks,
+        rarities,
+        main_stats,
+        factions,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1144,16 +1340,18 @@ fn parse_sfc_safeguard_combination(raw: &serde_json::Value) -> SafeguardWasmComb
 // case-insensitive) into a star. Mirrors coerceFallback in sfcIO.ts; unknown → 6.
 fn coerce_any_rank_star(value: &serde_json::Value) -> i64 {
     if let Some(n) = value.as_i64() {
-        if (1..=6).contains(&n) { return n; }
+        if (1..=6).contains(&n) {
+            return n;
+        }
     }
     if let Some(s) = value.as_str() {
         match s.to_lowercase().as_str() {
-            "one"   | "1" => return 1,
-            "two"   | "2" => return 2,
+            "one" | "1" => return 1,
+            "two" | "2" => return 2,
             "three" | "3" => return 3,
-            "four"  | "4" => return 4,
-            "five"  | "5" => return 5,
-            "six"   | "6" => return 6,
+            "four" | "4" => return 4,
+            "five" | "5" => return 5,
+            "six" | "6" => return 6,
             _ => {}
         }
     }
@@ -1171,13 +1369,13 @@ fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTa
             continue;
         }
         let bucket_map = match key.as_str() {
-            "one"   => &mut table.one,
-            "two"   => &mut table.two,
+            "one" => &mut table.one,
+            "two" => &mut table.two,
             "three" => &mut table.three,
-            "four"  => &mut table.four,
-            "five"  => &mut table.five,
-            "six"   => &mut table.six,
-            _       => continue,
+            "four" => &mut table.four,
+            "five" => &mut table.five,
+            "six" => &mut table.six,
+            _ => continue,
         };
         if let Some(inner) = value.as_object() {
             for (stat_label, stat_val) in inner {
@@ -1197,9 +1395,21 @@ fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTa
 
 fn clamp_milestone(v: i64) -> i64 {
     // Snap to the nearest lower level milestone using generated constants.
-    const MILESTONES: [i64; 5] = [LEVEL_MILESTONE_0, LEVEL_MILESTONE_4, LEVEL_MILESTONE_8, LEVEL_MILESTONE_12, LEVEL_MILESTONE_16];
-    if MILESTONES.contains(&v) { return v; }
-    for &m in MILESTONES.iter().rev() { if v >= m { return m; } }
+    const MILESTONES: [i64; 5] = [
+        LEVEL_MILESTONE_0,
+        LEVEL_MILESTONE_4,
+        LEVEL_MILESTONE_8,
+        LEVEL_MILESTONE_12,
+        LEVEL_MILESTONE_16,
+    ];
+    if MILESTONES.contains(&v) {
+        return v;
+    }
+    for &m in MILESTONES.iter().rev() {
+        if v >= m {
+            return m;
+        }
+    }
     LEVEL_MILESTONE_0
 }
 
@@ -1220,13 +1430,19 @@ mod label_tests {
     fn stat_variant_canonical_labels() {
         // Vectors from shared/sfc-label-test-vectors.json — statVariantFromLabel
         let cases: &[(&str, i64)] = &[
-            ("SPD", STAT_VARIANT_SPD),   ("spd", STAT_VARIANT_SPD),
+            ("SPD", STAT_VARIANT_SPD),
+            ("spd", STAT_VARIANT_SPD),
             ("CR%", STAT_VARIANT_CR),
-            ("cr%", STAT_VARIANT_CR),    ("CDMG%", STAT_VARIANT_CDMG),
-            ("RES", STAT_VARIANT_RES),   ("ACC", STAT_VARIANT_ACC),
-            ("HP%", STAT_VARIANT_HP_PERCENT), ("HP", STAT_VARIANT_HP_FLAT),
-            ("ATK%", STAT_VARIANT_ATK_PERCENT), ("ATK", STAT_VARIANT_ATK_FLAT),
-            ("DEF%", STAT_VARIANT_DEF_PERCENT), ("DEF", STAT_VARIANT_DEF_FLAT),
+            ("cr%", STAT_VARIANT_CR),
+            ("CDMG%", STAT_VARIANT_CDMG),
+            ("RES", STAT_VARIANT_RES),
+            ("ACC", STAT_VARIANT_ACC),
+            ("HP%", STAT_VARIANT_HP_PERCENT),
+            ("HP", STAT_VARIANT_HP_FLAT),
+            ("ATK%", STAT_VARIANT_ATK_PERCENT),
+            ("ATK", STAT_VARIANT_ATK_FLAT),
+            ("DEF%", STAT_VARIANT_DEF_PERCENT),
+            ("DEF", STAT_VARIANT_DEF_FLAT),
             ("Roll Count", STAT_VARIANT_ROLL_COUNT),
         ];
         for &(input, expected) in cases {
@@ -1243,11 +1459,16 @@ mod label_tests {
     fn rank_code_canonical_labels() {
         // Vectors from shared/sfc-label-test-vectors.json — rankCodeFromLabel
         let cases: &[(&str, i64)] = &[
-            ("5★", RANK_CODE_FIVE),   ("5*", RANK_CODE_FIVE),
-            ("6★", RANK_CODE_SIX),    ("1★", RANK_CODE_ONE),
-            ("≥ 5★", RANK_CODE_GTE_FIVE), (">= 5*", RANK_CODE_GTE_FIVE),
-            ("≥ 4★", RANK_CODE_GTE_FOUR), ("≤ 4★", RANK_CODE_LTE_FOUR),
-            ("<= 4*", RANK_CODE_LTE_FOUR), ("Any", RANK_CODE_ANY),
+            ("5★", RANK_CODE_FIVE),
+            ("5*", RANK_CODE_FIVE),
+            ("6★", RANK_CODE_SIX),
+            ("1★", RANK_CODE_ONE),
+            ("≥ 5★", RANK_CODE_GTE_FIVE),
+            (">= 5*", RANK_CODE_GTE_FIVE),
+            ("≥ 4★", RANK_CODE_GTE_FOUR),
+            ("≤ 4★", RANK_CODE_LTE_FOUR),
+            ("<= 4*", RANK_CODE_LTE_FOUR),
+            ("Any", RANK_CODE_ANY),
             ("", RANK_CODE_ANY),
         ];
         for &(input, expected) in cases {
@@ -1264,21 +1485,25 @@ mod label_tests {
     fn rarity_code_canonical_labels() {
         // Vectors from shared/sfc-label-test-vectors.json — rarityCodeFromLabel
         let cases: &[(&str, i64, bool)] = &[
-            ("Epic",        RARITY_CODE_EPIC,         false),
-            ("Legendary",   RARITY_CODE_LEGENDARY,    false),
-            ("≥ Epic",      RARITY_CODE_GTE_EPIC,     false),
-            (">= Epic",     RARITY_CODE_GTE_EPIC,     false),
-            ("≤ Legendary", RARITY_CODE_LTE_LEGENDARY,false),
-            ("Auto",        RARITY_CODE_ANY,           true),
-            ("Any",         RARITY_CODE_ANY,           false),
-            ("",            RARITY_CODE_ANY,           false),
+            ("Epic", RARITY_CODE_EPIC, false),
+            ("Legendary", RARITY_CODE_LEGENDARY, false),
+            ("≥ Epic", RARITY_CODE_GTE_EPIC, false),
+            (">= Epic", RARITY_CODE_GTE_EPIC, false),
+            ("≤ Legendary", RARITY_CODE_LTE_LEGENDARY, false),
+            ("Auto", RARITY_CODE_ANY, true),
+            ("Any", RARITY_CODE_ANY, false),
+            ("", RARITY_CODE_ANY, false),
         ];
         for &(input, expected_code, expected_auto) in cases {
             let (code, is_auto) = rarity_code_from_label(input);
-            assert_eq!(code, expected_code,
-                "rarity_code_from_label({input:?}).0 should be {expected_code}");
-            assert_eq!(is_auto, expected_auto,
-                "rarity_code_from_label({input:?}).1 (is_auto) should be {expected_auto}");
+            assert_eq!(
+                code, expected_code,
+                "rarity_code_from_label({input:?}).0 should be {expected_code}"
+            );
+            assert_eq!(
+                is_auto, expected_auto,
+                "rarity_code_from_label({input:?}).1 (is_auto) should be {expected_auto}"
+            );
         }
     }
 
@@ -1287,10 +1512,14 @@ mod label_tests {
     fn faction_code_canonical_labels() {
         // Vectors from shared/sfc-label-test-vectors.json — factionCodeFromLabel
         let cases: &[(&str, i64)] = &[
-            ("Banner Lords",    1),  ("Barbarians",      13),
-            ("Dwarves",         16), ("Knight Revenant", 12),
-            ("Sylvan Watchers", 14), ("Argonites",       17),
-            ("Any", 0), ("", 0),
+            ("Banner Lords", 1),
+            ("Barbarians", 13),
+            ("Dwarves", 16),
+            ("Knight Revenant", 12),
+            ("Sylvan Watchers", 14),
+            ("Argonites", 17),
+            ("Any", 0),
+            ("", 0),
         ];
         for &(input, expected) in cases {
             assert_eq!(
@@ -1365,14 +1594,16 @@ mod label_tests {
         let parsed = parse_sfc(&sfc_v2).expect("v2 SFC must parse");
         assert_eq!(parsed.safeguard_rules.len(), 1);
         assert_eq!(
-            parsed.safeguard_rules[0].ignore_previous_safeguards, Some(true),
+            parsed.safeguard_rules[0].ignore_previous_safeguards,
+            Some(true),
             "ignorePreviousSafeguards_v2 must be read"
         );
         // Legacy key form still honoured as a fallback.
         let sfc_legacy = base.replace("KEY", r#""ignorePreviousSafeguards": true"#);
         let parsed = parse_sfc(&sfc_legacy).expect("legacy SFC must parse");
         assert_eq!(
-            parsed.safeguard_rules[0].ignore_previous_safeguards, Some(true),
+            parsed.safeguard_rules[0].ignore_previous_safeguards,
+            Some(true),
             "legacy ignorePreviousSafeguards must still be read as a fallback"
         );
     }

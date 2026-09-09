@@ -16,9 +16,9 @@
 //   anySelectedSlotSupportsMain             → any_selected_slot_supports_main
 //   buildHsfRules (recipe-level)            → build_hsf_rules_for_recipe
 
-use std::collections::BTreeMap;
-use crate::*;
 use crate::sfc_reader::{ReadableRecipeParsed, SubstatTargetTableIn};
+use crate::*;
+use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------
 // Slot compatibility tables (ALLOWED_MAIN_BY_SLOT / ALLOWED_SUB_BY_SLOT)
@@ -29,7 +29,9 @@ use crate::sfc_reader::{ReadableRecipeParsed, SubstatTargetTableIn};
 fn allowed_mains_for_slot(slot: i64) -> &'static [i64] {
     // ALLOWED_MAINS_BY_SLOT is sorted by slot ID; linear scan over 9 entries.
     for &(s, variants) in ALLOWED_MAINS_BY_SLOT {
-        if s == slot { return variants; }
+        if s == slot {
+            return variants;
+        }
     }
     &[]
 }
@@ -38,7 +40,9 @@ fn allowed_mains_for_slot(slot: i64) -> &'static [i64] {
 fn allowed_subs_for_slot(slot: i64) -> &'static [i64] {
     // ALLOWED_SUBS_BY_SLOT is sorted by slot ID; linear scan over 9 entries.
     for &(s, variants) in ALLOWED_SUBS_BY_SLOT {
-        if s == slot { return variants; }
+        if s == slot {
+            return variants;
+        }
     }
     &[]
 }
@@ -50,13 +54,17 @@ fn allowed_subs_for_slot(slot: i64) -> &'static [i64] {
 /// True if the slot supports this main stat variant.
 fn slot_supports_main(slot: i64, main_variant: i64) -> bool {
     // Any variant (−1) is always compatible.
-    if main_variant == STAT_VARIANT_ANY { return true; }
+    if main_variant == STAT_VARIANT_ANY {
+        return true;
+    }
     allowed_mains_for_slot(slot).contains(&main_variant)
 }
 
 /// True if any selected slot supports this main stat variant (empty selection = true).
 pub(crate) fn any_selected_slot_supports_main(slots: &[i64], main_variant: i64) -> bool {
-    if slots.is_empty() { return true; }
+    if slots.is_empty() {
+        return true;
+    }
     slots.iter().any(|&slot| slot_supports_main(slot, main_variant))
 }
 
@@ -77,18 +85,18 @@ fn variant_to_main_parts(variant: i64) -> (i64, Option<i64>) {
     // HP%/ATK%/DEF% have f=0; HP flat/ATK flat/DEF flat have f=1.
     // All other variants (SPD, CR, etc.) don't use the flat field.
     match variant {
-        v if v == STAT_VARIANT_HP_PERCENT  => (STAT_ID_HP,   Some(0)),
-        v if v == STAT_VARIANT_HP_FLAT     => (STAT_ID_HP,   Some(1)),
-        v if v == STAT_VARIANT_ATK_PERCENT => (STAT_ID_ATK,  Some(0)),
-        v if v == STAT_VARIANT_ATK_FLAT    => (STAT_ID_ATK,  Some(1)),
-        v if v == STAT_VARIANT_DEF_PERCENT => (STAT_ID_DEF,  Some(0)),
-        v if v == STAT_VARIANT_DEF_FLAT    => (STAT_ID_DEF,  Some(1)),
-        v if v == STAT_VARIANT_SPD         => (STAT_ID_SPD,  None),
-        v if v == STAT_VARIANT_RES         => (STAT_ID_RES,  None),
-        v if v == STAT_VARIANT_ACC         => (STAT_ID_ACC,  None),
-        v if v == STAT_VARIANT_CR          => (STAT_ID_CR,   None),
-        v if v == STAT_VARIANT_CDMG        => (STAT_ID_CDMG, None),
-        _                                  => (STAT_ID_ANY,  None),
+        v if v == STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, Some(0)),
+        v if v == STAT_VARIANT_HP_FLAT => (STAT_ID_HP, Some(1)),
+        v if v == STAT_VARIANT_ATK_PERCENT => (STAT_ID_ATK, Some(0)),
+        v if v == STAT_VARIANT_ATK_FLAT => (STAT_ID_ATK, Some(1)),
+        v if v == STAT_VARIANT_DEF_PERCENT => (STAT_ID_DEF, Some(0)),
+        v if v == STAT_VARIANT_DEF_FLAT => (STAT_ID_DEF, Some(1)),
+        v if v == STAT_VARIANT_SPD => (STAT_ID_SPD, None),
+        v if v == STAT_VARIANT_RES => (STAT_ID_RES, None),
+        v if v == STAT_VARIANT_ACC => (STAT_ID_ACC, None),
+        v if v == STAT_VARIANT_CR => (STAT_ID_CR, None),
+        v if v == STAT_VARIANT_CDMG => (STAT_ID_CDMG, None),
+        _ => (STAT_ID_ANY, None),
     }
 }
 
@@ -96,11 +104,15 @@ fn variant_to_main_parts(variant: i64) -> (i64, Option<i64>) {
 /// (mirrors substatMatchesMainVariant in statCompatibility.ts).
 fn substat_matches_main_variant(sub_variant: i64, main_variant: i64) -> bool {
     let (main_id, main_f) = variant_to_main_parts(main_variant);
-    if main_id == STAT_ID_ANY { return false; }
+    if main_id == STAT_ID_ANY {
+        return false;
+    }
     let (sub_id, sub_is_flat) = variant_to_sub_parts(sub_variant);
     // HP/ATK/DEF require both id and flat-flag to match.
     if main_id == STAT_ID_HP || main_id == STAT_ID_ATK || main_id == STAT_ID_DEF {
-        let Some(f) = main_f else { return false; };
+        let Some(f) = main_f else {
+            return false;
+        };
         return sub_id == main_id && sub_is_flat == (f == 1);
     }
     // Other stats: id comparison only.
@@ -113,18 +125,14 @@ fn substat_matches_main_variant(sub_variant: i64, main_variant: i64) -> bool {
 
 /// Compute the set of substat variants valid for any selected slot+main combination.
 /// Mirrors resolveAllowedSubstatsForSlotsAndMains in statCompatibility.ts.
-pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
-    slots: &[i64],
-    mains: &[i64],
-) -> Vec<i64> {
+pub(crate) fn resolve_allowed_substats_for_slots_and_mains(slots: &[i64], mains: &[i64]) -> Vec<i64> {
     // Empty selection means all slots; Any/empty mains means no main restriction.
     let slot_pool: Vec<i64> = if slots.is_empty() {
         PREFERRED_ARTIFACT_TYPE_ORDER.to_vec()
     } else {
         slots.to_vec()
     };
-    let has_wildcard_main = mains.is_empty()
-        || mains.contains(&STAT_VARIANT_ANY);
+    let has_wildcard_main = mains.is_empty() || mains.contains(&STAT_VARIANT_ANY);
     let explicit_mains: Vec<i64> = if has_wildcard_main {
         vec![]
     } else {
@@ -137,27 +145,47 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
     let mut viable_anomalous_slot = false;
     for &slot in &slot_pool {
         let sub_set = allowed_subs_for_slot(slot);
-        if sub_set.is_empty() { continue; }
+        if sub_set.is_empty() {
+            continue;
+        }
         let main_set = allowed_mains_for_slot(slot);
-        if main_set.is_empty() { continue; }
+        if main_set.is_empty() {
+            continue;
+        }
 
         // Candidate mains for this slot.
         let candidate_mains: Vec<i64> = if has_wildcard_main {
             main_set.to_vec()
         } else {
-            explicit_mains.iter().copied().filter(|v| main_set.contains(v)).collect()
+            explicit_mains
+                .iter()
+                .copied()
+                .filter(|v| main_set.contains(v))
+                .collect()
         };
-        if candidate_mains.is_empty() { continue; }
-        if ANOMALOUS_ELIGIBLE_SLOT_IDS.contains(&slot) { viable_anomalous_slot = true; }
+        if candidate_mains.is_empty() {
+            continue;
+        }
+        if ANOMALOUS_ELIGIBLE_SLOT_IDS.contains(&slot) {
+            viable_anomalous_slot = true;
+        }
 
         // Add any substat that doesn't conflict with all candidate mains.
         for &sub in sub_set {
-            let viable = candidate_mains.iter().any(|&main| !substat_matches_main_variant(sub, main));
-            if viable { allowed.insert(sub); }
+            let viable = candidate_mains
+                .iter()
+                .any(|&main| !substat_matches_main_variant(sub, main));
+            if viable {
+                allowed.insert(sub);
+            }
         }
     }
     // Return in STAT_VARIANTS_PRIORITY order (matches the TS output order).
-    let mut resolved: Vec<i64> = STAT_VARIANTS_PRIORITY.iter().copied().filter(|v| allowed.contains(v)).collect();
+    let mut resolved: Vec<i64> = STAT_VARIANTS_PRIORITY
+        .iter()
+        .copied()
+        .filter(|v| allowed.contains(v))
+        .collect();
     // Anomalous substats are feasible on VIABLE jewelry slots
     // only — mirrors the TS resolver (statCompatibility.ts); they cannot be mains, so
     // no per-substat clash filtering applies, and they stay out of the classic tables.
@@ -179,12 +207,22 @@ pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
         return rank_code;
     }
     // >= n★ : GTE_ONE..GTE_FOUR → 4-star bucket; GTE_FIVE → 5.
-    if (RANK_CODE_GTE_ONE..=RANK_CODE_GTE_FOUR).contains(&rank_code) { return 4; }
-    if rank_code == RANK_CODE_GTE_FIVE { return 5; }
+    if (RANK_CODE_GTE_ONE..=RANK_CODE_GTE_FOUR).contains(&rank_code) {
+        return 4;
+    }
+    if rank_code == RANK_CODE_GTE_FIVE {
+        return 5;
+    }
     // <= n★ : LTE_TWO..LTE_FOUR → 4; LTE_FIVE → 5; LTE_SIX → 6.
-    if (RANK_CODE_LTE_TWO..=RANK_CODE_LTE_FOUR).contains(&rank_code) { return 4; }
-    if rank_code == RANK_CODE_LTE_FIVE { return 5; }
-    if rank_code == RANK_CODE_LTE_SIX  { return 6; }
+    if (RANK_CODE_LTE_TWO..=RANK_CODE_LTE_FOUR).contains(&rank_code) {
+        return 4;
+    }
+    if rank_code == RANK_CODE_LTE_FIVE {
+        return 5;
+    }
+    if rank_code == RANK_CODE_LTE_SIX {
+        return 6;
+    }
     // Any (0) → caller-provided fallback (anyRankDefaultsTo), clamped to a valid star.
     any_fallback.clamp(1, 6)
 }
@@ -210,7 +248,11 @@ pub(crate) fn anomalous_roll_value_for_rank(rank: i64) -> f64 {
     let last = ANOMALOUS_SUBSTAT_ROLL_VALUE_BY_RANK.last();
     match (first, last) {
         (Some(&(lo_rank, lo_value)), Some(&(_, hi_value))) => {
-            if rank < lo_rank { lo_value } else { hi_value }
+            if rank < lo_rank {
+                lo_value
+            } else {
+                hi_value
+            }
         }
         _ => 0.0,
     }
@@ -224,7 +266,10 @@ pub(crate) fn factory_minima_for_star(star: i64) -> BTreeMap<i64, f64> {
     for &(s, triples) in SUBSTAT_ROLL_RANGES_BY_STAR {
         if s == star {
             // Each triple is (variant, min, max); extract (variant, min) pairs.
-            let mut minima: BTreeMap<i64, f64> = triples.iter().map(|&(variant, min, _max)| (variant, min as f64)).collect();
+            let mut minima: BTreeMap<i64, f64> = triples
+                .iter()
+                .map(|&(variant, min, _max)| (variant, min as f64))
+                .collect();
             // Anomalous stats carry no generated roll range (no variance to describe), so
             // their tier value comes from the rank table instead. Mirrors
             // anomalousFactoryMinimaForStar in src/lib/hsfBuilder.ts.
@@ -260,9 +305,9 @@ fn clamp_roll_requirement(v: i64) -> i64 {
 
 /// True when per-substat roll bounds set any explicit floor or "not" constraint (mirrors hasSubstatThresholds).
 fn has_substat_thresholds(bounds: &BTreeMap<i64, BuildHsfComboBoundsIn>) -> bool {
-    bounds.values().any(|b| {
-        b.min.map(|m| m > 0.0).unwrap_or(false) || b.not.unwrap_or(false)
-    })
+    bounds
+        .values()
+        .any(|b| b.min.map(|m| m > 0.0).unwrap_or(false) || b.not.unwrap_or(false))
 }
 
 /// True when the user set a manual aggregate roll floor (mirrors hasManualAggregateMin).
@@ -283,17 +328,20 @@ pub(crate) fn is_milestone_thresholds_active(recipe: &ReadableRecipeParsed) -> b
 }
 
 /// Whether the locked-only aggregate scope is active for the given locked count.
-pub(crate) fn is_locked_aggregate_scope_active(
-    recipe: &ReadableRecipeParsed,
-    locked_count: i64,
-) -> bool {
-    if locked_count <= 0 { return false; }
+pub(crate) fn is_locked_aggregate_scope_active(recipe: &ReadableRecipeParsed, locked_count: i64) -> bool {
+    if locked_count <= 0 {
+        return false;
+    }
     recipe.locked_min_required_rolls > 0
 }
 
 /// Roll baseline mode: start-at-0 windows use 'afterStart'; elevated windows use 'upToLevel'.
 pub(crate) fn derive_roll_baseline_mode(recipe: &ReadableRecipeParsed) -> &'static str {
-    if recipe.min_level <= 0 { "afterStart" } else { "upToLevel" }
+    if recipe.min_level <= 0 {
+        "afterStart"
+    } else {
+        "upToLevel"
+    }
 }
 
 /// Minimum roll events forced by the rarity schedule for a given rarity code.
@@ -316,19 +364,29 @@ pub(crate) fn derive_global_min_rolls(
         return clamp_roll_requirement(recipe.min_required_rolls);
     }
     // Auto mode: no substats selected means no roll requirement.
-    if selected_pool_v.is_empty() { return 0; }
+    if selected_pool_v.is_empty() {
+        return 0;
+    }
     let locked_scope = is_locked_aggregate_scope_active(recipe, required_v.len() as i64);
-    let base = if locked_scope { required_v.len() as i64 } else { min_target_count as i64 };
+    let base = if locked_scope {
+        required_v.len() as i64
+    } else {
+        min_target_count as i64
+    };
     // Auto-rarity schedule caps the baseline to its minimum roll event count.
     let base = base.min(min_roll_events_for_rarity(rarity_code));
     // Single-substat targets don't need a roll floor.
-    if base <= 1 { return 0; }
+    if base <= 1 {
+        return 0;
+    }
     clamp_roll_requirement(base)
 }
 
 /// Derive the locked-only aggregate minimum rolls value (mirrors deriveLockedMinRolls).
 pub(crate) fn derive_locked_min_rolls(recipe: &ReadableRecipeParsed, locked_count: i64) -> i64 {
-    if locked_count == 0 { return 0; }
+    if locked_count == 0 {
+        return 0;
+    }
     clamp_roll_requirement(recipe.locked_min_required_rolls)
 }
 
@@ -339,23 +397,28 @@ pub(crate) fn derive_locked_min_rolls(recipe: &ReadableRecipeParsed, locked_coun
 /// True when auto-substat-flex is meaningful for the current recipe selection.
 pub(crate) fn can_enable_substat_flex(recipe: &ReadableRecipeParsed) -> bool {
     // Auto min-count overrides flex eligibility.
-    if recipe.auto_min_count { return false; }
+    if recipe.auto_min_count {
+        return false;
+    }
     // Empty selection has nothing to flex.
-    if recipe.substats_v.is_empty() { return false; }
-    let fixed_set: std::collections::HashSet<i64> =
-        recipe.fixed_substats_v.iter().copied().collect();
+    if recipe.substats_v.is_empty() {
+        return false;
+    }
+    let fixed_set: std::collections::HashSet<i64> = recipe.fixed_substats_v.iter().copied().collect();
     let locked_count = recipe.substats_v.iter().filter(|v| fixed_set.contains(v)).count() as i64;
     let effective_required = recipe.min_count.max(locked_count);
     // Flex requires at least one optional slot beyond the required set.
-    if recipe.substats_v.len() as i64 <= effective_required { return false; }
+    if recipe.substats_v.len() as i64 <= effective_required {
+        return false;
+    }
 
     // "Not" substats are excluded from flex consideration — they carry Condition "¬"
     // and are never part of the positive combination rotation.
-    let optional: Vec<i64> = recipe.substats_v.iter().copied()
-        .filter(|v| {
-            !fixed_set.contains(v)
-            && !recipe.substat_roll_bounds_v.get(v).and_then(|b| b.not).unwrap_or(false)
-        })
+    let optional: Vec<i64> = recipe
+        .substats_v
+        .iter()
+        .copied()
+        .filter(|v| !fixed_set.contains(v) && !recipe.substat_roll_bounds_v.get(v).and_then(|b| b.not).unwrap_or(false))
         .collect();
 
     // At least one optional must be a pure wildcard (no min, no max).
@@ -365,11 +428,15 @@ pub(crate) fn can_enable_substat_flex(recipe: &ReadableRecipeParsed) -> bool {
         let has_max = b.and_then(|b| b.max).is_some();
         !has_min && !has_max
     });
-    if !has_pure_wildcard_optional { return false; }
+    if !has_pure_wildcard_optional {
+        return false;
+    }
 
     // Flex is worth enabling when optional stats have explicit mins …
     let has_optional_min = optional.iter().any(|v| {
-        recipe.substat_roll_bounds_v.get(v)
+        recipe
+            .substat_roll_bounds_v
+            .get(v)
             .and_then(|b| b.min)
             .map(|m| m > 0.0)
             .unwrap_or(false)
@@ -381,8 +448,7 @@ pub(crate) fn can_enable_substat_flex(recipe: &ReadableRecipeParsed) -> bool {
     } else {
         effective_required
     };
-    let needs_flex_for_aggregate =
-        global_min_active && recipe.min_required_rolls > targeted_count;
+    let needs_flex_for_aggregate = global_min_active && recipe.min_required_rolls > targeted_count;
 
     // Pure wildcard optionals alone are sufficient (rarity-slot rotation scenario).
     has_optional_min || needs_flex_for_aggregate || has_pure_wildcard_optional
@@ -419,13 +485,13 @@ pub fn build_hsf_rules_for_recipe(
 ) -> Result<Vec<RuleRaw>, String> {
     // Separators produce no rules; disabled recipes produce rules with Use=false
     // (the runtime handles them for export; they are just not evaluated).
-    if recipe.is_separator { return Ok(vec![]); }
+    if recipe.is_separator {
+        return Ok(vec![]);
+    }
 
     // 1. Allowed substats for slot + main filter.
-    let allowed_substats = resolve_allowed_substats_for_slots_and_mains(
-        &recipe.artifact_type_ids,
-        &recipe.main_stat_variants,
-    );
+    let allowed_substats =
+        resolve_allowed_substats_for_slots_and_mains(&recipe.artifact_type_ids, &recipe.main_stat_variants);
 
     // 2. Star bucket from rank code. Any-rank recipes fall back to the table's
     //    anyRankDefaultsTo (6 when no minima table is present), mirroring hsfBuilder.ts.
@@ -438,7 +504,7 @@ pub fn build_hsf_rules_for_recipe(
     // 4. Substat target map: user-provided minima if available, else factory defaults.
     let substat_target_by_variant: BTreeMap<i64, f64> = match minima {
         Some(table) => minima_for_star(table, star),
-        None        => factory_base_for_star.clone(),
+        None => factory_base_for_star.clone(),
     };
 
     // 5. Flex eligibility (independent of whether flex toggle is on).
@@ -446,17 +512,17 @@ pub fn build_hsf_rules_for_recipe(
 
     // 6. Prepare recipe (pool normalization, base/target maps).
     let prep = prepare_hsf_builder_recipe_core_fn(&PrepareHsfBuilderRecipeIn {
-        min_count:                    recipe.min_count,
-        auto_substat_flex:            recipe.auto_substat_flex,
+        min_count: recipe.min_count,
+        auto_substat_flex: recipe.auto_substat_flex,
         flex_eligible,
-        substats_v:                   recipe.substats_v.clone(),
-        fixed_substats_v:             recipe.fixed_substats_v.clone(),
-        allowed_substats:             allowed_substats.clone(),
-        substat_roll_bounds_v:        recipe.substat_roll_bounds_v.clone(),
-        substat_roll_targets_v:       recipe.substat_roll_targets_v.clone(),
+        substats_v: recipe.substats_v.clone(),
+        fixed_substats_v: recipe.fixed_substats_v.clone(),
+        allowed_substats: allowed_substats.clone(),
+        substat_roll_bounds_v: recipe.substat_roll_bounds_v.clone(),
+        substat_roll_targets_v: recipe.substat_roll_targets_v.clone(),
         substat_target_by_variant,
         factory_base_by_variant_for_star: factory_base_for_star,
-        variant_priority:             PREFERRED_STAT_ORDER.to_vec(),
+        variant_priority: PREFERRED_STAT_ORDER.to_vec(),
     });
 
     // User selected substats that are all filtered by slot/main → no rules.
@@ -468,17 +534,19 @@ pub fn build_hsf_rules_for_recipe(
     let actual_rarity_code: i64 = if recipe.rarity_mode.as_deref() == Some("auto") {
         resolve_auto_rarity_code_for_builder_core(&AutoRarityResolveBuilderIn {
             auto_rarity_supplements_threshold: recipe.auto_rarity_supplements_threshold.clone(),
-            auto_min_required_rolls:           Some(recipe.auto_min_required_rolls),
-            min_required_rolls:                Some(recipe.min_required_rolls as f64),
-            locked_min_required_rolls:         Some(recipe.locked_min_required_rolls as f64),
-            min_count:                         Some(recipe.min_count as f64),
-            early_keep_mode:                   Some(recipe.early_keep_mode.clone()),
-            substats_v:                        recipe.substats_v.clone(),
-            fixed_substats_v:                  recipe.fixed_substats_v.clone(),
-            substat_roll_bounds_v:             recipe.substat_roll_bounds_v.iter()
-                                                    .map(|(&k, b)| (k, AutoRarityResolveRollBoundsIn { min: b.min }))
-                                                    .collect(),
-            allowed_substats:                  allowed_substats.clone(),
+            auto_min_required_rolls: Some(recipe.auto_min_required_rolls),
+            min_required_rolls: Some(recipe.min_required_rolls as f64),
+            locked_min_required_rolls: Some(recipe.locked_min_required_rolls as f64),
+            min_count: Some(recipe.min_count as f64),
+            early_keep_mode: Some(recipe.early_keep_mode.clone()),
+            substats_v: recipe.substats_v.clone(),
+            fixed_substats_v: recipe.fixed_substats_v.clone(),
+            substat_roll_bounds_v: recipe
+                .substat_roll_bounds_v
+                .iter()
+                .map(|(&k, b)| (k, AutoRarityResolveRollBoundsIn { min: b.min }))
+                .collect(),
+            allowed_substats: allowed_substats.clone(),
         }) as i64
     } else {
         recipe.rarity_code
@@ -487,10 +555,9 @@ pub fn build_hsf_rules_for_recipe(
     // 8. Build main choices, filtering to slots that support each main.
     //    Variants are sorted by PREFERRED_STAT_ORDER to match the TS compareVariants sort.
     let mut sorted_mains = recipe.main_stat_variants.clone();
-    sorted_mains.sort_unstable_by_key(|&v| {
-        PREFERRED_STAT_ORDER.iter().position(|&p| p == v).unwrap_or(usize::MAX)
-    });
-    let main_choices: Vec<EmitHsfMainChoiceIn> = sorted_mains.iter()
+    sorted_mains.sort_unstable_by_key(|&v| PREFERRED_STAT_ORDER.iter().position(|&p| p == v).unwrap_or(usize::MAX));
+    let main_choices: Vec<EmitHsfMainChoiceIn> = sorted_mains
+        .iter()
         .filter(|&&v| any_selected_slot_supports_main(&recipe.artifact_type_ids, v))
         .map(|&v| variant_to_main_choice(v))
         .collect();
@@ -516,13 +583,12 @@ pub fn build_hsf_rules_for_recipe(
     );
     let locked_min = derive_locked_min_rolls(recipe, prep.required_v.len() as i64);
     let aggregate_min_value = global_min.max(locked_min);
-    let global_min_active   = global_min > 0;
-    let locked_min_active   = locked_min > 0;
+    let global_min_active = global_min > 0;
+    let locked_min_active = locked_min > 0;
     let aggregate_min_active = aggregate_min_value > 0;
     // Manual zero with no per-stat mins and no locked floor → suppress thresholds.
     let manual_min_zero = !recipe.auto_min_required_rolls && recipe.min_required_rolls == 0;
-    let suppress_roll_thresholds =
-        manual_min_zero && !prep.has_per_stat_min && locked_min == 0;
+    let suppress_roll_thresholds = manual_min_zero && !prep.has_per_stat_min && locked_min == 0;
     // Locked-only scope: global min is absent but locked floor is active.
     let aggregate_targets_locked = !global_min_active
         && locked_min_active
@@ -530,70 +596,113 @@ pub fn build_hsf_rules_for_recipe(
 
     // 11. Convert PrepareHsfBuilderRecipeOut target-entry map to BuildHsfComboTargetEntryIn map
     //     (same field shape; local conversion avoids exposing internal types).
-    let target_entries: BTreeMap<i64, BuildHsfComboTargetEntryIn> = prep.target_entries_by_variant
+    let target_entries: BTreeMap<i64, BuildHsfComboTargetEntryIn> = prep
+        .target_entries_by_variant
         .iter()
-        .map(|(&k, v)| (k, BuildHsfComboTargetEntryIn {
-            base:       v.base,
-            increments: v.increments.clone(),
-        }))
+        .map(|(&k, v)| {
+            (
+                k,
+                BuildHsfComboTargetEntryIn {
+                    base: v.base,
+                    increments: v.increments.clone(),
+                },
+            )
+        })
         .collect();
 
     // 12. Split "not" variants from the combination pool before calling the runtime.
-    let not_substats_v: Vec<i32> = prep.selected_pool_v.iter().copied()
-        .filter(|&v| recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+    let not_substats_v: Vec<i32> = prep
+        .selected_pool_v
+        .iter()
+        .copied()
+        .filter(|&v| {
+            recipe
+                .substat_roll_bounds_v
+                .get(&(v as i64))
+                .and_then(|b| b.not)
+                .unwrap_or(false)
+        })
         .collect();
-    let positive_selected_pool_v: Vec<i32> = prep.selected_pool_v.iter().copied()
-        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+    let positive_selected_pool_v: Vec<i32> = prep
+        .selected_pool_v
+        .iter()
+        .copied()
+        .filter(|&v| {
+            !recipe
+                .substat_roll_bounds_v
+                .get(&(v as i64))
+                .and_then(|b| b.not)
+                .unwrap_or(false)
+        })
         .collect();
-    let positive_required_v: Vec<i32> = prep.required_v.iter().copied()
-        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+    let positive_required_v: Vec<i32> = prep
+        .required_v
+        .iter()
+        .copied()
+        .filter(|&v| {
+            !recipe
+                .substat_roll_bounds_v
+                .get(&(v as i64))
+                .and_then(|b| b.not)
+                .unwrap_or(false)
+        })
         .collect();
-    let positive_optional_pool_v: Vec<i32> = prep.optional_pool_v.iter().copied()
-        .filter(|&v| !recipe.substat_roll_bounds_v.get(&(v as i64)).and_then(|b| b.not).unwrap_or(false))
+    let positive_optional_pool_v: Vec<i32> = prep
+        .optional_pool_v
+        .iter()
+        .copied()
+        .filter(|&v| {
+            !recipe
+                .substat_roll_bounds_v
+                .get(&(v as i64))
+                .and_then(|b| b.not)
+                .unwrap_or(false)
+        })
         .collect();
 
     // 13. Call the full builder runtime (preflight + rarity branches + emission).
     let runtime_out = build_hsf_rules_runtime_core_fn(&BuildHsfRulesRuntimeIn {
         recipe_id,
-        keep:                          Some(recipe.keep),
-        use_flag:                      recipe.use_flag,
-        artifact_set_ids:              recipe.artifact_set_ids.clone(),
-        artifact_type_ids:             recipe.artifact_type_ids.clone(),
-        rank_code:                     recipe.rank_code,
-        rarity_code:                   actual_rarity_code,
-        faction_code:                  recipe.faction_code,
+        keep: Some(recipe.keep),
+        use_flag: recipe.use_flag,
+        artifact_set_ids: recipe.artifact_set_ids.clone(),
+        artifact_type_ids: recipe.artifact_type_ids.clone(),
+        rank_code: recipe.rank_code,
+        rarity_code: actual_rarity_code,
+        faction_code: recipe.faction_code,
         // Rework gate stamped onto every rule this recipe emits.
-        ore:                           Some(recipe.ore),
+        ore: Some(recipe.ore),
         main_choices,
         emit_any_main_when_no_choices,
-        baseline:                      Some(baseline),
-        effective_start:               LEVEL_MILESTONE_0,
+        baseline: Some(baseline),
+        effective_start: LEVEL_MILESTONE_0,
         suppress_roll_thresholds,
-        level_window_min:              recipe.min_level,
-        level_window_max:              recipe.max_level,
-        required_v:                    positive_required_v,
-        optional_pool_v:               positive_optional_pool_v,
-        selected_pool_v:               positive_selected_pool_v,
+        level_window_min: recipe.min_level,
+        level_window_max: recipe.max_level,
+        required_v: positive_required_v,
+        optional_pool_v: positive_optional_pool_v,
+        selected_pool_v: positive_selected_pool_v,
         not_substats_v,
-        flex_active:                   recipe.auto_substat_flex && flex_eligible,
+        flex_active: recipe.auto_substat_flex && flex_eligible,
         aggregate_min_active,
-        min_target_count:              prep.min_target_count,
-        max_target_count:              prep.max_target_count,
+        min_target_count: prep.min_target_count,
+        max_target_count: prep.max_target_count,
         aggregate_targets_locked,
-        aggregate_min_value:           aggregate_min_value as i32,
+        aggregate_min_value: aggregate_min_value as i32,
         locked_min_active,
-        locked_min_value:              locked_min as i32,
-        substat_roll_bounds_v:         recipe.substat_roll_bounds_v.clone(),
-        target_entries_by_variant:     target_entries,
-        current_base_by_variant:       prep.current_base_by_variant.clone(),
-        factory_base_by_variant:       prep.factory_base_by_variant.clone(),
+        locked_min_value: locked_min as i32,
+        substat_roll_bounds_v: recipe.substat_roll_bounds_v.clone(),
+        target_entries_by_variant: target_entries,
+        current_base_by_variant: prep.current_base_by_variant.clone(),
+        factory_base_by_variant: prep.factory_base_by_variant.clone(),
         target_base_override_by_variant: prep.target_base_override_by_variant.clone(),
-        rarity_mode:                   recipe.rarity_mode.clone(),
-        early_keep_mode:               Some(recipe.early_keep_mode.clone()),
+        rarity_mode: recipe.rarity_mode.clone(),
+        early_keep_mode: Some(recipe.early_keep_mode.clone()),
         auto_rarity_supplements_threshold: recipe.auto_rarity_supplements_threshold.clone(),
         early_mode,
-        emission_limit:                None,
-    }).map_err(|e| format!("build_hsf_rules_for_recipe: {e}"))?;
+        emission_limit: None,
+    })
+    .map_err(|e| format!("build_hsf_rules_for_recipe: {e}"))?;
 
     Ok(runtime_out.rules)
 }

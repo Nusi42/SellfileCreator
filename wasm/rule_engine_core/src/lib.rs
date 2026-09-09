@@ -18,9 +18,9 @@
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 #![allow(clippy::manual_clamp)]
 
-use std::cmp::Ordering;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, BTreeMap, HashSet};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,6 @@ pub mod wasm_merged_rules_wire_format;
 // SFC (Sellfile Record) reader: converts human-readable SFC JSON to numeric codes.
 pub mod sfc_reader;
 // Recipe builder: ports the TS hsfBuilder preprocessing pipeline to Rust.
-pub mod recipe_builder;
 pub mod auto_rarity_runtime;
 mod hsf_branch_execution;
 pub mod hsf_builder_core;
@@ -53,120 +52,60 @@ mod hsf_full_selected_fallback;
 mod hsf_intro_execution;
 mod hsf_intro_mode_plan;
 mod hsf_level_combo_execution;
-pub mod safeguards;
 pub mod matcher_evaluator;
+pub mod recipe_builder;
 pub mod rule_dedupe;
 pub mod rule_postprocess;
+pub mod safeguards;
 
 // Re-export all HSF builder structs and core functions at the crate root so
 // sibling execution modules continue to import them via `crate::*` unchanged.
 // `use` (not `pub use`) — these types are internal to the core crate only.
-use hsf_builder_core::*;
-pub use safeguards::{
-    safeguard_bucket_key_from_parts,
-    safeguard_hash_combination,
-    safeguard_normalize_set_selections,
-    safeguard_normalize_substat_match,
-    safeguard_parse_collect_rows_payload,
-    safeguard_resolve_count_mode,
-    score_safeguard_candidates_for_preview_core,
-    SafeguardWasmArtifactIn,
-    SafeguardWasmCandidateOut,
-    SafeguardWasmMetasetIn,
-    SafeguardWasmResolvedRuleOut,
-    SafeguardWasmRuleIn,
-    SafeguardWasmGroupIn,
-    SafeguardWasmScorePreviewIn,
-    SafeguardWasmSetSelection,
-    SafeguardWasmSnapshotOut,
-    SafeguardWasmCombination,
-    SafeguardWasmCountMode,
-    SafeguardWasmExpectedBucketsPayloadIn,
-    ImprovementChanceThresholdIn,
+pub use auto_rarity_runtime::{
+    expand_auto_flex_rarity_branches_core, resolve_auto_rarity_code_for_builder_core, AutoFlexRarityRecipeIn,
 };
+use hsf_builder_core::*;
 pub use matcher_evaluator::{
-    collect_safeguard_candidates_core,
-    evaluate_item,
-    prepare_evaluate_options,
-    prepare_rule,
-    BucketedRules,
-    EvalMatch,
-    EvaluateItemResult,
-    EvaluateItemScratch,
-    EvaluateOptionsRaw,
-    MatchingRecipeDecision,
-    SafeguardCandidateResolveBaseMatchIn,
-    SafeguardCollectRowIn,
-    SafeguardCollectedCandidateOut,
+    collect_safeguard_candidates_core, evaluate_item, prepare_evaluate_options, prepare_rule, BucketedRules, EvalMatch,
+    EvaluateItemResult, EvaluateItemScratch, EvaluateOptionsRaw, MatchingRecipeDecision, PreparedRule,
+    SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, SafeguardCollectedCandidateOut,
     SafeguardCollectedSnapshotOut,
-    PreparedRule,
 };
 pub use rule_postprocess::{
-    flatten_rule_batches_with_total_limit_core,
-    build_final_sell_rules_core,
-    compute_merged_rules_core,
-    build_generated_rules_core,
-    finish_merge_with_generated,
-    merge_safeguard_injected_rules_core_fn,
-    dedupe_hsf_rules_for_export_core,
-    finalize_generated_rules_core,
+    build_final_sell_rules_core, build_generated_rules_core, compute_merged_rules_core,
+    dedupe_hsf_rules_for_export_core, finalize_generated_rules_core, finish_merge_with_generated,
+    flatten_rule_batches_with_total_limit_core, merge_safeguard_injected_rules_core_fn,
 };
-pub use auto_rarity_runtime::{
-    resolve_auto_rarity_code_for_builder_core,
-    expand_auto_flex_rarity_branches_core,
-    AutoFlexRarityRecipeIn,
+pub use safeguards::fast_path_types::{SafeguardCollectRowFastIn, SafeguardWasmCandidateFastIn};
+pub use safeguards::{
+    build_safeguard_rules_core, build_safeguard_rules_core_typed, collect_and_compute_safeguard_protection_core,
+    compute_safeguard_protection_core_pub, compute_safeguard_protection_from_collected_core,
+    hash_safeguard_combination_core, normalize_safeguard_expected_bucket_domain_core, safeguard_bucket_key_core,
+    safeguard_count_key_core, safeguard_item_key_core, sort_safeguard_combination_core, sort_safeguard_substats_core,
+    SafeguardWasmBucketKeyArtifactIn, SafeguardWasmCountKeyArtifactIn, SafeguardWasmExpectedBucketDomainIn,
+    SafeguardWasmItemKeyArtifactIn,
 };
 pub use safeguards::{
-    build_safeguard_rules_core,
-    SafeguardWasmExpectedBucketDomainIn,
-    SafeguardWasmCountKeyArtifactIn,
-    SafeguardWasmItemKeyArtifactIn,
-    SafeguardWasmBucketKeyArtifactIn,
-    compute_safeguard_protection_core_pub,
-    compute_safeguard_protection_from_collected_core,
-    collect_and_compute_safeguard_protection_core,
-    normalize_safeguard_expected_bucket_domain_core,
-    hash_safeguard_combination_core,
-    sort_safeguard_substats_core,
-    sort_safeguard_combination_core,
-    build_safeguard_rules_core_typed,
-    safeguard_count_key_core,
-    safeguard_item_key_core,
-    safeguard_bucket_key_core,
-};
-pub use safeguards::fast_path_types::{
-    SafeguardCollectRowFastIn,
-    SafeguardWasmCandidateFastIn,
+    safeguard_bucket_key_from_parts, safeguard_hash_combination, safeguard_normalize_set_selections,
+    safeguard_normalize_substat_match, safeguard_parse_collect_rows_payload, safeguard_resolve_count_mode,
+    score_safeguard_candidates_for_preview_core, ImprovementChanceThresholdIn, SafeguardWasmArtifactIn,
+    SafeguardWasmCandidateOut, SafeguardWasmCombination, SafeguardWasmCountMode, SafeguardWasmExpectedBucketsPayloadIn,
+    SafeguardWasmGroupIn, SafeguardWasmMetasetIn, SafeguardWasmResolvedRuleOut, SafeguardWasmRuleIn,
+    SafeguardWasmScorePreviewIn, SafeguardWasmSetSelection, SafeguardWasmSnapshotOut,
 };
 // Group authority: TS and the native DLL both resolve group runs through these.
-pub use safeguards::groups::{
-    resolve_safeguard_groups,
-    SafeguardGroupEntryIn,
-    SafeguardGroupsOut,
-};
-pub use safeguards::improvement_chance::{
-    compute_improvement_chance_core,
-    ImprovementChanceDebug,
-    ImprovementChanceEntry,
-    ImprovementChancePerfDiag,
-    ImprovementChanceRuleEntry,
-};
 pub use hsf_builder_execution::{
-    prepare_hsf_builder_recipe_core_fn,
-    build_hsf_rules_runtime_core_fn,
-    PrepareHsfBuilderRecipeIn,
-    PrepareHsfBuilderRecipeOut,
+    build_hsf_rules_runtime_core_fn, prepare_hsf_builder_recipe_core_fn, BuildHsfRulesRuntimeIn,
+    ExecuteHsfBuilderRuntimeOut, PrepareHsfBuilderRecipeIn, PrepareHsfBuilderRecipeOut,
     PrepareHsfBuilderTargetEntryOut,
-    BuildHsfRulesRuntimeIn,
-    ExecuteHsfBuilderRuntimeOut,
-};
-pub use sfc_reader::{
-    parse_sfc,
-    SfcParsed,
-    ReadableRecipeParsed,
-    SubstatTargetTableIn,
 };
 pub use recipe_builder::build_hsf_rules_for_recipe;
+pub use safeguards::groups::{resolve_safeguard_groups, SafeguardGroupEntryIn, SafeguardGroupsOut};
+pub use safeguards::improvement_chance::{
+    compute_improvement_chance_core, ImprovementChanceDebug, ImprovementChanceEntry, ImprovementChancePerfDiag,
+    ImprovementChanceRuleEntry,
+};
+pub use sfc_reader::{parse_sfc, ReadableRecipeParsed, SfcParsed, SubstatTargetTableIn};
 
 pub const RULE_SOURCE_HSF: &str = "hsf";
 pub const RULE_SOURCE_SFC: &str = "sfc";
@@ -411,9 +350,7 @@ impl<'de> serde::de::Visitor<'de> for OptionSubValuesVisitor {
 // Vec-based variant for TestItemRaw.sub_values so the hot matcher path uses
 // a linear scan instead of BTreeMap lookups (≤4 substats per item).
 // Builds directly into Vec without an intermediate BTreeMap allocation.
-pub fn deserialize_sub_values_vec<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<(i64, f64)>>, D::Error>
+pub fn deserialize_sub_values_vec<'de, D>(deserializer: D) -> Result<Option<Vec<(i64, f64)>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -422,9 +359,7 @@ where
 
 // Deserialize object-keyed maps into numeric-variant maps once at the boundary.
 // Invalid keys are skipped so malformed entries remain non-fatal by design.
-pub fn deserialize_i64_key_map<'de, D, V>(
-    deserializer: D,
-) -> Result<BTreeMap<i64, V>, D::Error>
+pub fn deserialize_i64_key_map<'de, D, V>(deserializer: D) -> Result<BTreeMap<i64, V>, D::Error>
 where
     D: serde::Deserializer<'de>,
     V: Deserialize<'de>,
@@ -438,10 +373,7 @@ where
 
 // Serialize BTreeMap<i64, V> as a string-keyed map so serialize_maps_as_objects
 // can convert it to a plain JS object.  Paired with deserialize_i64_key_map.
-pub fn serialize_i64_key_map<S, V>(
-    map: &BTreeMap<i64, V>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize_i64_key_map<S, V>(map: &BTreeMap<i64, V>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
     V: serde::Serialize,
@@ -622,7 +554,6 @@ pub struct GeneratedRuleEntry {
     pub original_idx: i64,
 }
 
-
 // Stateful engine keeps bucketed prepared rules + mode gating table.
 // Rules are bucketed by artifact slot at configure time for fast per-item evaluation:
 // shared rules (artifact_types empty) apply to every item; per_slot rules apply only
@@ -736,7 +667,6 @@ pub fn auto_rarity_count_levels_up_to_mask(mask: i64, ceiling: i64) -> i64 {
     auto_rarity_runtime::auto_rarity_count_levels_up_to_mask(mask, ceiling)
 }
 
-
 // Shared number-ish coercer accepts number/string/bool payloads.
 // Keep this behavior centralized so export and safeguard paths stay aligned.
 pub fn numberish_to_f64(value: Option<&serde_json::Value>) -> Option<f64> {
@@ -760,10 +690,7 @@ pub fn sorted_unique_i64(values: &[i64]) -> Vec<i64> {
 // Keep optional-array normalization centralized at crate root.
 // This preserves one path for `None` -> empty plus sorted+unique semantics.
 pub fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
-    values
-        .as_ref()
-        .map(|raw| sorted_unique_i64(raw))
-        .unwrap_or_default()
+    values.as_ref().map(|raw| sorted_unique_i64(raw)).unwrap_or_default()
 }
 
 // Convert HSF main stat tuple to unified StatVariant encoding.
@@ -825,7 +752,6 @@ pub fn floor_number_or_zero(value: Option<f64>) -> i64 {
     }
     numeric.floor() as i64
 }
-
 
 // Keep level ordering aligned with merge.ts.
 pub fn level_order_value(level: Option<i64>) -> i64 {
@@ -996,9 +922,7 @@ pub fn resolve_safeguard_rules_with_metasets_core(
                 .ignore_equipped_in_vault
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT),
             substats: rule.substats.clone().unwrap_or_default(),
-            substat_match: safeguard_normalize_substat_match(
-                rule.substat_match.as_deref().unwrap_or(""),
-            ),
+            substat_match: safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or("")),
             substat_weights: rule
                 .substat_weights
                 .clone()
@@ -1044,10 +968,7 @@ pub fn finalize_builder_rules_core(
     }
     // Reuse the existing builder obsolete detector for SSOT pruning semantics.
     let obsolete = rule_dedupe::collect_builder_pruning_obsolete_entries(&rules);
-    let obsolete_indices = obsolete
-        .into_iter()
-        .map(|entry| entry.index)
-        .collect::<HashSet<_>>();
+    let obsolete_indices = obsolete.into_iter().map(|entry| entry.index).collect::<HashSet<_>>();
 
     // Keep metadata and rules aligned while pruning.
     let mut paired = Vec::<BuilderFinalizeEntry>::new();
@@ -1091,7 +1012,12 @@ pub fn configure_engine(raw_rules: Vec<RuleRaw>, recipe_modes: Vec<String>) {
     // would force a re-store / re-cache on the very next call.
     let (existing_rows, existing_generated, existing_sg_rules, existing_sg_enabled) =
         ENGINE_STATE.with(|state| match state.borrow_mut().take() {
-            Some(s) => (s.stored_rows, s.cached_generated_rules, s.cached_safeguard_rules, s.cached_safeguard_enabled),
+            Some(s) => (
+                s.stored_rows,
+                s.cached_generated_rules,
+                s.cached_safeguard_rules,
+                s.cached_safeguard_enabled,
+            ),
             None => (None, None, None, false),
         });
     // Old BucketedRules is now freed; allocate the new one into the recycled space.
@@ -1149,12 +1075,13 @@ pub fn cache_generated_rules_engine(
 // on miss. Clone (not move) so the cache survives for subsequent pushes.
 pub fn cached_merge_inputs_engine() -> Option<(Vec<RuleRaw>, Vec<SafeguardWasmRuleIn>, bool)> {
     ENGINE_STATE.with(|state| {
-        state.borrow().as_ref().and_then(|e| {
-            match (&e.cached_generated_rules, &e.cached_safeguard_rules) {
+        state
+            .borrow()
+            .as_ref()
+            .and_then(|e| match (&e.cached_generated_rules, &e.cached_safeguard_rules) {
                 (Some(g), Some(sr)) => Some((g.clone(), sr.clone(), e.cached_safeguard_enabled)),
                 _ => None,
-            }
-        })
+            })
     })
 }
 
@@ -1257,15 +1184,12 @@ pub fn evaluate_engine(
         let prepared_options = prepare_evaluate_options(&options);
         // Optional baseline path excludes keep-override sources when primary
         // first-match came from those sources.
-        let baseline_options = options
-            .baseline_exclude_sources
-            .as_ref()
-            .map(|sources| {
-                let mut cloned = options.clone();
-                cloned.exclude_sources = Some(sources.clone());
-                cloned.baseline_exclude_sources = None;
-                prepare_evaluate_options(&cloned)
-            });
+        let baseline_options = options.baseline_exclude_sources.as_ref().map(|sources| {
+            let mut cloned = options.clone();
+            cloned.exclude_sources = Some(sources.clone());
+            cloned.baseline_exclude_sources = None;
+            prepare_evaluate_options(&cloned)
+        });
 
         // Shared scratch reused across all items to avoid per-item HashSet/BTreeMap
         // allocations in the evaluate_item hot loop.
@@ -1284,8 +1208,7 @@ pub fn evaluate_engine(
                 &mut scratch,
             );
             // Extract recipe data from scratch before any second call overwrites it.
-            let matching_recipe_indices: Vec<i64> =
-                scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
+            let matching_recipe_indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
             let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
                 .recipe_matches
                 .iter()
@@ -1298,8 +1221,7 @@ pub fn evaluate_engine(
             let mut resolved_first_non_excluded = first_non_excluded;
             if let Some(baseline) = baseline_options.as_ref() {
                 // is_keep_override_source is embedded in EvalMatch; no rule lookup needed.
-                let needs_baseline =
-                    first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
+                let needs_baseline = first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     // Second call overwrites scratch; recipe data already extracted above.
                     let (_, baseline_non_excluded) = evaluate_item(
@@ -1391,23 +1313,18 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
 
         // Prepare evaluate options once; baseline handles keep-override source exclusions.
         let prepared_options = prepare_evaluate_options(&options);
-        let baseline_options = options
-            .baseline_exclude_sources
-            .as_ref()
-            .map(|sources| {
-                let mut cloned = options.clone();
-                cloned.exclude_sources = Some(sources.clone());
-                cloned.baseline_exclude_sources = None;
-                prepare_evaluate_options(&cloned)
-            });
+        let baseline_options = options.baseline_exclude_sources.as_ref().map(|sources| {
+            let mut cloned = options.clone();
+            cloned.exclude_sources = Some(sources.clone());
+            cloned.baseline_exclude_sources = None;
+            prepare_evaluate_options(&cloned)
+        });
         let ignore_indices = ignore_safeguard_recipe_indices.unwrap_or_default();
 
         // Per-call sidecar holds evaluation base_match results without mutating stored rows.
         // One entry per row: None = no match (item sold); Some(m) = base match for candidate
         // resolution. Passed to collect_safeguard_candidates_core instead of row.base_match.
-        let mut base_matches = Vec::<Option<SafeguardCandidateResolveBaseMatchIn>>::with_capacity(
-            collect_rows.len(),
-        );
+        let mut base_matches = Vec::<Option<SafeguardCandidateResolveBaseMatchIn>>::with_capacity(collect_rows.len());
 
         // Shared scratch reused across items to avoid per-row HashSet/BTreeMap allocations.
         let mut scratch = EvaluateItemScratch::new();
@@ -1426,8 +1343,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
                 &mut scratch,
             );
             // Extract recipe data before any baseline call overwrites scratch.
-            let matching_recipe_indices: Vec<i64> =
-                scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
+            let matching_recipe_indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
             let matching_recipe_decisions: Vec<MatchingRecipeDecision> = scratch
                 .recipe_matches
                 .iter()
@@ -1443,8 +1359,7 @@ pub fn evaluate_engine_and_collect_safeguard_protection(
             let mut resolved_first_non_excluded = first_non_excluded;
             if let Some(baseline) = baseline_options.as_ref() {
                 // is_keep_override_source is embedded in EvalMatch; no rule lookup needed.
-                let needs_baseline =
-                    first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
+                let needs_baseline = first_match.map(|m| m.is_keep_override_source).unwrap_or(false);
                 if needs_baseline {
                     let (_, baseline_non_excluded) = evaluate_item(
                         shared,
@@ -1523,9 +1438,7 @@ pub fn compute_improvement_chance_engine(
 ) -> Result<(Vec<ImprovementChanceEntry>, Option<ImprovementChancePerfDiag>), String> {
     ENGINE_STATE.with(|state| {
         let guard = state.borrow();
-        let engine = guard
-            .as_ref()
-            .ok_or("WASM rule engine is not configured")?;
+        let engine = guard.as_ref().ok_or("WASM rule engine is not configured")?;
         let rows = engine
             .stored_rows
             .as_ref()
@@ -1694,7 +1607,12 @@ pub fn emit_hsf_rules_for_distributions_core(
         input
             .main_choices
             .iter()
-            .filter(|main_choice| !input.substats.iter().any(|sub| emit_hsf_sub_equals_main(sub, main_choice)))
+            .filter(|main_choice| {
+                !input
+                    .substats
+                    .iter()
+                    .any(|sub| emit_hsf_sub_equals_main(sub, main_choice))
+            })
             .cloned()
             .collect::<Vec<_>>()
     };
@@ -1877,10 +1795,7 @@ pub fn emit_hsf_rules_for_filtered_distributions_compact_core(
         .iter()
         .map(|value| if *value < 0 { None } else { Some(*value) })
         .collect::<Vec<_>>();
-    let locked_mask_bool = widened_locked_mask
-        .iter()
-        .map(|value| *value != 0)
-        .collect::<Vec<_>>();
+    let locked_mask_bool = widened_locked_mask.iter().map(|value| *value != 0).collect::<Vec<_>>();
     let filter_input = hsf_distribution_runtime::FilterRollDistributionsIn {
         dimensions: input.dimensions,
         total: input.total,

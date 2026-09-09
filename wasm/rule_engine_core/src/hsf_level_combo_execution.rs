@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
 use crate::build_hsf_presence_only_rules_core;
 use crate::emit_hsf_rules_for_distributions_core;
 use crate::hsf_combo_runtime::execute_hsf_combo_runtime_core;
@@ -95,9 +94,7 @@ fn resolve_collapse_mode(input: &ExecuteHsfLevelComboIn) -> Result<CollapseMode,
     }
 
     // Keep previous dev guard parity: additions for non-rare/epic collapse are invalid.
-    if input.rarity_code != RARITY_CODE_EPIC
-        && input.rarity_code != RARITY_CODE_RARE
-        && input.addition_levels_count > 0
+    if input.rarity_code != RARITY_CODE_EPIC && input.rarity_code != RARITY_CODE_RARE && input.addition_levels_count > 0
     {
         return Err("Factory minima collapse triggered for non-rare/epic rarity with additions.".to_string());
     }
@@ -111,10 +108,7 @@ fn resolve_collapse_mode(input: &ExecuteHsfLevelComboIn) -> Result<CollapseMode,
 
 // Emit factory-minima row with the shared distribution->rule emitter core.
 // This keeps main/substat exclusion semantics aligned with normal emissions.
-fn emit_factory_minima_rules(
-    input: &ExecuteHsfLevelComboIn,
-    level: i64,
-) -> Vec<RuleRaw> {
+fn emit_factory_minima_rules(input: &ExecuteHsfLevelComboIn, level: i64) -> Vec<RuleRaw> {
     let width = input.combo_profile.substats.len();
     let emit_payload = EmitHsfRulesForDistributionsIn {
         base_rule: {

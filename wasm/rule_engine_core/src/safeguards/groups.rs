@@ -58,11 +58,7 @@ fn effective_group_id(entry: &SafeguardGroupEntryIn) -> Option<&str> {
     if entry.separator {
         return None;
     }
-    entry
-        .group_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
+    entry.group_id.as_deref().map(str::trim).filter(|id| !id.is_empty())
 }
 
 /// Resolves the contiguous runs of a safeguard array in one pass.
@@ -98,7 +94,11 @@ pub fn resolve_safeguard_groups(entries: &[SafeguardGroupEntryIn]) -> SafeguardG
         has_groups = true;
         cursor = end;
     }
-    SafeguardGroupsOut { run_starts, run_lens, has_groups }
+    SafeguardGroupsOut {
+        run_starts,
+        run_lens,
+        has_groups,
+    }
 }
 
 #[cfg(test)]
@@ -107,17 +107,26 @@ mod groups_tests {
 
     // Builds an ungrouped rule entry.
     fn rule() -> SafeguardGroupEntryIn {
-        SafeguardGroupEntryIn { group_id: None, separator: false }
+        SafeguardGroupEntryIn {
+            group_id: None,
+            separator: false,
+        }
     }
 
     // Builds a rule entry belonging to the given group.
     fn member(id: &str) -> SafeguardGroupEntryIn {
-        SafeguardGroupEntryIn { group_id: Some(id.to_string()), separator: false }
+        SafeguardGroupEntryIn {
+            group_id: Some(id.to_string()),
+            separator: false,
+        }
     }
 
     // Builds a divider, optionally carrying a stray group id a hand-edited file might have.
     fn separator(id: Option<&str>) -> SafeguardGroupEntryIn {
-        SafeguardGroupEntryIn { group_id: id.map(str::to_string), separator: true }
+        SafeguardGroupEntryIn {
+            group_id: id.map(str::to_string),
+            separator: true,
+        }
     }
 
     #[test]
@@ -164,7 +173,10 @@ mod groups_tests {
 
     #[test]
     fn blank_ids_are_ungrouped() {
-        let blank = SafeguardGroupEntryIn { group_id: Some("  ".to_string()), separator: false };
+        let blank = SafeguardGroupEntryIn {
+            group_id: Some("  ".to_string()),
+            separator: false,
+        };
         let out = resolve_safeguard_groups(&[blank, member("a")]);
         assert_eq!(out.run_starts, vec![-1, 1]);
     }

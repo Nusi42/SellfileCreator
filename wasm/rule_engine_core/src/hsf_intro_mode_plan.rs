@@ -130,7 +130,12 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
                 return BuildHsfIntroModePlanOut { steps };
             }
             let locked_applied = if bool_at(&input.locked_mask, 0) { applied } else { 0 };
-            if !can_satisfy_locked(input.locked_min_active, input.locked_min_value, locked_applied, remaining) {
+            if !can_satisfy_locked(
+                input.locked_min_active,
+                input.locked_min_value,
+                locked_applied,
+                remaining,
+            ) {
                 return BuildHsfIntroModePlanOut { steps };
             }
         }
@@ -159,7 +164,12 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
             return BuildHsfIntroModePlanOut { steps };
         }
         let locked_applied = if bool_at(&input.locked_mask, 0) { applied } else { 0 };
-        if !can_satisfy_locked(input.locked_min_active, input.locked_min_value, locked_applied, remaining) {
+        if !can_satisfy_locked(
+            input.locked_min_active,
+            input.locked_min_value,
+            locked_applied,
+            remaining,
+        ) {
             return BuildHsfIntroModePlanOut { steps };
         }
         steps.push(HsfIntroModePlanStepOut::EmitRows {
@@ -246,8 +256,8 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
             return BuildHsfIntroModePlanOut { steps };
         }
         if input.sum_min <= input.avail {
-            let needs_aggregate_rows = (input.global_min > 0 && input.global_min > input.sum_min_targeted)
-                || input.needs_locked_aggregate;
+            let needs_aggregate_rows =
+                (input.global_min > 0 && input.global_min > input.sum_min_targeted) || input.needs_locked_aggregate;
             if needs_aggregate_rows {
                 steps.push(HsfIntroModePlanStepOut::EmitFilteredSelected {
                     min_floors: Some(input.mins.clone()),
@@ -341,8 +351,8 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         return BuildHsfIntroModePlanOut { steps };
     }
     if input.sum_min <= input.avail {
-        let needs_aggregate_rows = (input.global_min > 0 && input.global_min > input.sum_min_targeted)
-            || input.needs_locked_aggregate;
+        let needs_aggregate_rows =
+            (input.global_min > 0 && input.global_min > input.sum_min_targeted) || input.needs_locked_aggregate;
         if needs_aggregate_rows {
             let need_target_now = input.global_min.min((input.avail - input.min_non_target_now).max(0));
             steps.push(HsfIntroModePlanStepOut::EmitFilteredAllowOther {
@@ -378,7 +388,11 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         // FeasibleByTarget (mode=2): locked substats need locked_min_value by the final milestone.
         // Budget is num_target - avail (remaining milestones) — same logic as global_remaining.
         locked_mode: if input.locked_min_active { 2 } else { 0 },
-        locked_remaining: if input.locked_min_active { (input.num_target - input.avail).max(0) } else { 0 },
+        locked_remaining: if input.locked_min_active {
+            (input.num_target - input.avail).max(0)
+        } else {
+            0
+        },
         fallback_presence_on_empty: true,
     });
     BuildHsfIntroModePlanOut { steps }

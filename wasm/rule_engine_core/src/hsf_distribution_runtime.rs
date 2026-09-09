@@ -23,12 +23,7 @@ pub(crate) fn parse_distribution_mode(raw: i32) -> DistributionAggregateMode {
 }
 
 // Apply aggregate gate semantics shared by global and locked minimum checks.
-fn distribution_sum_passes_mode(
-    sum: i32,
-    required_min: i32,
-    remaining: i32,
-    mode: DistributionAggregateMode,
-) -> bool {
+fn distribution_sum_passes_mode(sum: i32, required_min: i32, remaining: i32, mode: DistributionAggregateMode) -> bool {
     if required_min <= 0 {
         return true;
     }
@@ -47,13 +42,7 @@ fn distribution_sum_passes_mode(
 }
 
 // Enumerate combinations by index order to mirror TS helper ordering.
-fn enumerate_combinations_i32(
-    values: &[i32],
-    pick: usize,
-    start: usize,
-    path: &mut Vec<i32>,
-    out: &mut Vec<Vec<i32>>,
-) {
+fn enumerate_combinations_i32(values: &[i32], pick: usize, start: usize, path: &mut Vec<i32>, out: &mut Vec<Vec<i32>>) {
     if path.len() == pick {
         out.push(path.clone());
         return;
@@ -187,12 +176,7 @@ fn backtrack_filtered(
                 return;
             }
         }
-        if !distribution_sum_passes_mode(
-            targeted_sum,
-            ctx.global_min,
-            ctx.global_remaining,
-            ctx.global_filter,
-        ) {
+        if !distribution_sum_passes_mode(targeted_sum, ctx.global_min, ctx.global_remaining, ctx.global_filter) {
             return;
         }
         let next_deficit = state.deficit_sum
@@ -211,12 +195,7 @@ fn backtrack_filtered(
             } else {
                 0
             };
-        if !distribution_sum_passes_mode(
-            locked_sum,
-            ctx.locked_min,
-            ctx.locked_remaining,
-            ctx.locked_filter,
-        ) {
+        if !distribution_sum_passes_mode(locked_sum, ctx.locked_min, ctx.locked_remaining, ctx.locked_filter) {
             return;
         }
         let mut row = acc.clone();
@@ -429,14 +408,7 @@ fn enumerate_filtered_bounded_rows_with_offset_i32(
     let mut value = 0;
     while value <= max_take {
         path.push(value);
-        enumerate_filtered_bounded_rows_with_offset_i32(
-            idx + 1,
-            total - value,
-            path,
-            out,
-            caps,
-            ctx,
-        );
+        enumerate_filtered_bounded_rows_with_offset_i32(idx + 1, total - value, path, out, caps, ctx);
         path.pop();
         value += 1;
     }
@@ -467,14 +439,7 @@ fn compute_filtered_bounded_rows_with_offset_i32(input: &FilteredBoundedRowsIn<'
         mins: input.mins,
         skip_optional_baseline: input.skip_optional_baseline,
     };
-    enumerate_filtered_bounded_rows_with_offset_i32(
-        0,
-        input.total,
-        &mut path,
-        &mut out,
-        input.caps,
-        &ctx,
-    );
+    enumerate_filtered_bounded_rows_with_offset_i32(0, input.total, &mut path, &mut out, input.caps, &ctx);
     out
 }
 
@@ -499,11 +464,7 @@ fn late_rows_build_need_now(
     for (idx, min_value) in mins.iter().copied().enumerate() {
         let cap = late_rows_resolve_cap(*max_caps.get(idx).unwrap_or(&FILTER_OPTION_NONE_I32));
         let any_flag = *any_flags.get(idx).unwrap_or(&0) != 0;
-        let need = if any_flag {
-            0
-        } else {
-            (min_value - remaining).max(0)
-        };
+        let need = if any_flag { 0 } else { (min_value - remaining).max(0) };
         // Over-cap need rows are infeasible and produce no candidates.
         if need > cap {
             return None;
@@ -522,12 +483,9 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
         return Vec::<Vec<i32>>::new();
     }
     // Need-now floors are shared across late branch modes.
-    let Some((need_now, sum_need)) = late_rows_build_need_now(
-        &input.mins,
-        &input.max_caps,
-        &input.any_flags,
-        input.remaining,
-    ) else {
+    let Some((need_now, sum_need)) =
+        late_rows_build_need_now(&input.mins, &input.max_caps, &input.any_flags, input.remaining)
+    else {
         return Vec::<Vec<i32>>::new();
     };
     let mode = input.mode.trim().to_ascii_lowercase();
@@ -554,9 +512,8 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
     } else {
         input.optional_mask.clone()
     };
-    let skip_optional_baseline = mode == "targeted"
-        && (m as i32 > input.min_target_count)
-        && optional_mask.iter().any(|flag| *flag != 0);
+    let skip_optional_baseline =
+        mode == "targeted" && (m as i32 > input.min_target_count) && optional_mask.iter().any(|flag| *flag != 0);
 
     if mode == "targeted" {
         // Targeted late branch allows additional room to satisfy aggregate floors.
@@ -647,9 +604,12 @@ pub(crate) fn build_hsf_late_bounded_rows_core(input: &BuildHsfLateBoundedRowsIn
     // CDMG%=2 (wildcard) → deficit = 1+1 = 2 > 1 → must be rejected.
     let budget = input.remaining.max(0);
     rows.retain(|row| {
-        let deficit: i32 = input.mins.iter().enumerate().map(|(idx, &min_i)| {
-            (min_i - row.get(idx).copied().unwrap_or(0)).max(0)
-        }).sum();
+        let deficit: i32 = input
+            .mins
+            .iter()
+            .enumerate()
+            .map(|(idx, &min_i)| (min_i - row.get(idx).copied().unwrap_or(0)).max(0))
+            .sum();
         deficit <= budget
     });
     rows
@@ -756,11 +716,7 @@ pub fn compute_intro_assignments_for_combo(
                         }
                         i += 1;
                     }
-                    let key = intro
-                        .iter()
-                        .map(i32::to_string)
-                        .collect::<Vec<_>>()
-                        .join(",");
+                    let key = intro.iter().map(i32::to_string).collect::<Vec<_>>().join(",");
                     if seen.insert(key) {
                         results.push(intro);
                     }

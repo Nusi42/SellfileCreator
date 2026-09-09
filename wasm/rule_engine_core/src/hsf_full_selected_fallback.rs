@@ -68,10 +68,7 @@ pub(crate) struct ExecuteHsfFullSelectedFallbackIn {
 // Resolve precomputed base values by variant id; missing entries fail closed to zero.
 // Selected vectors are already filtered in TS, so missing keys are unexpected.
 fn base_for_variant(base_by_variant: &BTreeMap<i64, i64>, variant: i64) -> i64 {
-    base_by_variant
-        .get(&variant)
-        .copied()
-        .unwrap_or(0)
+    base_by_variant.get(&variant).copied().unwrap_or(0)
 }
 
 // Keep top-level gating identical to the TS branch this helper replaces.
@@ -182,7 +179,11 @@ pub(crate) fn execute_hsf_full_selected_fallback_core(input: &ExecuteHsfFullSele
         aggregate_min_value: input.aggregate_min_value,
         any_min: combo_vectors.any_min,
         mins: combo_vectors.mins.iter().map(|value| *value as i64).collect::<Vec<_>>(),
-        any_flags: combo_vectors.any_flags.iter().map(|value| *value != 0).collect::<Vec<_>>(),
+        any_flags: combo_vectors
+            .any_flags
+            .iter()
+            .map(|value| *value != 0)
+            .collect::<Vec<_>>(),
         sum_min: combo_vectors.sum_min as i64,
         impossible_min_max: combo_vectors.impossible_min_max,
         base_by_variant: input.base_by_variant.clone(),

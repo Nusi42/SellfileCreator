@@ -6,28 +6,26 @@ use serde::{Deserialize, Serialize};
 // with their TS consumers.  See matcher_evaluator.rs for full context.
 use ts_rs::TS;
 
-
-
 // Per-variant target quantization + the display -> HSF wire conversion, both of
 // which key off the stat's wire scale (1 classic, 100 anomalous).
-use crate::generated_domain_constants::{
-    hsf_value_scale_for_variant, is_anomalous_substat_variant, ANOMALOUS_MIN_TARGET_VALUE, ORE_ANY,
-};
-use crate::hsf_builder_core::{scale_to_wire_units, to_hsf_wire_value};
 use crate::build_hsf_preflight_flags_core;
 use crate::build_hsf_presence_only_rules_core;
 use crate::build_hsf_rarity_branches_core;
-use crate::BuildHsfPreflightFlagsIn;
-use crate::BuildHsfPresenceOnlyRulesIn;
-use crate::BuildHsfRarityBranchesIn;
 use crate::finalize_builder_rules_core;
+use crate::generated_domain_constants::{
+    hsf_value_scale_for_variant, is_anomalous_substat_variant, ANOMALOUS_MIN_TARGET_VALUE, ORE_ANY,
+};
 use crate::hsf_branch_execution::execute_hsf_branch_runtime_core;
 use crate::hsf_branch_execution::ExecuteHsfBranchRuntimeIn;
+use crate::hsf_builder_core::{scale_to_wire_units, to_hsf_wire_value};
 use crate::level_order_value;
 use crate::safeguards::safeguard_variant_to_sub;
 use crate::sort_artifact_types_in_place;
 use crate::BuildHsfComboBoundsIn;
 use crate::BuildHsfComboTargetEntryIn;
+use crate::BuildHsfPreflightFlagsIn;
+use crate::BuildHsfPresenceOnlyRulesIn;
+use crate::BuildHsfRarityBranchesIn;
 use crate::BuilderFinalizeEmissionMetaIn;
 use crate::EmitHsfMainChoiceIn;
 use crate::RuleRaw;
@@ -38,16 +36,19 @@ use crate::STAT_ID_ANY;
 
 // Build the RuleSubRaw entries for "not" substats once per runtime call.
 fn build_not_substat_entries(not_substats_v: &[i32]) -> Vec<RuleSubRaw> {
-    not_substats_v.iter().map(|&variant| {
-        let (sub_id, sub_is_flat) = safeguard_variant_to_sub(variant as i64);
-        RuleSubRaw {
-            ID: Some(sub_id),
-            Value: Some(0.0),
-            IsFlat: Some(sub_is_flat),
-            NotAvailable: Some(false),
-            Condition: Some(std::sync::Arc::from("¬")),
-        }
-    }).collect()
+    not_substats_v
+        .iter()
+        .map(|&variant| {
+            let (sub_id, sub_is_flat) = safeguard_variant_to_sub(variant as i64);
+            RuleSubRaw {
+                ID: Some(sub_id),
+                Value: Some(0.0),
+                IsFlat: Some(sub_is_flat),
+                NotAvailable: Some(false),
+                Condition: Some(std::sync::Arc::from("¬")),
+            }
+        })
+        .collect()
 }
 
 // Place "not" substat entries into a rule by replacing wildcard slots (ID == -1).
@@ -185,7 +186,11 @@ fn normalize_target_override_value(value: Option<f64>, variant: i64) -> Option<f
 /// The smallest target the app supports for a stat, in display units. Mirrors
 /// minTargetValueForVariant in src/lib/hsfBuilder/targets.ts.
 pub(crate) fn min_target_value_for_variant(variant: i64) -> f64 {
-    if is_anomalous_substat_variant(variant) { ANOMALOUS_MIN_TARGET_VALUE } else { 1.0 }
+    if is_anomalous_substat_variant(variant) {
+        ANOMALOUS_MIN_TARGET_VALUE
+    } else {
+        1.0
+    }
 }
 
 // Priority-sort helper mirrors compareVariants by using caller-provided order and
@@ -207,9 +212,8 @@ fn sort_variants_by_priority(values: &mut [i64], variant_priority: &[i64]) {
 // in Rust so buildHsfRules can avoid repeated TS-side loops and map plumbing.
 fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> PrepareHsfBuilderRecipeOut {
     // Explicit substats/fixed/bounds indicate the user requested substat filters.
-    let had_requested_substats = !input.substats_v.is_empty()
-        || !input.fixed_substats_v.is_empty()
-        || !input.substat_roll_bounds_v.is_empty();
+    let had_requested_substats =
+        !input.substats_v.is_empty() || !input.fixed_substats_v.is_empty() || !input.substat_roll_bounds_v.is_empty();
     // Allowed ids are precomputed in TS and reused here for stable filtering.
     let allowed = input.allowed_substats.iter().copied().collect::<HashSet<_>>();
     let mut selected_pool_v = input
@@ -241,7 +245,9 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
         .collect::<Vec<_>>();
     // Clamp target counts to HSF's four-substat maximum.
     let locked_count = required_pool.len() as i32;
-    let min_target_count = (input.min_count as i32).max(locked_count).clamp(0, HSF_SUBSTAT_SLOT_COUNT as i32);
+    let min_target_count = (input.min_count as i32)
+        .max(locked_count)
+        .clamp(0, HSF_SUBSTAT_SLOT_COUNT as i32);
     let max_selectable_count = (required_pool.len() + optional_pool.len()).min(HSF_SUBSTAT_SLOT_COUNT) as i32;
     let flex_active = input.auto_substat_flex && input.flex_eligible;
     let max_target_count = if flex_active {
@@ -310,7 +316,11 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
             .into_iter()
             .map(|entry| normalize_target_override_value(entry, *variant))
             .collect::<Vec<_>>();
-        while normalized_increments.last().map(|entry| entry.is_none()).unwrap_or(false) {
+        while normalized_increments
+            .last()
+            .map(|entry| entry.is_none())
+            .unwrap_or(false)
+        {
             normalized_increments.pop();
         }
         let has_increments = normalized_increments.iter().any(|entry| entry.is_some());
@@ -350,7 +360,6 @@ fn prepare_hsf_builder_recipe_core(input: &PrepareHsfBuilderRecipeIn) -> Prepare
 pub fn prepare_hsf_builder_recipe_core_fn(input: &PrepareHsfBuilderRecipeIn) -> PrepareHsfBuilderRecipeOut {
     prepare_hsf_builder_recipe_core(input)
 }
-
 
 // Branch descriptor mirrors TS rarity branch objects for one-call runtime.
 #[derive(Debug, Deserialize, Clone)]
@@ -596,7 +605,6 @@ fn canonical_sorted_numeric(values: Option<&Vec<i64>>) -> Vec<i64> {
     normalized
 }
 
-
 // Substat tuples mirror TS key dimensions while avoiding string concatenation.
 fn rule_substats_signature_key(substats: Option<&Vec<RuleSubRaw>>) -> Vec<BuilderSubstatSignatureKey> {
     substats
@@ -692,10 +700,7 @@ fn execute_hsf_builder_runtime_core(input: &ExecuteHsfBuilderRuntimeIn) -> Resul
                 emission_limit,
             );
             if limit_hit {
-                return Ok(ExecuteHsfBuilderRuntimeOut {
-                    rules,
-                    limit_hit: true,
-                });
+                return Ok(ExecuteHsfBuilderRuntimeOut { rules, limit_hit: true });
             }
         }
     }
@@ -723,12 +728,18 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
     // If "not" entries alone overflow 4 slots, no rule can be expressed.
     let not_count = not_substat_entries.len();
     if not_count > HSF_SUBSTAT_SLOT_COUNT {
-        return Ok(ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false });
+        return Ok(ExecuteHsfBuilderRuntimeOut {
+            rules: vec![],
+            limit_hit: false,
+        });
     }
     let available_positive_slots = (HSF_SUBSTAT_SLOT_COUNT - not_count) as i32;
     // If the minimum required positives can't fit alongside "not" substats, emit 0 rules.
     if !input.selected_pool_v.is_empty() && input.min_target_count > available_positive_slots {
-        return Ok(ExecuteHsfBuilderRuntimeOut { rules: vec![], limit_hit: false });
+        return Ok(ExecuteHsfBuilderRuntimeOut {
+            rules: vec![],
+            limit_hit: false,
+        });
     }
     // Cap max_target_count to prevent flex combos from consuming "not" substat slots.
     let effective_max_target_count = input.max_target_count.min(available_positive_slots);
@@ -757,10 +768,7 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
                 emission_limit,
             );
             if limit_hit {
-                return Ok(ExecuteHsfBuilderRuntimeOut {
-                    rules,
-                    limit_hit: true,
-                });
+                return Ok(ExecuteHsfBuilderRuntimeOut { rules, limit_hit: true });
             }
         }
         let finalized = finalize_builder_rules_core(rules, emission_meta)
@@ -854,4 +862,3 @@ fn build_hsf_rules_runtime_core(input: &BuildHsfRulesRuntimeIn) -> Result<Execut
 pub fn build_hsf_rules_runtime_core_fn(input: &BuildHsfRulesRuntimeIn) -> Result<ExecuteHsfBuilderRuntimeOut, String> {
     build_hsf_rules_runtime_core(input)
 }
-

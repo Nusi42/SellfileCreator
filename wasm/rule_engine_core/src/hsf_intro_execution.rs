@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
-use crate::hsf_intro_mode_plan::HsfIntroModePlanStepOut;
 use crate::emit_hsf_rules_for_distributions_core;
 use crate::hsf_distribution_runtime;
+use crate::hsf_intro_mode_plan::HsfIntroModePlanStepOut;
 use crate::BuildHsfLateBoundedRowsIn;
 use crate::EmitHsfRulesForDistributionsIn;
 use crate::RuleRaw;
@@ -64,7 +64,13 @@ fn widen_u8_with_zero(base: &[u8], width: usize) -> Vec<u8> {
 fn decode_optional_i32(values: &[i32]) -> Vec<Option<i32>> {
     values
         .iter()
-        .map(|value| if *value <= FILTER_OPTION_NONE_I32 { None } else { Some(*value) })
+        .map(|value| {
+            if *value <= FILTER_OPTION_NONE_I32 {
+                None
+            } else {
+                Some(*value)
+            }
+        })
         .collect::<Vec<_>>()
 }
 
@@ -75,8 +81,7 @@ fn decode_mask_bool(values: &[u8]) -> Vec<bool> {
 
 // Planner payload uses i64 for cross-language safety; runtime math uses i32.
 fn narrow_i64(value: i64) -> i32 {
-    value
-        .clamp(i32::MIN as i64, i32::MAX as i64) as i32
+    value.clamp(i32::MIN as i64, i32::MAX as i64) as i32
 }
 
 // Convert optional floor vectors to i32 right before filter-core calls.
@@ -86,8 +91,7 @@ fn narrow_optional_vec(values: Option<&[i64]>) -> Option<Vec<i32>> {
 
 // Convert row matrices from planner payload into i32 emission rows.
 fn narrow_rows(rows: &[Vec<i64>]) -> Vec<Vec<i32>> {
-    rows
-        .iter()
+    rows.iter()
         .map(|row| row.iter().map(|value| narrow_i64(*value)).collect::<Vec<_>>())
         .collect::<Vec<_>>()
 }
@@ -128,9 +132,7 @@ struct EmitFilteredRowsCompactIn<'a> {
 }
 
 // Shared filtered+emit helper mirrors compact filtered-emission behavior.
-fn emit_filtered_rows_compact(
-    input: &EmitFilteredRowsCompactIn<'_>,
-) -> Vec<RuleRaw> {
+fn emit_filtered_rows_compact(input: &EmitFilteredRowsCompactIn<'_>) -> Vec<RuleRaw> {
     if input.dimensions <= 0 || input.total < 0 {
         return Vec::<RuleRaw>::new();
     }
@@ -168,11 +170,7 @@ fn emit_filtered_rows_compact(
 }
 
 // Execute one intro timeline by replaying planner steps in-order.
-fn execute_intro_steps_for_timeline(
-    input: &ExecuteHsfIntroPlanIn,
-    timeline_caps: &[i32],
-    out: &mut Vec<RuleRaw>,
-) {
+fn execute_intro_steps_for_timeline(input: &ExecuteHsfIntroPlanIn, timeline_caps: &[i32], out: &mut Vec<RuleRaw>) {
     let base_max_caps = input.max_caps.clone();
     let base_targeted_mask = input.targeted_mask.clone();
     let base_locked_mask = input.locked_mask.clone();
@@ -243,9 +241,8 @@ fn execute_intro_steps_for_timeline(
                 let run = |include_virtual_sink: bool, out: &mut Vec<RuleRaw>| -> bool {
                     let min_floors_narrowed = narrow_optional_vec(min_floors.as_deref());
                     let deficit_floors_narrowed = narrow_optional_vec(deficit_floors.as_deref());
-                    let dims = input.m
-                        + if input.others_count > 0 { 1 } else { 0 }
-                        + if include_virtual_sink { 1 } else { 0 };
+                    let dims =
+                        input.m + if input.others_count > 0 { 1 } else { 0 } + if include_virtual_sink { 1 } else { 0 };
                     let filtered_input = EmitFilteredRowsCompactIn {
                         emit: &input.emit,
                         dimensions: dims,

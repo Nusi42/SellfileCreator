@@ -20,12 +20,10 @@
 //   src/lib/wasm/generated/rule_engine_dsim_bg.wasm
 //   src/lib/wasm/generated/rule_engine_dsim_bg.wasm.d.ts
 
+use rule_engine_core::wasm_merged_rules_wire_format::RuleRawWire;
+use rule_engine_core::{configure_engine, evaluate_engine, EvaluateValueInWire, RuleRaw};
 use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
-use rule_engine_core::{
-    configure_engine, evaluate_engine, EvaluateValueInWire, RuleRaw,
-};
-use rule_engine_core::wasm_merged_rules_wire_format::RuleRawWire;
 
 // Expose a version token so diagnostics can confirm the lean dsim binary is loaded
 // rather than the full pipeline binary.
@@ -75,8 +73,7 @@ pub fn configure_value(payload: &str) -> Result<JsValue, JsValue> {
 pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
     let input: EvaluateValueInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid evaluate-value payload: {error}")))?;
-    let results = evaluate_engine(input.items, input.options.unwrap_or_default())
-        .map_err(|error| JsValue::from_str(&error))?;
-    to_js_value(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
+    let results =
+        evaluate_engine(input.items, input.options.unwrap_or_default()).map_err(|error| JsValue::from_str(&error))?;
+    to_js_value(&results).map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
 }

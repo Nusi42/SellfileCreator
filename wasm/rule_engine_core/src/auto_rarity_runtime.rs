@@ -39,12 +39,12 @@ pub(crate) fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
 // substats.  GTE codes already share masks with their lower-bound concretes, so no mapping needed.
 pub(crate) fn rarity_for_schedule(code: i64) -> i64 {
     match code {
-        c if c == RARITY_CODE_LTE_UNCOMMON  => RARITY_CODE_UNCOMMON,
-        c if c == RARITY_CODE_LTE_RARE      => RARITY_CODE_RARE,
-        c if c == RARITY_CODE_LTE_EPIC      => RARITY_CODE_EPIC,
+        c if c == RARITY_CODE_LTE_UNCOMMON => RARITY_CODE_UNCOMMON,
+        c if c == RARITY_CODE_LTE_RARE => RARITY_CODE_RARE,
+        c if c == RARITY_CODE_LTE_EPIC => RARITY_CODE_EPIC,
         c if c == RARITY_CODE_LTE_LEGENDARY => RARITY_CODE_LEGENDARY,
-        c if c == RARITY_CODE_LTE_MYTHICAL  => RARITY_CODE_MYTHICAL,
-        _                                   => code,
+        c if c == RARITY_CODE_LTE_MYTHICAL => RARITY_CODE_MYTHICAL,
+        _ => code,
     }
 }
 
@@ -201,11 +201,7 @@ pub(crate) fn resolve_auto_rarity_code_core(
         .max(fixed_pool_v.len() as i64)
         .min(SUBSTAT_SLOT_COUNT);
     let presence_need = max_selectable_total.min(min_target_count);
-    let required_v = fixed_pool_v
-        .iter()
-        .copied()
-        .take(4)
-        .collect::<Vec<_>>();
+    let required_v = fixed_pool_v.iter().copied().take(4).collect::<Vec<_>>();
     let optional_pool_v = selected_pool_v
         .iter()
         .copied()
@@ -215,9 +211,7 @@ pub(crate) fn resolve_auto_rarity_code_core(
     // Parse per-substat mins from normalized bounds payload.
     let mut per_min = BTreeMap::<i64, i64>::new();
     for variant in &selected_pool_v {
-        let min_value = substat_roll_bounds_v
-            .get(variant)
-            .and_then(|entry| entry.min);
+        let min_value = substat_roll_bounds_v.get(variant).and_then(|entry| entry.min);
         per_min.insert(*variant, auto_rarity_clamp_roll_requirement(min_value));
     }
     let has_per_stat_min = per_min.values().any(|value| *value > 0);
@@ -354,7 +348,11 @@ pub(crate) fn resolve_auto_rarity_code_core(
         return apply_floor(candidate);
     }
     let roll_mask_myth = auto_rarity_roll_mask_for_code(RARITY_CODE_MYTHICAL);
-    let pre_myth = if auto_rarity_includes_mythical(RARITY_CODE_MYTHICAL) { 1 } else { 0 };
+    let pre_myth = if auto_rarity_includes_mythical(RARITY_CODE_MYTHICAL) {
+        1
+    } else {
+        0
+    };
     let rolls_up_to_16_myth = auto_rarity_count_levels_up_to_mask(roll_mask_myth, LEVEL_MILESTONE_16);
     let rolls_up_to_start_myth = auto_rarity_count_levels_up_to_mask(roll_mask_myth, min_level);
     let target_myth = if baseline_after_start {
@@ -484,7 +482,13 @@ pub struct AutoFlexRarityRecipeIn {
     #[ts(rename = "fsv")]
     pub fixed_substats_v: Vec<i64>,
     // deserialize_with parses string keys → i64; serialize_with reverses for output.
-    #[serde(rename = "srb", alias = "substatRollBoundsV", default, deserialize_with = "crate::deserialize_i64_key_map", serialize_with = "crate::serialize_i64_key_map")]
+    #[serde(
+        rename = "srb",
+        alias = "substatRollBoundsV",
+        default,
+        deserialize_with = "crate::deserialize_i64_key_map",
+        serialize_with = "crate::serialize_i64_key_map"
+    )]
     #[ts(rename = "srb")]
     pub substat_roll_bounds_v: BTreeMap<i64, AutoFlexRarityBoundsIn>,
     #[serde(rename = "ml", alias = "minLevel", default)]
@@ -497,7 +501,8 @@ pub struct AutoFlexRarityRecipeIn {
 
 // Normalize optional finite numeric fields using floor semantics.
 fn auto_flex_optional_i64(value: Option<f64>) -> Option<i64> {
-    value.filter(|numeric| numeric.is_finite())
+    value
+        .filter(|numeric| numeric.is_finite())
         .map(|numeric| numeric.floor() as i64)
 }
 
@@ -570,9 +575,8 @@ fn expand_auto_flex_rarity_branches_typed_core(
     let min_level = auto_flex_optional_i64(recipe.min_level).unwrap_or(LEVEL_MILESTONE_0);
     let max_level = auto_flex_optional_i64(recipe.max_level).unwrap_or(LEVEL_MILESTONE_16);
     let locked_only_count = clamp_builder_min_count(locked_count);
-    let configured_min_count = clamp_builder_min_count(
-        auto_flex_optional_i64(recipe.min_count).unwrap_or(locked_only_count),
-    );
+    let configured_min_count =
+        clamp_builder_min_count(auto_flex_optional_i64(recipe.min_count).unwrap_or(locked_only_count));
     let base_min_count = clamp_builder_min_count(configured_min_count.max(locked_only_count));
     let flex_target_total = clamp_builder_min_count(base_min_count.max(locked_only_count + 1));
 
@@ -626,7 +630,11 @@ fn expand_auto_flex_rarity_branches_typed_core(
     // Legendary-or-range branch mirrors TS fallback behavior.
     branches.push(build_branch(
         base_rarity_code.max(RARITY_CODE_GTE_LEGENDARY),
-        if aggregate_matches_locked { flex_target_total } else { base_min_count },
+        if aggregate_matches_locked {
+            flex_target_total
+        } else {
+            base_min_count
+        },
         None,
         None,
         !aggregate_matches_locked,
@@ -644,4 +652,3 @@ pub fn expand_auto_flex_rarity_branches_core(
     // Delegate to the typed core so builder and direct payload paths stay aligned.
     expand_auto_flex_rarity_branches_typed_core(recipe, base_rarity_code as i64)
 }
-

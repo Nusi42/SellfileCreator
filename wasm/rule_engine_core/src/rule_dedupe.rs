@@ -246,7 +246,9 @@ fn obsolete_coarse_key(rule: &RuleRaw) -> ObsoleteCoarseKey {
         faction: rule.Faction.unwrap_or(0),
         main_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
         // MainStatF is now Option<i64>; stringify to match template-literal key format.
-        main_f: rule.MainStatF.map_or(MAIN_STAT_F_DEFAULT_STR.to_string(), |v| v.to_string()),
+        main_f: rule
+            .MainStatF
+            .map_or(MAIN_STAT_F_DEFAULT_STR.to_string(), |v| v.to_string()),
         // Absent Ore means unconstrained, matching an explicit ORE_ANY.
         ore: rule.Ore.unwrap_or(ORE_ANY),
         sets: canon_array_key(rule.ArtifactSet.as_ref()),
@@ -256,17 +258,11 @@ fn obsolete_coarse_key(rule: &RuleRaw) -> ObsoleteCoarseKey {
 
 // Substat signature compares only identity/operator, never threshold values.
 fn obsolete_signature(subs: &[NormalizedSubstat]) -> Vec<NormalizedSubKey> {
-    subs.iter()
-        .map(|sub| sub.key.clone())
-        .collect::<Vec<_>>()
+    subs.iter().map(|sub| sub.key.clone()).collect::<Vec<_>>()
 }
 
 // Componentwise domination check with stable tie-breaking by index order.
-fn obsolete_dominates(
-    a: &[NormalizedSubstat],
-    b: &[NormalizedSubstat],
-    prefer_a_earlier_than_b: bool,
-) -> bool {
+fn obsolete_dominates(a: &[NormalizedSubstat], b: &[NormalizedSubstat], prefer_a_earlier_than_b: bool) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -653,10 +649,7 @@ fn export_dedupe_substats_cover(looser: &[ExportDedupeSubstat], stricter: &[Expo
     for requirement in looser {
         let counterpart = stricter
             .iter()
-            .find(|candidate| {
-                candidate.variant == requirement.variant
-                    && candidate.condition == requirement.condition
-            });
+            .find(|candidate| candidate.variant == requirement.variant && candidate.condition == requirement.condition);
         let Some(candidate) = counterpart else {
             return false;
         };
@@ -698,18 +691,12 @@ fn export_dedupe_sets_cover(looser: Option<&Vec<i64>>, stricter: Option<&Vec<i64
 }
 
 // Main-stat exact equality mirrors TS strict numeric comparison.
-fn export_dedupe_main_stat_equal_exact(
-    left: &ExportDedupeNormalizedRule,
-    right: &ExportDedupeNormalizedRule,
-) -> bool {
+fn export_dedupe_main_stat_equal_exact(left: &ExportDedupeNormalizedRule, right: &ExportDedupeNormalizedRule) -> bool {
     left.main_stat_id == right.main_stat_id && left.main_stat_f == right.main_stat_f
 }
 
 // Main-stat coverage allows wildcard (`Any`) on the looser side.
-fn export_dedupe_main_stat_covers(
-    looser: &ExportDedupeNormalizedRule,
-    stricter: &ExportDedupeNormalizedRule,
-) -> bool {
+fn export_dedupe_main_stat_covers(looser: &ExportDedupeNormalizedRule, stricter: &ExportDedupeNormalizedRule) -> bool {
     if looser.main_stat_id == STAT_ID_ANY {
         return true;
     }
@@ -717,18 +704,12 @@ fn export_dedupe_main_stat_covers(
 }
 
 // Faction exact equality is used for duplicate-merge checks.
-fn export_dedupe_faction_equal_exact(
-    left: &ExportDedupeNormalizedRule,
-    right: &ExportDedupeNormalizedRule,
-) -> bool {
+fn export_dedupe_faction_equal_exact(left: &ExportDedupeNormalizedRule, right: &ExportDedupeNormalizedRule) -> bool {
     left.faction == right.faction
 }
 
 // Faction coverage allows wildcard faction `0` on the looser side.
-fn export_dedupe_faction_covers(
-    looser: &ExportDedupeNormalizedRule,
-    stricter: &ExportDedupeNormalizedRule,
-) -> bool {
+fn export_dedupe_faction_covers(looser: &ExportDedupeNormalizedRule, stricter: &ExportDedupeNormalizedRule) -> bool {
     if looser.faction == 0 {
         return true;
     }
@@ -736,10 +717,7 @@ fn export_dedupe_faction_covers(
 }
 
 // Full rule coverage check mirrors hsfDeduplicate.ts::covers.
-fn export_dedupe_covers(
-    looser: &ExportDedupeNormalizedRule,
-    stricter: &ExportDedupeNormalizedRule,
-) -> bool {
+fn export_dedupe_covers(looser: &ExportDedupeNormalizedRule, stricter: &ExportDedupeNormalizedRule) -> bool {
     if looser.base_key != stricter.base_key {
         return false;
     }
@@ -787,8 +765,7 @@ fn dedupe_keep_segment_for_export(segment: &[RuleRaw]) -> Vec<RuleRaw> {
                 && export_dedupe_main_stat_equal_exact(&survivor_snapshot, &normalized)
                 && export_dedupe_faction_equal_exact(&survivor_snapshot, &normalized)
             {
-                let merged_sets =
-                    export_dedupe_union_sets(survivor_snapshot.sets.as_ref(), normalized.sets.as_ref());
+                let merged_sets = export_dedupe_union_sets(survivor_snapshot.sets.as_ref(), normalized.sets.as_ref());
                 if !export_dedupe_sets_equal(survivor_snapshot.sets.as_ref(), merged_sets.as_ref()) {
                     if let Some(ExportDedupeSurvivor::Keep(survivor_mut)) = survivors.get_mut(idx) {
                         survivor_mut.sets = merged_sets.clone();
@@ -803,8 +780,7 @@ fn dedupe_keep_segment_for_export(segment: &[RuleRaw]) -> Vec<RuleRaw> {
                 break;
             }
             if export_dedupe_covers(&normalized, &survivor_snapshot) {
-                let merged_sets =
-                    export_dedupe_union_sets(normalized.sets.as_ref(), survivor_snapshot.sets.as_ref());
+                let merged_sets = export_dedupe_union_sets(normalized.sets.as_ref(), survivor_snapshot.sets.as_ref());
                 survivors.remove(idx);
                 export_dedupe_apply_sets(&mut candidate_rule, merged_sets.as_ref());
                 normalized.sets = merged_sets;

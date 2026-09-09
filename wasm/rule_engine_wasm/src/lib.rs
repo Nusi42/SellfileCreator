@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 // Final input migration (batch H — safeguard key helpers) removed the last
 // `from_value` consumer.  All inbound payloads now flow through `serde_json::from_str`
 // so `deny_unknown_fields` activates on every entry point.  Output side still uses
@@ -32,17 +32,16 @@ use serde::{Deserialize, Serialize};
 //   3. If ANY BTreeMap is reachable → `wasm_to_js`. Otherwise → `to_js_value`.
 //   4. Add a one-line comment above the call explaining the choice.
 // ──────────────────────────────────────────────────────────────────────────────
+use rule_engine_core::*;
 use serde_wasm_bindgen::to_value as to_js_value;
 use wasm_bindgen::prelude::*;
-use rule_engine_core::*;
 // ts-rs trait import enables `#[derive(TS)]` on the wire wrapper structs
 // declared locally in this crate (e.g. ImprovementChanceOutput).
 use ts_rs::TS;
 // Minified wire format for compute_merged_rules_value — lives in rule_engine_core
 // so the consistency test can run via `cargo test` on the host target.
 use rule_engine_core::wasm_merged_rules_wire_format::{
-    CacheGeneratedRulesInWire, ComputeMergedRulesCachedInWire,
-    GeneratedRuleEntryInWire, RuleRawWire,
+    CacheGeneratedRulesInWire, ComputeMergedRulesCachedInWire, GeneratedRuleEntryInWire, RuleRawWire,
 };
 
 // wasm-bindgen console.log binding for diagnostic output from Rust.
@@ -131,10 +130,8 @@ fn serialize_json_prealloc<T: serde::Serialize>(value: &T, estimated_items: usiz
     // ~500 bytes per item is a conservative estimate for minified RuleRawWire JSON.
     let estimated_bytes = (estimated_items * 500).max(4096);
     let mut buf = Vec::<u8>::with_capacity(estimated_bytes);
-    serde_json::to_writer(&mut buf, value)
-        .map_err(|e| format!("Failed to serialize JSON: {e}"))?;
-    String::from_utf8(buf)
-        .map_err(|e| format!("JSON output is not valid UTF-8: {e}"))
+    serde_json::to_writer(&mut buf, value).map_err(|e| format!("Failed to serialize JSON: {e}"))?;
+    String::from_utf8(buf).map_err(|e| format!("JSON output is not valid UTF-8: {e}"))
 }
 
 // Minimal inbound representation of a pre-computed improvement-chance entry.
@@ -353,9 +350,7 @@ pub struct EvaluateAndCollectSafeguardProtectionInWire {
 // Flatten a list of ImprovementChanceInput into the (artifact_id, rule_ordinal) → chance
 // BTreeMap consumed by the safeguard protection core. BTreeMap chosen for memory stability
 // under the talc allocator (matches the convention used elsewhere in this crate).
-fn flatten_improvement_chances(
-    entries: Vec<ImprovementChanceInput>,
-) -> BTreeMap<(i64, i64), f64> {
+fn flatten_improvement_chances(entries: Vec<ImprovementChanceInput>) -> BTreeMap<(i64, i64), f64> {
     let mut out: BTreeMap<(i64, i64), f64> = BTreeMap::new();
     for e in entries {
         for r in e.chances_by_rule_ordinal {
@@ -434,10 +429,7 @@ pub fn resolve_auto_rarity_code_for_builder_value(payload: &str) -> Result<i32, 
 // objects instead of JS Map instances.  Non-declared recipe fields (e.g. minCount)
 // are restored by the TS wrapper via {...originalRecipe, ...wasmBranch}.
 #[wasm_bindgen]
-pub fn expand_auto_flex_rarity_branches_value(
-    recipe_payload: &str,
-    base_rarity_code: i32,
-) -> Result<JsValue, JsValue> {
+pub fn expand_auto_flex_rarity_branches_value(recipe_payload: &str, base_rarity_code: i32) -> Result<JsValue, JsValue> {
     prewarm_for_json_parse(recipe_payload.len());
     let parsed: AutoFlexRarityRecipeIn = serde_json::from_str(recipe_payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid expand-auto-flex-rarity-branches payload: {error}")))?;
@@ -453,8 +445,11 @@ pub fn expand_auto_flex_rarity_branches_value(
 #[wasm_bindgen]
 pub fn normalize_safeguard_expected_bucket_domain_value(payload: &str) -> Result<JsValue, JsValue> {
     prewarm_for_json_parse(payload.len());
-    let parsed: SafeguardWasmExpectedBucketDomainIn = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid normalize-safeguard-expected-bucket-domain payload: {error}")))?;
+    let parsed: SafeguardWasmExpectedBucketDomainIn = serde_json::from_str(payload).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Invalid normalize-safeguard-expected-bucket-domain payload: {error}"
+        ))
+    })?;
     let normalized = normalize_safeguard_expected_bucket_domain_core(parsed);
     // Use maps-as-objects so allowed_main_by_slot (BTreeMap<String, Vec<i64>>) emits plain JS object.
     wasm_to_js(&normalized)
@@ -497,10 +492,7 @@ pub fn sort_safeguard_combination_value(payload: &str) -> Result<JsValue, JsValu
 // from_value path structurally cannot trigger that check.  recipe_id_base stays
 // a separate i64 arg because wasm-bindgen marshals primitives natively.
 #[wasm_bindgen]
-pub fn build_safeguard_rules_value(
-    payload: &str,
-    recipe_id_base: i64,
-) -> Result<JsValue, JsValue> {
+pub fn build_safeguard_rules_value(payload: &str, recipe_id_base: i64) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers rules + optional detection snapshot.
@@ -509,14 +501,9 @@ pub fn build_safeguard_rules_value(
     // Placeholders never travel in the JS payload — rehydrate from the wasm-resident
     // store (loud failure on a stale store, never silent placeholder-rule loss).
     if let Some(detection) = input.detection.as_mut() {
-        safeguards::rehydrate_detection_placeholders(detection)
-            .map_err(|error| JsValue::from_str(&error))?;
+        safeguards::rehydrate_detection_placeholders(detection).map_err(|error| JsValue::from_str(&error))?;
     }
-    let safeguard_rules = build_safeguard_rules_core(
-        &input.rules,
-        input.detection.as_ref(),
-        recipe_id_base,
-    );
+    let safeguard_rules = build_safeguard_rules_core(&input.rules, input.detection.as_ref(), recipe_id_base);
     // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
     to_js_value(&safeguard_rules)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard rules value: {error}")))
@@ -575,17 +562,17 @@ pub fn safeguard_groups_value(payload: &str) -> Result<JsValue, JsValue> {
     // type is ts-rs-generated, a field mismatch here means the loaded .wasm predates the current
     // TypeScript — i.e. a stale build artifact, not bad data. Say so: this parse gates every
     // safeguard mutation, so an unexplained failure reads as "the app cannot add safeguards".
-    let entries: Vec<SafeguardGroupEntryIn> = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!(
+    let entries: Vec<SafeguardGroupEntryIn> = serde_json::from_str(payload).map_err(|error| {
+        JsValue::from_str(&format!(
             "Invalid safeguard groups payload: {error}. \
              This usually means the loaded rule engine is older than the app code — \
              rebuild it (npm run wasm:ensure:rule-engine) and hard-reload.",
-        )))?;
+        ))
+    })?;
     let resolved = resolve_safeguard_groups(&entries);
     // No BTreeMap anywhere in SafeguardGroupsOut's type graph (all Vec/bool), so plain
     // to_js_value is correct and cheaper — see the OUTPUT HELPER RULE at the top of this file.
-    to_js_value(&resolved)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard groups: {error}")))
+    to_js_value(&resolved).map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard groups: {error}")))
 }
 
 // Expose item-key resolution so TS and Rust share DB-id-first fallback logic.
@@ -652,11 +639,13 @@ pub fn collect_and_compute_safeguard_protection_value(payload: &str) -> Result<J
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers rows / rules / recipe-modes / safeguard-rules / etc.
-    let input: CollectAndComputeSafeguardProtectionInWire = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid collect-and-compute-safeguard-protection payload: {error}")))?;
+    let input: CollectAndComputeSafeguardProtectionInWire = serde_json::from_str(payload).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Invalid collect-and-compute-safeguard-protection payload: {error}"
+        ))
+    })?;
     // Normalize compact preview rows into the canonical matcher collect rows.
-    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows)
-        .map_err(|error| JsValue::from_str(&error))?;
+    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows).map_err(|error| JsValue::from_str(&error))?;
     // Flatten improvement-chance entries into the (artifact_id, rule_ordinal) → chance map.
     // See flatten_improvement_chances for the rationale (per-rule lookup, no cross-rule inflation).
     let improvement_chances = match input.improvement_chances {
@@ -674,7 +663,8 @@ pub fn collect_and_compute_safeguard_protection_value(payload: &str) -> Result<J
         input.enabled,
         input.now,
         improvement_chances,
-    ).map_err(|error| JsValue::from_str(&error))?;
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&combined)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard combined snapshot: {error}")))
 }
@@ -694,8 +684,7 @@ pub fn collect_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsVa
     let input: CollectSafeguardCandidatesInWire = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid collect-safeguard-candidates payload: {error}")))?;
     // Normalize compact preview rows into the canonical matcher collect rows.
-    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows)
-        .map_err(|error| JsValue::from_str(&error))?;
+    let parsed_rows = safeguard_parse_collect_rows_payload(input.rows).map_err(|error| JsValue::from_str(&error))?;
     // Prepare and bucket rules so candidate resolution uses slot-aware evaluation.
     let prepared_rules = input.rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
     let bucketed_rules = BucketedRules::from_rules(prepared_rules);
@@ -705,7 +694,8 @@ pub fn collect_safeguard_candidates_value(payload: &str) -> Result<JsValue, JsVa
         &bucketed_rules,
         &input.recipe_modes,
         &input.ignore_safeguard_recipe_indices.unwrap_or_default(),
-    ).map_err(|error| JsValue::from_str(&error))?;
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
     // Return the compact candidate payload used by TS row re-attachment.
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize safeguard candidate snapshot: {error}")))
@@ -717,8 +707,11 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
     // Pre-warm so the Vec growth inside serde_json lands in a clean large block.
     prewarm_for_json_parse(payload.len());
     // Single parse covers rules and metasets with deny_unknown_fields activated.
-    let input: ResolveSafeguardRulesWithMetasetsInWire = serde_json::from_str(payload)
-        .map_err(|error| JsValue::from_str(&format!("Invalid resolve-safeguard-rules-with-metasets payload: {error}")))?;
+    let input: ResolveSafeguardRulesWithMetasetsInWire = serde_json::from_str(payload).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Invalid resolve-safeguard-rules-with-metasets payload: {error}"
+        ))
+    })?;
     let mut rules: Vec<SafeguardWasmRuleIn> = input.rules;
     let metasets: Vec<SafeguardWasmMetasetIn> = input.metasets;
     let mut meta_map = BTreeMap::<String, Vec<i64>>::new();
@@ -801,9 +794,7 @@ pub fn resolve_safeguard_rules_with_metasets_value(payload: &str) -> Result<JsVa
                 .ignore_equipped_in_vault
                 .unwrap_or(SAFEGUARD_DEFAULT_IGNORE_EQUIPPED_IN_VAULT),
             substats: rule.substats.clone().unwrap_or_default(),
-            substat_match: safeguard_normalize_substat_match(
-                rule.substat_match.as_deref().unwrap_or(""),
-            ),
+            substat_match: safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or("")),
             substat_weights: rule
                 .substat_weights
                 .clone()
@@ -843,8 +834,7 @@ pub fn build_hsf_rules_runtime_value(payload: &str) -> Result<JsValue, JsValue> 
     prewarm_for_json_parse(payload.len());
     let input: BuildHsfRulesRuntimeIn = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid build-hsf-rules-runtime payload: {error}")))?;
-    let result = build_hsf_rules_runtime_core_fn(&input)
-        .map_err(|error| JsValue::from_str(&error))?;
+    let result = build_hsf_rules_runtime_core_fn(&input).map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize build-hsf-rules-runtime result: {error}")))
 }
@@ -932,8 +922,7 @@ pub fn find_obsolete_value(payload: &str) -> Result<JsValue, JsValue> {
     let report = ObsoleteReportOut { obsolete };
     // Output is ObsoleteReportOut { obsolete: Vec<ObsoleteEntryOut> } — no
     // BTreeMap fields, plain to_js_value is correct.
-    to_js_value(&report)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete value: {error}")))
+    to_js_value(&report).map_err(|error| JsValue::from_str(&format!("Failed to serialize obsolete value: {error}")))
 }
 
 // --- Rule postprocess exports ---
@@ -948,9 +937,7 @@ pub fn find_obsolete_value(payload: &str) -> Result<JsValue, JsValue> {
 // linear memory and avoids externref entirely.
 //
 // Payload shape: { "baseCount": i64, "totalLimit": i64, "batches": [[RuleRawWire...], ...] }
-pub fn flatten_rule_batches_with_total_limit_value(
-    payload: &str,
-) -> Result<String, JsValue> {
+pub fn flatten_rule_batches_with_total_limit_value(payload: &str) -> Result<String, JsValue> {
     // Pre-warm the allocator before the Vec<Vec<RuleRawWire>> deserialization
     // to avoid exponential free-list fragmentation in talc.
     prewarm_for_json_parse(payload.len());
@@ -966,20 +953,16 @@ pub fn flatten_rule_batches_with_total_limit_value(
     let parsed: FlattenPayload = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid flatten-rule-batches payload: {error}")))?;
     // Convert wire-form batches to canonical RuleRaw for the core function.
-    let canonical_batches: Vec<Vec<RuleRaw>> = parsed.batches
+    let canonical_batches: Vec<Vec<RuleRaw>> = parsed
+        .batches
         .into_iter()
         .map(|batch| batch.into_iter().map(RuleRaw::from).collect())
         .collect();
-    let result = flatten_rule_batches_with_total_limit_core(
-        parsed.base_count,
-        parsed.total_limit,
-        canonical_batches,
-    );
+    let result = flatten_rule_batches_with_total_limit_core(parsed.base_count, parsed.total_limit, canonical_batches);
     // Convert result back to wire form for compact output.
     let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
     let count = wire_result.len();
-    serialize_json_prealloc(&wire_result, count)
-        .map_err(|error| JsValue::from_str(&error))
+    serialize_json_prealloc(&wire_result, count).map_err(|error| JsValue::from_str(&error))
 }
 
 // Final Sell builder/export lives in the postprocess module to keep merge
@@ -995,8 +978,7 @@ pub fn build_final_sell_rules_value(payload: &str) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("Invalid build-final-sell-rules payload: {error}")))?;
     let result = build_final_sell_rules_core(input.remainder.as_ref(), &input.all_known_set_ids);
     // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
-    to_js_value(&result)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules: {error}")))
+    to_js_value(&result).map_err(|error| JsValue::from_str(&format!("Failed to serialize final-sell rules: {error}")))
 }
 
 // Merged-rule orchestration is split into a cache step (cache_generated_rules_value) and a
@@ -1062,8 +1044,7 @@ pub fn compute_merged_rules_cached_value(payload: &str) -> Result<String, JsValu
     .map_err(|error| JsValue::from_str(&error))?;
     let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
     let count = wire_result.len();
-    serialize_json_prealloc(&wire_result, count)
-        .map_err(|error| JsValue::from_str(&error))
+    serialize_json_prealloc(&wire_result, count).map_err(|error| JsValue::from_str(&error))
 }
 
 // Finish the cached merge AND configure the engine in one call, returning ONLY the merged
@@ -1081,12 +1062,9 @@ pub fn merge_cached_and_configure_value(payload: &str, recipe_modes_json: &str) 
         .map_err(|error| JsValue::from_str(&format!("Invalid merge-cached-and-configure payload: {error}")))?;
     let recipe_modes: Vec<String> = serde_json::from_str(recipe_modes_json)
         .map_err(|error| JsValue::from_str(&format!("Invalid merge-cached-and-configure recipe modes: {error}")))?;
-    let count = merge_cached_and_configure_engine(
-        wire.safeguard_detection,
-        wire.safeguard_recipe_id_base,
-        recipe_modes,
-    )
-    .map_err(|error| JsValue::from_str(&error))?;
+    let count =
+        merge_cached_and_configure_engine(wire.safeguard_detection, wire.safeguard_recipe_id_base, recipe_modes)
+            .map_err(|error| JsValue::from_str(&error))?;
     Ok(count as u32)
 }
 
@@ -1108,7 +1086,11 @@ pub fn merge_safeguard_injected_rules_value(payload: &str) -> Result<JsValue, Js
     // zero-clone pattern as configure_value / finalize_generated_rules_value.
     let parsed_base: Vec<RuleRaw> = parsed.base_rules.into_iter().map(RuleRaw::from).collect();
     let parsed_custom: Vec<RuleRaw> = parsed.custom_rules.into_iter().map(RuleRaw::from).collect();
-    let parsed_candidate: Vec<RuleRaw> = parsed.candidate_safeguard_rules.into_iter().map(RuleRaw::from).collect();
+    let parsed_candidate: Vec<RuleRaw> = parsed
+        .candidate_safeguard_rules
+        .into_iter()
+        .map(RuleRaw::from)
+        .collect();
     let result = merge_safeguard_injected_rules_core_fn(parsed_base, parsed_custom, parsed_candidate);
     to_js_value(&result)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize merged safeguard rules: {error}")))
@@ -1128,8 +1110,7 @@ pub fn dedupe_hsf_rules_for_export_value(payload: &str) -> Result<JsValue, JsVal
     let parsed_rules: Vec<RuleRaw> = wire_rules.into_iter().map(RuleRaw::from).collect();
     let result = dedupe_hsf_rules_for_export_core(&parsed_rules);
     // Output is Vec<RuleRaw> — no BTreeMap fields, plain to_js_value is correct.
-    to_js_value(&result)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize deduped hsf rules: {error}")))
+    to_js_value(&result).map_err(|error| JsValue::from_str(&format!("Failed to serialize deduped hsf rules: {error}")))
 }
 
 // Generated-rule finalization — JSON string path like the other hot exports.
@@ -1137,24 +1118,17 @@ pub fn dedupe_hsf_rules_for_export_value(payload: &str) -> Result<JsValue, JsVal
 // batch of ~170 rules.  192 × 170 × 29 fields = ~1M externref accesses with
 // the old JsValue path, enough to trigger "table index is out of bounds".
 #[wasm_bindgen]
-pub fn finalize_generated_rules_value(
-    payload: &str,
-    apply_obsolete_pruning: bool,
-) -> Result<String, JsValue> {
+pub fn finalize_generated_rules_value(payload: &str, apply_obsolete_pruning: bool) -> Result<String, JsValue> {
     // Pre-warm the allocator before Vec<GeneratedRuleEntryInWire> growth to
     // keep talc's free-list from fragmenting across many small doublings.
     prewarm_for_json_parse(payload.len());
     let wire_entries: Vec<GeneratedRuleEntryInWire> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid finalize-generated-rules payload: {error}")))?;
-    let parsed_entries: Vec<GeneratedRuleEntryIn> = wire_entries
-        .into_iter()
-        .map(GeneratedRuleEntryIn::from)
-        .collect();
+    let parsed_entries: Vec<GeneratedRuleEntryIn> = wire_entries.into_iter().map(GeneratedRuleEntryIn::from).collect();
     let result = finalize_generated_rules_core(parsed_entries, apply_obsolete_pruning);
     let wire_result: Vec<RuleRawWire> = result.into_iter().map(RuleRawWire::from).collect();
     let count = wire_result.len();
-    serialize_json_prealloc(&wire_result, count)
-        .map_err(|error| JsValue::from_str(&error))
+    serialize_json_prealloc(&wire_result, count).map_err(|error| JsValue::from_str(&error))
 }
 
 // --- Engine configure/evaluate exports ---
@@ -1216,8 +1190,7 @@ pub fn store_artifact_rows_value(payload: &str) -> Result<JsValue, JsValue> {
     prewarm_for_json_parse(payload.len());
     let fast_rows: Vec<SafeguardCollectRowFastIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid artifact rows payload: {error}")))?;
-    let count = store_artifact_rows_engine(fast_rows)
-        .map_err(|error| JsValue::from_str(&error))?;
+    let count = store_artifact_rows_engine(fast_rows).map_err(|error| JsValue::from_str(&error))?;
     // Return JsValue::from_f64 directly; numeric return avoids to_js_value overhead.
     Ok(JsValue::from_f64(count as f64))
 }
@@ -1284,7 +1257,9 @@ pub fn pre_grow_memory_value(#[allow(unused_variables)] target_bytes: u32) {
         let target_pages = (target_bytes as usize + PAGE_SIZE - 1) / PAGE_SIZE;
         let current = core::arch::wasm32::memory_size::<0>();
         let needed = target_pages.saturating_sub(current);
-        if needed == 0 { return; }
+        if needed == 0 {
+            return;
+        }
         let mut remaining = needed;
         while remaining > 0 {
             let grow = remaining.min(CHUNK_PAGES);
@@ -1386,7 +1361,8 @@ pub fn evaluate_and_collect_safeguard_protection_value(
         enabled,
         now,
         improvement_chances,
-    ).map_err(|error| JsValue::from_str(&error))?;
+    )
+    .map_err(|error| JsValue::from_str(&error))?;
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate-and-collect snapshot: {error}")))
 }
@@ -1420,11 +1396,7 @@ struct ImprovementChanceOutput {
 // a single-array payload).  `enabled` and `debug` stay as primitive wasm-bindgen
 // args because wasm-bindgen marshals primitives natively without JSON round-trip.
 #[wasm_bindgen]
-pub fn compute_improvement_chance_value(
-    payload: &str,
-    enabled: bool,
-    debug: bool,
-) -> Result<JsValue, JsValue> {
+pub fn compute_improvement_chance_value(payload: &str, enabled: bool, debug: bool) -> Result<JsValue, JsValue> {
     // Pre-warm so the Vec<SafeguardWasmRuleIn> growth during deserialization
     // stays in a clean block (matches the find_obsolete_value pattern).
     prewarm_for_json_parse(payload.len());
@@ -1432,11 +1404,14 @@ pub fn compute_improvement_chance_value(
     // on the element type, so no wrapper struct is required for the extra-key check.
     let parsed_rules: Vec<SafeguardWasmRuleIn> = serde_json::from_str(payload)
         .map_err(|error| JsValue::from_str(&format!("Invalid improvement-chance rules payload: {error}")))?;
-    let (entries, perf_diag) = compute_improvement_chance_engine(parsed_rules, enabled, debug)
-        .map_err(|error| JsValue::from_str(&error))?;
+    let (entries, perf_diag) =
+        compute_improvement_chance_engine(parsed_rules, enabled, debug).map_err(|error| JsValue::from_str(&error))?;
     // Move entries + perf_diag into the owned wrapper — they're dropped after the
     // serialize call below, so no clone is added.
-    let output = ImprovementChanceOutput { entries, diag: perf_diag };
+    let output = ImprovementChanceOutput {
+        entries,
+        diag: perf_diag,
+    };
     to_js_value(&output)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize improvement-chance entries: {error}")))
 }
@@ -1479,8 +1454,7 @@ pub fn evaluate_value(payload: &str) -> Result<JsValue, JsValue> {
     // semantics of the legacy two-arg JsValue signature).
     let parsed_options = parsed.options.unwrap_or_default();
     let results = evaluate_engine(parsed.items, parsed_options)?;
-    to_js_value(&results)
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
+    to_js_value(&results).map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
 }
 
 // Conformance tests for the compute_safeguard_protection_value JSON wire shape.
@@ -1541,16 +1515,22 @@ mod compute_safeguard_protection_wire_tests {
     // an unmet expected-value assert.
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: ComputeSafeguardProtectionInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: ComputeSafeguardProtectionInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- ComputeSafeguardProtectionInWire (wrapper) ----------------------
         assert_eq!(parsed.candidates.len(), 1, "candidates");
         assert_eq!(parsed.rules.len(), 1, "rules");
-        assert!(parsed.expected_buckets_by_rule_id.is_some(), "expected_buckets_by_rule_id");
+        assert!(
+            parsed.expected_buckets_by_rule_id.is_some(),
+            "expected_buckets_by_rule_id"
+        );
         assert!(parsed.enabled, "enabled");
         assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
-        let chances = parsed.improvement_chances.as_ref().expect("improvement_chances populated");
+        let chances = parsed
+            .improvement_chances
+            .as_ref()
+            .expect("improvement_chances populated");
         assert_eq!(chances.len(), 1, "improvement_chances entries");
 
         // -- SafeguardWasmCandidateFastIn (candidates[0]) --------------------
@@ -1569,7 +1549,10 @@ mod compute_safeguard_protection_wire_tests {
         assert_eq!(art.level, 16, "artifact.level");
         assert_eq!(art.exact_level, None, "artifact.exactLevel"); // explicitly null in fixture
         assert_eq!(art.faction, 0, "artifact.faction");
-        assert!(matches!(art.main_stat, Some(SafeguardWasmMainStatRawIn::Variant(1))), "artifact.mainStat");
+        assert!(
+            matches!(art.main_stat, Some(SafeguardWasmMainStatRawIn::Variant(1))),
+            "artifact.mainStat"
+        );
         assert_eq!(art.substats.len(), 1, "artifact.substats");
         assert!(art.equipped_champion.is_some(), "artifact.equippedChampion");
         assert!(art.gear_inspector_item.is_some(), "artifact.gearInspectorItem");
@@ -1584,17 +1567,28 @@ mod compute_safeguard_protection_wire_tests {
 
         // -- SafeguardWasmEquippedChampionRawIn (artifact.equippedChampion) --
         let champ = art.equipped_champion.as_ref().unwrap();
-        assert_eq!(champ.location.as_deref(), Some("collection"), "equippedChampion.location");
+        assert_eq!(
+            champ.location.as_deref(),
+            Some("collection"),
+            "equippedChampion.location"
+        );
 
         // -- ImprovementChanceInput (improvement_chances[0]) -----------------
         let chance = &chances[0];
         assert_eq!(chance.artifact_id, 1, "improvementChance.artifactId");
-        assert_eq!(chance.chances_by_rule_ordinal.len(), 1, "improvementChance.chancesByRuleOrdinal");
+        assert_eq!(
+            chance.chances_by_rule_ordinal.len(),
+            1,
+            "improvementChance.chancesByRuleOrdinal"
+        );
 
         // -- ImprovementChanceRuleInput (chances_by_rule_ordinal[0]) ---------
         let by_rule = &chance.chances_by_rule_ordinal[0];
         assert_eq!(by_rule.rule_ordinal, 1, "chancesByRuleOrdinal[0].ruleOrdinal");
-        assert!((by_rule.chance_percent - 42.0).abs() < f64::EPSILON, "chancesByRuleOrdinal[0].chancePercent");
+        assert!(
+            (by_rule.chance_percent - 42.0).abs() < f64::EPSILON,
+            "chancesByRuleOrdinal[0].chancePercent"
+        );
     }
 
     // The whole point of the JSON wrapper: unknown top-level fields must fail.
@@ -1642,15 +1636,17 @@ mod collect_safeguard_candidates_wire_tests {
     // Exhaustive field-by-field assertion (see compute_safeguard_protection_wire_tests).
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: CollectSafeguardCandidatesInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: CollectSafeguardCandidatesInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- CollectSafeguardCandidatesInWire (wrapper) ----------------------
         assert_eq!(parsed.rows.len(), 1, "rows");
         assert_eq!(parsed.rules.len(), 1, "rules");
         assert_eq!(parsed.recipe_modes.len(), 1, "recipeModes");
         assert_eq!(parsed.recipe_modes[0], "mid", "recipeModes[0]");
-        let ignored = parsed.ignore_safeguard_recipe_indices.as_ref()
+        let ignored = parsed
+            .ignore_safeguard_recipe_indices
+            .as_ref()
             .expect("ignoreSafeguardRecipeIndices populated");
         assert_eq!(ignored, &vec![0i64], "ignoreSafeguardRecipeIndices");
 
@@ -1659,9 +1655,18 @@ mod collect_safeguard_candidates_wire_tests {
         // row.artifact details are covered by compute_safeguard_protection_wire_tests;
         // here just confirm the shape is fully populated.
         assert_eq!(row.artifact.id, Some(1), "row.artifact.id");
-        assert!(row.artifact.equipped_champion.is_some(), "row.artifact.equippedChampion");
-        assert!(row.artifact.gear_inspector_item.is_some(), "row.artifact.gearInspectorItem");
-        assert!(row.item.is_none(), "row.item is null in fixture (Rust falls back to artifact.gearInspectorItem)");
+        assert!(
+            row.artifact.equipped_champion.is_some(),
+            "row.artifact.equippedChampion"
+        );
+        assert!(
+            row.artifact.gear_inspector_item.is_some(),
+            "row.artifact.gearInspectorItem"
+        );
+        assert!(
+            row.item.is_none(),
+            "row.item is null in fixture (Rust falls back to artifact.gearInspectorItem)"
+        );
         assert_eq!(row.base_match_defined, Some(true), "row.baseMatchDefined");
 
         // -- SafeguardCandidateResolveBaseMatchIn (rows[0].baseMatch) --------
@@ -1732,21 +1737,26 @@ mod collect_and_compute_safeguard_protection_wire_tests {
     // Exhaustive field-by-field assertion (see compute_safeguard_protection_wire_tests).
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: CollectAndComputeSafeguardProtectionInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: CollectAndComputeSafeguardProtectionInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- CollectAndComputeSafeguardProtectionInWire (wrapper) ------------
         assert_eq!(parsed.rows.len(), 1, "rows");
         assert_eq!(parsed.rules.len(), 1, "rules");
         assert_eq!(parsed.recipe_modes.len(), 1, "recipeModes");
-        let ignored = parsed.ignore_safeguard_recipe_indices.as_ref()
+        let ignored = parsed
+            .ignore_safeguard_recipe_indices
+            .as_ref()
             .expect("ignoreSafeguardRecipeIndices populated");
         assert_eq!(ignored, &vec![0i64], "ignoreSafeguardRecipeIndices");
         assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules");
         assert!(parsed.expected_buckets_payload.is_some(), "expectedBucketsPayload");
         assert!(parsed.enabled, "enabled");
         assert!((parsed.now - 1234567890.0).abs() < f64::EPSILON, "now");
-        let chances = parsed.improvement_chances.as_ref().expect("improvementChances populated");
+        let chances = parsed
+            .improvement_chances
+            .as_ref()
+            .expect("improvementChances populated");
         assert_eq!(chances.len(), 1, "improvementChances entries");
 
         // -- SafeguardCollectRowFastIn (rows[0]) -----------------------------
@@ -1766,7 +1776,10 @@ mod collect_and_compute_safeguard_protection_wire_tests {
         assert_eq!(chance.chances_by_rule_ordinal.len(), 1, "chancesByRuleOrdinal");
         let by_rule = &chance.chances_by_rule_ordinal[0];
         assert_eq!(by_rule.rule_ordinal, 1, "chancesByRuleOrdinal[0].ruleOrdinal");
-        assert!((by_rule.chance_percent - 42.0).abs() < f64::EPSILON, "chancesByRuleOrdinal[0].chancePercent");
+        assert!(
+            (by_rule.chance_percent - 42.0).abs() < f64::EPSILON,
+            "chancesByRuleOrdinal[0].chancePercent"
+        );
     }
 
     // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
@@ -1802,8 +1815,8 @@ mod resolve_safeguard_rules_with_metasets_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: ResolveSafeguardRulesWithMetasetsInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: ResolveSafeguardRulesWithMetasetsInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         // Wrapper top-level
         assert_eq!(parsed.rules.len(), 1, "rules");
         assert_eq!(parsed.metasets.len(), 1, "metasets");
@@ -1815,13 +1828,24 @@ mod resolve_safeguard_rules_with_metasets_wire_tests {
         assert_eq!(rule.required_count, Some(1), "rule.requiredCount");
         assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rule.activation");
         assert!(rule.count_mode.is_some(), "rule.countMode");
-        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rule.ignorePreviousSafeguards");
-        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rule.ignoreEquippedInCollection");
+        assert_eq!(
+            rule.ignore_previous_safeguards,
+            Some(true),
+            "rule.ignorePreviousSafeguards"
+        );
+        assert_eq!(
+            rule.ignore_equipped_in_collection,
+            Some(false),
+            "rule.ignoreEquippedInCollection"
+        );
         assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rule.ignoreEquippedInVault");
         assert_eq!(rule.substats.as_ref().map(|v| v.len()), Some(1), "rule.substats");
         assert_eq!(rule.substat_match.as_deref(), Some("any"), "rule.substatMatch");
         assert!(rule.substat_weights.is_some(), "rule.substatWeights");
-        assert!(rule.improvement_chance_threshold.is_none(), "rule.improvementChanceThreshold");
+        assert!(
+            rule.improvement_chance_threshold.is_none(),
+            "rule.improvementChanceThreshold"
+        );
         assert_eq!(rule.tags.as_ref().map(|v| v.len()), Some(0), "rule.tags");
         // First metaset
         let meta = &parsed.metasets[0];
@@ -1845,8 +1869,7 @@ mod hash_safeguard_combination_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed.slots, vec![5], "slots");
         assert_eq!(parsed.sets.len(), 1, "sets length");
         assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
@@ -1874,8 +1897,7 @@ mod sort_safeguard_combination_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: SafeguardWasmCombination = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed.slots, vec![5], "slots");
         assert_eq!(parsed.sets.len(), 1, "sets length");
         assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
@@ -1903,8 +1925,8 @@ mod normalize_safeguard_expected_bucket_domain_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let _parsed: SafeguardWasmExpectedBucketDomainIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let _parsed: SafeguardWasmExpectedBucketDomainIn =
+            serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         // Fields are private; fixture validity is confirmed by successful parse.
     }
 
@@ -1922,8 +1944,7 @@ mod sort_safeguard_substats_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: Vec<i64> = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: Vec<i64> = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed, vec![1i64, 2, 3], "substats array");
     }
 }
@@ -1935,8 +1956,7 @@ mod resolve_auto_rarity_code_for_builder_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: AutoRarityResolveBuilderIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: AutoRarityResolveBuilderIn = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed.auto_rarity_supplements_threshold, Some("2".to_string()));
         assert_eq!(parsed.auto_min_required_rolls, Some(true));
         assert_eq!(parsed.min_required_rolls, Some(3.5));
@@ -1951,7 +1971,8 @@ mod resolve_auto_rarity_code_for_builder_value_wire_tests {
 
     #[test]
     fn unknown_top_level_field_rejected() {
-        let bad = r#"{"substatsV":[],"fixedSubstatsV":[],"substatRollBoundsV":{},"allowedSubstats":[],"unknownField":true}"#;
+        let bad =
+            r#"{"substatsV":[],"fixedSubstatsV":[],"substatRollBoundsV":{},"allowedSubstats":[],"unknownField":true}"#;
         let r: Result<AutoRarityResolveBuilderIn, _> = serde_json::from_str(bad);
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
@@ -1964,8 +1985,7 @@ mod expand_auto_flex_rarity_branches_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: AutoFlexRarityRecipeIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: AutoFlexRarityRecipeIn = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed.rarity_mode, Some("auto".to_string()));
         assert_eq!(parsed.rarity_code, Some(5i64));
         assert_eq!(parsed.auto_substat_flex, Some(true));
@@ -1996,8 +2016,7 @@ mod score_safeguard_candidates_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmScorePreviewIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let parsed: SafeguardWasmScorePreviewIn = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
         assert_eq!(parsed.artifacts.len(), 1);
         assert_eq!(parsed.artifacts[0].id, Some(1i64));
         assert_eq!(parsed.artifacts[0].slot, 1i64);
@@ -2037,8 +2056,7 @@ mod prepare_hsf_builder_recipe_value_wire_tests {
     #[test]
     fn full_fixture_deserializes() {
         // Fixture successfully parses; all required and optional fields present.
-        let _parsed: PrepareHsfBuilderRecipeIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let _parsed: PrepareHsfBuilderRecipeIn = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
     }
 
     #[test]
@@ -2057,8 +2075,7 @@ mod build_hsf_rules_runtime_value_wire_tests {
     #[test]
     fn full_fixture_deserializes() {
         // Fixture successfully parses; all required and optional fields present.
-        let _parsed: BuildHsfRulesRuntimeIn = serde_json::from_str(FIXTURE)
-            .expect("fixture must deserialize");
+        let _parsed: BuildHsfRulesRuntimeIn = serde_json::from_str(FIXTURE).expect("fixture must deserialize");
     }
 
     #[test]
@@ -2127,8 +2144,8 @@ mod build_safeguard_rules_value_wire_tests {
     // (caught by the assertions below) both cause test failures.
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: BuildSafeguardRulesInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: BuildSafeguardRulesInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- BuildSafeguardRulesInWire (wrapper) -----------------------------
         assert_eq!(parsed.rules.len(), 1, "rules");
@@ -2142,13 +2159,24 @@ mod build_safeguard_rules_value_wire_tests {
         assert_eq!(rule.required_count, Some(1), "rule.requiredCount");
         assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rule.activation");
         assert!(rule.count_mode.is_some(), "rule.countMode");
-        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rule.ignorePreviousSafeguards");
-        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rule.ignoreEquippedInCollection");
+        assert_eq!(
+            rule.ignore_previous_safeguards,
+            Some(true),
+            "rule.ignorePreviousSafeguards"
+        );
+        assert_eq!(
+            rule.ignore_equipped_in_collection,
+            Some(false),
+            "rule.ignoreEquippedInCollection"
+        );
         assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rule.ignoreEquippedInVault");
         assert_eq!(rule.substats.as_ref().map(|v| v.len()), Some(1), "rule.substats");
         assert_eq!(rule.substat_match.as_deref(), Some("any"), "rule.substatMatch");
         assert!(rule.substat_weights.is_some(), "rule.substatWeights");
-        assert!(rule.improvement_chance_threshold.is_none(), "rule.improvementChanceThreshold");
+        assert!(
+            rule.improvement_chance_threshold.is_none(),
+            "rule.improvementChanceThreshold"
+        );
         assert_eq!(rule.tags.as_ref().map(|v| v.len()), Some(0), "rule.tags");
 
         // -- SafeguardWasmSnapshotOut (detection) ---------------------------
@@ -2162,36 +2190,100 @@ mod build_safeguard_rules_value_wire_tests {
             (snapshot_obj.get("sa").and_then(|v| v.as_f64()).unwrap() - 1234567890.0).abs() < f64::EPSILON,
             "detection.sa (scannedAt)"
         );
-        let entries = snapshot_obj.get("e").and_then(|v| v.as_array()).expect("detection.e (entries)");
+        let entries = snapshot_obj
+            .get("e")
+            .and_then(|v| v.as_array())
+            .expect("detection.e (entries)");
         assert_eq!(entries.len(), 1, "detection.e length");
 
         // -- SafeguardWasmEntryOut (detection.e[0]) — short wire names -------
         let entry = &entries[0];
         assert_eq!(entry.get("h").and_then(|v| v.as_str()), Some("abc"), "entry.h (hash)");
-        assert_eq!(entry.get("ri").and_then(|v| v.as_str()), Some("demo"), "entry.ri (ruleId)");
-        assert_eq!(entry.get("ro").and_then(|v| v.as_i64()), Some(1), "entry.ro (ruleOrdinal)");
-        assert_eq!(entry.get("ra").and_then(|v| v.as_str()), Some("protectExisting"), "entry.ra (ruleActivation)");
-        assert_eq!(entry.get("pgc").and_then(|v| v.as_i64()), Some(1), "entry.pgc (perBucketRequiredCount)");
-        assert_eq!(entry.get("gt").and_then(|v| v.as_i64()), Some(1), "entry.gt (bucketsTracked)");
-        assert_eq!(entry.get("rc").and_then(|v| v.as_i64()), Some(1), "entry.rc (requiredCount)");
-        assert_eq!(entry.get("cc").and_then(|v| v.as_i64()), Some(1), "entry.cc (currentCount)");
-        assert_eq!(entry.get("pc").and_then(|v| v.as_i64()), Some(1), "entry.pc (projectedCount)");
+        assert_eq!(
+            entry.get("ri").and_then(|v| v.as_str()),
+            Some("demo"),
+            "entry.ri (ruleId)"
+        );
+        assert_eq!(
+            entry.get("ro").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.ro (ruleOrdinal)"
+        );
+        assert_eq!(
+            entry.get("ra").and_then(|v| v.as_str()),
+            Some("protectExisting"),
+            "entry.ra (ruleActivation)"
+        );
+        assert_eq!(
+            entry.get("pgc").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.pgc (perBucketRequiredCount)"
+        );
+        assert_eq!(
+            entry.get("gt").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.gt (bucketsTracked)"
+        );
+        assert_eq!(
+            entry.get("rc").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.rc (requiredCount)"
+        );
+        assert_eq!(
+            entry.get("cc").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.cc (currentCount)"
+        );
+        assert_eq!(
+            entry.get("pc").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.pc (projectedCount)"
+        );
         assert_eq!(entry.get("d").and_then(|v| v.as_i64()), Some(0), "entry.d (deficit)");
-        assert_eq!(entry.get("cbe").and_then(|v| v.as_bool()), Some(true), "entry.cbe (coveredByExisting)");
+        assert_eq!(
+            entry.get("cbe").and_then(|v| v.as_bool()),
+            Some(true),
+            "entry.cbe (coveredByExisting)"
+        );
         let item_keys = entry.get("ik").and_then(|v| v.as_array()).expect("entry.ik (itemKeys)");
         assert_eq!(item_keys.len(), 1, "entry.ik length");
         assert_eq!(item_keys[0].as_i64(), Some(42), "entry.ik[0]");
-        let artifacts = entry.get("ar").and_then(|v| v.as_array()).expect("entry.ar (artifacts)");
+        let artifacts = entry
+            .get("ar")
+            .and_then(|v| v.as_array())
+            .expect("entry.ar (artifacts)");
         assert_eq!(artifacts.len(), 1, "entry.ar length");
-        assert_eq!(artifacts[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ar[0].itemKey");
+        assert_eq!(
+            artifacts[0].get("itemKey").and_then(|v| v.as_i64()),
+            Some(42),
+            "entry.ar[0].itemKey"
+        );
         // Placeholder OBJECTS never travel on the wire (wasm-resident hand-off) —
         // only the count + fingerprint stamped by stash_detection_placeholders do.
-        assert_eq!(entry.get("plc").and_then(|v| v.as_i64()), Some(1), "entry.plc (placeholderCount)");
-        assert_eq!(entry.get("plf").and_then(|v| v.as_str()), Some("cbf29ce484222325"), "entry.plf (placeholderFingerprint)");
-        assert!(entry.get("pl").is_none(), "entry.pl must not exist on the wire (placeholders are wasm-resident)");
-        let candidates = entry.get("ca").and_then(|v| v.as_array()).expect("entry.ca (candidates)");
+        assert_eq!(
+            entry.get("plc").and_then(|v| v.as_i64()),
+            Some(1),
+            "entry.plc (placeholderCount)"
+        );
+        assert_eq!(
+            entry.get("plf").and_then(|v| v.as_str()),
+            Some("cbf29ce484222325"),
+            "entry.plf (placeholderFingerprint)"
+        );
+        assert!(
+            entry.get("pl").is_none(),
+            "entry.pl must not exist on the wire (placeholders are wasm-resident)"
+        );
+        let candidates = entry
+            .get("ca")
+            .and_then(|v| v.as_array())
+            .expect("entry.ca (candidates)");
         assert_eq!(candidates.len(), 1, "entry.ca length");
-        assert_eq!(candidates[0].get("itemKey").and_then(|v| v.as_i64()), Some(42), "entry.ca[0].itemKey");
+        assert_eq!(
+            candidates[0].get("itemKey").and_then(|v| v.as_i64()),
+            Some(42),
+            "entry.ca[0].itemKey"
+        );
     }
 
     // deny_unknown_fields gate — extra top-level keys must error, not be ignored.
@@ -2224,8 +2316,8 @@ mod build_final_sell_rules_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: BuildFinalSellRulesInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: BuildFinalSellRulesInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- BuildFinalSellRulesInWire (wrapper) -----------------------------
         let remainder = parsed.remainder.as_ref().expect("remainder populated");
@@ -2265,8 +2357,7 @@ mod find_obsolete_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         assert_eq!(parsed.len(), 1, "rules count");
         // Convert through the From impl so we can assert on the canonical pub
         // RuleRaw fields (RuleRawWire's own fields are module-private).
@@ -2277,8 +2368,16 @@ mod find_obsolete_value_wire_tests {
         assert_eq!(rule.Keep, Some(true), "rule.Keep");
         assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
         assert_eq!(rule.Use, Some(true), "rule.Use");
-        assert_eq!(rule.ArtifactSet.as_deref(), Some([19i64].as_slice()), "rule.ArtifactSet");
-        assert_eq!(rule.ArtifactType.as_deref(), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(
+            rule.ArtifactSet.as_deref(),
+            Some([19i64].as_slice()),
+            "rule.ArtifactSet"
+        );
+        assert_eq!(
+            rule.ArtifactType.as_deref(),
+            Some([5i64].as_slice()),
+            "rule.ArtifactType"
+        );
         assert_eq!(rule.Rank, Some(6), "rule.Rank");
         assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
         assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
@@ -2310,8 +2409,7 @@ mod dedupe_hsf_rules_for_export_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: Vec<RuleRawWire> = serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         assert_eq!(parsed.len(), 1, "rules count");
         // Drill into canonical fields via From — RuleRawWire's fields are private.
         let canonical: Vec<RuleRaw> = parsed.into_iter().map(RuleRaw::from).collect();
@@ -2321,8 +2419,16 @@ mod dedupe_hsf_rules_for_export_value_wire_tests {
         assert_eq!(rule.Keep, Some(true), "rule.Keep");
         assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
         assert_eq!(rule.Use, Some(true), "rule.Use");
-        assert_eq!(rule.ArtifactSet.as_deref(), Some([19i64].as_slice()), "rule.ArtifactSet");
-        assert_eq!(rule.ArtifactType.as_deref(), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(
+            rule.ArtifactSet.as_deref(),
+            Some([19i64].as_slice()),
+            "rule.ArtifactSet"
+        );
+        assert_eq!(
+            rule.ArtifactType.as_deref(),
+            Some([5i64].as_slice()),
+            "rule.ArtifactType"
+        );
         assert_eq!(rule.Rank, Some(6), "rule.Rank");
         assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
         assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
@@ -2361,13 +2467,17 @@ mod merge_safeguard_injected_rules_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: MergeSafeguardInjectedRulesInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: MergeSafeguardInjectedRulesInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- MergeSafeguardInjectedRulesInWire (wrapper) --------------------
         assert_eq!(parsed.base_rules.len(), 1, "baseRules length");
         assert_eq!(parsed.custom_rules.len(), 1, "customRules length");
-        assert_eq!(parsed.candidate_safeguard_rules.len(), 1, "candidateSafeguardRules length");
+        assert_eq!(
+            parsed.candidate_safeguard_rules.len(),
+            1,
+            "candidateSafeguardRules length"
+        );
 
         // -- baseRules[0] (drill via canonical RuleRaw) ---------------------
         let base: Vec<RuleRaw> = parsed.base_rules.into_iter().map(RuleRaw::from).collect();
@@ -2376,8 +2486,16 @@ mod merge_safeguard_injected_rules_value_wire_tests {
         assert_eq!(base[0].Keep, Some(true), "baseRules[0].Keep");
         assert_eq!(base[0].IsRuleTypeAND, Some(false), "baseRules[0].IsRuleTypeAND");
         assert_eq!(base[0].Use, Some(true), "baseRules[0].Use");
-        assert_eq!(base[0].ArtifactSet.as_deref(), Some([19i64].as_slice()), "baseRules[0].ArtifactSet");
-        assert_eq!(base[0].ArtifactType.as_deref(), Some([5i64].as_slice()), "baseRules[0].ArtifactType");
+        assert_eq!(
+            base[0].ArtifactSet.as_deref(),
+            Some([19i64].as_slice()),
+            "baseRules[0].ArtifactSet"
+        );
+        assert_eq!(
+            base[0].ArtifactType.as_deref(),
+            Some([5i64].as_slice()),
+            "baseRules[0].ArtifactType"
+        );
         assert_eq!(base[0].Rank, Some(6), "baseRules[0].Rank");
         assert_eq!(base[0].Rarity, Some(6), "baseRules[0].Rarity");
         assert_eq!(base[0].MainStatID, Some(1), "baseRules[0].MainStatID");
@@ -2388,16 +2506,32 @@ mod merge_safeguard_injected_rules_value_wire_tests {
         // -- customRules[0] (drill via canonical RuleRaw) -------------------
         let custom: Vec<RuleRaw> = parsed.custom_rules.into_iter().map(RuleRaw::from).collect();
         assert_eq!(custom[0].RecipeID, Some(2), "customRules[0].RecipeID");
-        assert_eq!(custom[0].RecipeName.as_deref(), Some("Custom"), "customRules[0].RecipeName");
+        assert_eq!(
+            custom[0].RecipeName.as_deref(),
+            Some("Custom"),
+            "customRules[0].RecipeName"
+        );
         assert_eq!(custom[0].Keep, Some(false), "customRules[0].Keep");
         assert_eq!(custom[0].IsRuleTypeAND, Some(true), "customRules[0].IsRuleTypeAND");
 
         // -- candidateSafeguardRules[0] (drill via canonical RuleRaw) -------
-        let candidate: Vec<RuleRaw> = parsed.candidate_safeguard_rules.into_iter().map(RuleRaw::from).collect();
+        let candidate: Vec<RuleRaw> = parsed
+            .candidate_safeguard_rules
+            .into_iter()
+            .map(RuleRaw::from)
+            .collect();
         assert_eq!(candidate[0].RecipeID, Some(3), "candidateSafeguardRules[0].RecipeID");
-        assert_eq!(candidate[0].RecipeName.as_deref(), Some("Cand"), "candidateSafeguardRules[0].RecipeName");
+        assert_eq!(
+            candidate[0].RecipeName.as_deref(),
+            Some("Cand"),
+            "candidateSafeguardRules[0].RecipeName"
+        );
         assert_eq!(candidate[0].Keep, Some(true), "candidateSafeguardRules[0].Keep");
-        assert_eq!(candidate[0].LVLForCheck, Some(8), "candidateSafeguardRules[0].LVLForCheck");
+        assert_eq!(
+            candidate[0].LVLForCheck,
+            Some(8),
+            "candidateSafeguardRules[0].LVLForCheck"
+        );
     }
 
     // deny_unknown_fields gate — wrapper rejects extra top-level keys.
@@ -2457,19 +2591,42 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: EvaluateAndCollectSafeguardProtectionInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: EvaluateAndCollectSafeguardProtectionInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- EvaluateAndCollectSafeguardProtectionInWire (wrapper) ----------
         let options = parsed.options.as_ref().expect("options populated");
-        assert_eq!(options.exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.excludeSources");
-        assert_eq!(options.exclude_recipe_indices.as_deref(), Some([1i64, 2].as_slice()), "options.excludeRecipeIndices");
-        assert_eq!(options.ignore_safeguard_recipe_indices.as_deref(), Some([3i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
-        assert_eq!(options.baseline_exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.baselineExcludeSources");
+        assert_eq!(
+            options.exclude_sources.as_ref().map(|v| v.len()),
+            Some(1),
+            "options.excludeSources"
+        );
+        assert_eq!(
+            options.exclude_recipe_indices.as_deref(),
+            Some([1i64, 2].as_slice()),
+            "options.excludeRecipeIndices"
+        );
+        assert_eq!(
+            options.ignore_safeguard_recipe_indices.as_deref(),
+            Some([3i64].as_slice()),
+            "options.ignoreSafeguardRecipeIndices"
+        );
+        assert_eq!(
+            options.baseline_exclude_sources.as_ref().map(|v| v.len()),
+            Some(1),
+            "options.baselineExcludeSources"
+        );
 
-        assert_eq!(parsed.ignore_safeguard_recipe_indices.as_deref(), Some([4i64, 5].as_slice()), "ignoreSafeguardRecipeIndices");
+        assert_eq!(
+            parsed.ignore_safeguard_recipe_indices.as_deref(),
+            Some([4i64, 5].as_slice()),
+            "ignoreSafeguardRecipeIndices"
+        );
         assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules length");
-        assert!(parsed.expected_buckets_payload.is_some(), "expectedBucketsPayload populated");
+        assert!(
+            parsed.expected_buckets_payload.is_some(),
+            "expectedBucketsPayload populated"
+        );
 
         // -- safeguardRules[0] (SafeguardWasmRuleIn) -----------------------
         let rule = &parsed.safeguard_rules[0];
@@ -2479,19 +2636,36 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
         assert_eq!(rule.required_count, Some(1), "rule.requiredCount");
         assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rule.activation");
         assert!(rule.count_mode.is_some(), "rule.countMode");
-        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rule.ignorePreviousSafeguards");
+        assert_eq!(
+            rule.ignore_previous_safeguards,
+            Some(true),
+            "rule.ignorePreviousSafeguards"
+        );
         assert_eq!(rule.substats.as_ref().map(|v| v.len()), Some(1), "rule.substats");
         assert_eq!(rule.substat_match.as_deref(), Some("any"), "rule.substatMatch");
         assert!(rule.substat_weights.is_some(), "rule.substatWeights");
-        assert!(rule.improvement_chance_threshold.is_none(), "rule.improvementChanceThreshold");
+        assert!(
+            rule.improvement_chance_threshold.is_none(),
+            "rule.improvementChanceThreshold"
+        );
         assert_eq!(rule.tags.as_ref().map(|v| v.len()), Some(0), "rule.tags");
 
         // -- improvementChances[0] (ImprovementChanceInput) ----------------
-        let chances = parsed.improvement_chances.as_ref().expect("improvementChances populated");
+        let chances = parsed
+            .improvement_chances
+            .as_ref()
+            .expect("improvementChances populated");
         assert_eq!(chances.len(), 1, "improvementChances length");
         assert_eq!(chances[0].artifact_id, 42, "improvementChances[0].artifactId");
-        assert_eq!(chances[0].chances_by_rule_ordinal.len(), 1, "improvementChances[0].chancesByRuleOrdinal length");
-        assert_eq!(chances[0].chances_by_rule_ordinal[0].rule_ordinal, 1, "improvementChances[0].chancesByRuleOrdinal[0].ruleOrdinal");
+        assert_eq!(
+            chances[0].chances_by_rule_ordinal.len(),
+            1,
+            "improvementChances[0].chancesByRuleOrdinal length"
+        );
+        assert_eq!(
+            chances[0].chances_by_rule_ordinal[0].rule_ordinal, 1,
+            "improvementChances[0].chancesByRuleOrdinal[0].ruleOrdinal"
+        );
         assert!(
             (chances[0].chances_by_rule_ordinal[0].chance_percent - 75.5).abs() < f64::EPSILON,
             "improvementChances[0].chancesByRuleOrdinal[0].chancePercent",
@@ -2545,16 +2719,32 @@ mod evaluate_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: EvaluateValueInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: EvaluateValueInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- EvaluateValueInWire (wrapper) ----------------------------------
         assert_eq!(parsed.items.len(), 1, "items length");
         let options = parsed.options.as_ref().expect("options populated");
-        assert_eq!(options.exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.excludeSources");
-        assert_eq!(options.exclude_recipe_indices.as_deref(), Some([1i64].as_slice()), "options.excludeRecipeIndices");
-        assert_eq!(options.ignore_safeguard_recipe_indices.as_deref(), Some([2i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
-        assert_eq!(options.baseline_exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.baselineExcludeSources");
+        assert_eq!(
+            options.exclude_sources.as_ref().map(|v| v.len()),
+            Some(1),
+            "options.excludeSources"
+        );
+        assert_eq!(
+            options.exclude_recipe_indices.as_deref(),
+            Some([1i64].as_slice()),
+            "options.excludeRecipeIndices"
+        );
+        assert_eq!(
+            options.ignore_safeguard_recipe_indices.as_deref(),
+            Some([2i64].as_slice()),
+            "options.ignoreSafeguardRecipeIndices"
+        );
+        assert_eq!(
+            options.baseline_exclude_sources.as_ref().map(|v| v.len()),
+            Some(1),
+            "options.baselineExcludeSources"
+        );
 
         // -- items[0] (EvaluateItemRaw → TestItemRaw) ----------------------
         let entry = &parsed.items[0];
@@ -2572,8 +2762,14 @@ mod evaluate_value_wire_tests {
         let subs = entry.item.sub_values.as_ref().expect("subValues populated");
         // Visitor preserves insertion order from the JSON object; assert both pairs.
         assert_eq!(subs.len(), 2, "subValues length");
-        assert!(subs.iter().any(|(k, v)| *k == 5 && (*v - 8.0).abs() < f64::EPSILON), "subValues contains (5, 8.0)");
-        assert!(subs.iter().any(|(k, v)| *k == 7 && (*v - 12.5).abs() < f64::EPSILON), "subValues contains (7, 12.5)");
+        assert!(
+            subs.iter().any(|(k, v)| *k == 5 && (*v - 8.0).abs() < f64::EPSILON),
+            "subValues contains (5, 8.0)"
+        );
+        assert!(
+            subs.iter().any(|(k, v)| *k == 7 && (*v - 12.5).abs() < f64::EPSILON),
+            "subValues contains (7, 12.5)"
+        );
 
         // -- items[0].item.previewExtras (PreviewExtrasRaw) ----------------
         let preview = entry.item.preview_extras.as_ref().expect("previewExtras populated");
@@ -2620,8 +2816,8 @@ mod compute_improvement_chance_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: Vec<SafeguardWasmRuleIn> = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: Vec<SafeguardWasmRuleIn> =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
 
         // -- Top-level Vec ---------------------------------------------------
         assert_eq!(parsed.len(), 1, "rules length");
@@ -2632,19 +2828,58 @@ mod compute_improvement_chance_value_wire_tests {
         assert_eq!(rule.name.as_deref(), Some("Demo"), "rules[0].name");
         assert!(rule.combination.is_some(), "rules[0].combination");
         assert_eq!(rule.required_count, Some(1), "rules[0].requiredCount");
-        assert_eq!(rule.activation.as_deref(), Some("protectExisting"), "rules[0].activation");
+        assert_eq!(
+            rule.activation.as_deref(),
+            Some("protectExisting"),
+            "rules[0].activation"
+        );
         assert!(rule.count_mode.is_some(), "rules[0].countMode");
-        assert_eq!(rule.ignore_previous_safeguards, Some(true), "rules[0].ignorePreviousSafeguards");
-        assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rules[0].ignoreEquippedInCollection");
-        assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rules[0].ignoreEquippedInVault");
-        assert_eq!(rule.substats.as_deref(), Some([5i64, 7].as_slice()), "rules[0].substats");
+        assert_eq!(
+            rule.ignore_previous_safeguards,
+            Some(true),
+            "rules[0].ignorePreviousSafeguards"
+        );
+        assert_eq!(
+            rule.ignore_equipped_in_collection,
+            Some(false),
+            "rules[0].ignoreEquippedInCollection"
+        );
+        assert_eq!(
+            rule.ignore_equipped_in_vault,
+            Some(false),
+            "rules[0].ignoreEquippedInVault"
+        );
+        assert_eq!(
+            rule.substats.as_deref(),
+            Some([5i64, 7].as_slice()),
+            "rules[0].substats"
+        );
         assert_eq!(rule.substat_match.as_deref(), Some("any"), "rules[0].substatMatch");
         let weights = rule.substat_weights.as_ref().expect("substatWeights populated");
         assert_eq!(weights.len(), 2, "rules[0].substatWeights length");
-        assert!(weights.get(&5).map(|v| (*v - 1.0).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[5]");
-        assert!(weights.get(&7).map(|v| (*v - 0.5).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[7]");
-        assert!(rule.improvement_chance_threshold.is_some(), "rules[0].improvementChanceThreshold");
-        assert_eq!(rule.tags.as_deref(), Some(["foo".to_string(), "bar".to_string()].as_slice()), "rules[0].tags");
+        assert!(
+            weights
+                .get(&5)
+                .map(|v| (*v - 1.0).abs() < f64::EPSILON)
+                .unwrap_or(false),
+            "rules[0].substatWeights[5]"
+        );
+        assert!(
+            weights
+                .get(&7)
+                .map(|v| (*v - 0.5).abs() < f64::EPSILON)
+                .unwrap_or(false),
+            "rules[0].substatWeights[7]"
+        );
+        assert!(
+            rule.improvement_chance_threshold.is_some(),
+            "rules[0].improvementChanceThreshold"
+        );
+        assert_eq!(
+            rule.tags.as_deref(),
+            Some(["foo".to_string(), "bar".to_string()].as_slice()),
+            "rules[0].tags"
+        );
     }
 
     // deny_unknown_fields gate — per-rule schema rejects unknown keys because
@@ -2681,22 +2916,30 @@ mod safeguard_item_key_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: SafeguardWasmItemKeyArtifactIn =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         // safeguard_item_key_core consults id (filtered to >0) -> previewExtras.id -> itemId.
         // With id=0 (filtered out) we expect previewExtras.id=99 to win.
-        assert_eq!(safeguard_item_key_core(parsed), 99, "previewExtras.id should win when artifact.id is 0");
+        assert_eq!(
+            safeguard_item_key_core(parsed),
+            99,
+            "previewExtras.id should win when artifact.id is 0"
+        );
 
         // Cross-check the fallback to itemId by re-parsing a fixture WITHOUT previewExtras.
         let no_preview = r#"{ "id": 0, "gearInspectorItem": { "itemId": 42 } }"#;
-        let parsed2: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(no_preview)
-            .expect("itemId-only fixture must deserialize");
-        assert_eq!(safeguard_item_key_core(parsed2), 42, "itemId should be the final fallback");
+        let parsed2: SafeguardWasmItemKeyArtifactIn =
+            serde_json::from_str(no_preview).expect("itemId-only fixture must deserialize");
+        assert_eq!(
+            safeguard_item_key_core(parsed2),
+            42,
+            "itemId should be the final fallback"
+        );
 
         // Cross-check the first-hop case where positive artifact.id wins.
         let id_first = r#"{ "id": 7, "gearInspectorItem": { "itemId": 42, "previewExtras": { "id": 99 } } }"#;
-        let parsed3: SafeguardWasmItemKeyArtifactIn = serde_json::from_str(id_first)
-            .expect("id-first fixture must deserialize");
+        let parsed3: SafeguardWasmItemKeyArtifactIn =
+            serde_json::from_str(id_first).expect("id-first fixture must deserialize");
         assert_eq!(safeguard_item_key_core(parsed3), 7, "positive artifact.id should win");
     }
 
@@ -2729,26 +2972,38 @@ mod safeguard_bucket_key_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: SafeguardWasmBucketKeyArtifactIn =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         // Round-trip via the SSOT helper so the test catches drift in either the
         // wire shape OR the bucket-key formatter.  Format is "slot:set:main:faction".
-        assert_eq!(safeguard_bucket_key_core(parsed), "7:19:1:1", "ring slot keeps faction in bucket key");
+        assert_eq!(
+            safeguard_bucket_key_core(parsed),
+            "7:19:1:1",
+            "ring slot keeps faction in bucket key"
+        );
 
         // Cross-check the non-accessory faction-collapse path (helmet = slot 1).
         let artifact = r#"{ "slot": 1, "set": 1, "faction": 1, "mainStat": 0 }"#;
-        let parsed2: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(artifact)
-            .expect("artifact fixture (variant-number mainStat) must deserialize");
+        let parsed2: SafeguardWasmBucketKeyArtifactIn =
+            serde_json::from_str(artifact).expect("artifact fixture (variant-number mainStat) must deserialize");
         // Helmet slot 1 collapses faction to 0 inside safeguard_normalized_faction_for_slot.
-        assert_eq!(safeguard_bucket_key_core(parsed2), "1:1:0:0", "artifact slot collapses faction to 0");
+        assert_eq!(
+            safeguard_bucket_key_core(parsed2),
+            "1:1:0:0",
+            "artifact slot collapses faction to 0"
+        );
 
         // Cross-check the omitted-mainStat path (defaults to None → SAFEGUARD_MAIN_ANY).
         // Ring (slot 7) keeps faction so the test confirms BOTH the faction
         // pass-through AND the absent-mainStat fallback at the same time.
         let no_main = r#"{ "slot": 7, "set": 19, "faction": 2 }"#;
-        let parsed3: SafeguardWasmBucketKeyArtifactIn = serde_json::from_str(no_main)
-            .expect("omitted-mainStat fixture must deserialize");
-        assert_eq!(safeguard_bucket_key_core(parsed3), "7:19:-1:2", "omitted mainStat falls back to SAFEGUARD_MAIN_ANY");
+        let parsed3: SafeguardWasmBucketKeyArtifactIn =
+            serde_json::from_str(no_main).expect("omitted-mainStat fixture must deserialize");
+        assert_eq!(
+            safeguard_bucket_key_core(parsed3),
+            "7:19:-1:2",
+            "omitted mainStat falls back to SAFEGUARD_MAIN_ANY"
+        );
     }
 
     // deny_unknown_fields gate — strict struct rejects unknown top-level keys.
@@ -2781,8 +3036,8 @@ mod safeguard_count_key_value_wire_tests {
 
     #[test]
     fn full_fixture_deserializes() {
-        let parsed: SafeguardCountKeyInWire = serde_json::from_str(FIXTURE)
-            .expect("fully-populated fixture must deserialize");
+        let parsed: SafeguardCountKeyInWire =
+            serde_json::from_str(FIXTURE).expect("fully-populated fixture must deserialize");
         // Round-trip via the core helper so the test catches drift in either the
         // wire shape OR the count-key formatter.  perRule collapses to the global
         // sentinel token (SAFEGUARD_COUNT_KEY_GLOBAL = "global") because the
@@ -2797,11 +3052,14 @@ mod safeguard_count_key_value_wire_tests {
           "artifact": { "slot": 7, "set": 19, "faction": 1, "mainStat": 1 },
           "countMode": { "perRule": false, "perSet": true, "perFaction": true, "perMainStat": true, "perSlot": true }
         }"#;
-        let parsed2: SafeguardCountKeyInWire = serde_json::from_str(per_dim)
-            .expect("per-dimension fixture must deserialize");
+        let parsed2: SafeguardCountKeyInWire =
+            serde_json::from_str(per_dim).expect("per-dimension fixture must deserialize");
         let key2 = safeguard_count_key_core(parsed2.artifact, parsed2.count_mode);
         // All four dimensions active → key encodes the full tuple in fixed order.
-        assert_eq!(key2, "slot:7|set:19|faction:1|main:1", "all per-dimension toggles encode full tuple");
+        assert_eq!(
+            key2, "slot:7|set:19|faction:1|main:1",
+            "all per-dimension toggles encode full tuple"
+        );
     }
 
     // deny_unknown_fields gate — wrapper rejects extra top-level keys.
@@ -2812,4 +3070,3 @@ mod safeguard_count_key_value_wire_tests {
         assert!(r.is_err(), "deny_unknown_fields must reject unknown top-level keys");
     }
 }
-

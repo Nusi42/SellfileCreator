@@ -5,40 +5,64 @@
 // Bug 2 fix (challenger projection): challenger pool uses closed-form expected
 // +16 scores rather than current-level scores, making the comparison fair.
 use super::{
-    // Pub structs declared in mod.rs.
-    SafeguardCountKey, SafeguardWasmArtifactIn, SafeguardWasmCombination, SafeguardWasmCountMode,
-    SafeguardWasmRuleIn,
     // Functions made pub(super) for this submodule.
     glyph_average_for_variant,
-    safeguard_compute_score, safeguard_count_key_from_parts,
-    safeguard_is_activation_off, safeguard_matches_selection,
-    safeguard_normalize_substat_value, safeguard_percent_to_flat_main,
-    safeguard_split_set_selections, safeguard_substat_max6_by_variant,
-    safeguard_weight_for_variant,
+    safeguard_compute_score,
+    safeguard_count_key_from_parts,
+    safeguard_is_activation_off,
+    safeguard_matches_selection,
     // Already-pub functions.
-    safeguard_normalize_substat_match, safeguard_normalized_faction_for_slot,
+    safeguard_normalize_substat_match,
+    safeguard_normalize_substat_value,
+    safeguard_normalized_faction_for_slot,
+    safeguard_percent_to_flat_main,
     safeguard_resolve_count_mode,
+    safeguard_split_set_selections,
+    safeguard_substat_max6_by_variant,
+    safeguard_weight_for_variant,
+    // Pub structs declared in mod.rs.
+    SafeguardCountKey,
+    SafeguardWasmArtifactIn,
+    SafeguardWasmCombination,
+    SafeguardWasmCountMode,
+    SafeguardWasmRuleIn,
 };
 use crate::{
     SafeguardCollectRowIn,
     // Slot type constants from generated_domain_constants.
-    ARTIFACT_TYPE_AMULET, ARTIFACT_TYPE_BANNER, ARTIFACT_TYPE_BOOTS, ARTIFACT_TYPE_CHESTPLATE,
-    ARTIFACT_TYPE_GAUNTLETS, ARTIFACT_TYPE_HELMET, ARTIFACT_TYPE_RING, ARTIFACT_TYPE_SHIELD,
+    ARTIFACT_TYPE_AMULET,
+    ARTIFACT_TYPE_BANNER,
+    ARTIFACT_TYPE_BOOTS,
+    ARTIFACT_TYPE_CHESTPLATE,
+    ARTIFACT_TYPE_GAUNTLETS,
+    ARTIFACT_TYPE_HELMET,
+    ARTIFACT_TYPE_RING,
+    ARTIFACT_TYPE_SHIELD,
     ARTIFACT_TYPE_WEAPON,
     // Safeguard token constants from generated_domain_constants.
-    SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT, SAFEGUARD_SUBSTAT_PER_SUBSTAT,
+    SAFEGUARD_MAIN_STAT_RANK_WEIGHT_FACTOR_DEFAULT,
+    SAFEGUARD_SUBSTAT_PER_SUBSTAT,
     // Stat variant constants from generated_domain_constants.
-    STAT_VARIANT_ACC, STAT_VARIANT_ANY, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT,
-    STAT_VARIANT_CDMG, STAT_VARIANT_CR, STAT_VARIANT_DEF_FLAT, STAT_VARIANT_DEF_PERCENT,
-    STAT_VARIANT_HP_FLAT, STAT_VARIANT_HP_PERCENT, STAT_VARIANT_RES, STAT_VARIANT_ROLL_COUNT,
+    STAT_VARIANT_ACC,
+    STAT_VARIANT_ANY,
+    STAT_VARIANT_ATK_FLAT,
+    STAT_VARIANT_ATK_PERCENT,
+    STAT_VARIANT_CDMG,
+    STAT_VARIANT_CR,
+    STAT_VARIANT_DEF_FLAT,
+    STAT_VARIANT_DEF_PERCENT,
+    STAT_VARIANT_HP_FLAT,
+    STAT_VARIANT_HP_PERCENT,
+    STAT_VARIANT_RES,
+    STAT_VARIANT_ROLL_COUNT,
     STAT_VARIANT_SPD,
     // Per-star substat roll ranges for two-value branching.
     SUBSTAT_ROLL_RANGES_BY_STAR,
 };
 use serde::{Deserialize, Serialize};
 // ts-rs trait import enables `#[derive(TS)]` on this submodule's output types.
-use ts_rs::TS;
 use std::collections::{BTreeMap, HashSet};
+use ts_rs::TS;
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -291,46 +315,42 @@ pub(super) fn extract_synthetic_boundaries(
         // The synthetic's count key under this scenario's mode — the only bucket the
         // leaf will ever consult for this probe context.
         let key = safeguard_count_key_from_parts(slot, set, faction, main_stat, scenario.count_mode);
-        let boundary: Option<StaticChallenger> = scenario
-            .challengers_by_count_key
-            .get(&key)
-            .and_then(|bucket| {
-                let required = scenario.required_per_bucket.max(1) as usize;
-                // Fewer than N challengers → always selected → no boundary.
-                if bucket.len() < required {
-                    return None;
-                }
-                // Rank by beat-region inclusion, strongest first (see doc above).
-                let strength = |ch: &StaticChallenger| -> (f64, bool) {
-                    let tie = tie_break_favors_challenger(ch.main_stat, ch.rank, main_stat, cand_rank);
-                    let threshold = if tie {
-                        ch.projected_score + SCORE_TIE_EPSILON
-                    } else {
-                        ch.projected_score - SCORE_TIE_EPSILON
-                    };
-                    (threshold, tie)
+        let boundary: Option<StaticChallenger> = scenario.challengers_by_count_key.get(&key).and_then(|bucket| {
+            let required = scenario.required_per_bucket.max(1) as usize;
+            // Fewer than N challengers → always selected → no boundary.
+            if bucket.len() < required {
+                return None;
+            }
+            // Rank by beat-region inclusion, strongest first (see doc above).
+            let strength = |ch: &StaticChallenger| -> (f64, bool) {
+                let tie = tie_break_favors_challenger(ch.main_stat, ch.rank, main_stat, cand_rank);
+                let threshold = if tie {
+                    ch.projected_score + SCORE_TIE_EPSILON
+                } else {
+                    ch.projected_score - SCORE_TIE_EPSILON
                 };
-                let mut order: Vec<&StaticChallenger> = bucket.iter().collect();
-                order.sort_by(|a, b| {
-                    let (threshold_a, incl_a) = strength(a);
-                    let (threshold_b, incl_b) = strength(b);
-                    threshold_b
-                        .partial_cmp(&threshold_a)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        // Equal thresholds: the inclusive (tie-favoring) region is larger.
-                        .then_with(|| incl_b.cmp(&incl_a))
-                        // Exact duplicates: deterministic boundary via artifact id.
-                        .then_with(|| a.artifact_id.cmp(&b.artifact_id))
-                });
-                let mut boundary = order[required - 1].clone();
-                // Keep-biased quantization dial (see doc above): floor the selected
-                // boundary's score onto the grid so probes AND signature share it.
-                if boundary_quantum > 0.0 {
-                    boundary.projected_score =
-                        (boundary.projected_score / boundary_quantum).floor() * boundary_quantum;
-                }
-                Some(boundary)
+                (threshold, tie)
+            };
+            let mut order: Vec<&StaticChallenger> = bucket.iter().collect();
+            order.sort_by(|a, b| {
+                let (threshold_a, incl_a) = strength(a);
+                let (threshold_b, incl_b) = strength(b);
+                threshold_b
+                    .partial_cmp(&threshold_a)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    // Equal thresholds: the inclusive (tie-favoring) region is larger.
+                    .then_with(|| incl_b.cmp(&incl_a))
+                    // Exact duplicates: deterministic boundary via artifact id.
+                    .then_with(|| a.artifact_id.cmp(&b.artifact_id))
             });
+            let mut boundary = order[required - 1].clone();
+            // Keep-biased quantization dial (see doc above): floor the selected
+            // boundary's score onto the grid so probes AND signature share it.
+            if boundary_quantum > 0.0 {
+                boundary.projected_score = (boundary.projected_score / boundary_quantum).floor() * boundary_quantum;
+            }
+            Some(boundary)
+        });
         // 3-decimal score quantization keeps the signature integer/BTreeMap-friendly
         // (boundaries closer than 0.5e-3 collapse — same tolerance the old full-list
         // signature used); main/rank ride along because exact ties break on them.
@@ -363,15 +383,13 @@ pub(super) fn reduce_scenarios_for_synthetic(
     cand_rank: i64,
     boundary_quantum: f64,
 ) -> (Vec<UpgradeScenario>, Vec<Option<(i64, i64, i64)>>) {
-    let (extracted, boundaries) = extract_synthetic_boundaries(
-        scenarios, slot, set, faction, main_stat, cand_rank, boundary_quantum,
-    );
+    let (extracted, boundaries) =
+        extract_synthetic_boundaries(scenarios, slot, set, faction, main_stat, cand_rank, boundary_quantum);
     let reduced = scenarios
         .iter()
         .zip(extracted.per_scenario)
         .map(|(scenario, boundary)| {
-            let key =
-                safeguard_count_key_from_parts(slot, set, faction, main_stat, scenario.count_mode);
+            let key = safeguard_count_key_from_parts(slot, set, faction, main_stat, scenario.count_mode);
             let mut boundary_bucket = BTreeMap::<SafeguardCountKey, Vec<StaticChallenger>>::new();
             if let Some(challenger) = boundary {
                 boundary_bucket.insert(key, vec![challenger]);
@@ -444,10 +462,7 @@ pub(super) fn allowed_substats_for_slot(slot: i64) -> &'static [i64] {
     // Constants are from generated_domain_constants.rs via `use crate::*`.
     match slot {
         // Artifact slots (1–4): full 11-variant pool.
-        ARTIFACT_TYPE_HELMET
-        | ARTIFACT_TYPE_CHESTPLATE
-        | ARTIFACT_TYPE_GAUNTLETS
-        | ARTIFACT_TYPE_BOOTS => &[
+        ARTIFACT_TYPE_HELMET | ARTIFACT_TYPE_CHESTPLATE | ARTIFACT_TYPE_GAUNTLETS | ARTIFACT_TYPE_BOOTS => &[
             STAT_VARIANT_HP_PERCENT,
             STAT_VARIANT_HP_FLAT,
             STAT_VARIANT_ATK_PERCENT,
@@ -642,7 +657,8 @@ fn build_existing_gain(
         if max6 <= 0.0 {
             continue;
         }
-        let divisor = substat.rolls
+        let divisor = substat
+            .rolls
             .filter(|&r| r > 0)
             .map(|r| (r + 1) as f64)
             .unwrap_or(1.0)
@@ -698,12 +714,7 @@ fn count_matched_in_state(state: &BTreeMap<i64, i64>, selected: &[i64]) -> usize
         .count()
 }
 
-fn state_matches_substats(
-    state: &BTreeMap<i64, i64>,
-    selected: &[i64],
-    substat_match: &str,
-    main_stat: i64,
-) -> bool {
+fn state_matches_substats(state: &BTreeMap<i64, i64>, selected: &[i64], substat_match: &str, main_stat: i64) -> bool {
     // Gate on substat presence, against the recursion's simulated state.
     if selected.is_empty() {
         return true;
@@ -742,7 +753,11 @@ fn compute_score_from_state(
             }
         }
     }
-    if total.is_finite() { total } else { 0.0 }
+    if total.is_finite() {
+        total
+    } else {
+        0.0
+    }
 }
 
 // Compact stack-allocated memo key: avoids all heap allocation vs. the old String approach.
@@ -767,7 +782,11 @@ fn make_state_key(state: &BTreeMap<i64, i64>, event_idx: usize) -> StateKey {
         len += 1;
     }
     entries[..len].sort_unstable_by_key(|(v, _)| *v);
-    StateKey { event_idx: event_idx as u8, len: len as u8, entries }
+    StateKey {
+        event_idx: event_idx as u8,
+        len: len as u8,
+        entries,
+    }
 }
 
 // apply_state_delta removed: compute_probability now mutates state in-place and
@@ -821,10 +840,7 @@ pub(super) fn compute_projected_challenger_score(
     let remaining_ms = resolve_remaining_milestones(level);
     let addition_ms = resolve_remaining_addition_milestones(rarity, level);
     // Roll events: milestones that are not addition events.
-    let roll_events = remaining_ms
-        .iter()
-        .filter(|m| !addition_ms.contains(m))
-        .count() as f64;
+    let roll_events = remaining_ms.iter().filter(|m| !addition_ms.contains(m)).count() as f64;
     let add_events = addition_ms.len() as f64;
     let substat_count = artifact.substats.len().max(1) as f64;
     // Build a presence set and missing pool for addition probability.
@@ -835,11 +851,7 @@ pub(super) fn compute_projected_challenger_score(
         .map(|s| s.variant)
         .collect();
     let full_pool = build_legal_addition_pool(artifact);
-    let missing_pool: Vec<i64> = full_pool
-        .iter()
-        .filter(|&&v| !present.contains(&v))
-        .copied()
-        .collect();
+    let missing_pool: Vec<i64> = full_pool.iter().filter(|&&v| !present.contains(&v)).copied().collect();
     let missing_pool_size = missing_pool.len() as f64;
     let rank_scale = resolve_unknown_rank_scale(artifact.rank);
     let mut total = 0.0;
@@ -851,27 +863,27 @@ pub(super) fn compute_projected_challenger_score(
         }
         // Fallback expected gain per roll event for this variant.
         let fallback_gain_per_roll = max6 * UNKNOWN_ROLL_QUALITY_RATIO * rank_scale;
-        let projected_val =
-            if let Some(substat) = artifact.substats.iter().find(|s| s.variant == variant) {
-                // Observed substat: per-roll gain mirrors TS divisor logic (rolls + 1).
-                let divisor = substat.rolls
-                    .filter(|&r| r > 0)
-                    .map(|r| (r + 1) as f64)
-                    .unwrap_or(1.0)
-                    .max(1.0);
-                let per_roll = if substat.value > 0.0 && substat.value.is_finite() {
-                    (substat.value / divisor).min(max6)
-                } else {
-                    fallback_gain_per_roll
-                };
-                // Current value + expected gain from remaining roll events.
-                substat.value + (roll_events / substat_count) * per_roll
-            } else if missing_pool_size > 0.0 && missing_pool.contains(&variant) {
-                // Potentially addable: probability of being picked times gain.
-                (add_events / missing_pool_size) * fallback_gain_per_roll
+        let projected_val = if let Some(substat) = artifact.substats.iter().find(|s| s.variant == variant) {
+            // Observed substat: per-roll gain mirrors TS divisor logic (rolls + 1).
+            let divisor = substat
+                .rolls
+                .filter(|&r| r > 0)
+                .map(|r| (r + 1) as f64)
+                .unwrap_or(1.0)
+                .max(1.0);
+            let per_roll = if substat.value > 0.0 && substat.value.is_finite() {
+                (substat.value / divisor).min(max6)
             } else {
-                continue;
+                fallback_gain_per_roll
             };
+            // Current value + expected gain from remaining roll events.
+            substat.value + (roll_events / substat_count) * per_roll
+        } else if missing_pool_size > 0.0 && missing_pool.contains(&variant) {
+            // Potentially addable: probability of being picked times gain.
+            (add_events / missing_pool_size) * fallback_gain_per_roll
+        } else {
+            continue;
+        };
         let normalized = safeguard_normalize_substat_value(variant, projected_val);
         total += weight * normalized;
         // Add glyph potential for variants that will be present at +16.
@@ -882,7 +894,11 @@ pub(super) fn compute_projected_challenger_score(
             }
         }
     }
-    if total.is_finite() { total } else { 0.0 }
+    if total.is_finite() {
+        total
+    } else {
+        0.0
+    }
 }
 
 // ─── tie-break comparator ─────────────────────────────────────────────────────
@@ -932,12 +948,13 @@ pub(super) fn tie_break_favors_challenger(ch_main: i64, ch_rank: i64, cand_main:
 // Full-bucket selection test for ONE scenario: state substat gate, scenario score,
 // then the quota check against the challenger bucket (with the per-artifact self-skip).
 // Shared by the scalar any-scenario leaf and the grouped-lane leaf (ODR).
-fn scenario_selects_state(
-    scenario: &UpgradeScenario,
-    state: &BTreeMap<i64, i64>,
-    ctx: &RecursionContext<'_>,
-) -> bool {
-    if !state_matches_substats(state, &scenario.selected_substats, &scenario.substat_match, ctx.artifact_main_stat) {
+fn scenario_selects_state(scenario: &UpgradeScenario, state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> bool {
+    if !state_matches_substats(
+        state,
+        &scenario.selected_substats,
+        &scenario.substat_match,
+        ctx.artifact_main_stat,
+    ) {
         return false;
     }
     // Mirror detection scoring: substat score plus the per-artifact main-stat rank bonus
@@ -994,10 +1011,7 @@ fn scenario_selects_state(
 // into lanes (GroupedSelectionLeaf); this any-scenario union remains as the scalar
 // reference leaf the equivalence tests compare against.
 #[cfg(test)]
-fn is_state_selected_by_any_scenario(
-    state: &BTreeMap<i64, i64>,
-    ctx: &RecursionContext<'_>,
-) -> bool {
+fn is_state_selected_by_any_scenario(state: &BTreeMap<i64, i64>, ctx: &RecursionContext<'_>) -> bool {
     // Test whether the projected state is safeguard-selected by any scenario.
     // ctx.scenarios is pre-filtered to scenarios applicable to ctx.artifact_id (via scenarios_by_id
     // index built in compute_improvement_chance), so no applicability check is needed here.
@@ -1120,10 +1134,7 @@ struct MultiBoundaryLeaf<'a> {
 }
 
 impl<'a> MultiBoundaryLeaf<'a> {
-    fn new(
-        scenario_count: usize,
-        boundary_vecs: &[&'a SyntheticBoundaries],
-    ) -> MultiBoundaryLeaf<'a> {
+    fn new(scenario_count: usize, boundary_vecs: &[&'a SyntheticBoundaries]) -> MultiBoundaryLeaf<'a> {
         let width = boundary_vecs.len();
         let mut grid = Vec::with_capacity(scenario_count * width);
         for s_idx in 0..scenario_count {
@@ -1160,19 +1171,16 @@ impl ChanceLeaf for MultiBoundaryLeaf<'_> {
                 continue;
             }
             // … and the projected scenario score (mirrors the scalar leaf's scoring).
-            let score = compute_score_from_state(
-                state,
-                &scenario.selected_substats,
-                &scenario.weights,
-                ctx.artifact_rank,
-            ) + super::safeguard_main_stat_rank_bonus_parts(
-                ctx.artifact_rank,
-                ctx.artifact_slot,
-                ctx.artifact_main_stat,
-                scenario.weight_main_stat_by_rank,
-                scenario.main_stat_rank_weight_factor,
-                true,
-            );
+            let score =
+                compute_score_from_state(state, &scenario.selected_substats, &scenario.weights, ctx.artifact_rank)
+                    + super::safeguard_main_stat_rank_bonus_parts(
+                        ctx.artifact_rank,
+                        ctx.artifact_slot,
+                        ctx.artifact_main_stat,
+                        scenario.weight_main_stat_by_rank,
+                        scenario.main_stat_rank_weight_factor,
+                        true,
+                    );
             if !(score > 0.0) {
                 continue;
             }
@@ -1256,8 +1264,7 @@ fn compute_probability<L: ChanceLeaf>(
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = leaf.zero();
             for &variant in candidates {
-                let (low, high) =
-                    resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
+                let (low, high) = resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
                 if low <= 0 && high <= 0 {
                     continue;
                 }
@@ -1279,7 +1286,9 @@ fn compute_probability<L: ChanceLeaf>(
                 } else {
                     // Single average gain: (low + high) / 2.
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
-                    if avg <= 0 { continue; }
+                    if avg <= 0 {
+                        continue;
+                    }
                     state.insert(variant, avg);
                     let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
                     leaf.add_scaled(&mut total, p, &child);
@@ -1306,8 +1315,7 @@ fn compute_probability<L: ChanceLeaf>(
             let use_two_value = milestone >= TWO_VALUE_BRANCHING_MIN_MILESTONE;
             let mut total = leaf.zero();
             for &variant in variants {
-                let (low, high) =
-                    resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
+                let (low, high) = resolve_expected_gain(variant, &ctx.expected_gain, &ctx.fallback_gain);
                 if low <= 0 && high <= 0 {
                     continue;
                 }
@@ -1328,7 +1336,9 @@ fn compute_probability<L: ChanceLeaf>(
                     }
                 } else {
                     let avg = ((low + high) as f64 / 2.0).round() as i64;
-                    if avg <= 0 { continue; }
+                    if avg <= 0 {
+                        continue;
+                    }
                     *state.get_mut(&variant).unwrap() = (current + avg).max(0);
                     let child = compute_probability(ctx, state, event_idx + 1, memo, leaf);
                     leaf.add_scaled(&mut total, p, &child);
@@ -1344,10 +1354,7 @@ fn compute_probability<L: ChanceLeaf>(
 
 // ─── per-artifact substat matching ────────────────────────────────────────────
 
-fn count_matched_on_artifact(
-    artifact: &SafeguardWasmArtifactIn,
-    selected_set: &HashSet<i64>,
-) -> usize {
+fn count_matched_on_artifact(artifact: &SafeguardWasmArtifactIn, selected_set: &HashSet<i64>) -> usize {
     // Count unique selected variants with a positive value on the artifact.
     if selected_set.is_empty() {
         return 0;
@@ -1372,11 +1379,7 @@ fn count_matched_on_artifact(
     matched
 }
 
-fn artifact_matches_substats(
-    artifact: &SafeguardWasmArtifactIn,
-    selected: &[i64],
-    substat_match: &str,
-) -> bool {
+fn artifact_matches_substats(artifact: &SafeguardWasmArtifactIn, selected: &[i64], substat_match: &str) -> bool {
     // Current-state substat gate, against the piece as it stands today.
     if selected.is_empty() {
         return true;
@@ -1386,8 +1389,7 @@ fn artifact_matches_substats(
     let min_count = super::safeguard_substat_min_count(substat_match, selected_set.len());
     // Substats that equal the piece's mainstat are impossible; cap the required total
     // with the shared counting rule.
-    let possible_count =
-        super::safeguard_possible_substat_count(&selected_set, artifact.main_stat);
+    let possible_count = super::safeguard_possible_substat_count(&selected_set, artifact.main_stat);
     let effective_required = min_count.min(possible_count);
     if effective_required == 0 {
         return true;
@@ -1432,7 +1434,10 @@ fn compute_artifact_chance_percent(
                 .expect("every scenario's rule order is interned above")
         })
         .collect();
-    let leaf = GroupedSelectionLeaf { lane_by_scenario, width: rule_orders.len() };
+    let leaf = GroupedSelectionLeaf {
+        lane_by_scenario,
+        width: rule_orders.len(),
+    };
     // Cached nodes are valid solely for this artifact's (scenarios, gains) context.
     memo.clear();
     let raw = compute_artifact_chance_impl(artifact, scenarios, memo, &leaf, false);
@@ -1688,10 +1693,7 @@ fn build_viability_context(artifact: &SafeguardWasmArtifactIn) -> ViabilityConte
     }
 }
 
-fn scenario_can_match_by_level16(
-    scenario: &UpgradeScenario,
-    viability: &ViabilityContext,
-) -> bool {
+fn scenario_can_match_by_level16(scenario: &UpgradeScenario, viability: &ViabilityContext) -> bool {
     // Prune scenarios that can never match by level 16, before the expensive recursion.
     let selected = &scenario.selected_substats;
     if selected.is_empty() {
@@ -1701,8 +1703,7 @@ fn scenario_can_match_by_level16(
     let min_count = super::safeguard_substat_min_count(&scenario.substat_match, selected.len());
     // Substats that equal the piece's mainstat are impossible; cap the required total
     // with the shared counting rule.
-    let possible_count =
-        super::safeguard_possible_substat_count(selected, viability.main_stat);
+    let possible_count = super::safeguard_possible_substat_count(selected, viability.main_stat);
     let effective_required = min_count.min(possible_count);
     // Vacuously satisfied when no possible substat can satisfy the filter.
     if effective_required == 0 {
@@ -1723,7 +1724,7 @@ fn scenario_can_match_by_level16(
             continue;
         }
         if get_state_raw_value(&viability.initial_state, v) > 0.0 {
-            continue;  // already present
+            continue; // already present
         }
         if !viability.legal_addition_pool_set.contains(&v) {
             // Cannot be added at any future event; rule cannot be met.
@@ -1786,8 +1787,7 @@ pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<Prepar
                 }
             }
         }
-        let substat_match =
-            safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
+        let substat_match = safeguard_normalize_substat_match(rule.substat_match.as_deref().unwrap_or(""));
         prepared.push(PreparedUpgradeRule {
             rule_order,
             combination,
@@ -1810,10 +1810,7 @@ pub(super) fn prepare_upgrade_rules(rules: &[SafeguardWasmRuleIn]) -> Vec<Prepar
     prepared
 }
 
-fn upgrade_rule_applies_to_artifact(
-    rule: &PreparedUpgradeRule,
-    artifact: &SafeguardWasmArtifactIn,
-) -> bool {
+fn upgrade_rule_applies_to_artifact(rule: &PreparedUpgradeRule, artifact: &SafeguardWasmArtifactIn) -> bool {
     // Rule applicability gate; called for every (rule × artifact) pair.
     if rule.ignore_equipped_in_collection && artifact.equipped_in_collection {
         return false;
@@ -1837,9 +1834,7 @@ fn upgrade_rule_applies_to_artifact(
     if !safeguard_matches_selection(&rule.combination.rarities, artifact.rarity) {
         return false;
     }
-    if !rule.combination.main_stats.is_empty()
-        && !rule.combination.main_stats.contains(&artifact.main_stat)
-    {
+    if !rule.combination.main_stats.is_empty() && !rule.combination.main_stats.contains(&artifact.main_stat) {
         return false;
     }
     let faction = safeguard_normalized_faction_for_slot(artifact.slot, artifact.faction);
@@ -1900,7 +1895,11 @@ pub(super) fn build_scenarios(
         applicable_ids.clear();
         applicable_ids.extend(rows.iter().filter_map(|row| {
             let id = row.artifact.id?;
-            if upgrade_rule_applies_to_artifact(rule, &row.artifact) { Some(id) } else { None }
+            if upgrade_rule_applies_to_artifact(rule, &row.artifact) {
+                Some(id)
+            } else {
+                None
+            }
         }));
         if applicable_ids.is_empty() {
             continue;
@@ -1920,25 +1919,19 @@ pub(super) fn build_scenarios(
                     continue;
                 }
                 // Challenger must currently match the scenario's substat gate.
-                if !artifact_matches_substats(
-                    &row.artifact,
-                    &def.selected_substats,
-                    &def.substat_match,
-                ) {
+                if !artifact_matches_substats(&row.artifact, &def.selected_substats, &def.substat_match) {
                     continue;
                 }
                 // Project challenger to +16 for a fair comparison (Bug 2 fix), then add the same
                 // per-artifact main-stat rank bonus the detection ranking uses (constant at +16).
-                let proj_score = compute_projected_challenger_score(
-                    &row.artifact,
-                    &def.selected_substats,
-                    &rule.weights,
-                ) + super::safeguard_main_stat_rank_bonus(
-                    &row.artifact,
-                    rule.weight_main_stat_by_rank,
-                    rule.main_stat_rank_weight_factor,
-                    true,
-                );
+                let proj_score =
+                    compute_projected_challenger_score(&row.artifact, &def.selected_substats, &rule.weights)
+                        + super::safeguard_main_stat_rank_bonus(
+                            &row.artifact,
+                            rule.weight_main_stat_by_rank,
+                            rule.main_stat_rank_weight_factor,
+                            true,
+                        );
                 if !(proj_score > 0.0) {
                     continue;
                 }
@@ -1949,15 +1942,12 @@ pub(super) fn build_scenarios(
                     row.artifact.main_stat,
                     rule.count_mode,
                 );
-                challengers_by_key
-                    .entry(key)
-                    .or_default()
-                    .push(StaticChallenger {
-                        artifact_id: art_id,
-                        projected_score: proj_score,
-                        rank: row.artifact.rank,
-                        main_stat: row.artifact.main_stat,
-                    });
+                challengers_by_key.entry(key).or_default().push(StaticChallenger {
+                    artifact_id: art_id,
+                    projected_score: proj_score,
+                    rank: row.artifact.rank,
+                    main_stat: row.artifact.main_stat,
+                });
             }
             let scenario_idx = scenarios.len();
             scenarios.push(UpgradeScenario {
@@ -2008,7 +1998,9 @@ fn resolve_most_likely_scenario_idx<'a>(
         .into_iter()
         .map(round_chance_percent)
         .collect();
-    let &best_chance = chances.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
+    let &best_chance = chances
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))?;
     let best_idxs: Vec<usize> = chances
         .iter()
         .enumerate()
@@ -2022,8 +2014,7 @@ fn resolve_most_likely_scenario_idx<'a>(
     let matched_counts: Vec<usize> = best_idxs
         .iter()
         .map(|&i| {
-            let sel: HashSet<i64> =
-                viable[i].rule_selected_substats.iter().copied().collect();
+            let sel: HashSet<i64> = viable[i].rule_selected_substats.iter().copied().collect();
             count_matched_on_artifact(artifact, &sel)
         })
         .collect();
@@ -2038,10 +2029,7 @@ fn resolve_most_likely_scenario_idx<'a>(
         return Some(matched_best[0]);
     }
     // Tie-break 2: earliest rule in the safeguard list (smallest rule_order).
-    let best_order = matched_best
-        .iter()
-        .map(|&i| viable[i].rule_order)
-        .min()?;
+    let best_order = matched_best.iter().map(|&i| viable[i].rule_order).min()?;
     let order_best: Vec<usize> = matched_best
         .iter()
         .filter(|&&i| viable[i].rule_order == best_order)
@@ -2107,8 +2095,7 @@ fn build_chance_debug(
     } else {
         scenario.selected_substats.clone()
     };
-    let matched_now =
-        count_matched_in_state(&viability.initial_state, &scenario.selected_substats);
+    let matched_now = count_matched_in_state(&viability.initial_state, &scenario.selected_substats);
     ImprovementChanceDebug {
         viable_scenario_count,
         selected_substats: debug_substats,
@@ -2165,10 +2152,8 @@ pub fn compute_improvement_chance_core(
         };
         // Fully-upgraded artifacts are included: compute_artifact_chance_percent handles the
         // milestones.is_empty() case and returns 100 or 0 based on current competitiveness.
-        let artifact_scenarios: &[&UpgradeScenario] = scenarios_by_id
-            .get(&artifact_id)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[]);
+        let artifact_scenarios: &[&UpgradeScenario] =
+            scenarios_by_id.get(&artifact_id).map(|v| v.as_slice()).unwrap_or(&[]);
         if artifact_scenarios.is_empty() {
             output.push(ImprovementChanceEntry {
                 artifact_id,
@@ -2180,7 +2165,9 @@ pub fn compute_improvement_chance_core(
             });
             continue;
         }
-        if debug { artifacts_with_scenarios += 1; }
+        if debug {
+            artifacts_with_scenarios += 1;
+        }
         // Prune scenarios that cannot be satisfied by +16 for this artifact.
         let viability = build_viability_context(&row.artifact);
         let viable: Vec<&UpgradeScenario> = artifact_scenarios
@@ -2199,9 +2186,10 @@ pub fn compute_improvement_chance_core(
             });
             continue;
         }
-        if debug { artifacts_viable += 1; }
-        let (chance, chances_map) =
-            compute_artifact_chance_percent(&row.artifact, &viable, &mut impr_memo);
+        if debug {
+            artifacts_viable += 1;
+        }
+        let (chance, chances_map) = compute_artifact_chance_percent(&row.artifact, &viable, &mut impr_memo);
         // Convert BTreeMap to ordered Vec<ImprovementChanceRuleEntry> for round-trip stability.
         let chances_by_rule_ordinal: Vec<ImprovementChanceRuleEntry> = chances_map
             .into_iter()
@@ -2212,9 +2200,7 @@ pub fn compute_improvement_chance_core(
             .collect();
         let preferred_idx = resolve_most_likely_scenario_idx(&row.artifact, &viable);
         let preferred = preferred_idx.map(|i| viable[i]);
-        let debug_snapshot = preferred.map(|s| {
-            build_chance_debug(&row.artifact, s, &viability, viable.len() as u32)
-        });
+        let debug_snapshot = preferred.map(|s| build_chance_debug(&row.artifact, s, &viability, viable.len() as u32));
         // 1-based ordinal derived from the 0-based rule_order; used by TypeScript for navigation.
         let matched_rule_ordinal = preferred.map(|s| s.rule_order as i64 + 1);
         output.push(ImprovementChanceEntry {
@@ -2240,7 +2226,6 @@ pub fn compute_improvement_chance_core(
     (output, perf_diag)
 }
 
-
 // ─── boundary-challenger reduction tests ─────────────────────────────────────
 
 #[cfg(test)]
@@ -2248,8 +2233,8 @@ mod boundary_reduction_tests {
     use super::*;
     use crate::safeguards::fast_path_types::SafeguardWasmSubstatIn;
     use crate::{
-        ARTIFACT_TYPE_BOOTS, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT,
-        STAT_VARIANT_DEF_PERCENT, STAT_VARIANT_HP_FLAT, STAT_VARIANT_HP_PERCENT,
+        ARTIFACT_TYPE_BOOTS, STAT_VARIANT_ATK_FLAT, STAT_VARIANT_ATK_PERCENT, STAT_VARIANT_DEF_PERCENT,
+        STAT_VARIANT_HP_FLAT, STAT_VARIANT_HP_PERCENT,
     };
 
     // Per-rule counting → one Global bucket regardless of dims: keeps count keys trivial.
@@ -2300,7 +2285,12 @@ mod boundary_reduction_tests {
             .iter()
             .filter(|ch| {
                 is_challenger_strictly_better(
-                    ch.projected_score, ch.main_stat, ch.rank, cand_score, cand_main, cand_rank,
+                    ch.projected_score,
+                    ch.main_stat,
+                    ch.rank,
+                    cand_score,
+                    cand_main,
+                    cand_rank,
                 )
             })
             .count() as i64;
@@ -2310,11 +2300,7 @@ mod boundary_reduction_tests {
     // Pull the reduced Global bucket (0 or 1 challengers) out of a reduced scenario.
     fn reduced_bucket(scenario: &UpgradeScenario, cand_main: i64) -> Vec<StaticChallenger> {
         let key = safeguard_count_key_from_parts(0, 0, 0, cand_main, scenario.count_mode);
-        scenario
-            .challengers_by_count_key
-            .get(&key)
-            .cloned()
-            .unwrap_or_default()
+        scenario.challengers_by_count_key.get(&key).cloned().unwrap_or_default()
     }
 
     #[test]
@@ -2325,9 +2311,7 @@ mod boundary_reduction_tests {
         // score pool contains duplicates on purpose so exact-tie challengers occur.
         let mut seed: u64 = 0x00C0FFEE;
         let mut next = move |bound: u64| -> u64 {
-            seed = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
             (seed >> 33) % bound
         };
         let mains = [
@@ -2458,8 +2442,7 @@ mod boundary_reduction_tests {
         for (bucket, required, cand_main, cand_rank) in cases {
             let scenario = make_scenario(bucket.clone(), required);
             let refs = [&scenario];
-            let (reduced, _) =
-                reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank, 0.0);
+            let (reduced, _) = reduce_scenarios_for_synthetic(&refs, 0, 0, 0, cand_main, cand_rank, 0.0);
             let reduced_ch = reduced_bucket(&reduced[0], cand_main);
             let mut grid = vec![0.0, 100.0];
             for challenger in &bucket {
@@ -2496,24 +2479,34 @@ mod boundary_reduction_tests {
         let refs_lo = [&scenario_lo];
         let refs_hi = [&scenario_hi];
         // q = 0.5: both collapse onto the 5.0 grid floor.
-        let (red_lo, bounds_lo) =
-            reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
-        let (red_hi, bounds_hi) =
-            reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
+        let (red_lo, bounds_lo) = reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
+        let (red_hi, bounds_hi) = reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.5);
         assert_eq!(bounds_lo, bounds_hi, "same grid bucket must share the signature");
-        assert_eq!(bounds_lo[0].expect("boundary expected").0, 5000, "floored to the grid (5.0 → millis)");
+        assert_eq!(
+            bounds_lo[0].expect("boundary expected").0,
+            5000,
+            "floored to the grid (5.0 → millis)"
+        );
         let floored_lo = reduced_bucket(&red_lo[0], STAT_VARIANT_SPD);
         let floored_hi = reduced_bucket(&red_hi[0], STAT_VARIANT_SPD);
-        assert_eq!(floored_lo[0].projected_score, 5.0, "probes run against the bucket floor");
+        assert_eq!(
+            floored_lo[0].projected_score, 5.0,
+            "probes run against the bucket floor"
+        );
         assert_eq!(floored_hi[0].projected_score, 5.0);
-        assert!(floored_lo[0].projected_score <= 5.123, "flooring never raises a boundary");
+        assert!(
+            floored_lo[0].projected_score <= 5.123,
+            "flooring never raises a boundary"
+        );
         // q = 0: the exact path keeps the boundaries (and signatures) distinct.
-        let (_, exact_lo) =
-            reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
-        let (_, exact_hi) =
-            reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
+        let (_, exact_lo) = reduce_scenarios_for_synthetic(&refs_lo, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
+        let (_, exact_hi) = reduce_scenarios_for_synthetic(&refs_hi, 0, 0, 0, STAT_VARIANT_SPD, 5, 0.0);
         assert_ne!(exact_lo, exact_hi, "q = 0 must keep distinct boundaries distinct");
-        assert_eq!(exact_lo[0].expect("boundary expected").0, 5123, "exact path is unquantized");
+        assert_eq!(
+            exact_lo[0].expect("boundary expected").0,
+            5123,
+            "exact path is unquantized"
+        );
     }
 
     #[test]
@@ -2533,7 +2526,13 @@ mod boundary_reduction_tests {
             let refs = [&scenario];
             for &rank in &[5i64, 6] {
                 let (reduced, _) = reduce_scenarios_for_synthetic(
-                    &refs, ARTIFACT_TYPE_BOOTS, 10, 0, STAT_VARIANT_HP_PERCENT, rank, 0.0,
+                    &refs,
+                    ARTIFACT_TYPE_BOOTS,
+                    10,
+                    0,
+                    STAT_VARIANT_HP_PERCENT,
+                    rank,
+                    0.0,
                 );
                 let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
                 for &level in &[0i64, 8, 16] {
@@ -2560,13 +2559,8 @@ mod boundary_reduction_tests {
                         // Fresh memos per call: the synthetic helper does not clear.
                         let mut memo_full: BTreeMap<StateKey, f64> = BTreeMap::new();
                         let mut memo_red: BTreeMap<StateKey, f64> = BTreeMap::new();
-                        let full =
-                            compute_synthetic_chance_for_scenarios(&artifact, &refs, &mut memo_full);
-                        let red = compute_synthetic_chance_for_scenarios(
-                            &artifact,
-                            &reduced_refs,
-                            &mut memo_red,
-                        );
+                        let full = compute_synthetic_chance_for_scenarios(&artifact, &refs, &mut memo_full);
+                        let red = compute_synthetic_chance_for_scenarios(&artifact, &reduced_refs, &mut memo_red);
                         assert_eq!(
                             full, red,
                             "chance must be identical (required {required}, rank {rank}, level {level}, spd {spd_value})",
@@ -2632,10 +2626,7 @@ mod boundary_reduction_tests {
                 let extracted: Vec<SyntheticBoundaries> = scenarios
                     .iter()
                     .map(|scenario| {
-                        extract_synthetic_boundaries(
-                            &[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum,
-                        )
-                        .0
+                        extract_synthetic_boundaries(&[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum).0
                     })
                     .collect();
                 let boundary_refs: Vec<&SyntheticBoundaries> = extracted.iter().collect();
@@ -2652,15 +2643,17 @@ mod boundary_reduction_tests {
                         assert_eq!(multi.len(), buckets.len());
                         for (idx, scenario) in scenarios.iter().enumerate() {
                             let (reduced, _) = reduce_scenarios_for_synthetic(
-                                &[scenario], 0, 0, 0, STAT_VARIANT_HP_PERCENT, rank, quantum,
+                                &[scenario],
+                                0,
+                                0,
+                                0,
+                                STAT_VARIANT_HP_PERCENT,
+                                rank,
+                                quantum,
                             );
                             let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
                             let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-                            let scalar = compute_synthetic_chance_for_scenarios(
-                                &artifact,
-                                &reduced_refs,
-                                &mut memo,
-                            );
+                            let scalar = compute_synthetic_chance_for_scenarios(&artifact, &reduced_refs, &mut memo);
                             assert_eq!(
                                 multi[idx], scalar,
                                 "lane {idx} must match its scalar reduced probe (rank {rank}, quantum {quantum}, level {level}, spd {spd_value})",
@@ -2704,33 +2697,21 @@ mod boundary_reduction_tests {
         let scenario_refs: Vec<&UpgradeScenario> = vec![&spd_scenario, &acc_scenario];
         // Two lanes: the joint extraction (both scenarios' boundaries) and a variant
         // where the ACC bucket is below quota (required 2 > bucket size 1).
-        let (lane_a, _) = extract_synthetic_boundaries(
-            &scenario_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
-        );
+        let (lane_a, _) = extract_synthetic_boundaries(&scenario_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0);
         let acc_below_quota = make_acc_scenario(2);
         let below_refs: Vec<&UpgradeScenario> = vec![&spd_scenario, &acc_below_quota];
-        let (lane_b, _) = extract_synthetic_boundaries(
-            &below_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
-        );
+        let (lane_b, _) = extract_synthetic_boundaries(&below_refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0);
         let boundary_refs: Vec<&SyntheticBoundaries> = vec![&lane_a, &lane_b];
         for &level in &[0i64, 8, 16] {
             for spd_value in [4.0, 8.0, 16.0] {
                 let artifact = make_probe_artifact(6, level, spd_value);
                 let mut memo_multi: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
-                let multi = compute_synthetic_chance_multi(
-                    &artifact,
-                    &scenario_refs,
-                    &boundary_refs,
-                    &mut memo_multi,
-                );
+                let multi = compute_synthetic_chance_multi(&artifact, &scenario_refs, &boundary_refs, &mut memo_multi);
                 for (idx, refs) in [&scenario_refs, &below_refs].iter().enumerate() {
-                    let (reduced, _) = reduce_scenarios_for_synthetic(
-                        refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0,
-                    );
+                    let (reduced, _) = reduce_scenarios_for_synthetic(refs, 0, 0, 0, STAT_VARIANT_HP_PERCENT, 6, 0.0);
                     let reduced_refs: Vec<&UpgradeScenario> = reduced.iter().collect();
                     let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-                    let scalar =
-                        compute_synthetic_chance_for_scenarios(&artifact, &reduced_refs, &mut memo);
+                    let scalar = compute_synthetic_chance_for_scenarios(&artifact, &reduced_refs, &mut memo);
                     assert_eq!(
                         multi[idx], scalar,
                         "multi-scenario lane {idx} must match (level {level}, spd {spd_value})",
@@ -2757,8 +2738,7 @@ mod boundary_reduction_tests {
         rule_b.rule_order = 1;
         let mut rule_c_spd = make_scenario(vec![make_challenger(4, 7.0, STAT_VARIANT_SPD, 6)], 1);
         rule_c_spd.rule_order = 2;
-        let mut rule_c_hp =
-            make_scenario(vec![make_challenger(5, 20.0, STAT_VARIANT_HP_PERCENT, 6)], 1);
+        let mut rule_c_hp = make_scenario(vec![make_challenger(5, 20.0, STAT_VARIANT_HP_PERCENT, 6)], 1);
         rule_c_hp.rule_order = 2;
         rule_c_hp.selected_substats = vec![STAT_VARIANT_HP_PERCENT];
         let all_refs: Vec<&UpgradeScenario> = vec![&rule_a, &rule_b, &rule_c_spd, &rule_c_hp];
@@ -2772,13 +2752,11 @@ mod boundary_reduction_tests {
                 for spd_value in [3.0, 6.0, 9.0, 12.0] {
                     let artifact = make_probe_artifact(rank, level, spd_value);
                     let mut memo_lanes: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
-                    let (max_chance, by_rule) =
-                        compute_artifact_chance_percent(&artifact, &all_refs, &mut memo_lanes);
+                    let (max_chance, by_rule) = compute_artifact_chance_percent(&artifact, &all_refs, &mut memo_lanes);
                     let mut expected_max = 0.0f64;
                     for (ordinal, refs) in &per_rule {
                         let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-                        let scalar =
-                            compute_artifact_chance_for_scenarios(&artifact, refs, &mut memo);
+                        let scalar = compute_artifact_chance_for_scenarios(&artifact, refs, &mut memo);
                         assert_eq!(
                             by_rule.get(ordinal).copied(),
                             Some(scalar),
@@ -2799,11 +2777,9 @@ mod boundary_reduction_tests {
         // resolve_most_likely_scenario_idx's isolation lanes: lane i (selected only by
         // scenario i) must be bit-identical to a standalone scalar run over [scenario i].
         let scenario_a = make_scenario(vec![make_challenger(1, 6.0, STAT_VARIANT_SPD, 6)], 1);
-        let mut scenario_b =
-            make_scenario(vec![make_challenger(2, 11.0, STAT_VARIANT_SPD, 6)], 1);
+        let mut scenario_b = make_scenario(vec![make_challenger(2, 11.0, STAT_VARIANT_SPD, 6)], 1);
         scenario_b.rule_order = 1;
-        let mut scenario_c =
-            make_scenario(vec![make_challenger(3, 4.0, STAT_VARIANT_HP_FLAT, 5)], 1);
+        let mut scenario_c = make_scenario(vec![make_challenger(3, 4.0, STAT_VARIANT_HP_FLAT, 5)], 1);
         scenario_c.rule_order = 2;
         let viable: Vec<&UpgradeScenario> = vec![&scenario_a, &scenario_b, &scenario_c];
         for &level in &[0i64, 8, 16] {
@@ -2814,16 +2790,14 @@ mod boundary_reduction_tests {
                     width: viable.len(),
                 };
                 let mut memo_lanes: BTreeMap<StateKey, Vec<f64>> = BTreeMap::new();
-                let lanes: Vec<f64> =
-                    compute_artifact_chance_impl(&artifact, &viable, &mut memo_lanes, &leaf, false)
-                        .into_iter()
-                        .map(round_chance_percent)
-                        .collect();
+                let lanes: Vec<f64> = compute_artifact_chance_impl(&artifact, &viable, &mut memo_lanes, &leaf, false)
+                    .into_iter()
+                    .map(round_chance_percent)
+                    .collect();
                 for (idx, &scenario) in viable.iter().enumerate() {
                     let single = [scenario];
                     let mut memo: BTreeMap<StateKey, f64> = BTreeMap::new();
-                    let scalar =
-                        compute_artifact_chance_for_scenarios(&artifact, &single, &mut memo);
+                    let scalar = compute_artifact_chance_for_scenarios(&artifact, &single, &mut memo);
                     assert_eq!(
                         lanes[idx], scalar,
                         "isolation lane {idx} must match its standalone run (level {level}, spd {spd_value})",

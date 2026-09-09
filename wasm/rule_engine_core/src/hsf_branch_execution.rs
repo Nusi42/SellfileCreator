@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashSet};
 
 use serde::Deserialize;
 
-
 use crate::build_hsf_branch_collapse_profile_core;
 use crate::build_hsf_factory_combo_rows_from_parts;
 use crate::build_hsf_level_combos_core;
@@ -21,10 +20,10 @@ use crate::BuildHsfLevelContextsIn;
 use crate::EmitHsfMainChoiceIn;
 use crate::RuleRaw;
 use crate::LEVEL_MILESTONE_0;
+use crate::LEVEL_MILESTONE_12;
 use crate::LEVEL_MILESTONE_16;
 use crate::LEVEL_MILESTONE_4;
 use crate::LEVEL_MILESTONE_8;
-use crate::LEVEL_MILESTONE_12;
 use crate::RARITY_CODE_ANY;
 use crate::RARITY_CODE_EPIC;
 use crate::RARITY_CODE_GTE_LEGENDARY;
@@ -73,9 +72,7 @@ pub(crate) struct ExecuteHsfBranchRuntimeIn {
 fn addition_timeline_for_rarity(rarity_code: i64) -> Vec<i32> {
     // Normalize LTE range codes to their upper-bound concrete so base_start reflects
     // the actual substat count at +0 (e.g. LTE_Epic → Epic: 3 substats, not Common: 0).
-    let mask = crate::auto_rarity_addition_mask_for_code(
-        crate::auto_rarity_runtime::rarity_for_schedule(rarity_code),
-    );
+    let mask = crate::auto_rarity_addition_mask_for_code(crate::auto_rarity_runtime::rarity_for_schedule(rarity_code));
     let mut out = Vec::<i32>::new();
     if (mask & 1) != 0 {
         out.push(LEVEL_MILESTONE_4 as i32);
@@ -131,9 +128,7 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
         .map(|levels| !levels.is_empty())
         .unwrap_or(false);
     // Branch collapse requires non-flex, unrestricted branch windows, and profile pass.
-    let collapse_branch_eligible = !input.flex_active
-        && !has_restrict_levels
-        && collapse_profile.collapse_global_ok;
+    let collapse_branch_eligible = !input.flex_active && !has_restrict_levels && collapse_profile.collapse_global_ok;
     // Rarity eligibility is single-sourced in this runtime helper.
     let collapse_rarity_eligible = is_collapse_rarity_eligible(input.rarity_code);
     // Sentinel collapse is only legal for pristine 0..16 windows with no additions.
@@ -156,7 +151,11 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
         restrict_levels: input.restrict_levels.clone(),
     });
     // Myths contribute one pre-roll at level 0 and this is branch-constant.
-    let pre_rolls = if crate::auto_rarity_includes_mythical(input.rarity_code) { 1 } else { 0 };
+    let pre_rolls = if crate::auto_rarity_includes_mythical(input.rarity_code) {
+        1
+    } else {
+        0
+    };
     // Reuse roll timeline from branch collapse profile for combo runtime timelines.
     let roll_timeline = collapse_profile
         .roll_timeline
@@ -292,7 +291,11 @@ pub(crate) fn execute_hsf_branch_runtime_core(input: &ExecuteHsfBranchRuntimeIn)
             effective_mode: input.effective_mode.clone(),
             early_mode: input.early_mode.clone(),
             min_target_count: input.min_target_count as i64,
-            selected_pool_v: input.selected_pool_v.iter().map(|value| *value as i64).collect::<Vec<_>>(),
+            selected_pool_v: input
+                .selected_pool_v
+                .iter()
+                .map(|value| *value as i64)
+                .collect::<Vec<_>>(),
             rarity_code: input.rarity_code,
             num_rolls_for_this_level: num_rolls_for_this_level as i64,
             num_rolls_by_target: num_rolls_by_target as i64,

@@ -1,6 +1,6 @@
 use super::*;
-use std::sync::Arc;
 use crate::safeguards::{build_safeguard_rules_core, safeguard_clone_any_substats};
+use std::sync::Arc;
 
 // Safeguard-injected keep dedupe mirrors TS semantics with typed keys:
 // canonical for non-safeguard rows, placeholder canonical for synthetic rows,
@@ -77,11 +77,7 @@ pub fn build_final_sell_rules_core(
     }
 
     // Normalize selected levels into a lookup set.
-    let selected_levels = final_sell
-        .levels
-        .iter()
-        .copied()
-        .collect::<HashSet<_>>();
+    let selected_levels = final_sell.levels.iter().copied().collect::<HashSet<_>>();
     // Match logicHub defaults: unknown mode collapses to "any".
     let sets_mode = final_sell
         .sets_mode
@@ -272,11 +268,7 @@ pub fn finish_merge_with_generated(
         // of the entire 45k-rule Vec, adding ~27 MiB of transient allocation on every
         // final-merge call and pushing talc into the fragmentation regime that eventually
         // produced `memory access out of bounds` during later drop_in_place<RuleRaw>.
-        let sorted_keep_rules = merge_safeguard_injected_rules_core(
-            &base_without_keep,
-            &[],
-            candidate_keep_rules,
-        );
+        let sorted_keep_rules = merge_safeguard_injected_rules_core(&base_without_keep, &[], candidate_keep_rules);
         let mut with_keep = sorted_keep_rules;
         with_keep.extend(base_without_keep);
         with_keep
@@ -432,10 +424,7 @@ fn merge_safeguard_injected_rules_core(
         }
         left.idx.cmp(&right.idx)
     });
-    sortable
-        .into_iter()
-        .map(|entry| entry.rule)
-        .collect::<Vec<_>>()
+    sortable.into_iter().map(|entry| entry.rule).collect::<Vec<_>>()
 }
 
 // Public merge helper — renamed from `merge_safeguard_injected_rules_value` (JsValue I/O removed).
@@ -527,18 +516,12 @@ pub fn finalize_generated_rules_core(
 
     // Obsolete pruning only applies when merge.ts says the recipe has one branch.
     let filtered = if apply_obsolete_pruning {
-        let rules = collapsed
-            .iter()
-            .map(|entry| entry.rule.clone())
-            .collect::<Vec<_>>();
+        let rules = collapsed.iter().map(|entry| entry.rule.clone()).collect::<Vec<_>>();
         let obsolete = rule_dedupe::collect_obsolete_entries(&rules);
         if obsolete.is_empty() {
             collapsed
         } else {
-            let obsolete_indices = obsolete
-                .into_iter()
-                .map(|entry| entry.index)
-                .collect::<HashSet<_>>();
+            let obsolete_indices = obsolete.into_iter().map(|entry| entry.index).collect::<HashSet<_>>();
             collapsed
                 .into_iter()
                 .enumerate()

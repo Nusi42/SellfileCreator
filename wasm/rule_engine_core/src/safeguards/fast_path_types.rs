@@ -3,14 +3,12 @@
 // used throughout the safeguards module.
 use serde::{Deserialize, Serialize};
 // ts-rs trait import enables `#[derive(TS)]` on the input wire structs below.
-use ts_rs::TS;
 use super::{
-    SAFEGUARD_EQUIPPED_LOCATION_COLLECTION,
-    SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT,
-    SAFEGUARD_EQUIPPED_LOCATION_VAULT,
-    SAFEGUARD_MAIN_ANY,
+    SAFEGUARD_EQUIPPED_LOCATION_COLLECTION, SAFEGUARD_EQUIPPED_LOCATION_RESERVE_VAULT,
+    SAFEGUARD_EQUIPPED_LOCATION_VAULT, SAFEGUARD_MAIN_ANY,
 };
 use crate::{SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, TestItemRaw};
+use ts_rs::TS;
 
 // ts-rs export: nested by SafeguardWasmArtifactIn.substats.
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
@@ -178,9 +176,7 @@ pub struct SafeguardWasmCandidateFastIn {
 pub(super) fn safeguard_main_stat_from_fast_payload(value: Option<SafeguardWasmMainStatRawIn>) -> i64 {
     match value {
         Some(SafeguardWasmMainStatRawIn::Variant(variant)) => variant,
-        Some(SafeguardWasmMainStatRawIn::Record { variant }) => {
-            variant.unwrap_or(SAFEGUARD_MAIN_ANY)
-        }
+        Some(SafeguardWasmMainStatRawIn::Record { variant }) => variant.unwrap_or(SAFEGUARD_MAIN_ANY),
         None => SAFEGUARD_MAIN_ANY,
     }
 }
@@ -197,9 +193,7 @@ pub(super) fn safeguard_substats_from_fast_payload(
             .or_else(|| substat.total_value.filter(|inner| inner.is_finite()))
             .unwrap_or(0.0);
         // Clamp raw rolls to a non-negative integer; absent or invalid → None.
-        let rolls = substat.rolls
-            .filter(|&r| r >= 0)
-            .map(|r| r.max(0));
+        let rolls = substat.rolls.filter(|&r| r >= 0).map(|r| r.max(0));
         out.push(SafeguardWasmSubstatIn {
             variant: substat.variant,
             is_flat: substat.is_flat,

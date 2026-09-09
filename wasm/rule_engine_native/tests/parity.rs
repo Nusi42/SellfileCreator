@@ -15,10 +15,7 @@ use serde_json::{json, Value};
 
 // The parity test drives the crate's raw→compact normaliser directly.
 use rule_engine_native::artifact_log::{
-    RawArtifactLogRow,
-    RawChampionRow,
-    build_equipped_by_artifact_map,
-    parse_artifact_log_array,
+    build_equipped_by_artifact_map, parse_artifact_log_array, RawArtifactLogRow, RawChampionRow,
 };
 
 // Fixtures live next to this test file; include them at compile time so the test is hermetic.
@@ -68,17 +65,15 @@ fn rust_normaliser_matches_ts_reference() {
     let raw_artifacts: Vec<RawArtifactLogRow> =
         serde_json::from_value(extract_collection(ARTIFACTS_PACKET, "artifacts"))
             .expect("artifacts fixture must deserialise");
-    let raw_champions: Vec<RawChampionRow> =
-        serde_json::from_value(extract_collection(CHAMPIONS_PACKET, "champions"))
-            .expect("champions fixture must deserialise");
+    let raw_champions: Vec<RawChampionRow> = serde_json::from_value(extract_collection(CHAMPIONS_PACKET, "champions"))
+        .expect("champions fixture must deserialise");
 
     // Run the same pipeline the DLL runs: build equipped map, then normalise.
     let equipped: BTreeMap<i64, i64> = build_equipped_by_artifact_map(&raw_champions);
     let compact = parse_artifact_log_array(&raw_artifacts, &equipped);
 
     // Reference rows from the TS app.
-    let expected: Vec<Value> =
-        serde_json::from_str(EXPECTED_JSON).expect("expected.json must be valid");
+    let expected: Vec<Value> = serde_json::from_str(EXPECTED_JSON).expect("expected.json must be valid");
 
     // Same count (both preserve input order and apply the same reject gate).
     assert_eq!(
@@ -92,10 +87,6 @@ fn rust_normaliser_matches_ts_reference() {
     // Compare row-by-row on the projected subset; report the first divergence precisely.
     for (index, (row, want)) in compact.iter().zip(expected.iter()).enumerate() {
         let got = project(row);
-        assert_eq!(
-            &got, want,
-            "parity mismatch at row {index} (artifact id {:?})",
-            row.id
-        );
+        assert_eq!(&got, want, "parity mismatch at row {index} (artifact id {:?})", row.id);
     }
 }

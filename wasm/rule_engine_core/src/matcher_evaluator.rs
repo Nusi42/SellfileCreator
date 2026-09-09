@@ -44,7 +44,10 @@ pub struct RuleBucket {
 
 // Shared empty bucket so rules_for_slot can return a &RuleBucket for slots that have
 // no slot-specific rules without allocating (Vec::new() is const-evaluable).
-static EMPTY_RULE_BUCKET: RuleBucket = RuleBucket { rules: Vec::new(), groups: Vec::new() };
+static EMPTY_RULE_BUCKET: RuleBucket = RuleBucket {
+    rules: Vec::new(),
+    groups: Vec::new(),
+};
 
 impl RuleBucket {
     // Group an ordered rule list by gate identity (non-adjacent members included) and
@@ -83,7 +86,10 @@ impl RuleBucket {
             rules_grouped.push(rule);
         }
         groups.push((run_start, rules_grouped.len() as u32));
-        Self { rules: rules_grouped, groups }
+        Self {
+            rules: rules_grouped,
+            groups,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -244,7 +250,9 @@ impl Default for EvaluateItemScratch {
 
 impl EvaluateItemScratch {
     pub fn new() -> Self {
-        Self { recipe_matches: Vec::new() }
+        Self {
+            recipe_matches: Vec::new(),
+        }
     }
 
     // Clear before each item so the capacity is retained and reused.
@@ -477,17 +485,10 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     // MainStatF is now Option<i64>; 0 = percent, non-zero = flat.
     let main_stat_f = raw.MainStatF.map_or(0_i64, |v| i64::from(v != 0));
     let source_raw = raw.source;
-    let source_bits = source_raw
-        .as_deref()
-        .and_then(rule_source_bit)
-        .unwrap_or(0);
-    let source_fallback = if source_bits == 0 {
-        source_raw.clone()
-    } else {
-        None
-    };
-    let is_keep_override_source = (source_bits & RULE_SOURCE_BIT_SAFEGUARDS) != 0
-        || source_fallback.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
+    let source_bits = source_raw.as_deref().and_then(rule_source_bit).unwrap_or(0);
+    let source_fallback = if source_bits == 0 { source_raw.clone() } else { None };
+    let is_keep_override_source =
+        (source_bits & RULE_SOURCE_BIT_SAFEGUARDS) != 0 || source_fallback.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
     let recipe_idx = raw.RecipeID.and_then(|cfg| if cfg > 0 { Some(cfg - 1) } else { None });
 
     let substats = raw
@@ -591,12 +592,7 @@ pub fn item_has_been_reworked(reroll_count: Option<i64>) -> bool {
 // comment), so any field added there joins grouping and checking at the same time.
 // item_rank_bit / item_rarity_bit are hoisted per item by the caller — they do not vary
 // across rules, so recomputing them per gate check would be pure waste.
-fn match_rule_gate(
-    gate: &RuleGate,
-    item: &TestItemRaw,
-    item_rank_bit: u8,
-    item_rarity_bit: u8,
-) -> bool {
+fn match_rule_gate(gate: &RuleGate, item: &TestItemRaw, item_rank_bit: u8, item_rarity_bit: u8) -> bool {
     if !gate.use_flag {
         return false;
     }
@@ -697,11 +693,7 @@ fn match_rule_substats(rule: &PreparedRule, item: &TestItemRaw) -> bool {
 
 // Recipe visibility gate (disabled/separator modes + explicit exclusions). SSOT here;
 // the TS evaluateMatchesByRecipe delegates to this engine rather than re-implementing it.
-fn should_include_recipe(
-    recipe_idx: Option<i64>,
-    recipe_modes: &[String],
-    options: &EvaluateOptionsPrepared,
-) -> bool {
+fn should_include_recipe(recipe_idx: Option<i64>, recipe_modes: &[String], options: &EvaluateOptionsPrepared) -> bool {
     if let Some(idx) = recipe_idx {
         if options.exclude_recipe_indices.contains(&idx) {
             return false;
@@ -779,18 +771,18 @@ pub fn evaluate_item(
                 // Track the min-index keep-override hit before recipe gating so the
                 // fallback semantics match the TypeScript path without an extra pre-scan.
                 if rule.is_keep_override_source {
-                    take_min_index(&mut prekeep_override, EvalMatch {
-                        rule_index,
-                        keep: true,
-                        recipe_idx: rule.recipe_idx,
-                        is_keep_override_source: true,
-                    });
+                    take_min_index(
+                        &mut prekeep_override,
+                        EvalMatch {
+                            rule_index,
+                            keep: true,
+                            recipe_idx: rule.recipe_idx,
+                            is_keep_override_source: true,
+                        },
+                    );
                 }
 
-                let is_excluded = options.source_is_excluded(
-                    rule.source_bits,
-                    rule.source_fallback.as_deref(),
-                );
+                let is_excluded = options.source_is_excluded(rule.source_bits, rule.source_fallback.as_deref());
 
                 if !should_include_recipe(rule.recipe_idx, recipe_modes, options) {
                     continue;
@@ -805,20 +797,26 @@ pub fn evaluate_item(
 
                 if rule.is_keep_override_source {
                     if !is_excluded {
-                        take_min_index(&mut pending_keep_override, EvalMatch {
+                        take_min_index(
+                            &mut pending_keep_override,
+                            EvalMatch {
+                                rule_index,
+                                keep,
+                                recipe_idx: rule.recipe_idx,
+                                is_keep_override_source: true,
+                            },
+                        );
+                    }
+                } else if !is_excluded {
+                    take_min_index(
+                        &mut first_match,
+                        EvalMatch {
                             rule_index,
                             keep,
                             recipe_idx: rule.recipe_idx,
-                            is_keep_override_source: true,
-                        });
-                    }
-                } else if !is_excluded {
-                    take_min_index(&mut first_match, EvalMatch {
-                        rule_index,
-                        keep,
-                        recipe_idx: rule.recipe_idx,
-                        is_keep_override_source: false,
-                    });
+                            is_keep_override_source: false,
+                        },
+                    );
                 }
 
                 if let Some(recipe_idx) = rule.recipe_idx {
@@ -893,8 +891,7 @@ fn resolve_safeguard_candidate_keep_flags_core(
     let has_ignored_recipes = !ignore_safeguard_recipe_indices.is_empty();
     let no_rules = bucketed_rules.is_empty();
     // eval_options reuses the same Vec slice (already a Vec<i64>) — no extra allocation.
-    let eval_options =
-        EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
+    let eval_options = EvaluateOptionsPrepared::from_excluded_recipe_indices(ignore_safeguard_recipe_indices);
 
     // One shared scratch per evaluation pass avoids per-row allocations.
     let mut scratch = EvaluateItemScratch::new();
@@ -939,14 +936,7 @@ fn resolve_safeguard_candidate_keep_flags_core(
         // We re-evaluate with eval_options excluding the ignored recipe so the result
         // reflects what the sell engine would decide without safeguard interference.
         let (shared, slot_rules) = bucketed_rules.rules_for_slot(row.item.slot);
-        let (first_match, _) = evaluate_item(
-            shared,
-            slot_rules,
-            recipe_modes,
-            &row.item,
-            &eval_options,
-            &mut scratch,
-        );
+        let (first_match, _) = evaluate_item(shared, slot_rules, recipe_modes, &row.item, &eval_options, &mut scratch);
         keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));
     }
     keep_flags
@@ -977,9 +967,7 @@ pub fn collect_safeguard_candidates_core(
     );
     // Keep candidate/flag vectors aligned so item ownership never shifts.
     if keep_flags.len() != rows.len() {
-        return Err(
-            "Safeguard candidate collect produced mismatched keep-flag length".to_string(),
-        );
+        return Err("Safeguard candidate collect produced mismatched keep-flag length".to_string());
     }
 
     // Build candidate rows in encounter order for deterministic UI snapshots.
@@ -1081,8 +1069,8 @@ mod tests {
     fn slot_specific_rule_fires_before_later_any_type_rule() {
         // Flat list: index 0 = recipe 49 (weapon-only), index 1 = recipe 181 (any type).
         // Recipe 49 should be first_match for a weapon item; recipe 181 must not jump ahead.
-        let rule_49 = make_rule(0, 49, vec![1]);   // slot-specific: Weapon
-        let rule_181 = make_rule(1, 181, vec![]);  // any-type: shared bucket
+        let rule_49 = make_rule(0, 49, vec![1]); // slot-specific: Weapon
+        let rule_181 = make_rule(1, 181, vec![]); // any-type: shared bucket
         let bucketed = BucketedRules::from_rules(vec![rule_49, rule_181]);
 
         let item = make_weapon_item();
@@ -1099,7 +1087,11 @@ mod tests {
         );
         // matchingRecipeIndices must also respect flat-list order.
         let indices: Vec<i64> = scratch.recipe_matches.iter().map(|(k, _, _)| *k).collect();
-        assert_eq!(indices, vec![49, 181], "recipe 49 must precede recipe 181 in match order");
+        assert_eq!(
+            indices,
+            vec![49, 181],
+            "recipe 49 must precede recipe 181 in match order"
+        );
     }
 
     // Inverse case: when the any-type rule genuinely comes first in the flat list it
@@ -1107,8 +1099,8 @@ mod tests {
     #[test]
     fn any_type_rule_fires_first_when_it_has_lower_flat_index() {
         // Flat list: index 0 = recipe 181 (any type), index 1 = recipe 49 (weapon-only).
-        let rule_181 = make_rule(0, 181, vec![]);  // any-type: flat index 0
-        let rule_49 = make_rule(1, 49, vec![1]);   // slot-specific: flat index 1
+        let rule_181 = make_rule(0, 181, vec![]); // any-type: flat index 0
+        let rule_49 = make_rule(1, 49, vec![1]); // slot-specific: flat index 1
         let bucketed = BucketedRules::from_rules(vec![rule_181, rule_49]);
 
         let item = make_weapon_item();
@@ -1130,11 +1122,15 @@ mod tests {
     // A slot with no slot-specific rules must still receive the shared rules.
     #[test]
     fn slot_with_no_specific_rules_receives_shared_rules() {
-        let rule_any = make_rule(0, 10, vec![]);  // any-type only
+        let rule_any = make_rule(0, 10, vec![]); // any-type only
         let bucketed = BucketedRules::from_rules(vec![rule_any]);
         // Slot 99 has no slot-specific rules — fall back to shared.
         let (shared, slot_rules) = bucketed.rules_for_slot(99);
-        assert_eq!(shared.len() + slot_rules.len(), 1, "shared-only slot must return the single shared rule");
+        assert_eq!(
+            shared.len() + slot_rules.len(),
+            1,
+            "shared-only slot must return the single shared rule"
+        );
     }
 
     // ---- Rework (Ore) gate ----
@@ -1181,14 +1177,20 @@ mod tests {
         assert!(gate_matches(ORE_ORED, Some(1)), "one rework counts as reworked");
         assert!(gate_matches(ORE_ORED, Some(9)), "many reworks count as reworked");
         assert!(!gate_matches(ORE_ORED, Some(0)), "never-reworked must be rejected");
-        assert!(!gate_matches(ORE_ORED, None), "missing data is treated as never-reworked");
+        assert!(
+            !gate_matches(ORE_ORED, None),
+            "missing data is treated as never-reworked"
+        );
     }
 
     // ORE_NOT_ORED narrows to pristine gear.
     #[test]
     fn ore_not_ored_matches_only_pristine_items() {
         assert!(gate_matches(ORE_NOT_ORED, Some(0)), "never-reworked must match");
-        assert!(gate_matches(ORE_NOT_ORED, None), "missing data is treated as never-reworked");
+        assert!(
+            gate_matches(ORE_NOT_ORED, None),
+            "missing data is treated as never-reworked"
+        );
         assert!(!gate_matches(ORE_NOT_ORED, Some(1)), "reworked must be rejected");
     }
 
@@ -1197,14 +1199,35 @@ mod tests {
     #[test]
     fn prepare_rule_defaults_missing_ore_to_any() {
         let raw = RuleRaw {
-            RecipeID: None, RecipeName: None, Keep: Some(true), IsRuleTypeAND: None,
-            Use: Some(true), ArtifactSet: None, ArtifactType: None, Rank: None, Rarity: None,
-            MainStatID: None, MainStatF: None, Ore: None, LVLForCheck: None, Faction: None,
-            Substats: None, source: None, line_idx: None, all_known_sets: None,
-            rank_mask: None, rarity_mask: None, safeguard_rule_id: None,
-            safeguard_rule_ordinal: None, safeguard_hash: None, safeguard_required: None,
-            safeguard_scan_ms: None, safeguard_projected: None, safeguard_deficit: None,
-            safeguard_item_key: None, safeguard_placeholder: None,
+            RecipeID: None,
+            RecipeName: None,
+            Keep: Some(true),
+            IsRuleTypeAND: None,
+            Use: Some(true),
+            ArtifactSet: None,
+            ArtifactType: None,
+            Rank: None,
+            Rarity: None,
+            MainStatID: None,
+            MainStatF: None,
+            Ore: None,
+            LVLForCheck: None,
+            Faction: None,
+            Substats: None,
+            source: None,
+            line_idx: None,
+            all_known_sets: None,
+            rank_mask: None,
+            rarity_mask: None,
+            safeguard_rule_id: None,
+            safeguard_rule_ordinal: None,
+            safeguard_hash: None,
+            safeguard_required: None,
+            safeguard_scan_ms: None,
+            safeguard_projected: None,
+            safeguard_deficit: None,
+            safeguard_item_key: None,
+            safeguard_placeholder: None,
             safeguard_placeholder_missing: None,
         };
         assert_eq!(prepare_rule(raw).gate.ore, ORE_ANY);
@@ -1256,7 +1279,10 @@ mod tests {
         // otherwise loses its rework constraint without any warning.
         assert_eq!(resolve_tags(&["only_for_chaos_ored"]), ORE_ORED);
         assert_eq!(resolve_tags(&["ignore_for_chaos_ored"]), ORE_NOT_ORED);
-        assert_eq!(resolve_tags(&["ignore_by_safeguards", "ignore_for_chaos_ored", "ore5epic"]), ORE_NOT_ORED);
+        assert_eq!(
+            resolve_tags(&["ignore_by_safeguards", "ignore_for_chaos_ored", "ore5epic"]),
+            ORE_NOT_ORED
+        );
         // Coexisting with other tags does not change the outcome.
         assert_eq!(resolve_tags(&["ignore_by_safeguards", "if_reworked"]), ORE_ORED);
         // Both tags at once: reworked wins, regardless of order in the list.
@@ -1301,4 +1327,3 @@ mod tests {
         );
     }
 }
-
