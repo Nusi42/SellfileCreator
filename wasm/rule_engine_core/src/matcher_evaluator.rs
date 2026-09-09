@@ -236,6 +236,12 @@ pub struct EvaluateItemScratch {
     pub recipe_matches: Vec<(i64, bool, usize)>,
 }
 
+impl Default for EvaluateItemScratch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EvaluateItemScratch {
     pub fn new() -> Self {
         Self { recipe_matches: Vec::new() }
@@ -286,12 +292,12 @@ impl EvaluateOptionsPrepared {
             exclude_recipe_indices: raw
                 .exclude_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
+                .map(|indices| indices.to_vec())
                 .unwrap_or_default(),
             ignore_safeguard_recipe_indices: raw
                 .ignore_safeguard_recipe_indices
                 .as_ref()
-                .map(|indices| indices.iter().copied().collect::<Vec<_>>())
+                .map(|indices| indices.to_vec())
                 .unwrap_or_default(),
         }
     }
@@ -713,7 +719,7 @@ fn should_include_recipe(
 // candidate with the lowest original_index across arbitrarily-ordered group visits.
 fn take_min_index(slot: &mut Option<EvalMatch>, candidate: EvalMatch) {
     // EvalMatch is Copy; map_or reads the current winner without consuming the Option.
-    if slot.map_or(true, |current| candidate.rule_index < current.rule_index) {
+    if slot.is_none_or(|current| candidate.rule_index < current.rule_index) {
         *slot = Some(candidate);
     }
 }

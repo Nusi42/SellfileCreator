@@ -177,7 +177,7 @@ struct PlaceholderProbePlan {
 pub(super) fn safeguard_rule_is_improvement_watch(rule: &SafeguardWasmRuleIn) -> bool {
     safeguard_is_activation_anticipate_improvements(rule.activation.as_deref().unwrap_or(""))
         && rule.improvement_chance_threshold.is_some()
-        && rule.substats.as_ref().map_or(false, |subs| !subs.is_empty())
+        && rule.substats.as_ref().is_some_and(|subs| !subs.is_empty())
 }
 
 // ─── public entry point ──────────────────────────────────────────────────────
@@ -893,7 +893,7 @@ fn watch_corner_dominates(a: &SafeguardWatchCornerOut, b: &SafeguardWatchCornerO
         b.substats
             .iter()
             .find(|sub_b| sub_b.variant == sub_a.variant)
-            .map_or(false, |sub_b| sub_a.min_value <= sub_b.min_value)
+            .is_some_and(|sub_b| sub_a.min_value <= sub_b.min_value)
     })
 }
 

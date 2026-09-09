@@ -514,15 +514,15 @@ pub(super) fn allowed_substats_for_slot(slot: i64) -> &'static [i64] {
 // ─── level / rarity / rank clamping ──────────────────────────────────────────
 
 fn clamp_level(value: i64) -> i64 {
-    value.max(0).min(UPGRADE_TARGET_LEVEL)
+    value.clamp(0, UPGRADE_TARGET_LEVEL)
 }
 
 fn clamp_rarity(value: i64) -> i64 {
-    value.max(1).min(6)
+    value.clamp(1, 6)
 }
 
 fn clamp_rank(value: i64) -> i64 {
-    value.max(1).min(6)
+    value.clamp(1, 6)
 }
 
 // ─── milestone helpers ────────────────────────────────────────────────────────
@@ -1177,7 +1177,7 @@ impl ChanceLeaf for MultiBoundaryLeaf<'_> {
                     continue;
                 }
                 // Selected unless this context's boundary strictly beats the state.
-                let beaten = boundary.map_or(false, |ch| {
+                let beaten = boundary.is_some_and(|ch| {
                     is_challenger_strictly_better(
                         ch.projected_score,
                         ch.main_stat,

@@ -77,7 +77,7 @@ pub fn rank_code_from_label(raw: &str) -> i64 {
         return RANK_CODE_ANY;
     }
     // Parse the star number from the last token (e.g. "5★" → 5).
-    let star_digit = s.chars().filter(|c| c.is_ascii_digit()).next().and_then(|c| c.to_digit(10));
+    let star_digit = s.chars().find(|c| c.is_ascii_digit()).and_then(|c| c.to_digit(10));
     let n = match star_digit { Some(d) => d as i64, None => return RANK_CODE_ANY };
     if s.starts_with("≥") {
         // ≥ n★ : codes 7..11 (n=1..5)
@@ -180,7 +180,7 @@ pub fn slot_id_from_name(raw: &str) -> Option<i64> {
 pub fn rank_value_from_label(raw: &str) -> Option<i64> {
     let code = rank_code_from_label(raw);
     // Only accept exact ranks (1..6) for safeguard rank values.
-    if code >= RANK_CODE_ONE && code <= RANK_CODE_SIX { Some(code) } else { None }
+    if (RANK_CODE_ONE..=RANK_CODE_SIX).contains(&code) { Some(code) } else { None }
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,7 +1027,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     let substats = rec.get("substats").and_then(|v| v.as_array()).map(|arr| {
         arr.iter()
             .filter_map(|v| v.as_str())
-            .filter_map(|label| stat_variant_from_label(label))
+            .filter_map(stat_variant_from_label)
             .collect::<Vec<i64>>()
     });
     let substats = if substats.as_ref().map(|v: &Vec<i64>| v.is_empty()).unwrap_or(true) { None } else { substats };
@@ -1050,7 +1050,7 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // Combination: stored under "tuple" in the SFC (built by buildReadableSafeguardTuple).
     let combination = rec.get("tuple")
         .or_else(|| rec.get("combination"))
-        .map(|raw_tuple| parse_sfc_safeguard_combination(raw_tuple));
+        .map(parse_sfc_safeguard_combination);
 
     // Tags: string array used by the safeguard-overrides DSL selector matching in TS.
     let tags = rec.get("tags").and_then(|v| v.as_array()).map(|arr| {

@@ -119,12 +119,12 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
 ) -> Vec<i64> {
     // Empty selection means all slots; Any/empty mains means no main restriction.
     let slot_pool: Vec<i64> = if slots.is_empty() {
-        PREFERRED_ARTIFACT_TYPE_ORDER.iter().map(|&s| s).collect()
+        PREFERRED_ARTIFACT_TYPE_ORDER.to_vec()
     } else {
         slots.to_vec()
     };
     let has_wildcard_main = mains.is_empty()
-        || mains.iter().any(|&v| v == STAT_VARIANT_ANY);
+        || mains.contains(&STAT_VARIANT_ANY);
     let explicit_mains: Vec<i64> = if has_wildcard_main {
         vec![]
     } else {
@@ -175,14 +175,14 @@ pub(crate) fn resolve_allowed_substats_for_slots_and_mains(
 /// `any_fallback` is the star to use for Any (0) — the recipe's anyRankDefaultsTo (default 6).
 pub(crate) fn star_for_rank_code(rank_code: i64, any_fallback: i64) -> i64 {
     // Exact 1..6.
-    if rank_code >= RANK_CODE_ONE && rank_code <= RANK_CODE_SIX {
+    if (RANK_CODE_ONE..=RANK_CODE_SIX).contains(&rank_code) {
         return rank_code;
     }
     // >= n★ : GTE_ONE..GTE_FOUR → 4-star bucket; GTE_FIVE → 5.
-    if rank_code >= RANK_CODE_GTE_ONE && rank_code <= RANK_CODE_GTE_FOUR { return 4; }
+    if (RANK_CODE_GTE_ONE..=RANK_CODE_GTE_FOUR).contains(&rank_code) { return 4; }
     if rank_code == RANK_CODE_GTE_FIVE { return 5; }
     // <= n★ : LTE_TWO..LTE_FOUR → 4; LTE_FIVE → 5; LTE_SIX → 6.
-    if rank_code >= RANK_CODE_LTE_TWO && rank_code <= RANK_CODE_LTE_FOUR { return 4; }
+    if (RANK_CODE_LTE_TWO..=RANK_CODE_LTE_FOUR).contains(&rank_code) { return 4; }
     if rank_code == RANK_CODE_LTE_FIVE { return 5; }
     if rank_code == RANK_CODE_LTE_SIX  { return 6; }
     // Any (0) → caller-provided fallback (anyRankDefaultsTo), clamped to a valid star.
@@ -299,7 +299,7 @@ pub(crate) fn derive_roll_baseline_mode(recipe: &ReadableRecipeParsed) -> &'stat
 /// Minimum roll events forced by the rarity schedule for a given rarity code.
 fn min_roll_events_for_rarity(rarity_code: i64) -> i64 {
     // Clamp the code into the valid 0..16 index range of the generated table.
-    let idx = rarity_code.max(0).min(16) as usize;
+    let idx = rarity_code.clamp(0, 16) as usize;
     AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE[idx]
 }
 

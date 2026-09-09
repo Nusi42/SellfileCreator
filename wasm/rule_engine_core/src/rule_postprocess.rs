@@ -44,7 +44,7 @@ pub fn flatten_rule_batches_with_total_limit_core(
             break;
         }
         running_total += batch.len() as i64;
-        out.extend(batch.into_iter());
+        out.extend(batch);
     }
     // Return flattened custom rules ready for merged-rule orchestration.
     out

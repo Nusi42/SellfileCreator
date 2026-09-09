@@ -1,3 +1,28 @@
+// Two clippy lints are disabled crate-wide because taking their advice would
+// introduce NaN bugs into the chance/score maths, not remove them:
+//
+// - `neg_cmp_op_on_partial_ord` fires on `if !(score > 0.0)`. That negation is
+//   deliberate: it is the guard that catches NaN as well as zero and negatives.
+//   The suggested `score <= 0.0` is FALSE for NaN, so a NaN score would sail
+//   past a check written to stop it.
+// - `manual_clamp` fires on `prob.max(0.0).min(1.0)`. `f64::clamp` PANICS when
+//   either bound or the value is NaN (clippy's own note says so), while the
+//   max/min chain folds NaN to a bound and keeps going. In a wasm scoring path
+//   a panic is the worst of the three outcomes.
+//
+// Both are float-only judgements. INTEGER clamps have no such hazard and use
+// `i64::clamp` — see `clamp_level`/`clamp_rarity`/`clamp_rank`.
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
+#![allow(clippy::manual_clamp)]
+// The safeguard scoring helpers take a flat list of the inputs one pass needs,
+// each documented at its own parameter. Bundling them into a struct to get
+// under seven would put that list one hop from the code that reads it, and
+// the callers build the arguments in place.
+#![allow(clippy::too_many_arguments)]
+// Names the tuple shapes the safeguard/watch passes return. A `type` alias per
+// shape moves it away from the signature that is the clearest place to read it.
+#![allow(clippy::type_complexity)]
+
 use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::collections::{BTreeSet, BTreeMap, HashSet};
@@ -1031,7 +1056,7 @@ pub fn finalize_builder_rules_core(
 
     // Keep metadata and rules aligned while pruning.
     let mut paired = Vec::<BuilderFinalizeEntry>::new();
-    for (idx, (rule, meta)) in rules.into_iter().zip(emission_meta.into_iter()).enumerate() {
+    for (idx, (rule, meta)) in rules.into_iter().zip(emission_meta).enumerate() {
         if obsolete_indices.contains(&idx) {
             continue;
         }

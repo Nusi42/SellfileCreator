@@ -1106,7 +1106,7 @@ pub fn safeguard_normalize_substat_match(raw: &str) -> String {
     }
     // Numeric min-count tokens "1"–"4": pass through.
     if let Ok(n) = trimmed.parse::<u8>() {
-        if n >= 1 && n <= 4 {
+        if (1..=4).contains(&n) {
             return n.to_string();
         }
     }
@@ -2050,7 +2050,7 @@ pub(super) fn safeguard_placeholder_substat_possible(
     slot_filter: Option<&[i64]>,
 ) -> bool {
     (main_variant == SAFEGUARD_MAIN_ANY || variant != main_variant)
-        && slot_filter.map_or(true, |allowed| allowed.contains(&variant))
+        && slot_filter.is_none_or(|allowed| allowed.contains(&variant))
 }
 
 // How many of `variants` can actually roll as substats on a piece with `main_variant`?
@@ -4087,7 +4087,7 @@ fn safeguard_build_entry_for_substats(
                         // expansion set (the bug that motivated this design).
                         if improvement_chances
                             .get(&(art_id, rule_ordinal))
-                            .map_or(false, |&ch| ch >= threshold)
+                            .is_some_and(|&ch| ch >= threshold)
                         {
                             expanded.push(e.clone());
                         }
