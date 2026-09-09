@@ -10,18 +10,13 @@
 //   max/min chain folds NaN to a bound and keeps going. In a wasm scoring path
 //   a panic is the worst of the three outcomes.
 //
-// Both are float-only judgements. INTEGER clamps have no such hazard and use
-// `i64::clamp` — see `clamp_level`/`clamp_rarity`/`clamp_rank`.
+// Both are float-only judgements. INTEGER clamps have no such hazard and must use
+// `i64::clamp` — see `clamp_level`/`clamp_rarity`/`clamp_rank`,
+// `build_hsf_intro_assignments_for_level_core` and `need_now_for_global_min`.
+// Because these two allows are crate-wide they cannot enforce that split on their
+// own, so an integer `.max(a).min(b)` is a review error, not a sanctioned pattern.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 #![allow(clippy::manual_clamp)]
-// The safeguard scoring helpers take a flat list of the inputs one pass needs,
-// each documented at its own parameter. Bundling them into a struct to get
-// under seven would put that list one hop from the code that reads it, and
-// the callers build the arguments in place.
-#![allow(clippy::too_many_arguments)]
-// Names the tuple shapes the safeguard/watch passes return. A `type` alias per
-// shape moves it away from the signature that is the clearest place to read it.
-#![allow(clippy::type_complexity)]
 
 use std::cmp::Ordering;
 use std::cell::RefCell;

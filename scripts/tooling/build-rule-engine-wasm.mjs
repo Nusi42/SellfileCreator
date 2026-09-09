@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { resolveProfile, targetDirNameFor, writeProfileStamp } from './wasm-build-profile.mjs'
 
 // Resolve absolute paths once so every command can run from any cwd.
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -17,8 +18,8 @@ const CRATE_NAME = 'rule_engine_wasm'
 const OUT_DIR = path.join(REPO_ROOT, 'src', 'lib', 'wasm', 'generated')
 
 // Keep profile logic centralized so command selection is deterministic.
-const PROFILE = process.env.WASM_RULE_ENGINE_PROFILE ?? 'release'
-const TARGET_DIR_NAME = PROFILE === 'release' ? 'release' : 'debug'
+const PROFILE = resolveProfile()
+const TARGET_DIR_NAME = targetDirNameFor(PROFILE)
 const REQUIRED_TARGET = 'wasm32-unknown-unknown'
 
 // Probe commands from PATH first, then cargo-home fallback for WSL/Windows.
@@ -135,3 +136,7 @@ run(wasmBindgenBin, [
   '--out-name',
   'rule_engine',
 ])
+
+// Record which profile produced these outputs so a later release build cannot mistake a
+// leftover debug artifact for an up-to-date one.
+writeProfileStamp('rule-engine', PROFILE)

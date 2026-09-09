@@ -3834,6 +3834,9 @@ fn safeguard_sort_candidate_indices(indices: &mut [usize], candidates: &[Safegua
     });
 }
 
+// Flat parameter list on purpose: each input is documented at its own parameter, and
+// bundling them into a struct would put that list one hop from the code that reads it.
+#[allow(clippy::too_many_arguments)]
 fn safeguard_build_entry_for_substats(
     prepared_rule: &SafeguardWasmPreparedRule,
     candidates: &[SafeguardWasmCandidateIn],
@@ -5212,6 +5215,9 @@ pub struct SafeguardWasmScorePreviewIn {
 // (isWithinQuota). SSOT for the preview ranking partition — used once for the combined-score
 // preview and once per substat when the rule is `perSubstat`, so both stay in lockstep with the
 // detection-side tie-boundary top-N semantics.
+// Flat parameter list on purpose: each input is documented at its own parameter, and
+// bundling them into a struct would put that list one hop from the code that reads it.
+#[allow(clippy::too_many_arguments)]
 fn score_and_bucket_preview_candidates(
     candidates: &[SafeguardWasmCandidateIn],
     // The substats THIS pass ranks by — one variant per perSubstat sub-bucket pass.

@@ -734,7 +734,8 @@ pub(crate) fn build_hsf_intro_assignments_for_level_core(
     let count = input.count.max(0);
     let base_slots = input.base_slots.max(0);
     // Required stats are forced into earliest base slots, capped by count.
-    let forced_count = input.required_count.max(0).min(count);
+    // `count` is already non-negative above, so it is a valid upper bound for clamp.
+    let forced_count = input.required_count.clamp(0, count);
     let forced_base = (0..forced_count).collect::<Vec<i32>>();
     // Keep only addition milestones that are active at the requested level.
     let mut addition_available = input

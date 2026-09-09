@@ -57,6 +57,8 @@ fn project(row: &rule_engine_native::artifact_log::NativeArtifactIn) -> Value {
         "s4id": row.s4id.unwrap_or(0), "s4lvl": row.s4lvl.unwrap_or(0), "s4fl": row.s4fl.unwrap_or(0),
         "cID": cid,
         "faction": row.faction,
+        // Ore rework counter — feeds the if_reworked / if_not_reworked rule gate.
+        "REROLLCOUNT": row.reroll_count.unwrap_or(0),
     })
 }
 

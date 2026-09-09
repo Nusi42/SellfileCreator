@@ -75,6 +75,8 @@ const project = (r: GearDbArtifactRow) => {
     s4id: r.s4id ?? 0, s4lvl: r.s4lvl ?? 0, s4fl: r.s4fl ?? 0,
     cID,
     faction: resolveFaction(slot, accset),
+    // Ore rework counter — feeds the if_reworked / if_not_reworked rule gate.
+    REROLLCOUNT: r.REROLLCOUNT ?? 0,
   }
 }
 

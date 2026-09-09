@@ -340,6 +340,10 @@ const rustLines = [
   '// Source: shared/domain-constants.json',
   '// Generator: scripts/tooling/generate-domain-constants.mjs',
   '#![allow(dead_code)]',
+  // The roll/glyph range tables are &[(i64, &[(i64, i64, i64)])] literals. A `type`
+  // alias cannot be introduced from here without also renaming what consumers import,
+  // and the tuple shape is the table's documentation, so silence the lint file-wide.
+  '#![allow(clippy::type_complexity)]',
   '',
   '// Shared sentinel for accessories that have no set id.',
   `pub const ACCESSORY_NO_SET_ID: i64 = ${Number(accessoryNoSetId)};`,

@@ -44,6 +44,9 @@ pub struct NativeArtifactIn {
     pub rarity: Option<i64>,
     // Level milestone (0 / 4 / 8 / 12 / 16); raw level preserved verbatim (no snapping here).
     pub lvl:    Option<i64>,
+    // Chaos Ore rework count (0 = never reworked). Drives the if_reworked / if_not_reworked
+    // rule gate via TestItemRaw.reroll_count; the name mirrors the DB column REROLLCOUNT.
+    pub reroll_count: Option<i64>,
     // Set id for artifact slots (slot ≤ 6).
     pub aset:   Option<i64>,
     // Set id for accessory slots (slot > 6) — carries the raw requiredFraction code.
@@ -97,6 +100,9 @@ pub struct RawArtifactLogRow {
     #[serde(default, rename = "setKindId")]        pub set_kind_id:       Value,
     #[serde(default, rename = "requiredFraction")] pub required_fraction: Value,
     #[serde(default)] pub level: Value,
+    // Chaos Ore rework counter. RSL Helper spells it `rerollsCount` on the wire; the
+    // TS importer folds it into the REROLLCOUNT column, which feeds the rule Ore gate.
+    #[serde(default, rename = "rerollsCount")] pub rerolls_count: Value,
     #[serde(default)] pub primary:   Option<RawStatBlock>,
     #[serde(default)] pub secondary: Vec<RawStatBlock>,
     // Inbox-item envelope: a nested row array under `artifacts` (present only on envelopes).
@@ -204,6 +210,8 @@ fn parse_artifact_log_row(
         rank:   Some(rank as i64),
         rarity: Some(rarity as i64),
         lvl:    Some(to_i64_or(&row.level, 0)),
+        // Mirrors the TS `toNumber(row.rerollsCount) ?? 0` fold into REROLLCOUNT.
+        reroll_count: Some(to_i64_or(&row.rerolls_count, 0)),
         aset:   Some(to_i64_or(&row.set_kind_id, 0)),
         accset: Some(to_i64_or(&row.required_fraction, 0)),
         mid:    Some(to_i64_or(primary_field(|p| &p.id), 0)),

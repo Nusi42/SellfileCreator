@@ -93,6 +93,14 @@ fn can_satisfy_locked(locked_active: bool, locked_min_value: i64, current: i64, 
     current >= locked_min_value || (locked_min_value - current) <= remaining
 }
 
+// How much of the aggregate minimum must still be emitted at this level once the
+// slots still to come (`remaining`) are credited against it. Single definition so the
+// two "late" wildcard branches below cannot drift apart.
+// Callers gate on `global_min > 0`, so it is always a valid upper bound for the clamp.
+fn need_now_for_global_min(global_min: i64, remaining: i64) -> i64 {
+    (global_min - remaining).clamp(0, global_min)
+}
+
 // Main policy port for the largest hsfBuilder intro-level branch.
 // This function only decides which emission operations to run.
 pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> BuildHsfIntroModePlanOut {
@@ -200,7 +208,7 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
         if !input.any_min && input.any_wildcard {
             if input.global_min > 0 && input.early_mode == "late" {
                 let remaining = (input.num_target - input.avail).max(0);
-                let need_now = (input.global_min - remaining).max(0).min(input.global_min);
+                let need_now = need_now_for_global_min(input.global_min, remaining);
                 if need_now == 0 {
                     steps.push(HsfIntroModePlanStepOut::EmitPresence);
                 } else if need_now <= input.avail {
@@ -276,7 +284,7 @@ pub(crate) fn build_intro_mode_plan_core(input: &BuildHsfIntroModePlanIn) -> Bui
     if !input.any_min && input.any_wildcard {
         if input.global_min > 0 && input.early_mode == "late" {
             let remaining = (input.num_target - input.avail).max(0);
-            let need_now = (input.global_min - remaining).max(0).min(input.global_min);
+            let need_now = need_now_for_global_min(input.global_min, remaining);
             if need_now == 0 {
                 steps.push(HsfIntroModePlanStepOut::EmitPresence);
             } else if need_now <= input.avail {

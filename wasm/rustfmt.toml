@@ -1,0 +1,16 @@
+# Formatting rules for the Rust workspace (rule_engine_core / _wasm / _dsim_wasm / _native).
+# Run `npm run fmt:rust` to format; `npm run fmt:rust:check` is the read-only gate.
+#
+# Width is 120 rather than rustfmt's default 100: this codebase deliberately keeps guard
+# clauses and small match arms on one line, and the dense inline-comment style the project
+# mandates pushes real code further right than a 100-column budget allows.
+max_width = 120
+
+# Keep the edition rustfmt parses under in step with the crates' Cargo.toml.
+edition = "2021"
+
+# Only stable rustfmt options belong here. Notably `ignore` is nightly-only, so
+# `generated_domain_constants.rs` cannot be excluded from the config: after regenerating it
+# (`npm run generate:domain-constants`), a subsequent `npm run fmt:rust` will reflow its
+# one-line tables. That is cosmetic and harmless, but it is why the generated file and a
+# format run should not be mixed in the same commit.

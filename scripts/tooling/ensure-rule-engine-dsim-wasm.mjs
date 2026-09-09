@@ -5,6 +5,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { resolveProfile, profileStampMismatch } from './wasm-build-profile.mjs'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
@@ -93,7 +94,11 @@ const ensureRuleEngineDsimWasm = async () => {
 
   const hasMissingOutput = missingOutputs.length > 0
   const hasStaleOutput = oldestOutputMtime < newestSourceMtime
-  if (!hasMissingOutput && !hasStaleOutput && !cargoTargetMissing) {
+  // Same profile trap as the pipeline wasm: debug and release outputs share one
+  // directory, so mtimes alone would let a leftover debug build ship in a release.
+  const requestedProfile = resolveProfile()
+  const hasProfileMismatch = profileStampMismatch('rule-engine-dsim', requestedProfile)
+  if (!hasMissingOutput && !hasStaleOutput && !hasProfileMismatch && !cargoTargetMissing) {
     console.log('[wasm:ensure] dsim rule engine outputs are up to date.')
     return
   }
@@ -101,6 +106,8 @@ const ensureRuleEngineDsimWasm = async () => {
   if (hasMissingOutput) {
     const missingLabels = missingOutputs.map((filePath) => path.relative(REPO_ROOT, filePath)).join(', ')
     console.log(`[wasm:ensure] rebuilding dsim (missing outputs: ${missingLabels})`)
+  } else if (hasProfileMismatch) {
+    console.log(`[wasm:ensure] rebuilding dsim (existing outputs were not built with the ${requestedProfile} profile).`)
   } else if (cargoTargetMissing) {
     console.log('[wasm:ensure] rebuilding dsim (cargo target/ absent — cargo clean was run).')
   } else {

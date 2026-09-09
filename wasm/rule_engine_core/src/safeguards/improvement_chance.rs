@@ -273,6 +273,9 @@ pub(super) struct SyntheticBoundaries {
     per_scenario: Vec<Option<StaticChallenger>>,
 }
 
+// Returns the boundary triples inline: naming each (variant, min, max) tuple via a
+// `type` alias would move the shape away from the signature that documents it.
+#[allow(clippy::type_complexity)]
 pub(super) fn extract_synthetic_boundaries(
     scenarios: &[&UpgradeScenario],
     slot: i64,
@@ -348,7 +351,9 @@ pub(super) fn extract_synthetic_boundaries(
 // exercise the boundary selection through the ORIGINAL scalar leaf. Production probes
 // consume SyntheticBoundaries through MultiBoundaryLeaf instead — one recursion
 // traversal serves every boundary of a probe family (see compute_synthetic_chance_multi).
+// Same boundary-triple shape as extract_synthetic_boundaries; kept inline for the same reason.
 #[cfg(test)]
+#[allow(clippy::type_complexity)]
 pub(super) fn reduce_scenarios_for_synthetic(
     scenarios: &[&UpgradeScenario],
     slot: i64,

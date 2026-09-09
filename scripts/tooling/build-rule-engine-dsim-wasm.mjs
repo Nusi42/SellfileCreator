@@ -14,6 +14,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { resolveProfile, targetDirNameFor, writeProfileStamp } from './wasm-build-profile.mjs'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
@@ -23,8 +24,8 @@ const OUT_DIR = path.join(REPO_ROOT, 'src', 'lib', 'wasm', 'generated')
 
 // Share the same PROFILE env variable as the pipeline WASM build so both can
 // be controlled together (e.g., WASM_RULE_ENGINE_PROFILE=debug for fast iteration).
-const PROFILE = process.env.WASM_RULE_ENGINE_PROFILE ?? 'release'
-const TARGET_DIR_NAME = PROFILE === 'release' ? 'release' : 'debug'
+const PROFILE = resolveProfile()
+const TARGET_DIR_NAME = targetDirNameFor(PROFILE)
 const REQUIRED_TARGET = 'wasm32-unknown-unknown'
 
 const commandCandidates = (command) => {
@@ -94,3 +95,7 @@ run(wasmBindgenBin, [
   '--out-name',
   'rule_engine_dsim',
 ])
+
+// Record which profile produced these outputs so a later release build cannot mistake a
+// leftover debug artifact for an up-to-date one.
+writeProfileStamp('rule-engine-dsim', PROFILE)

@@ -1850,7 +1850,7 @@ mod hash_safeguard_combination_value_wire_tests {
         assert_eq!(parsed.slots, vec![5], "slots");
         assert_eq!(parsed.sets.len(), 1, "sets length");
         assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
-        assert_eq!(parsed.sets[0].excluded, false, "sets[0].excluded");
+        assert!(!parsed.sets[0].excluded, "sets[0].excluded");
         assert_eq!(parsed.meta_set_names.len(), 0, "metaSetNames");
         assert_eq!(parsed.ranks, vec![6], "ranks");
         assert_eq!(parsed.rarities, vec![6], "rarities");
@@ -1879,7 +1879,7 @@ mod sort_safeguard_combination_value_wire_tests {
         assert_eq!(parsed.slots, vec![5], "slots");
         assert_eq!(parsed.sets.len(), 1, "sets length");
         assert_eq!(parsed.sets[0].id, 19, "sets[0].id");
-        assert_eq!(parsed.sets[0].excluded, false, "sets[0].excluded");
+        assert!(!parsed.sets[0].excluded, "sets[0].excluded");
         assert_eq!(parsed.meta_set_names.len(), 0, "metaSetNames");
         assert_eq!(parsed.ranks, vec![6], "ranks");
         assert_eq!(parsed.rarities, vec![6], "rarities");
@@ -2008,11 +2008,11 @@ mod score_safeguard_candidates_value_wire_tests {
         assert_eq!(parsed.artifacts[0].exact_level, Some(20i64));
         assert_eq!(parsed.artifacts[0].faction, 1i64);
         assert_eq!(parsed.artifacts[0].main_stat, 1i64);
-        assert_eq!(parsed.artifacts[0].equipped_in_collection, false);
-        assert_eq!(parsed.artifacts[0].equipped_in_vault, false);
+        assert!(!parsed.artifacts[0].equipped_in_collection);
+        assert!(!parsed.artifacts[0].equipped_in_vault);
         assert_eq!(parsed.artifacts[0].substats.len(), 2);
         assert_eq!(parsed.artifacts[0].substats[0].variant, 2i64);
-        assert_eq!(parsed.artifacts[0].substats[0].is_flat, false);
+        assert!(!parsed.artifacts[0].substats[0].is_flat);
         assert_eq!(parsed.artifacts[0].substats[0].value, 5.5);
         assert_eq!(parsed.artifacts[0].substats[0].rolls, Some(2i64));
         assert_eq!(parsed.substats, vec![2i64, 3]);
@@ -2277,8 +2277,8 @@ mod find_obsolete_value_wire_tests {
         assert_eq!(rule.Keep, Some(true), "rule.Keep");
         assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
         assert_eq!(rule.Use, Some(true), "rule.Use");
-        assert_eq!(rule.ArtifactSet.as_ref().map(|v| v.as_slice()), Some([19i64].as_slice()), "rule.ArtifactSet");
-        assert_eq!(rule.ArtifactType.as_ref().map(|v| v.as_slice()), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(rule.ArtifactSet.as_deref(), Some([19i64].as_slice()), "rule.ArtifactSet");
+        assert_eq!(rule.ArtifactType.as_deref(), Some([5i64].as_slice()), "rule.ArtifactType");
         assert_eq!(rule.Rank, Some(6), "rule.Rank");
         assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
         assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
@@ -2321,8 +2321,8 @@ mod dedupe_hsf_rules_for_export_value_wire_tests {
         assert_eq!(rule.Keep, Some(true), "rule.Keep");
         assert_eq!(rule.IsRuleTypeAND, Some(false), "rule.IsRuleTypeAND");
         assert_eq!(rule.Use, Some(true), "rule.Use");
-        assert_eq!(rule.ArtifactSet.as_ref().map(|v| v.as_slice()), Some([19i64].as_slice()), "rule.ArtifactSet");
-        assert_eq!(rule.ArtifactType.as_ref().map(|v| v.as_slice()), Some([5i64].as_slice()), "rule.ArtifactType");
+        assert_eq!(rule.ArtifactSet.as_deref(), Some([19i64].as_slice()), "rule.ArtifactSet");
+        assert_eq!(rule.ArtifactType.as_deref(), Some([5i64].as_slice()), "rule.ArtifactType");
         assert_eq!(rule.Rank, Some(6), "rule.Rank");
         assert_eq!(rule.Rarity, Some(6), "rule.Rarity");
         assert_eq!(rule.MainStatID, Some(1), "rule.MainStatID");
@@ -2376,8 +2376,8 @@ mod merge_safeguard_injected_rules_value_wire_tests {
         assert_eq!(base[0].Keep, Some(true), "baseRules[0].Keep");
         assert_eq!(base[0].IsRuleTypeAND, Some(false), "baseRules[0].IsRuleTypeAND");
         assert_eq!(base[0].Use, Some(true), "baseRules[0].Use");
-        assert_eq!(base[0].ArtifactSet.as_ref().map(|v| v.as_slice()), Some([19i64].as_slice()), "baseRules[0].ArtifactSet");
-        assert_eq!(base[0].ArtifactType.as_ref().map(|v| v.as_slice()), Some([5i64].as_slice()), "baseRules[0].ArtifactType");
+        assert_eq!(base[0].ArtifactSet.as_deref(), Some([19i64].as_slice()), "baseRules[0].ArtifactSet");
+        assert_eq!(base[0].ArtifactType.as_deref(), Some([5i64].as_slice()), "baseRules[0].ArtifactType");
         assert_eq!(base[0].Rank, Some(6), "baseRules[0].Rank");
         assert_eq!(base[0].Rarity, Some(6), "baseRules[0].Rarity");
         assert_eq!(base[0].MainStatID, Some(1), "baseRules[0].MainStatID");
@@ -2463,11 +2463,11 @@ mod evaluate_and_collect_safeguard_protection_value_wire_tests {
         // -- EvaluateAndCollectSafeguardProtectionInWire (wrapper) ----------
         let options = parsed.options.as_ref().expect("options populated");
         assert_eq!(options.exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.excludeSources");
-        assert_eq!(options.exclude_recipe_indices.as_ref().map(|v| v.as_slice()), Some([1i64, 2].as_slice()), "options.excludeRecipeIndices");
-        assert_eq!(options.ignore_safeguard_recipe_indices.as_ref().map(|v| v.as_slice()), Some([3i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
+        assert_eq!(options.exclude_recipe_indices.as_deref(), Some([1i64, 2].as_slice()), "options.excludeRecipeIndices");
+        assert_eq!(options.ignore_safeguard_recipe_indices.as_deref(), Some([3i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
         assert_eq!(options.baseline_exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.baselineExcludeSources");
 
-        assert_eq!(parsed.ignore_safeguard_recipe_indices.as_ref().map(|v| v.as_slice()), Some([4i64, 5].as_slice()), "ignoreSafeguardRecipeIndices");
+        assert_eq!(parsed.ignore_safeguard_recipe_indices.as_deref(), Some([4i64, 5].as_slice()), "ignoreSafeguardRecipeIndices");
         assert_eq!(parsed.safeguard_rules.len(), 1, "safeguardRules length");
         assert!(parsed.expected_buckets_payload.is_some(), "expectedBucketsPayload populated");
 
@@ -2552,8 +2552,8 @@ mod evaluate_value_wire_tests {
         assert_eq!(parsed.items.len(), 1, "items length");
         let options = parsed.options.as_ref().expect("options populated");
         assert_eq!(options.exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.excludeSources");
-        assert_eq!(options.exclude_recipe_indices.as_ref().map(|v| v.as_slice()), Some([1i64].as_slice()), "options.excludeRecipeIndices");
-        assert_eq!(options.ignore_safeguard_recipe_indices.as_ref().map(|v| v.as_slice()), Some([2i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
+        assert_eq!(options.exclude_recipe_indices.as_deref(), Some([1i64].as_slice()), "options.excludeRecipeIndices");
+        assert_eq!(options.ignore_safeguard_recipe_indices.as_deref(), Some([2i64].as_slice()), "options.ignoreSafeguardRecipeIndices");
         assert_eq!(options.baseline_exclude_sources.as_ref().map(|v| v.len()), Some(1), "options.baselineExcludeSources");
 
         // -- items[0] (EvaluateItemRaw → TestItemRaw) ----------------------
@@ -2637,14 +2637,14 @@ mod compute_improvement_chance_value_wire_tests {
         assert_eq!(rule.ignore_previous_safeguards, Some(true), "rules[0].ignorePreviousSafeguards");
         assert_eq!(rule.ignore_equipped_in_collection, Some(false), "rules[0].ignoreEquippedInCollection");
         assert_eq!(rule.ignore_equipped_in_vault, Some(false), "rules[0].ignoreEquippedInVault");
-        assert_eq!(rule.substats.as_ref().map(|v| v.as_slice()), Some([5i64, 7].as_slice()), "rules[0].substats");
+        assert_eq!(rule.substats.as_deref(), Some([5i64, 7].as_slice()), "rules[0].substats");
         assert_eq!(rule.substat_match.as_deref(), Some("any"), "rules[0].substatMatch");
         let weights = rule.substat_weights.as_ref().expect("substatWeights populated");
         assert_eq!(weights.len(), 2, "rules[0].substatWeights length");
         assert!(weights.get(&5).map(|v| (*v - 1.0).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[5]");
         assert!(weights.get(&7).map(|v| (*v - 0.5).abs() < f64::EPSILON).unwrap_or(false), "rules[0].substatWeights[7]");
         assert!(rule.improvement_chance_threshold.is_some(), "rules[0].improvementChanceThreshold");
-        assert_eq!(rule.tags.as_ref().map(|v| v.as_slice()), Some(["foo".to_string(), "bar".to_string()].as_slice()), "rules[0].tags");
+        assert_eq!(rule.tags.as_deref(), Some(["foo".to_string(), "bar".to_string()].as_slice()), "rules[0].tags");
     }
 
     // deny_unknown_fields gate — per-rule schema rejects unknown keys because

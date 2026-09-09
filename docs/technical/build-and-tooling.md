@@ -30,6 +30,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run wasm:ensure:rule-engine` — rebuild `src/lib/wasm/generated/*` only when relevant Rust/domain inputs are newer than generated outputs
 - `npm run check:wasm-toolchain` — validate `rustc`, `cargo`, `rustup`, `wasm-bindgen`, and installed target `wasm32-unknown-unknown`
 - `npm run ensure:wasm-toolchain` — run the same checks plus auto-fix (`cargo install wasm-bindgen-cli --version 0.2.114` and `rustup target add wasm32-unknown-unknown`) when needed
+- `npm run fmt:rust` — format the Rust workspace with rustfmt (config in `wasm/rustfmt.toml`)
+- `npm run fmt:rust:check` — read-only rustfmt gate; fails when any Rust file is unformatted
 - `npm run test:unit` — compile + run node:test + SFC fixture runner
 - `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
@@ -45,8 +47,8 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Committed (source) scripts live under `scripts/` and are grouped by purpose:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
 - `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
-- `scripts/tooling/build-rule-engine-wasm.mjs` — builds the `wasm/rule_engine_wasm` cdylib crate for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
-- `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale.
+- `scripts/tooling/build-rule-engine-wasm.mjs` — builds the `wasm/rule_engine_wasm` cdylib crate for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=debug` for faster local iteration — any value other than `release` selects the debug profile; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden). After a successful build it writes a profile stamp next to the generated outputs so the ensure scripts can tell a debug artifact from a release one.
+- `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.mjs` only when outputs are missing/stale. It also rebuilds when the recorded build profile differs from the requested one: both profiles emit into the same `src/lib/wasm/generated/` directory, so without that check a debug artifact left behind by `WASM_RULE_ENGINE_PROFILE=debug npm run dev` would look "fresh" to a later release build and ship unoptimized wasm.
 - `scripts/tooling/run-dev-with-wasm-watch.mjs` — dev orchestrator used by `npm run dev`; runs an initial ensure, starts `npm run dev:vite`, and polls Rust/domain source inputs (`wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, `Cargo.toml`, `Cargo.lock`, `shared/domain-constants.json`) to trigger incremental ensure checks during active development.
 - `scripts/tooling/vite-realpath.mjs` — thin launcher that re-spawns the Vite CLI with the working directory normalized to its filesystem realpath. `dev:vite`, `build`, and `build:web` all go through it. See "Junction/symlink checkouts" below for why.
 - `scripts/tooling/check-rust-wasm-toolchain.mjs` — verifies required Rust/WASM binaries and target installation for the current platform; with `--fix`, it auto-installs missing `wasm-bindgen-cli` and wasm target when possible.
@@ -395,11 +397,14 @@ This deliberate duplication is guarded by a **parity test** (`wasm/rule_engine_n
 tests/parity.rs`): it drives a committed real capture slice
 (`tests/fixtures/{artifacts,champions}_packet.json`) through the Rust normalizer and
 asserts field-for-field equality (on the DLL-consumed columns —
-`ID/type/rank/rarity/lvl/aset/accset/mid/mfl/s{1..4}{id,lvl,fl}/cID/faction`) against
+`ID/type/rank/rarity/lvl/aset/accset/mid/mfl/s{1..4}{id,lvl,fl}/cID/faction/REROLLCOUNT`) against
 `expected.json`, which `tests/repro/native-dll-parity-expected.ts` regenerates from the
 app's own `normalizeExternalEvent`. Run the whole loop with `npm run native-dll:parity`
 (regenerates `expected.json`, then `cargo test`). If the TS ingest changes, regenerate
-and the mismatch surfaces immediately.
+and the mismatch surfaces immediately. Every column the DLL reads must appear in BOTH
+projections — a column present in the compact row but missing from the projection is
+invisible to this test, which is how `REROLLCOUNT` (the Chaos-Ore rework counter behind
+the `if_reworked` / `if_not_reworked` rule gates) was once dropped by the DLL unnoticed.
 
 **SFC schema — kept strict, in sync with today's format**
 
@@ -493,6 +498,10 @@ If `initRuleEngineWasm()` (or `warmupWasmRuleEngine()`) rejects, the cached prom
   - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`, `react-you-might-not-need-an-effect`
   - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`, `react-you-might-not-need-an-effect/*: warn`
   - Scripts: `npm run lint`, `npm run typecheck`
+- Rust (the `wasm/` workspace):
+  - Formatting: `wasm/rustfmt.toml` (`max_width = 120`, edition 2021). `npm run fmt:rust` formats, `npm run fmt:rust:check` is the read-only gate. Only stable rustfmt keys belong in that file — `ignore` is nightly-only, so `generated_domain_constants.rs` cannot be excluded; do not mix a regeneration of that file and a format run in one commit.
+  - Clippy: `cargo clippy --workspace --all-targets` must be warning-free. Prefer a targeted `#[allow(...)]` on the item, with the reason in a comment, over a crate-wide `#![allow(...)]` — a blanket allow also silences every future occurrence, which is how an unrelated lint gets hidden.
+  - The two crate-wide allows in `rule_engine_core/src/lib.rs` (`neg_cmp_op_on_partial_ord`, `manual_clamp`) are deliberate and float-specific: `!(x > 0.0)` is the NaN-catching guard, and `f64::clamp` panics on NaN whereas `.max().min()` folds it to a bound. They cannot enforce that split by themselves, so an **integer** `.max(a).min(b)` is a review error — integers must use `clamp`.
 - Dev-time checks: Vite runs a TypeScript-only overlay using `vite-plugin-checker`.
   - Note: ESLint overlay is disabled due to ESLint 9 + flat-config integration issues; run ESLint via `npm run lint`.
 

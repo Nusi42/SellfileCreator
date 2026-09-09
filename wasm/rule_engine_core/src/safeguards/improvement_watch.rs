@@ -143,6 +143,9 @@ struct WatchContext<'a> {
     cells: BTreeMap<WatchCellAxes, BTreeSet<usize>>,
     // Probe results per (cell, boundary index): per-profile verified integer floor
     // vectors, or None when the cell is unreachable under that boundary.
+    // The key spells out the cell axes plus the boundary index; a `type` alias would
+    // hide which component is which at the one place that documents them.
+    #[allow(clippy::type_complexity)]
     results: BTreeMap<(i64, Vec<i64>, i64, usize), Option<Vec<Vec<i64>>>>,
 }
 

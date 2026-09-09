@@ -2,6 +2,7 @@
 // Source: shared/domain-constants.json
 // Generator: scripts/tooling/generate-domain-constants.mjs
 #![allow(dead_code)]
+#![allow(clippy::type_complexity)]
 
 // Shared sentinel for accessories that have no set id.
 pub const ACCESSORY_NO_SET_ID: i64 = -99;

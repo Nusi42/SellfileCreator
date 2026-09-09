@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { resolveProfile, profileStampMismatch } from './wasm-build-profile.mjs'
 
 // Resolve the repo root from this script path so callers can run the command
 // from any working directory and still inspect/build the same wasm outputs.
@@ -234,10 +235,16 @@ const ensureRuleEngineWasm = async () => {
   const hasStaleOutput = oldestOutputMtime < newestSourceMtime
   const hasMissingRustType = missingRustTypeOutputs.length > 0
   const hasStaleRustType = oldestRustTypeMtime < newestSourceMtime
+  // Mtimes alone cannot tell a debug artifact from a release one: both profiles write
+  // into the same generated/ directory. Without this check a debug build left over from
+  // `WASM_RULE_ENGINE_PROFILE=debug npm run dev` would be accepted as fresh by a release
+  // build, silently shipping unoptimized wasm.
+  const requestedProfile = resolveProfile()
+  const hasProfileMismatch = profileStampMismatch('rule-engine', requestedProfile)
   if (
     !hasMissingOutput && !hasStaleOutput &&
     !hasMissingRustType && !hasStaleRustType &&
-    !cargoTargetMissing
+    !hasProfileMismatch && !cargoTargetMissing
   ) {
     console.log('[wasm:ensure] rule engine outputs are up to date.')
     return
@@ -252,6 +259,8 @@ const ensureRuleEngineWasm = async () => {
       .map((filePath) => path.relative(REPO_ROOT, filePath))
       .join(', ')
     console.log(`[wasm:ensure] rebuilding (missing ts-rs outputs: ${missingLabels})`)
+  } else if (hasProfileMismatch) {
+    console.log(`[wasm:ensure] rebuilding (existing outputs were not built with the ${requestedProfile} profile).`)
   } else if (cargoTargetMissing) {
     console.log('[wasm:ensure] rebuilding (cargo target/ absent — cargo clean was run).')
   } else {

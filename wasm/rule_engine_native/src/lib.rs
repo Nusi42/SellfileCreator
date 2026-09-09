@@ -161,6 +161,9 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
         rarity,
         level,
         faction:   Some(a.faction),
+        // Carry the Ore rework count through so if_reworked / if_not_reworked rule
+        // gates decide the same way here as they do in the TS engine.
+        reroll_count: a.reroll_count,
         main:      if main_variant != 0 { Some(main_variant) } else { None },
         sub_values: if sub_values.is_empty() { None } else { Some(sub_values) },
         item_id:   a.id,
@@ -297,6 +300,10 @@ fn run(input_json: &str) -> Result<String, String> {
 /// Returns a heap-allocated null-terminated UTF-8 JSON string.  On any error the
 /// string is `{"error":"<message>"}`.  **The caller must release the pointer with
 /// `sfc_free` — do not call `free()` directly.**
+// C ABI entry point: the raw-pointer contract is the caller's, documented above and
+// null-checked below. Marking it `unsafe extern "C"` would change the exported symbol's
+// declared contract for existing DLL consumers, so the lint is allowed here instead.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn sfc_generate(input_json: *const c_char) -> *mut c_char {
     // Safety: caller guarantees a valid, null-terminated C string for the lifetime
@@ -323,6 +330,9 @@ pub extern "C" fn sfc_generate(input_json: *const c_char) -> *mut c_char {
 
 /// Release a string pointer previously returned by `sfc_generate`.
 /// Passing null is safe and is a no-op.
+// Same C ABI reasoning as sfc_generate: null is handled, and the pointer must have come
+// from sfc_generate's CString::into_raw, which is the documented caller contract.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn sfc_free(ptr: *mut c_char) {
     if ptr.is_null() { return; }

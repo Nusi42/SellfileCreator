@@ -22,7 +22,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 63302,
-  "faction": 12
+  "faction": 12,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 7733,
@@ -47,7 +48,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 40912,
-  "faction": 6
+  "faction": 6,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 7800,
@@ -72,7 +74,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 14061,
-  "faction": 10
+  "faction": 10,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 7861,
@@ -97,7 +100,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 37735,
-  "faction": 9
+  "faction": 9,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 19078,
@@ -122,7 +126,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 84130,
-  "faction": 2
+  "faction": 2,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 21382,
@@ -147,7 +152,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 75426,
-  "faction": 1
+  "faction": 1,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 21545,
@@ -172,7 +178,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 19988,
-  "faction": 8
+  "faction": 8,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 25068,
@@ -197,7 +204,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 96946,
-  "faction": 5
+  "faction": 5,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 25287,
@@ -222,7 +230,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 106327,
-  "faction": 3
+  "faction": 3,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 25798,
@@ -247,7 +256,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 37741,
-  "faction": 13
+  "faction": 13,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 25867,
@@ -272,7 +282,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 21202,
-  "faction": 15
+  "faction": 15,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 25878,
@@ -297,7 +308,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 31091,
-  "faction": 16
+  "faction": 16,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 2817,
@@ -322,7 +334,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 16629,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 2823,
@@ -347,7 +360,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 40616,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 2966,
@@ -372,7 +386,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 97529,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 3652,
@@ -397,7 +412,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 48907,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 4394,
@@ -422,7 +438,8 @@
   "s4lvl": 1,
   "s4fl": 1,
   "cID": 21387,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 4622,
@@ -447,7 +464,8 @@
   "s4lvl": 3,
   "s4fl": 0,
   "cID": 101794,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 5217,
@@ -472,7 +490,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 105988,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 5817,
@@ -497,7 +516,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 31091,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 5818,
@@ -522,7 +542,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 70347,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 6801,
@@ -547,7 +568,8 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 57794,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 2936,
@@ -572,7 +594,8 @@
   "s4lvl": 3,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 4402,
@@ -597,7 +620,8 @@
   "s4lvl": 1,
   "s4fl": 0,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 4621,
@@ -622,7 +646,8 @@
   "s4lvl": 1,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 5400,
@@ -647,7 +672,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 9070,
@@ -672,7 +698,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 9567,
@@ -697,7 +724,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 14263,
@@ -722,7 +750,8 @@
   "s4lvl": 2,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 15245,
@@ -747,7 +776,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 15718,
@@ -772,7 +802,8 @@
   "s4lvl": 2,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 15723,
@@ -797,7 +828,8 @@
   "s4lvl": 1,
   "s4fl": 0,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 16067,
@@ -822,7 +854,8 @@
   "s4lvl": 0,
   "s4fl": 1,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  },
  {
   "ID": 16634,
@@ -847,6 +880,7 @@
   "s4lvl": 0,
   "s4fl": 0,
   "cID": 0,
-  "faction": 0
+  "faction": 0,
+  "REROLLCOUNT": 0
  }
 ]
