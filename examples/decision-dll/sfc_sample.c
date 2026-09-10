@@ -62,8 +62,8 @@ static const char *SELL_FILE =
 /*
  * Two pieces of gear, exactly as the game reports them.
  *
- * The first is a 5-star Epic with Speed, so the rule above keeps it. The second is a
- * 4-star Rare that no rule mentions.
+ * The first is a 5-star Epic helmet with Speed, so the rule above keeps it. The second is
+ * a 4-star Rare chestplate that no rule mentions.
  *
  * Note statValue: the game stores stats as fixed-point integers, where the number you
  * see in game is the stored value divided by 2^32. Pass the stored value through
@@ -75,7 +75,8 @@ static const char *GEAR =
     "["
     "{"
     "\"id\": 1001,"
-    "\"kindId\": 1,"           /* which slot: 1 = weapon */
+    "\"kindId\": 1,"           /* which slot: 1 = helmet. See the table in sfc_decide.h -
+                                  the weapon is 5, not 1. */
     "\"rankId\": 5,"           /* stars */
     "\"rarityId\": 4,"         /* 4 = Epic */
     "\"level\": 16,"
@@ -85,7 +86,7 @@ static const char *GEAR =
     "},"
     "{"
     "\"id\": 1002,"
-    "\"kindId\": 2,"           /* 2 = helmet */
+    "\"kindId\": 2,"           /* 2 = chestplate */
     "\"rankId\": 4,"
     "\"rarityId\": 3,"         /* 3 = Rare */
     "\"level\": 0,"
@@ -251,8 +252,12 @@ int main(int argc, char *argv[])
         goto cleanup;
     }
 
-    /* 5. Use the answer. Check for a reported problem before reading anything else. */
-    if (strstr(answer, "\"error\"") != NULL) {
+    /* 5. Use the answer. Check for a reported problem before reading anything else.
+     *
+     * A failure reply is the whole object - {"error":"..."} and nothing else - so look for
+     * it at the START. Searching the whole text would also match the word inside a rule
+     * name, and report a problem on a perfectly good answer. */
+    if (strncmp(answer, "{\"error\"", 8) == 0) {
         fprintf(stderr, "The library reported a problem:\n%s\n", answer);
         goto cleanup;
     }

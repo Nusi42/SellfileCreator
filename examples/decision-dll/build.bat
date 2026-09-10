@@ -25,17 +25,19 @@ call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" >nul
 
 :build
 cl /nologo /W4 sfc_sample.c /Fe:sfc_sample.exe
-if %ERRORLEVEL%==0 (
-  echo.
-  echo Built sfc_sample.exe
-  echo.
-  echo Run it with the library beside it, or give it a path:
-  echo   sfc_sample.exe path\to\sfc_engine.dll
-) else (
+if not %ERRORLEVEL%==0 (
   echo.
   echo Build failed - see the messages above.
+  REM Report the failure in the exit code too, so chaining this from a script or a build
+  REM step stops here instead of running a stale exe.
+  exit /b 1
 )
-goto :eof
+echo.
+echo Built sfc_sample.exe
+echo.
+echo Run it with the library beside it, or give it a path:
+echo   sfc_sample.exe path\to\sfc_engine.dll
+exit /b 0
 
 :no_compiler
 echo Could not find a C compiler.

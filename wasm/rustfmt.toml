@@ -1,4 +1,4 @@
-# Formatting rules for the Rust workspace (rule_engine_core / _wasm / _dsim_wasm / _native).
+# Formatting rules for the Rust workspace (rule_engine_core / _wasm / _dsim_wasm / sfc_engine).
 # Run `npm run fmt:rust` to format; `npm run fmt:rust:check` is the read-only gate.
 #
 # Width is 120 rather than rustfmt's default 100: this codebase deliberately keeps guard
@@ -10,7 +10,8 @@ max_width = 120
 edition = "2021"
 
 # Only stable rustfmt options belong here. Notably `ignore` is nightly-only, so
-# `generated_domain_constants.rs` cannot be excluded from the config: after regenerating it
-# (`npm run generate:domain-constants`), a subsequent `npm run fmt:rust` will reflow its
-# one-line tables. That is cosmetic and harmless, but it is why the generated file and a
-# format run should not be mixed in the same commit.
+# `generated_domain_constants.rs` cannot be excluded from the config. It does not need to be:
+# the generator pipes its Rust output through rustfmt with this config before writing, so the
+# file is already formatted when it lands and `npm run fmt:rust` leaves it untouched. That
+# keeps regeneration and a format run safe to mix in one commit, and keeps the dirty-check
+# write in the generator a true no-op instead of bumping mtime and forcing a Rust rebuild.

@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use serde_json::Value;
 
-use rule_engine_core::{resolve_accessory_faction, substat_rule_value};
+use rule_engine_core::{is_accessory_slot, resolve_accessory_faction, substat_rule_value};
 
 // ---------------------------------------------------------------------------
 // Compact artifact row — the DLL's internal normalised shape.
@@ -36,7 +36,8 @@ use rule_engine_core::{resolve_accessory_faction, substat_rule_value};
 pub struct NativeArtifactIn {
     // Artifact ID (primary key; used in ImprovementChanceEntry.artifact_id).
     pub id: Option<i64>,
-    // Slot id matching ArtifactType enum (1=Weapon … 9=Banner).
+    // Slot id matching ArtifactType enum (1=Helmet 2=Chestplate 3=Gauntlets 4=Boots
+    // 5=Weapon 6=Shield 7=Ring 8=Amulet 9=Banner).
     pub slot: i64,
     // Star rank (1–6).
     pub rank: Option<i64>,
@@ -47,9 +48,11 @@ pub struct NativeArtifactIn {
     // Chaos Ore rework count (0 = never reworked). Drives the if_reworked / if_not_reworked
     // rule gate via TestItemRaw.reroll_count; the name mirrors the DB column REROLLCOUNT.
     pub reroll_count: Option<i64>,
-    // Set id for artifact slots (slot ≤ 6).
+    // Raw setKindId. The set for EVERY slot, accessories included — resolve_set_id turns a
+    // 0 here into the right thing per slot (see normalize_artifact in lib.rs).
     pub aset: Option<i64>,
-    // Set id for accessory slots (slot > 6) — carries the raw requiredFraction code.
+    // Raw requiredFraction: a FACTION code, never a set id, despite the column's legacy
+    // name. `faction` below is this value resolved; nothing reads it as a set.
     pub accset: Option<i64>,
     // Main stat numeric id.
     pub mid: Option<i64>,
@@ -76,9 +79,9 @@ pub struct NativeArtifactIn {
     // cannot fire without these: presence matching alone answers "has SPD", never
     // "has SPD >= 12", and a sellfile that asks the latter got a wrong answer.
     pub sub_values: [f64; 4],
-    // Main stat value, normalised the same way. Rules threshold on it just as they do
-    // on substats, so it goes through the same path rather than a second one.
-    pub main_value: f64,
+    // NOTE: no main-stat VALUE column. A rule names a main stat by its variant id only
+    // (TestItemRaw.main), never by an amount, so normalising one would be per-artifact work
+    // that nothing can read — and a field implying a threshold the engine cannot express.
     // Equipped champion id — Some(id>0) marks the artifact equipped_in_collection.
     pub c_id: Option<i64>,
     // Pre-resolved faction id (from accset via resolve_accessory_faction); 0 = Any.
@@ -289,19 +292,12 @@ fn parse_artifact_log_row(
         s4fl: Some(0),
         // Filled per slot in the substat loop below.
         sub_values: [0.0; 4],
-        // Main stat value through the shared normalisation. A main stat carries no
-        // mythical bonus of its own, so the bonus component is zero.
-        main_value: substat_rule_value(
-            to_i64_or(primary_field(|p| &p.id), 0),
-            to_i64_or(primary_field(|p| &p.is_absolute), 0) != 0,
-            to_number(primary_field(|p| &p.stat_value)).unwrap_or(0.0),
-            0.0,
-        ),
         c_id,
         // Resolve faction from the raw accessory code (SSOT generated map); 0 = Any.
-        // Gated on accessory slots (slot > 6) to mirror determineFaction's isAccessorySlot
-        // check in gearDbNormalizer.ts — non-accessory slots never carry a faction.
-        faction: if (slot as i64) > 6 {
+        // Gated through the shared accessory predicate (the same authority determineFaction
+        // uses in gearDbNormalizer.ts) — non-accessory slots never carry a faction, and an
+        // out-of-range kindId must not be promoted into one by a bare `> 6`.
+        faction: if is_accessory_slot(slot as i64) {
             resolve_accessory_faction(to_i64_or(&row.required_fraction, 0))
         } else {
             0

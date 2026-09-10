@@ -163,7 +163,7 @@ against is carried separately (`sub_values`) and is what makes numeric rules fir
 }
 ```
 
-Three semantics that must not drift:
+Four semantics that must not drift:
 
 - **No match means KEEP.** A full export encodes "sell the rest" as an explicit trailing
   catch-all, so a no-match only arises for a partial or hand-written file — where keep is
@@ -175,9 +175,18 @@ Three semantics that must not drift:
 - **`safeguarded`** = decided-keep AND baseline-sell AND the deciding match is a
   keep-override source. A `.hsf` cannot express this state — `cleanHsfForExport` strips the
   `__source: "safeguards"` marker — which is the main reason this DLL exists.
+- **The recipe-mode vector carries exactly three tokens.** `RECIPE_MODE_ACTIVE` /
+  `_DISABLED` / `_SEPARATOR` (`matcher_evaluator.rs`) are the one spelling, matching the
+  app's `SellfileExportMode` type; every producer imports them. The mode says whether a
+  recipe *participates*, never what it decides — keep-vs-sell lives on each rule's `Keep`
+  flag. The gate is a denylist (anything not disabled/separator participates), so an
+  invented token works by accident until the gate becomes an allowlist and every rule is
+  silently dropped; that is why the constants are exported rather than written inline.
 
-On any error the DLL returns `{"error":"<message>"}` instead, never null. Check for the
-`error` key before reading anything else.
+On any error the DLL returns `{"error":"<message>"}` instead, never null — the failure reply
+is that object and nothing else, so detect it by the payload STARTING with `{"error"`.
+Scanning the whole body for the token also matches a rule name, reporting a problem on a
+good answer.
 
 ### IO Helpers (SFC)
 - Parse text/file: `parseSfcText`, `readSfcFile`.

@@ -90,7 +90,11 @@ pub fn safeguard_bucket_key_from_parts(slot: i64, set: i64, main_stat: i64, fact
 
 // Bucket-key helper keeps fallback key generation identical to collect-core rules.
 // Non-accessory slots normalize faction to zero before hashing dimensions.
-fn safeguard_bucket_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> String {
+//
+// Public because the native DLL projects the collector's candidates back into per-artifact
+// rank rows and must name the SAME bucket the collector ranked in — re-composing the parts
+// at that call site would be a second definition of which dimensions a bucket is made of.
+pub fn safeguard_bucket_key_from_artifact(artifact: &SafeguardWasmArtifactIn) -> String {
     safeguard_bucket_key_from_parts(artifact.slot, artifact.set, artifact.main_stat, artifact.faction)
 }
 

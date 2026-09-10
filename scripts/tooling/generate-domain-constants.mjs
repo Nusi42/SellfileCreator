@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 // Resolve repository root from this script location so callers can run it from
 // any working directory and still update the same generated file targets.
@@ -11,6 +12,9 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
 // Keep one canonical constants specification that both TypeScript and Rust
 // outputs are generated from to prevent cross-language sentinel drift.
 const SPEC_PATH = path.join(REPO_ROOT, 'shared', 'domain-constants.json')
+// rustfmt reads this config for the whole Rust workspace; the generator reuses it so the
+// file it emits is byte-identical to what `npm run fmt:rust` would produce.
+const RUSTFMT_CONFIG_PATH = path.join(REPO_ROOT, 'wasm', 'rustfmt.toml')
 const TS_OUT_PATH = path.join(REPO_ROOT, 'src', 'lib', 'generated', 'domainConstants.ts')
 const RUST_OUT_PATH = path.join(REPO_ROOT, 'wasm', 'rule_engine_core', 'src', 'generated_domain_constants.rs')
 
@@ -1145,6 +1149,32 @@ rustLines.push(
   `pub const MAIN_STAT_MAX16_BY_RANK_SLOT_VARIANT: &[(i64, i64, i64, f64)] = &[${mainStatMax16TuplesRust}];`
 )
 
+// Run the emitted Rust through rustfmt before it is written. Without this the generated
+// tables land as single long lines that `npm run fmt:rust` would immediately reflow, leaving
+// the file permanently dirty against `fmt:rust:check` and stopping a regeneration and a
+// format run from sharing a commit. rustfmt stays stable-only here: it takes the source on
+// stdin and the workspace config from disk, so no nightly `ignore` option is needed. The
+// edition is not passed as a flag either — it comes from that same config, defined once.
+const formatRust = (source) => {
+  const result = spawnSync('rustfmt', ['--config-path', RUSTFMT_CONFIG_PATH, '--emit', 'stdout'], {
+    input: source,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  // A missing toolchain is fatal: silently emitting unformatted Rust is the exact drift this
+  // step exists to prevent, and it would resurface later as a failing format gate instead.
+  if (result.error) {
+    throw new Error(`rustfmt could not be run (${result.error.message}). Install it with: rustup component add rustfmt`)
+  }
+  if (result.status !== 0) {
+    throw new Error(`rustfmt rejected the generated Rust (exit ${result.status}): ${result.stderr.trim()}`)
+  }
+  // Emitting to stdout prefixes the formatted source with a `stdin:` banner line.
+  const formatted = result.stdout.replace(/^stdin:\n/, '')
+  // Normalize to exactly one trailing newline so the dirty-check compares a stable shape.
+  return `${formatted.replace(/\n+$/, '')}\n`
+}
+
 // Ensure target directories exist before writing generated outputs.
 await fs.mkdir(path.dirname(TS_OUT_PATH), { recursive: true })
 await fs.mkdir(path.dirname(RUST_OUT_PATH), { recursive: true })
@@ -1169,4 +1199,4 @@ const writeIfChanged = async (filePath, newContent) => {
 }
 
 await writeIfChanged(TS_OUT_PATH, `${tsLines.join('\n')}\n`)
-await writeIfChanged(RUST_OUT_PATH, `${rustLines.join('\n')}\n`)
+await writeIfChanged(RUST_OUT_PATH, formatRust(`${rustLines.join('\n')}\n`))

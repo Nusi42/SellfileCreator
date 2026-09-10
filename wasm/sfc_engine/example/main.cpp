@@ -96,7 +96,7 @@ static const char* ARTIFACT_ARRAY =
     "["
     "  {"
     "    \"id\": 1001,"
-    "    \"kindId\": 1,"    /* Weapon */
+    "    \"kindId\": 1,"    /* Helmet (the weapon slot is 5) */
     "    \"rankId\": 5,"
     "    \"rarityId\": 4,"  /* Epic */
     "    \"level\": 16,"
@@ -106,7 +106,7 @@ static const char* ARTIFACT_ARRAY =
     "  },"
     "  {"
     "    \"id\": 1002,"
-    "    \"kindId\": 2,"    /* Helmet */
+    "    \"kindId\": 2,"    /* Chestplate */
     "    \"rankId\": 4,"
     "    \"rarityId\": 3,"  /* Rare */
     "    \"level\": 0,"

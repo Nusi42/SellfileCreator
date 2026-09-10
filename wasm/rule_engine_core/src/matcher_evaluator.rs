@@ -691,6 +691,19 @@ fn match_rule_substats(rule: &PreparedRule, item: &TestItemRaw) -> bool {
     true
 }
 
+// The recipe export-mode vocabulary, as the ONE place these tokens are spelled.
+//
+// Exactly three modes exist; the TS type `SellfileExportMode` (src/lib/hsfBuilder/types.ts)
+// is the same closed set. Every producer of a `recipe_modes` entry and the gate below must
+// agree literally, and an untyped string is the only coupling a compiler cannot check —
+// hence named constants rather than inline literals on either side.
+/// An ordinary, exported recipe. Its rules participate in evaluation.
+pub const RECIPE_MODE_ACTIVE: &str = "active";
+/// A recipe the user switched off. Its rules exist but never decide.
+pub const RECIPE_MODE_DISABLED: &str = "disabled";
+/// A layout-only entry in the recipe list. It produces no rules at all.
+pub const RECIPE_MODE_SEPARATOR: &str = "separator";
+
 // Recipe visibility gate (disabled/separator modes + explicit exclusions). SSOT here;
 // the TS evaluateMatchesByRecipe delegates to this engine rather than re-implementing it.
 fn should_include_recipe(recipe_idx: Option<i64>, recipe_modes: &[String], options: &EvaluateOptionsPrepared) -> bool {
@@ -699,8 +712,10 @@ fn should_include_recipe(recipe_idx: Option<i64>, recipe_modes: &[String], optio
             return false;
         }
 
+        // A denylist, so an unrecognised token reads as active — the tolerant side for a
+        // gate whose false negative would silence every rule of the recipe.
         if let Some(mode) = recipe_modes.get(idx as usize) {
-            return mode != "disabled" && mode != "separator";
+            return mode != RECIPE_MODE_DISABLED && mode != RECIPE_MODE_SEPARATOR;
         }
     }
 

@@ -72,7 +72,7 @@ pub use matcher_evaluator::{
     collect_safeguard_candidates_core, evaluate_item, prepare_evaluate_options, prepare_rule, BucketedRules, EvalMatch,
     EvaluateItemResult, EvaluateItemScratch, EvaluateOptionsRaw, MatchingRecipeDecision, PreparedRule,
     SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, SafeguardCollectedCandidateOut,
-    SafeguardCollectedSnapshotOut,
+    SafeguardCollectedSnapshotOut, RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
 };
 pub use rule_postprocess::{
     build_final_sell_rules_core, build_generated_rules_core, compute_merged_rules_core,
@@ -89,19 +89,20 @@ pub use safeguards::{
     SafeguardWasmItemKeyArtifactIn,
 };
 pub use safeguards::{
-    safeguard_bucket_key_from_parts, safeguard_hash_combination, safeguard_normalize_set_selections,
-    safeguard_normalize_substat_match, safeguard_parse_collect_rows_payload, safeguard_resolve_count_mode,
-    score_safeguard_candidates_for_preview_core, ImprovementChanceThresholdIn, SafeguardWasmArtifactIn,
-    SafeguardWasmCandidateOut, SafeguardWasmCombination, SafeguardWasmCountMode, SafeguardWasmExpectedBucketsPayloadIn,
-    SafeguardWasmGroupIn, SafeguardWasmMetasetIn, SafeguardWasmResolvedRuleOut, SafeguardWasmRuleIn,
-    SafeguardWasmScorePreviewIn, SafeguardWasmSetSelection, SafeguardWasmSnapshotOut,
+    safeguard_bucket_key_from_artifact, safeguard_bucket_key_from_parts, safeguard_hash_combination,
+    safeguard_normalize_set_selections, safeguard_normalize_substat_match, safeguard_parse_collect_rows_payload,
+    safeguard_resolve_count_mode, score_safeguard_candidates_for_preview_core, ImprovementChanceThresholdIn,
+    SafeguardWasmArtifactIn, SafeguardWasmCandidateOut, SafeguardWasmCombination, SafeguardWasmCountMode,
+    SafeguardWasmExpectedBucketsPayloadIn, SafeguardWasmGroupIn, SafeguardWasmMetasetIn, SafeguardWasmResolvedRuleOut,
+    SafeguardWasmRuleIn, SafeguardWasmScorePreviewIn, SafeguardWasmSetSelection, SafeguardWasmSnapshotOut,
 };
-// Group authority: TS and the native DLL both resolve group runs through these.
+// Gear ingest authority: the DLL and the app's TS ingest normalise raw gear through these.
 pub use gear_ingest::{
     convert_stat_units, decode_fixed_point, finalize_stat_component, is_accessory_slot, is_anomalous_stat_id,
     is_anomalous_variant, is_percent_stat, resolve_set_id, round_stat_value, snap_level_to_milestone,
     substat_rule_value, LEVEL_MILESTONES, STAT_FIXED_POINT_SCALE,
 };
+// Group authority: TS and the native DLL both resolve group runs through these.
 pub use hsf_builder_execution::{
     build_hsf_rules_runtime_core_fn, prepare_hsf_builder_recipe_core_fn, BuildHsfRulesRuntimeIn,
     ExecuteHsfBuilderRuntimeOut, PrepareHsfBuilderRecipeIn, PrepareHsfBuilderRecipeOut,

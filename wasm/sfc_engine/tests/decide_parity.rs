@@ -14,13 +14,14 @@ use sfc_engine::pipeline::{decide, Verdict};
 
 use serde_json::json;
 
-// The 32.32 fixed-point scale the game stores every stat in.
-const FIXED_POINT: f64 = 4_294_967_296.0;
-
 // Encode a display value the way the game's wire carries it. `exact` = false reproduces
 // the decode drift that makes a real "12" arrive as 11.999999964609742.
+//
+// The scale comes from the production constant, not a copy: a test that encoded against its
+// own literal would keep passing if the decode side's scale were ever wrong, which is the
+// one thing this file exists to catch.
 fn wire_value(display: f64, exact: bool) -> f64 {
-    let raw = (display * FIXED_POINT).round();
+    let raw = (display * rule_engine_core::STAT_FIXED_POINT_SCALE).round();
     if exact {
         raw
     } else {
@@ -296,13 +297,17 @@ fn an_unmatched_piece_is_kept_by_default_and_says_so() {
 // A rule read from an existing .hsf carries its name, and that name must reach the caller
 // so a consumer can explain a verdict rather than only colour it.
 //
+// This drives pipeline::evaluate_verdicts â the production resolution â rather than
+// restating the channel read, so the test cannot agree with itself while the DLL disagrees.
+//
 // Note the asymmetry this pins: rules GENERATED from a .sfc carry no RecipeName (the
 // builder does not propagate the recipe's display name onto its rules), so `ruleName` is
 // null for them by design. It is populated for the sellfiles that do carry names.
 #[test]
 fn a_named_rule_reaches_the_caller() {
-    use rule_engine_core::{configure_engine, evaluate_engine, EvaluateOptionsRaw, RuleRaw};
-    // Drive the evaluator directly with a named rule, which is what a .hsf supplies.
+    use rule_engine_core::{RuleRaw, RECIPE_MODE_ACTIVE};
+    use sfc_engine::pipeline::evaluate_verdicts;
+    // A named rule is what a .hsf supplies; a .sfc build cannot produce one.
     let rules: Vec<RuleRaw> = serde_json::from_value(json!([{
         "RecipeID": 1,
         "RecipeName": "Sell fast gear",
@@ -311,25 +316,20 @@ fn a_named_rule_reaches_the_caller() {
         "ArtifactSet": [5],
     }]))
     .expect("rule must deserialise");
-    let name = rules[0].RecipeName.as_deref().map(str::to_owned);
-    configure_engine(rules, vec!["sell".to_string()]);
-    let results = evaluate_engine(
-        serde_json::from_value(json!([{
-            "itemId": 60,
-            "item": { "slot": 2, "set": 5, "rank": 6, "rarity": 5, "level": 16 },
-        }]))
-        .expect("item must deserialise"),
-        EvaluateOptionsRaw::default(),
-    )
-    .expect("evaluation must succeed");
-    let decided = results[0]
-        .first_non_excluded_match
-        .as_ref()
-        .or(results[0].first_match.as_ref())
-        .expect("the sell rule must match");
-    assert!(!decided.keep, "the rule sells it");
+
+    // One chestplate of that set, normalised through the real ingest path.
+    let raw: Vec<RawArtifactLogRow> =
+        serde_json::from_value(json!([artifact_row(60, 2, 5, 16, &[(4, 1, 10.0, 1)], true)])).expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let rows = sfc_engine::pipeline::build_rows(&compact);
+
+    let verdicts =
+        evaluate_verdicts(&rows, rules, vec![RECIPE_MODE_ACTIVE.to_string()]).expect("evaluation must succeed");
+    let verdict = verdict_for(&verdicts, 60);
+    assert!(!verdict.keep, "the rule sells it");
+    assert!(verdict.matched, "a rule decided it");
     assert_eq!(
-        name.as_deref(),
+        verdict.rule_name.as_deref(),
         Some("Sell fast gear"),
         "the deciding rule's name is what the verdict reports"
     );

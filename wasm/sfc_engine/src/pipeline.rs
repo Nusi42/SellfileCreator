@@ -14,9 +14,9 @@ use std::time::Instant;
 
 use rule_engine_core::{
     build_hsf_rules_for_recipe, collect_and_compute_safeguard_protection_core, compute_improvement_chance_core,
-    compute_merged_rules_core, configure_engine, evaluate_engine, safeguard_bucket_key_from_parts,
+    compute_merged_rules_core, configure_engine, evaluate_engine, safeguard_bucket_key_from_artifact,
     ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw, ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn,
-    SafeguardWasmSnapshotOut, SfcParsed,
+    SafeguardWasmSnapshotOut, SfcParsed, RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
 };
 
 use crate::artifact_log::NativeArtifactIn;
@@ -98,21 +98,25 @@ impl StageTimings {
 // Stages
 // ---------------------------------------------------------------------------
 
-// Derive the per-recipe mode strings the safeguard collector gates on.
+// Derive the per-recipe mode strings the safeguard collector and the evaluator gate on.
 // A separator or disabled recipe must not contribute candidates.
+//
+// The tokens come from the core's own vocabulary (RECIPE_MODE_*), which is the same closed
+// three-value set the app's `SellfileExportMode` uses. The mode says whether a recipe
+// PARTICIPATES, never what it decides — keep-vs-sell already lives on each rule's Keep
+// flag, so inventing a "keep"/"sell" token here would put a second, weaker copy of that
+// fact into a string the gate cannot type-check.
 fn derive_recipe_modes(parsed: &SfcParsed) -> Vec<String> {
     parsed
         .recipes
         .iter()
         .map(|recipe| {
             if recipe.is_separator {
-                "separator".to_string()
+                RECIPE_MODE_SEPARATOR.to_string()
             } else if !recipe.use_flag {
-                "disabled".to_string()
-            } else if recipe.keep {
-                "keep".to_string()
+                RECIPE_MODE_DISABLED.to_string()
             } else {
-                "sell".to_string()
+                RECIPE_MODE_ACTIVE.to_string()
             }
         })
         .collect()
@@ -132,7 +136,8 @@ fn build_rules(parsed: &SfcParsed) -> Result<Vec<RuleRaw>, String> {
 }
 
 // Turn compact rows into the collector's row shape (canonical artifact + matcher item).
-fn build_rows(compact: &[NativeArtifactIn]) -> Vec<SafeguardCollectRowIn> {
+// Public alongside evaluate_verdicts so a test can feed the real row shape to it.
+pub fn build_rows(compact: &[NativeArtifactIn]) -> Vec<SafeguardCollectRowIn> {
     compact
         .iter()
         .map(|a| {
@@ -227,9 +232,7 @@ fn project_safeguard_ranks(
             // collector bucketed by, so a caller can group ranks exactly as it ranked.
             let bucket_key = artifact_by_key
                 .get(&candidate.item_key)
-                .map(|artifact| {
-                    safeguard_bucket_key_from_parts(artifact.slot, artifact.set, artifact.main_stat, artifact.faction)
-                })
+                .map(|artifact| safeguard_bucket_key_from_artifact(artifact))
                 .unwrap_or_default();
             out.push(SafeguardRank {
                 artifact_id: candidate.item_key,
@@ -242,8 +245,13 @@ fn project_safeguard_ranks(
                 // The group lives on the INPUT rule, looked up by the entry's 1-based
                 // ordinal. Ungrouped rules carry none; a group id ties members into one
                 // pooled quota, which is why a caller needs it to explain a rank.
-                group_id: safeguard_rules
-                    .get((rule_ordinal - 1).max(0) as usize)
+                //
+                // A non-positive ordinal names no rule, so it yields None rather than being
+                // clamped to index 0 — reporting the FIRST rule's group for a rank whose
+                // rule is unknown would make a caller explain the keep with the wrong rule.
+                group_id: usize::try_from(rule_ordinal - 1)
+                    .ok()
+                    .and_then(|index| safeguard_rules.get(index))
                     .and_then(|rule| rule.group.as_ref())
                     .map(|group| group.id.clone()),
                 substat_buckets: candidate
@@ -278,9 +286,15 @@ fn project_safeguard_ranks(
 // The two channels differing IS the third verdict state: a rule would have sold the piece
 // and a safeguard re-kept it. A `.hsf` cannot express that, because the safeguard source
 // marker is stripped on export.
-fn evaluate_verdicts(
+// Takes the merged rules BY VALUE: configure_engine needs them owned, so a borrow here
+// would only move the deep copy of a list that runs to tens of thousands of rules onto this
+// side of the call. A caller that also wants to return them clones once, deliberately.
+//
+// Public so a test can pin the verdict resolution on a hand-written rule list (a `.hsf`'s
+// named rules, which a `.sfc` cannot produce) rather than restating the channel read.
+pub fn evaluate_verdicts(
     rows: &[SafeguardCollectRowIn],
-    merged_rules: &[RuleRaw],
+    merged_rules: Vec<RuleRaw>,
     recipe_modes: Vec<String>,
 ) -> Result<Vec<Verdict>, String> {
     // Rule names captured BEFORE configure_engine consumes the rules; EvalMatch.rule_index
@@ -307,7 +321,7 @@ fn evaluate_verdicts(
 
     // configure_engine + evaluate_engine share a thread-local engine state, so they run
     // here back to back on one thread.
-    configure_engine(merged_rules.to_vec(), recipe_modes);
+    configure_engine(merged_rules, recipe_modes);
     let results = evaluate_engine(items, EvaluateOptionsRaw::default())?;
 
     let mut verdicts = Vec::with_capacity(results.len());
@@ -381,7 +395,15 @@ pub fn decide_with(sfc: &str, compact: &[NativeArtifactIn], options: DecideOptio
     // Ranks are projected from the snapshot before merge consumes it.
     let safeguard_ranks = project_safeguard_ranks(detection.as_ref(), &rows, &parsed.safeguard_rules);
     let merged_rules = merge_rules(&parsed, custom_rules, detection)?;
-    let verdicts = evaluate_verdicts(&rows, &merged_rules, recipe_modes)?;
+    // Cloned ONLY when the caller wants the list back; evaluation consumes the original
+    // either way, so the `rules: false` path never duplicates tens of thousands of rules
+    // just to drop them.
+    let returned_rules = if options.rules {
+        merged_rules.clone()
+    } else {
+        Vec::new()
+    };
+    let verdicts = evaluate_verdicts(&rows, merged_rules, recipe_modes)?;
     // Only computed on request — see DecideOptions::improvement_chances.
     let improvement_chances = if options.improvement_chances {
         let (entries, _diag) =
@@ -394,9 +416,9 @@ pub fn decide_with(sfc: &str, compact: &[NativeArtifactIn], options: DecideOptio
         verdicts,
         safeguard_ranks,
         improvement_chances,
-        // Dropped when unwanted, so a caller reading only verdicts does not carry tens of
-        // thousands of rules through the JSON encoder.
-        rules: if options.rules { merged_rules } else { Vec::new() },
+        // Empty when unwanted, so a caller reading only verdicts neither clones the list
+        // above nor carries tens of thousands of rules through the JSON encoder.
+        rules: returned_rules,
     })
 }
 
@@ -433,7 +455,7 @@ pub fn bench_stages(sfc: &str, compact: &[NativeArtifactIn]) -> StageTimings {
     timings.merged_count = merged_rules.len();
 
     let t = Instant::now();
-    let _verdicts = evaluate_verdicts(&rows, &merged_rules, recipe_modes).expect("evaluate");
+    let _verdicts = evaluate_verdicts(&rows, merged_rules, recipe_modes).expect("evaluate");
     timings.evaluate_ms = t.elapsed().as_secs_f64() * 1000.0;
 
     let t = Instant::now();
