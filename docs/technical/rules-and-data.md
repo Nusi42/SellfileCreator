@@ -48,7 +48,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 #### Safeguards payload
 
 - SFC payloads also carry `Safeguards?: SafeguardRule[]` plus `SafeguardsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty gear-combination list. The array may also contain separator entries (`{ appearance?, Separator: true }` — see the recipe section above; same shape, same minimal-persistence rule).
-- **Groups are POSITIONAL — a nested entry, not a field.** See [Groups](app-behavior.md#groups-safeguards-sharing-one-required-count) for the semantics. A group persists as ONE entry in the `Safeguards` array carrying its settings once plus the members it holds; a member's own record gains **no key** from the feature, so a list with no groups re-serializes byte-identically (pinned by `tests/unit/safeguard-groups-sfc-roundtrip.test.ts` against the shipped 154-entry `presets/lategame.sfc`):
+- **Groups are POSITIONAL — a nested entry, not a field.** See [Groups](app-behavior.md#groups-safeguards-sharing-one-required-count) for the semantics. A group persists as ONE entry in the `Safeguards` array carrying its settings once plus the members it holds; a member's own record gains **no key** from the feature, so a list with no groups re-serializes byte-identically (pinned by `tests/unit/safeguard-groups-sfc-roundtrip.test.ts` against the shipped `presets/lategame.sfc`, whose `Safeguards` array holds 153 entries — 2 of them groups, flattening to 155 rules — beside 195 `Recipes`):
   - `{ Group: { requiredCount: number, countMode: {…} }, members: [ …rule entries… ] }` — the group's own count and bucket chips, written once (capitalised to match `Separator`), plus its members in order. **No `id`:** the nesting identifies the group, so nothing on disk needs to be unique and an id is minted per load (`grp/<index>` in Rust, which must stay reproducible). Each member's `tuple`/`requiredCount` are written unchanged — a member is an ordinary rule whose count sizes what it feeds the group. Separators are never nested.
   - The shape cannot express a torn or overlapping run, so the reader needs no group repair for anything the writer produced — that is the point of encoding membership as shape rather than as matching ids.
   - `buildReadableSafeguardEntries` / `parseReadableSafeguardEntries` (`lib/sfcIO.ts`) are the single definition of the projection, shared by the file/autosave path and the clipboard.
@@ -68,65 +68,116 @@ This document covers file schemas, builder semantics, and compatibility notes.
 
 ### NativeInput / NativeOutput (native DLL)
 
-These JSON schemas are consumed and produced by the `sfc_generate` C-ABI function
-in `wasm/rule_engine_native`.  They are distinct from the browser WASM bindings
-and require no JavaScript runtime.
+These JSON schemas are consumed and produced by the `sfc_decide` C-ABI function in
+`wasm/sfc_engine`. They are distinct from the browser WASM bindings and require no JavaScript runtime. Build, ABI surface, threading and
+measured cost: [decision engine DLL](build-and-tooling.md#decision-engine-dll-sfc_engine).
 
-**NativeInput** — passed as a JSON string to `sfc_generate`:
+**NativeInput** — passed as a JSON string to `sfc_decide`:
 
 ```jsonc
 {
-  // Raw SFC file content as a JSON string — the caller passes .sfc file text directly.
-  // The DLL calls serde_json::from_str on it; no pre-parsing required from the caller.
+  // Raw .sfc file text as a JSON string value. The DLL parses it; no pre-parsing needed.
   "sfc": "{\"Version\":\"1.0\",\"Recipes\":[...],\"Safeguards\":[...]}",
 
-  // Artifact rows in the same compact format produced by the RSL Helper WebSocket endpoint.
+  // Gear in the RAW wire shape the game reports — NOT the app's compact rows. The DLL
+  // runs the raw->compact normalisation itself (artifact_log.rs), so a caller pipes its
+  // packets straight in without running the app's TypeScript.
   "artifacts": [
     {
-      "ID":    1001,           // caller-assigned identifier; echoed back in improvementChances
-      "type":  1,              // slot id: 1=Weapon 2=Helmet 3=Shield 4=Gauntlets 5=Chestplate 6=Boots 7=Ring 8=Amulet 9=Banner
-      "rank":  5,              // 1–6 (null = unknown)
-      "rarity": 4,             // 1=Common 2=Uncommon 3=Rare 4=Epic 5=Legendary 6=Mythical (null = unknown)
-      "lvl":   16,             // level milestone 0/4/8/12/16 (null = 0)
-      "aset":  10,             // artifact set id (slot ≤ 6; null = no set)
-      "accset": null,          // accessory set id (slot ≥ 7; null = no set)
-      "mid":   1, "mfl": 0,    // main stat id + flat flag (0=percent, 1=flat)
-      "s1id":  4, "s1lvl": 2, "s1fl": 1,  // substat 1: id, roll count, flat flag
-      "s2id":  null, "s2lvl": null, "s2fl": null,  // absent substats use null
-      "s3id":  null, "s3lvl": null, "s3fl": null,
-      "s4id":  null, "s4lvl": null, "s4fl": null,
-      "cID":   null,           // equipped champion id (non-null sets equipped_in_collection=true)
-      "faction": 0             // pre-resolved champion faction id (0 = Any/unset)
+      "id": 1001,
+      "kindId": 2,            // slot id
+      "rankId": 6,            // stars 1-6
+      "rarityId": 5,          // 1=Common … 6=Mythical
+      "level": 9,             // RAW live level; the DLL snaps it to a milestone
+      "setKindId": 10,        // the set, for EVERY slot (accessories included)
+      "requiredFraction": 4,  // accessory faction CODE — never a set id
+      "rerollsCount": null,   // chaos-ore rework counter; feeds the Ore rule gate
+      "primary":   { "id": 1, "isAbsolute": 0, "statValue": 51539607552 },
+      "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1,
+                        // 32.32 fixed point: displayed value x 2^32. Pass it through
+                        // unchanged — the DLL decodes and rounds it (see below).
+                        "statValue": 90194313216,
+                        // The mythical bonus. Producers disagree on the spelling, so
+                        // BOTH are read and summed; a block populates only one.
+                        "mValue": 0, "rValue": 0,
+                        // Mirrored to document the wire, never counted: subValues are
+                        // pre-glyph, matching the app's buildSubValueMap.
+                        "glyphValue": 25769803776 } ]
     }
-  ]
+  ],
+
+  // Optional, but it changes answers: it sets equipped_in_collection, which safeguard
+  // scoring reads. Only id + the artifacts slot-map are used.
+  "champions": [ { "id": 900, "artifacts": { "7": 1001 } } ],
+
+  // Cost knobs. improvementChances is opt-IN (it costs several times the whole decision
+  // chain and feeds no verdict); rules is opt-OUT.
+  "improvementChances": false,
+  "rules": true
 }
 ```
 
-Notes:
-- `s{n}lvl` is the **roll count** (0–5), not the raw substat value.  Actual values are
-  unavailable in the compact format; the DLL uses presence-based matching (value = 0.0
-  internally), so value-threshold safeguard checks are skipped.
-- Stat IDs, slot IDs, set IDs, and faction IDs are the same numeric values used throughout
-  the domain constants (see `shared/domain-constants.json`).
+**The normalisation the DLL performs** — one definition in `rule_engine_core::gear_ingest`,
+called by the DLL and mirrored by the TS ingest in `gearDbNormalizer.ts`. Each of these was
+once a live wrong answer, and each is silent when wrong:
 
-**NativeOutput** — returned as a JSON string from `sfc_generate`:
+| Rule | Why it matters |
+|---|---|
+| Fixed-point decode, then round per component (percent 2dp; flat HP/ATK/DEF + SPD/RES/ACC integral; else 3dp) | A "12" decodes to 11.999999964609742. ~44% of a real vault's substats are non-integral, and each failed a `>= 12` rule. |
+| Level snapped to the nearest milestone, ties DOWN | `.hsf` has no "level >= N": one `LVLForCheck`, exact equality. A raw +9 matches no level rule at all. |
+| Setless ACCESSORY → `ACCESSORY_NO_SET_ID`; setless armour stays `0` | A reference sellfile has 397 rules naming the sentinel and none naming 0. Promoting armour too would hand setless chestplates to accessory rules. |
+| Substat value = base + mythical, **never** the glyph, each component rounded then the sum | The app's `subValues` are pre-glyph. Counting a glyph clears thresholds the app's own preview fails. |
+| Set from `setKindId` for every slot; `requiredFraction` is only the faction | Reading the faction code as an accessory's set gave every accessory a set id in the faction range. |
+
+`s{n}lvl` on the compact row is the **roll count**; the substat VALUE a threshold compares
+against is carried separately (`sub_values`) and is what makes numeric rules fire at all.
+
+**NativeOutput** — returned as a JSON string from `sfc_decide`:
 
 ```jsonc
 {
-  "rules":          [/* HsfRule objects — same shape as the app's HSF download */],
-  "improvementChances": [
+  "verdicts": [
     {
-      "artifactId":    1001,   // echoes NativeInput artifact ID
-      "chancePercent": 72.4    // improvement chance: probability of still ranking in the top-N after leveling to +16, accounting for roll variance and glyph potential (0–100).
-                               // Used as an additive expansion: the standard top-N by current value is always kept; items outside that top-N are additionally protected when chancePercent >= improvementChanceThreshold.
-      // additional fields may be present; treat unknown keys as informational
+      "artifactId": 1001,
+      "keep": true,
+      "matched": true,        // false = no rule covered it → kept by DEFAULT
+      "ruleName": "…",        // deciding rule's RecipeName, or null
+      "safeguarded": false    // kept ONLY because a safeguard overrode a selling rule
     }
-  ]
+  ],
+  "safeguardRanks": [
+    {
+      "artifactId": 1001,
+      "ruleOrdinal": 2,       // 1-based safeguard rule
+      "score": 41.5,
+      "candidateRank": 7,     // 1-based across ALL of that rule's buckets
+      "bucketRank": 2,        // 1-based within this piece's own bucket
+      "bucketKey": "4:12:1025:0",   // "{slot}:{set}:{mainStat}:{faction}"
+      "isWithinQuota": true,
+      "groupId": "grp/0",     // null when the rule is ungrouped
+      "substatBuckets": [ { "variant": 1025, "bucketRank": 1, "isWithinQuota": true } ]
+    }
+  ],
+  "improvementChances": [ { "artifactId": 1001, "chancePercent": 72.4 } ],  // empty unless requested
+  "rules": [ /* merged HSF rules — same shape as the app's HSF download */ ]
 }
 ```
 
-On any error, the DLL returns `{"error":"<message>"}` instead.  The caller must
-always check for the `error` key before reading `rules` or `improvementChances`.
+Three semantics that must not drift:
+
+- **No match means KEEP.** A full export encodes "sell the rest" as an explicit trailing
+  catch-all, so a no-match only arises for a partial or hand-written file — where keep is
+  the safe default for an irreversible action. `matched: false` distinguishes it.
+- **`first_match` is the verdict; `first_non_excluded_match` is the baseline.** The
+  evaluator promotes a safeguard keep-override into `first_match`, and the app reads the
+  same pair (`firstMatch` / `baseMatch`). Reading the non-excluded channel as the decision
+  reports SELL for every rescued piece.
+- **`safeguarded`** = decided-keep AND baseline-sell AND the deciding match is a
+  keep-override source. A `.hsf` cannot express this state — `cleanHsfForExport` strips the
+  `__source: "safeguards"` marker — which is the main reason this DLL exists.
+
+On any error the DLL returns `{"error":"<message>"}` instead, never null. Check for the
+`error` key before reading anything else.
 
 ### IO Helpers (SFC)
 - Parse text/file: `parseSfcText`, `readSfcFile`.

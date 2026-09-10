@@ -6,7 +6,7 @@
 CC     = g++
 CFLAGS = -std=c++17 -O2 -Wall -Wextra
 TARGET = run_example
-SO     = ../../target/debug/librule_engine_native.so
+SO     = ../../target/debug/libsfc_engine.so
 
 $(TARGET): main.cpp
 	$(CC) $(CFLAGS) main.cpp -o $(TARGET) -ldl
@@ -15,7 +15,7 @@ $(TARGET): main.cpp
 
 # Build the Rust .so first.
 so:
-	cargo build -p rule_engine_native --manifest-path ../../Cargo.toml
+	cargo build -p sfc_engine --manifest-path ../../Cargo.toml
 
 # Build the Rust .so and C++ binary, then run the smoke test.
 run: $(TARGET) so

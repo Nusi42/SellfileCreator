@@ -3,13 +3,13 @@
 // reproduce, computed by the app's own ingest path, for the TS↔Rust parity test.
 //
 // The DLL ports parseArtifactLogRow / buildEquippedByArtifactMap / accset→faction into
-// Rust (wasm/rule_engine_native/src/artifact_log.rs). This script drives the SAME two
-// captured packets (committed under wasm/rule_engine_native/tests/fixtures/) through the
+// Rust (wasm/sfc_engine/src/artifact_log.rs). This script drives the SAME two
+// captured packets (committed under wasm/sfc_engine/tests/fixtures/) through the
 // app's normalizeExternalEvent, applies the champions cID join, resolves faction the way
 // the DLL does, then projects each row to the DLL-consumed field subset and writes a
 // canonical-key-ordered expected.json. The Rust parity test asserts byte-equality against it.
 //
-// Usage (after tsc emit — see the native-dll:parity npm script):
+// Usage (after tsc emit — see the sfc-engine:parity npm script):
 //   node tmp/tsc/tests/tests/repro/native-dll-parity-expected.js \
 //        <artifacts_packet.json> <champions_packet.json> <out expected.json>
 

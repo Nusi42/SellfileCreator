@@ -52,6 +52,9 @@ mod hsf_full_selected_fallback;
 mod hsf_intro_execution;
 mod hsf_intro_mode_plan;
 mod hsf_level_combo_execution;
+// Gear ingest: the single definition of the raw-gear -> rule-engine normalisation
+// rules (fixed-point rounding, level snapping, setless-accessory sentinel).
+pub mod gear_ingest;
 pub mod matcher_evaluator;
 pub mod recipe_builder;
 pub mod rule_dedupe;
@@ -94,6 +97,11 @@ pub use safeguards::{
     SafeguardWasmScorePreviewIn, SafeguardWasmSetSelection, SafeguardWasmSnapshotOut,
 };
 // Group authority: TS and the native DLL both resolve group runs through these.
+pub use gear_ingest::{
+    convert_stat_units, decode_fixed_point, finalize_stat_component, is_accessory_slot, is_anomalous_stat_id,
+    is_anomalous_variant, is_percent_stat, resolve_set_id, round_stat_value, snap_level_to_milestone,
+    substat_rule_value, LEVEL_MILESTONES, STAT_FIXED_POINT_SCALE,
+};
 pub use hsf_builder_execution::{
     build_hsf_rules_runtime_core_fn, prepare_hsf_builder_recipe_core_fn, BuildHsfRulesRuntimeIn,
     ExecuteHsfBuilderRuntimeOut, PrepareHsfBuilderRecipeIn, PrepareHsfBuilderRecipeOut,

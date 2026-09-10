@@ -1,13 +1,13 @@
 /* eslint import/no-unused-modules: off */
-// native-dll-realdata-input — build a NativeInput JSON for rule_engine_native (the RSL
+// native-dll-realdata-input — build a NativeInput JSON for sfc_engine (the RSL
 // Helper DLL) from REAL captured endpoint data.
 //
 // The DLL now accepts the RAW RSL-Helper wire format directly (kindId/rankId/primary/
 // secondary + a champions slot-map), so this harness simply lifts the arrays out of the
 // captured JSON-RPC frames and pairs them with a .sfc preset — no normalization needed
-// (the DLL does it internally; see wasm/rule_engine_native/src/artifact_log.rs).
+// (the DLL does it internally; see wasm/sfc_engine/src/artifact_log.rs).
 //
-// Usage (after tsc emit — see the native-dll:realdata-input npm script):
+// Usage (after tsc emit — see the sfc-engine:realdata-input npm script):
 //   node tmp/tsc/tests/tests/repro/native-dll-realdata-input.js \
 //        <rawArtifactsPacket.json> <preset.sfc> <out.NativeInput.json> [<championsPacket.json>]
 

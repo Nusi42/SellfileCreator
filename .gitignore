@@ -37,8 +37,12 @@ old_releases/*-dev.html
 /docs/orig/sampleLog/captures/
 
 # Compiled C/C++ smoke-test binary for the native DLL (rebuilt via its Makefile).
-/wasm/rule_engine_native/example/run_example
-/wasm/rule_engine_native/example/run_example.exe
+/wasm/sfc_engine/example/run_example
+/wasm/sfc_engine/example/run_example.exe
+# Build output of the shipped C sample (the sources are tracked, the binaries are not).
+/examples/decision-dll/sfc_sample.exe
+/examples/decision-dll/*.obj
+/examples/decision-dll/sfc_engine.dll
 
 # Playwright
 /test-results/

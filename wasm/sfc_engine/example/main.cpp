@@ -1,21 +1,21 @@
 /*
- * rule_engine_native — C/C++ integration example and smoke test.
+ * sfc_engine — C/C++ integration example and smoke test.
  *
- * Loads the DLL at runtime, calls sfc_generate with a hardcoded NativeInput,
+ * Loads the DLL at runtime, calls sfc_version and sfc_decide with a hardcoded input,
  * validates the output, and exits 0 on success / 1 on any failure.
  * Suitable as a CI sanity test on both Linux (debug .so) and Windows (.dll).
  *
- * Build & run — Linux/WSL (debug .so), from wasm/rule_engine_native/example/:
+ * Build & run — Linux/WSL (debug .so), from wasm/sfc_engine/example/:
  *   make run                         # builds the .so and the binary, then runs
  * or manually, from the repo root:
- *   cargo build -p rule_engine_native
- *   g++ wasm/rule_engine_native/example/main.cpp -o wasm/rule_engine_native/example/run_example -ldl
- *   wasm/rule_engine_native/example/run_example wasm/target/debug/librule_engine_native.so
+ *   cargo build -p sfc_engine
+ *   g++ wasm/sfc_engine/example/main.cpp -o wasm/sfc_engine/example/run_example -ldl
+ *   wasm/sfc_engine/example/run_example wasm/target/debug/libsfc_engine.so
  *
  * Build & run — Windows release .dll (Developer Command Prompt), from the repo root:
- *   cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
- *   cl /EHsc wasm\rule_engine_native\example\main.cpp /Fe:run_example.exe
- *   run_example.exe wasm\target\x86_64-pc-windows-msvc\release\rule_engine_native.dll
+ *   npm run sfc-engine:build
+ *   cl /EHsc wasm\sfc_engine\example\main.cpp /Fe:run_example.exe
+ *   run_example.exe wasm\target\x86_64-pc-windows-msvc\release\sfc_engine.dll
  */
 
 #include <cstdio>
@@ -45,8 +45,9 @@
   static std::string dll_error() { const char* e = dlerror(); return e ? e : "(unknown)"; }
 #endif
 
-typedef char* (*SfcGenerateFn)(const char*);
+typedef char* (*SfcDecideFn)(const char*);
 typedef void  (*SfcFreeFn)(char*);
+typedef char* (*SfcVersionFn)(void);
 
 /* Minimal JSON helpers — avoids a JSON library dependency. */
 static bool json_has_key(const std::string& json, const char* key) {
@@ -88,8 +89,8 @@ static const char* SFC_CONTENT =
     "  \"SafeguardsEnabled\": false"
     "}";
 
-/* Two artifacts in the RAW RSL-Helper wire shape (kindId/rankId/primary/secondary) —
- * exactly what RSL Helper pipes in. #1 matches (5★ Epic with SPD), #2 does not.
+/* Two artifacts in the RAW game wire shape (kindId/rankId/primary/secondary) —
+ * exactly what a consumer pipes in. #1 matches (5★ Epic with SPD), #2 does not.
  * SPD is stat id 4, flat (isAbsolute=1). #1 is equipped by champion 5000 (see below). */
 static const char* ARTIFACT_ARRAY =
     "["
@@ -101,7 +102,7 @@ static const char* ARTIFACT_ARRAY =
     "    \"level\": 16,"
     "    \"setKindId\": 10,"
     "    \"primary\": { \"id\": 1, \"isAbsolute\": 0 },"
-    "    \"secondary\": [ { \"id\": 4, \"level\": 4, \"isAbsolute\": 1 } ]"  /* SPD */
+    "    \"secondary\": [ { \"id\": 4, \"level\": 4, \"isAbsolute\": 1, \"statValue\": 90194313216 } ]"  /* SPD 21 (32.32 fixed point) */
     "  },"
     "  {"
     "    \"id\": 1002,"
@@ -111,7 +112,7 @@ static const char* ARTIFACT_ARRAY =
     "    \"level\": 0,"
     "    \"setKindId\": 5,"
     "    \"primary\": { \"id\": 2, \"isAbsolute\": 0 },"
-    "    \"secondary\": [ { \"id\": 2, \"level\": 1, \"isAbsolute\": 0 } ]"
+    "    \"secondary\": [ { \"id\": 2, \"level\": 1, \"isAbsolute\": 0, \"statValue\": 4294967296 } ]"  /* ATK% 1.0 */
     "  }"
     "]";
 
@@ -153,9 +154,9 @@ static std::string build_input() {
 int main(int argc, char* argv[]) {
     /* Accept optional DLL path argument; default to platform-appropriate name. */
 #ifdef _WIN32
-    const char* dll_path = argc > 1 ? argv[1] : ".\\rule_engine_native.dll";
+    const char* dll_path = argc > 1 ? argv[1] : ".\\sfc_engine.dll";
 #else
-    const char* dll_path = argc > 1 ? argv[1] : "./librule_engine_native.so";
+    const char* dll_path = argc > 1 ? argv[1] : "./libsfc_engine.so";
 #endif
 
     printf("[example] Loading DLL: %s\n", dll_path);
@@ -166,21 +167,34 @@ int main(int argc, char* argv[]) {
     }
 
     /* Resolve entry points. */
-    auto sfc_generate = reinterpret_cast<SfcGenerateFn>(DLL_SYM(lib, "sfc_generate"));
-    auto sfc_free_fn  = reinterpret_cast<SfcFreeFn>(DLL_SYM(lib, "sfc_free"));
-    if (!sfc_generate || !sfc_free_fn) {
+    auto sfc_decide     = reinterpret_cast<SfcDecideFn>(DLL_SYM(lib, "sfc_decide"));
+    auto sfc_free_fn    = reinterpret_cast<SfcFreeFn>(DLL_SYM(lib, "sfc_free"));
+    auto sfc_version_fn = reinterpret_cast<SfcVersionFn>(DLL_SYM(lib, "sfc_version"));
+    if (!sfc_decide || !sfc_free_fn || !sfc_version_fn) {
         fprintf(stderr, "[example] FAIL: could not resolve symbols: %s\n", dll_error().c_str());
         DLL_CLOSE(lib);
         return 1;
     }
     printf("[example] Symbols resolved.\n");
 
+    /* Version first: a consumer holding a prebuilt DLL checks this before trusting the
+     * JSON shape, so the smoke test exercises the same order. */
+    char* version_out = sfc_version_fn();
+    if (!version_out) {
+        fprintf(stderr, "[example] FAIL: sfc_version returned NULL\n");
+        DLL_CLOSE(lib);
+        return 1;
+    }
+    std::string version(version_out);
+    sfc_free_fn(version_out);
+    printf("[example] Version: %s\n", version.c_str());
+
     /* Build and call. */
     std::string input_json = build_input();
-    printf("[example] Calling sfc_generate (%zu bytes)...\n", input_json.size());
-    char* output = sfc_generate(input_json.c_str());
+    printf("[example] Calling sfc_decide (%zu bytes)...\n", input_json.size());
+    char* output = sfc_decide(input_json.c_str());
     if (!output) {
-        fprintf(stderr, "[example] FAIL: sfc_generate returned NULL\n");
+        fprintf(stderr, "[example] FAIL: sfc_decide returned NULL\n");
         DLL_CLOSE(lib);
         return 1;
     }
@@ -202,6 +216,24 @@ int main(int argc, char* argv[]) {
     /* Must not contain "error" key. */
     CHECK(!json_has_key(result, "error"),
           "output must not contain an error key");
+
+    /* The version must name both the crate and the JSON schema. */
+    CHECK(json_has_key(version, "crate"), "sfc_version must report a crate version");
+    CHECK(json_has_key(version, "schema"), "sfc_version must report a schema version");
+
+    /* Verdicts are the point of the call: one per artifact supplied. */
+    CHECK(json_has_key(result, "verdicts"),
+          "output must contain a verdicts field");
+    CHECK(json_array_nonempty(result, "verdicts"),
+          "verdicts array must be non-empty");
+    CHECK(result.find("\"artifactId\":1001") != std::string::npos,
+          "the first artifact must receive a verdict");
+    CHECK(result.find("\"artifactId\":1001,\"keep\":true,\"matched\":true") != std::string::npos,
+          "the 5-star Epic with SPD must be MATCHED and kept by the keep recipe");
+
+    /* Safeguard ranks are present as a field even when no safeguard is configured. */
+    CHECK(json_has_key(result, "safeguardRanks"),
+          "output must contain a safeguardRanks field");
 
     /* Must have a non-empty rules array. */
     CHECK(json_has_key(result, "rules"),

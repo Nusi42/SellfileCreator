@@ -264,7 +264,7 @@ answer to `requestSfcSync`.
 
 - No duplication of logic or data. Centralize and import instead of re-encoding knowledge in multiple files.
 - Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
-- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**`, `wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, or `wasm/rule_engine_native/src/**`, and never hand-edit generated constant files.
+- Cross-language constants (used by both TS and Rust) must be added to `shared/domain-constants.json` and generated via `scripts/tooling/generate-domain-constants.mjs`; never duplicate those values directly in `src/**`, `wasm/rule_engine_core/src/**`, `wasm/rule_engine_wasm/src/**`, or `wasm/sfc_engine/src/**`, and never hand-edit generated constant files.
   - Sections in `domain-constants.json`: artifact type IDs, stat IDs, rarity codes, rank codes, level sentinels and milestones, substat slot count and max rolls per slot, StatVariant bit encoding, auto-rarity schedule arrays, safeguard activation/match tokens, faction IDs and names, artifact type display names, stat variant display labels, allowed mains/subs per slot, substat minima by star rank.
   - `shared/sfc-label-test-vectors.json` holds canonical input/expected-output pairs for label parsers; consumed by both Rust `#[test]` (in `sfc_reader.rs`) and Jest (`tests/unit/sfc-label-symmetry.test.ts`). Update it whenever a label mapping changes, not after the fact.
 - HSF schema and stat converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
@@ -278,60 +278,114 @@ answer to `requestSfcSync`.
   - `src/state/colorBlindPreference.ts`, `src/state/rulesFilterPersistence.ts`, `src/state/rulesTableColumnsPreference.ts`, and `src/state/setsOrderPreference.ts` all wrap that store to provide domain-specific hooks (`useColorBlindPreference`, `useRulesFilterOpenPreference`, `useRulesFilterStatePreference`, `useRulesFilterCollapsedPreference`, `useRulesTableColumnsPreference`, `useSetsOrderPreference`) consumed by `App`, `RulesFilterPanel`, and `HsfRulesTable`.
   - Builder-specific preferences (e.g., `useAutoResetAfterInsertPreference`) live in `src/state/builderPreferences.ts` and continue to follow the same store contract so every preference path shares a single persistence mechanism.
 
-### Native DLL (rule_engine_native)
+### Decision engine DLL (`sfc_engine`)
 
-`wasm/rule_engine_native/` is a Rust `cdylib` crate that exposes the same HSF
-generation logic as the WASM module via a C ABI.  It is used by external tools
-(e.g. an RSL Helper plugin written in C#) that need to produce sell-file rules
-without a browser or Node runtime.
+`wasm/sfc_engine/` is a Rust `cdylib` crate exposing the decision pipeline over a
+C ABI. It is **a shipped release artifact**: `npm run release:win` builds it and stages it
+under `dev/decision-dll/` in the archive, together with the integration sample in
+`examples/decision-dll/` (header, C program, build script, README).
+
+An external program hands it a `.sfc` plus raw gear and gets back per-piece keep/sell
+verdicts identical to the app's own preview — same core, same normalisation — rather than
+reimplementing the rules against a generated `.hsf`.
 
 **C-ABI surface**
 
 ```c
-// Generate merged HSF rules + per-artifact improvement chances from an SFC + artifact list.
-// input_json : UTF-8 null-terminated JSON string (NativeInput schema, see rules-and-data.md).
-// Returns    : heap-allocated UTF-8 null-terminated JSON string (NativeOutput schema).
-//              On any error returns {"error":"<message>"}.  Never returns NULL.
-//              Caller MUST release the pointer with sfc_free.
-char* sfc_generate(const char* input_json);
+// Decide keep/sell for every supplied artifact. input_json is the NativeInput schema
+// below; the result carries verdicts + safeguardRanks + improvementChances + rules.
+// On any error returns {"error":"<message>"}. Never returns NULL.
+// Caller MUST release every returned pointer with sfc_free.
+char* sfc_decide(const char* input_json);
 
-// Release memory returned by sfc_generate.
+
+// {"crate":"<semver>","schema":<n>} — lets a consumer holding a prebuilt DLL fail loudly
+// on a contract mismatch instead of misparsing. Bump SCHEMA_VERSION in lib.rs on any
+// non-additive change to the JSON shape.
+char* sfc_version(void);
+
 void sfc_free(char* ptr);
 ```
+
+**Threading.** Thread-safe. `ENGINE_STATE` (configure/evaluate) and the safeguard
+`RESIDENT_PLACEHOLDERS` hand-off store are both `thread_local!`, and `rule_engine_core`
+holds no mutable global, so concurrent `sfc_decide` calls cannot observe or corrupt each
+other — each thread builds its own engine.
+`decide_parity.rs::concurrent_calls_agree_with_a_single_call` pins it against a sellfile
+with an active safeguard, so the placeholder store is exercised too. Note what this does
+NOT buy: each thread re-runs the full chain including rule generation (the dominant cost),
+so threads help throughput across independent requests, never latency on a single one.
+
+**Cost knobs.** `improvementChances` is opt-IN (default false) and `rules` opt-OUT (default
+true) on the input. The improvement-chance projection costs several times the whole decision
+chain and feeds no verdict — detection runs with threshold gating disabled — so a consumer
+that does not display it must not pay for it. See the measured split below.
 
 **Build commands**
 
 ```sh
-# Linux / WSL — debug .so (for integration tests)
-cargo build -p rule_engine_native
+# Windows release .dll — the shipped artifact.
+npm run sfc-engine:build
 
-# Windows release .dll (from Developer Command Prompt or cross-compiler)
-cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
-
-# Cross-compile from WSL using MinGW (alternative)
-cargo build --release --target x86_64-pc-windows-gnu -p rule_engine_native
+# Linux / WSL — debug .so (for the C++ smoke test).
+cargo build -p sfc_engine
 ```
 
 Output locations:
-- `wasm/target/debug/librule_engine_native.so` (Linux/WSL debug)
-- `target/release/rule_engine_native.dll` (Windows release)
+- `wasm/target/x86_64-pc-windows-msvc/release/sfc_engine.dll` (Windows release —
+  the `--target` build lands in a triple-qualified directory, and the workspace is under
+  `wasm/`)
+- `wasm/target/debug/libsfc_engine.so` (Linux/WSL debug)
+
+`wasm/target/` is gitignored, so the release script copies the DLL into the archive rather
+than the repo carrying a built binary.
+
+**Performance** (release build, 8,255-piece vault, `presets/lategame.sfc` — 195 recipes,
+153 safeguard entries, compiling to ~34.9k rules; `npm run sfc-engine:bench`):
+
+| Stage | Time |
+|---|---|
+| JSON parse + normalise | ~17 ms |
+| `parse_sfc` | ~5 ms |
+| build rules | ~370 ms |
+| safeguard detection | ~127 ms |
+| merge rules | ~66 ms |
+| evaluate verdicts | ~64 ms |
+| **decision total** | **~650 ms** |
+| improvement chance (opt-in) | ~2,800 ms |
+
+Rule building dominates, and it is **gear-dependent** (safeguard rules are minted per
+artifact), so caching the parsed `.sfc` would not help the expensive path. The ABI is
+deliberately **stateless**: no handle, no session, no cached gear. Crossing an ABI with a
+cache means owning invalidation across a boundary the caller can restart at any time; if
+that ever changes, the numbers above are the baseline to beat.
+
+**Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
+`rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before
+this crate shipped it was ungated — do not let it become so again.
 
 **C/C++ smoke test**
 
-`wasm/rule_engine_native/example/main.cpp` is both integration-test and sample
-code.  It loads the DLL at runtime, calls `sfc_generate` with a hardcoded minimal
-payload, validates the output, and exits 0 on success / 1 on any failure.  The
-compiled `run_example` binary is gitignored — it is rebuilt from the Makefile.
+`wasm/sfc_engine/example/main.cpp` is the "does the ABI actually load" check: it
+loads the library at runtime, calls `sfc_version` then `sfc_decide`, validates the output
+and exits non-zero on any failure. The compiled binary is gitignored.
 
 ```sh
 # Build and run (Linux/WSL):
-cd wasm/rule_engine_native/example && make run
+cd wasm/sfc_engine/example && make run
 ```
 
-The test verifies: `rules` array non-empty, at least one rule with `Keep=true`,
-`improvementChances` key present, no `error` key.  The CI build treats a non-zero
-exit as a regression.
+It verifies: no `error` key; `sfc_version` reports crate + schema; `verdicts` non-empty with
+the matching artifact `matched:true, keep:true`; `safeguardRanks`, `rules` and
+`improvementChances` present; at least one rule with `Keep=true`.
 
+**Normalisation is the risk, not the plumbing.** The five rules that decide whether a
+verdict matches the app's preview live in `rule_engine_core::gear_ingest` (one definition,
+called by the DLL and mirrored by the TS ingest): fixed-point decode + per-component
+rounding, level snapping to milestones (ties DOWN), the setless-accessory sentinel vs a
+setless chestplate's plain 0, base + mythical (never glyph), and the accessory set coming
+from `setKindId` rather than the faction code. Each was once a live wrong answer;
+`wasm/sfc_engine/tests/decide_parity.rs` pins every one end-to-end.
 **Input schema** — `NativeInput` accepts the **raw RSL-Helper wire format**, i.e. the
 exact JSON-RPC payloads the endpoint sends, so RSL Helper can pipe its packets straight
 in without running the app's TypeScript:
@@ -345,20 +399,62 @@ in without running the app's TypeScript:
                    "primary": { "id": 3, "isAbsolute": 1, "statValue": … },
                    "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1 }, … ] }, … ],
   // Optional raw champion rows — only id + artifacts slot-map are read, to fill cID.
-  "champions": [ { "id": 900, "artifacts": { "7": 1 } }, … ]
+  "champions": [ { "id": 900, "artifacts": { "7": 1 } }, … ],
+  // Cost knobs. improvementChances is opt-IN; rules is opt-OUT.
+  "improvementChances": false,
+  "rules": true
+}
+```
+
+**Output schema** — `NativeOutput`:
+
+```jsonc
+{
+  // The answer: one per supplied artifact.
+  "verdicts": [ { "artifactId": 123, "keep": true,
+                  // false = no rule covered it; kept by DEFAULT, not by decision.
+                  "matched": true,
+                  "ruleName": "…",      // deciding rule's RecipeName, or null
+                  // Kept ONLY because a safeguard overrode a selling rule. A .hsf
+                  // cannot express this — cleanHsfForExport strips the source marker.
+                  "safeguarded": false }, … ],
+  // Per (artifact, safeguard rule) standing, projected from the detection snapshot.
+  "safeguardRanks": [ { "artifactId": 123, "ruleOrdinal": 2, "score": 41.5,
+                        "candidateRank": 7, "bucketRank": 2,
+                        "bucketKey": "{slot}:{set}:{mainStat}:{faction}",
+                        "isWithinQuota": true,
+                        "groupId": "grp/0",   // null when the rule is ungrouped
+                        "substatBuckets": [ … ] }, … ],
+  "improvementChances": [ … ],   // empty unless requested
+  "rules": [ … ]                 // merged HSF rules, unless opted out
 }
 ```
 
 The raw→compact normalization (ports of `parseArtifactLogRow`,
 `buildEquippedByArtifactMap`, and the `accset→faction` resolve) lives in
-`wasm/rule_engine_native/src/artifact_log.rs`. `ArtifactByHeroID` has no equivalent here
-and is not accepted: each `sfc_generate` call is a stateless one-shot over a complete
+`wasm/sfc_engine/src/artifact_log.rs`. `ArtifactByHeroID` has no equivalent here
+and is not accepted: each `sfc_decide` call is a stateless one-shot over a complete
 `NativeInput`, so the caller supplies current equips in the `champions` slot-map and
 there is no live stream to go stale. (The app does consume `ArtifactByHeroID`, because
 its equips must stay fresh between `champions` pushes — see
 [WebSocket Protocol](../../userDocs/websocket-jsonrpc.md#artifactbyheroid).)
 
-**Internal pipeline** (per call to `sfc_generate`)
+**Verdict resolution — which channel decides.** The evaluator reports two matches per item
+and they are NOT interchangeable:
+
+- `first_match` is the **decision**. A safeguard keep-override is promoted into it
+  (`matcher_evaluator::evaluate_item`), so it already reflects a rescue.
+- `first_non_excluded_match` is the **baseline** — what the sellfile decides on its own.
+  The app reads exactly this pair: `firstMatch` for the verdict, `firstNonExcludedMatch`
+  as `baseMatch` (`App.tsx`).
+
+So `safeguarded` = decided-keep AND baseline-sell AND the deciding match is a
+keep-override source — one evaluation, no second pass. Reading the non-excluded channel
+as the verdict inverts the meaning and reports SELL for every safeguard-rescued piece.
+A no-match is **KEEP**: never sell gear the sellfile did not call out.
+
+**Internal pipeline** (per call to `sfc_decide`; stages live in `pipeline.rs` so the
+benchmark and the parity tests drive the same code the ABI runs)
 
 1. Deserialize `NativeInput` JSON (raw wire shape).
 1b. Build the artifact→champion equipped map from `champions`, then normalize the raw
@@ -369,12 +465,13 @@ its equips must stay fresh between `champions` pushes — see
 4. Normalize compact artifact rows to `SafeguardWasmArtifactIn` + `TestItemRaw`.
 5. When safeguards are enabled, call `collect_and_compute_safeguard_protection_core`.
 6. Assemble `ComputeMergedRulesIn`, call `compute_merged_rules_core` → `Vec<RuleRaw>`.
-7. Call `compute_improvement_chance_core` → `Vec<ImprovementChanceEntry>`.
+7. Project safeguard ranks from the detection snapshot, then evaluate verdicts against
+   the merged rules. `compute_improvement_chance_core` runs ONLY when requested.
 8. Serialize `NativeOutput` and return as a heap-allocated `CString`.
 
 **Relationship to the WASM module**
 
-Both `rule_engine_wasm` and `rule_engine_native` depend on `rule_engine_core`.
+Both `rule_engine_wasm` and `sfc_engine` depend on `rule_engine_core`.
 The WASM crate uses `#[wasm_bindgen]` and `JsValue`; the native crate uses
 `extern "C"` and JSON strings.  The SFC label-parser module (`sfc_reader`) and
 recipe normalizer (`recipe_builder`) live in `rule_engine_core` so both
@@ -393,13 +490,13 @@ envelope unwrap), `build_equipped_by_artifact_map` (champions slot-map → `cID`
 `generated_domain_constants.rs` (`resolve_accessory_faction`), so the single source of
 truth holds across languages.
 
-This deliberate duplication is guarded by a **parity test** (`wasm/rule_engine_native/
+This deliberate duplication is guarded by a **parity test** (`wasm/sfc_engine/
 tests/parity.rs`): it drives a committed real capture slice
 (`tests/fixtures/{artifacts,champions}_packet.json`) through the Rust normalizer and
 asserts field-for-field equality (on the DLL-consumed columns —
 `ID/type/rank/rarity/lvl/aset/accset/mid/mfl/s{1..4}{id,lvl,fl}/cID/faction/REROLLCOUNT`) against
 `expected.json`, which `tests/repro/native-dll-parity-expected.ts` regenerates from the
-app's own `normalizeExternalEvent`. Run the whole loop with `npm run native-dll:parity`
+app's own `normalizeExternalEvent`. Run the whole loop with `npm run sfc-engine:parity`
 (regenerates `expected.json`, then `cargo test`). If the TS ingest changes, regenerate
 and the mismatch surfaces immediately. Every column the DLL reads must appear in BOTH
 projections — a column present in the compact row but missing from the projection is
@@ -425,8 +522,9 @@ output — the fields that previously hard-rejected a real preset are now handle
   previously dropped). A `parse_sfc_accepts_current_format` unit test in `sfc_reader.rs`
   pins this.
 
-Result: `sfc_generate` runs end-to-end on `presets/lategame.sfc` + a full real account
-(7,734 artifacts, 1,430 champions) → ~40k rules with set/faction filters resolved.
+Result: the decision chain runs end-to-end on `presets/lategame.sfc` + a full real account
+(7,734 artifacts, 1,430 champions) → ~40k rules with set/faction filters resolved, and a
+verdict per artifact.
 
 Known non-fatal follow-ups (silent data loss, not parse errors — the writer/reader key
 names disagree): safeguard `ignorePreviousSafeguards_v2` (reader reads
@@ -438,13 +536,16 @@ paths matter.
 definition lives in the generated layer (which owns the id domain) and is re-exported from
 `types.ts`. Rust stays `i64` at the FFI/engine boundary by design.
 
-**Productionization gaps** (still open — not core logic):
+**Productionization** (closed — the crate is a shipped artifact now):
 
-- **No Windows `.dll` has been built/verified here** — only the Linux `.so` is
-  proven.  The MSVC/MinGW commands above are documented but unrun in WSL.
-- **No header/`.def`/cbindgen, no build-or-CI wiring** — nothing in
-  `package.json`, the release `.ps1` scripts, or CI builds, ships, or gates on
-  this crate.  RSL Helper would `GetProcAddress` the two symbols directly.
+- The Windows `.dll` is **built and verified**: `npm run sfc-engine:build` produces it,
+  the release stages it under `dev/decision-dll/`, and the C sample in
+  `examples/decision-dll/` loads it and reads verdicts back.
+- A hand-written header (`examples/decision-dll/sfc_decide.h`) documents the three
+  exports; no cbindgen. `sfc_version()` carries the schema number so a consumer holding
+  a prebuilt DLL fails loudly on a mismatch.
+- `npm run test:unit` compiles and tests the crate, so a `rule_engine_core` change that
+  breaks it fails the standard gate.
 
 **Real-data input harness**
 
@@ -452,7 +553,7 @@ definition lives in the generated layer (which owns the id domain) and is re-exp
 packet (`docs/orig/sampleLog/packet_*_artifacts_*.json`) and optional `champions` packet
 straight into a `NativeInput` JSON (the DLL now parses the raw wire shape itself), pairs it
 with a `.sfc` preset, and writes the file the DLL consumes — used for the end-to-end
-`sfc_generate` run above.
+run above.
 
 ### WASM Linear Memory Management
 

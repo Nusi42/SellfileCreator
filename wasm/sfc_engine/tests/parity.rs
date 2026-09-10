@@ -4,7 +4,7 @@
 // The reference `expected.json` is produced by tests/repro/native-dll-parity-expected.ts
 // (the app's own normalizeExternalEvent + champions cID join + accset→faction resolve).
 // The same two captured packets drive both sides. If the Rust parser drifts from the TS,
-// this test fails. Regenerate the fixtures via `npm run native-dll:parity`.
+// this test fails. Regenerate the fixtures via `npm run sfc-engine:parity`.
 //
 // Field-subset scope (per plan): only the columns the DLL pipeline consumes —
 // ID/type/rank/rarity/lvl/aset/accset/mid/mfl/s{1..4}{id,lvl,fl}/cID/faction.
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 // The parity test drives the crate's raw→compact normaliser directly.
-use rule_engine_native::artifact_log::{
+use sfc_engine::artifact_log::{
     build_equipped_by_artifact_map, parse_artifact_log_array, RawArtifactLogRow, RawChampionRow,
 };
 
@@ -35,7 +35,7 @@ fn extract_collection(frame: &str, key: &str) -> Value {
 
 // Project one compact row to the same DLL-consumed subset the TS projector emits, as a
 // canonical serde_json::Value so the two can be compared structurally (order-independent).
-fn project(row: &rule_engine_native::artifact_log::NativeArtifactIn) -> Value {
+fn project(row: &sfc_engine::artifact_log::NativeArtifactIn) -> Value {
     // c_id is Some(id>0) when equipped; the TS reference uses 0 for unequipped.
     let cid = row.c_id.unwrap_or(0);
     json!({

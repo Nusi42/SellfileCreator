@@ -1,7 +1,8 @@
-// rule_engine_native — C-ABI entry points for generating HSF sell-file rules from SFC JSON.
+// sfc_engine — C-ABI entry points for deciding keep/sell from a sellfile + raw gear.
 //
-// Two exported symbols:
-//   sfc_generate(input_json: *const c_char) -> *mut c_char
+// Three exported symbols:
+//   sfc_decide(input_json: *const c_char) -> *mut c_char
+//   sfc_version() -> *mut c_char
 //   sfc_free(ptr: *mut c_char)
 //
 // The pipeline mirrors the TypeScript → WASM flow but accepts raw SFC file text
@@ -9,23 +10,24 @@
 // delegate to rule_engine_core — no logic is duplicated here.
 //
 // Build as Windows DLL:
-//   cargo build --release --target x86_64-pc-windows-msvc -p rule_engine_native
+//   npm run sfc-engine:build
 // Build as Linux .so for WSL testing:
-//   cargo build -p rule_engine_native
+//   cargo build -p sfc_engine
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::ffi::{c_char, CStr, CString};
 
 use rule_engine_core::safeguards::fast_path_types::SafeguardWasmSubstatIn;
 use rule_engine_core::{
-    build_hsf_rules_for_recipe, collect_and_compute_safeguard_protection_core, compute_improvement_chance_core,
-    compute_merged_rules_core, parse_sfc, ComputeMergedRulesIn, ImprovementChanceEntry, PreviewExtrasRaw, RuleRaw,
-    SafeguardCollectRowIn, SafeguardWasmArtifactIn, TestItemRaw,
+    is_accessory_slot, resolve_set_id, snap_level_to_milestone, ImprovementChanceEntry, PreviewExtrasRaw, RuleRaw,
+    SafeguardWasmArtifactIn, TestItemRaw,
 };
 
 // Public so the integration parity test (tests/parity.rs) can drive the normaliser directly.
 pub mod artifact_log;
+// The decision pipeline, split into named stages; public so the end-to-end parity tests
+// and the bench example drive the same code the ABI runs.
+pub mod pipeline;
 use artifact_log::{
     build_equipped_by_artifact_map, parse_artifact_log_array, NativeArtifactIn, RawArtifactLogRow, RawChampionRow,
 };
@@ -51,6 +53,20 @@ struct NativeInput {
     // (equipped_in_collection). Optional: absent → every artifact treated as unequipped.
     #[serde(default)]
     champions: Vec<RawChampionRow>,
+    // Opt IN to the per-artifact improvement-chance projection. Off by default because it
+    // costs more than the whole keep/sell chain on a real vault and does not change a
+    // single verdict; a caller that does not display it should leave it off.
+    #[serde(default)]
+    improvement_chances: bool,
+    // Opt OUT of returning the merged rule list, for a caller that only wants decisions
+    // and does not need to write a .hsf.
+    #[serde(default = "default_true")]
+    rules: bool,
+}
+
+// serde needs a function for a non-false default; `rules` is returned unless refused.
+fn default_true() -> bool {
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -61,13 +77,98 @@ struct NativeInput {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeOutput {
-    // Merged HSF rules ready for .hsf download — same array the app produces.
-    rules: Vec<RuleRaw>,
+    // Per-artifact keep/sell decision — the answer a consumer actually wants.
+    verdicts: Vec<VerdictOut>,
+    // Per-artifact safeguard standing, one row per (artifact, safeguard rule) it ranked in.
+    safeguard_ranks: Vec<SafeguardRankOut>,
     // Per-artifact improvement-chance entries; empty when safeguards are disabled.
     improvement_chances: Vec<ImprovementChanceEntry>,
+    // Merged HSF rules, so a caller can still export a .hsf from the same call.
+    rules: Vec<RuleRaw>,
 }
 
-// Error envelope used on all failure paths — never returns null from sfc_generate.
+// One artifact's decision on the wire.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VerdictOut {
+    artifact_id: i64,
+    keep: bool,
+    // false = no rule covered this piece; it is kept by DEFAULT rather than by decision.
+    matched: bool,
+    // RecipeName of the deciding rule; null when unnamed or unmatched.
+    rule_name: Option<String>,
+    // Kept only because a safeguard overrode a rule that would have sold it.
+    safeguarded: bool,
+}
+
+impl From<&pipeline::Verdict> for VerdictOut {
+    fn from(v: &pipeline::Verdict) -> Self {
+        Self {
+            artifact_id: v.artifact_id,
+            keep: v.keep,
+            matched: v.matched,
+            rule_name: v.rule_name.clone(),
+            safeguarded: v.safeguarded,
+        }
+    }
+}
+
+// One artifact's standing under one safeguard rule, on the wire.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SafeguardRankOut {
+    artifact_id: i64,
+    // 1-based position of the safeguard rule in the sellfile's own list.
+    rule_ordinal: i64,
+    score: f64,
+    // 1-based across ALL of that rule's buckets.
+    candidate_rank: u32,
+    // 1-based within this piece's own bucket.
+    bucket_rank: u32,
+    // "{slot}:{set}:{mainStat}:{faction}" — the bucket the rule ranked this piece in.
+    bucket_key: String,
+    is_within_quota: bool,
+    // null when the rule is ungrouped; grouped rules pool their quota.
+    group_id: Option<String>,
+    substat_buckets: Vec<SubstatBucketOut>,
+}
+
+impl From<&pipeline::SafeguardRank> for SafeguardRankOut {
+    fn from(r: &pipeline::SafeguardRank) -> Self {
+        Self {
+            artifact_id: r.artifact_id,
+            rule_ordinal: r.rule_ordinal,
+            score: r.score,
+            candidate_rank: r.candidate_rank,
+            bucket_rank: r.bucket_rank,
+            bucket_key: r.bucket_key.clone(),
+            is_within_quota: r.is_within_quota,
+            group_id: r.group_id.clone(),
+            substat_buckets: r.substat_buckets.iter().map(SubstatBucketOut::from).collect(),
+        }
+    }
+}
+
+// One substat sub-bucket standing, on the wire.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SubstatBucketOut {
+    variant: i64,
+    bucket_rank: u32,
+    is_within_quota: bool,
+}
+
+impl From<&pipeline::SubstatBucket> for SubstatBucketOut {
+    fn from(b: &pipeline::SubstatBucket) -> Self {
+        Self {
+            variant: b.variant,
+            bucket_rank: b.bucket_rank,
+            is_within_quota: b.is_within_quota,
+        }
+    }
+}
+
+// Error envelope used on all failure paths — sfc_decide never returns null.
 #[derive(Debug, Serialize)]
 struct NativeError {
     error: String,
@@ -84,17 +185,20 @@ fn encode_variant(stat_id: i64, flat_bit: i64) -> i64 {
 }
 
 // Normalise one substat slot.  Returns None when stat_id is absent or zero (empty slot).
-fn make_substat(id: Option<i64>, lvl: Option<i64>, fl: Option<i64>) -> Option<SafeguardWasmSubstatIn> {
+//
+// `value` is the normalised rule value carried on the compact row (base + mythical,
+// pre-glyph, rounded the way the app's importer rounds). It is what every numeric
+// threshold compares against — a zero here silently turns "SPD >= 12" into a rule that
+// can never fire, which is a wrong answer rather than a limitation.
+fn make_substat(id: Option<i64>, lvl: Option<i64>, fl: Option<i64>, value: f64) -> Option<SafeguardWasmSubstatIn> {
     // Skip empty or sentinel-zero slots.
     let stat_id = id.filter(|&v| v > 0)?;
     let flat_bit = fl.unwrap_or(0);
     let variant = encode_variant(stat_id, flat_bit);
-    // s{n}lvl is the roll count; actual substat values are not in the compact row format.
-    // Presence-based safeguard matching still works; value-threshold checks will not fire.
     Some(SafeguardWasmSubstatIn {
         variant,
         is_flat: flat_bit != 0,
-        value: 0.0,
+        value,
         rolls: lvl.filter(|&r| r >= 0),
     })
 }
@@ -103,15 +207,20 @@ fn make_substat(id: Option<i64>, lvl: Option<i64>, fl: Option<i64>) -> Option<Sa
 // Both representations are needed: SafeguardWasmArtifactIn for safeguard logic,
 // TestItemRaw for the item-evaluator matcher.
 fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestItemRaw) {
-    // Resolve set id from the column appropriate for the artifact's slot range.
-    let set = if a.slot > 6 {
-        a.accset.unwrap_or(0)
-    } else {
-        a.aset.unwrap_or(0)
-    };
+    // The set id comes from `aset` (setKindId) for EVERY slot, accessories included.
+    //
+    // `accset` carries requiredFraction — the faction code, not a set id — so reading it
+    // here handed every accessory a set id in the faction range instead of its real set,
+    // and made the setless sentinel unreachable. The shared resolver then promotes a
+    // setless ACCESSORY to ACCESSORY_NO_SET_ID (which real sellfiles name) while leaving
+    // a setless chestplate at a plain 0.
+    let set = resolve_set_id(a.slot, a.aset.unwrap_or(0));
     let rank = a.rank.unwrap_or(0);
     let rarity = a.rarity.unwrap_or(0);
-    let level = a.lvl.unwrap_or(0);
+    // Rules match a level by EXACT equality against one milestone, so a live level has to
+    // be snapped first or every off-milestone piece matches no level rule at all.
+    let raw_level = a.lvl.unwrap_or(0);
+    let level = snap_level_to_milestone(raw_level);
 
     // Encode main stat variant; 0 falls back to SAFEGUARD_MAIN_ANY in the core.
     let main_variant = match a.mid.filter(|&v| v > 0) {
@@ -121,18 +230,25 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
 
     // Build the four substat slots; empty slots produce None and are skipped.
     let substats: Vec<SafeguardWasmSubstatIn> = [
-        make_substat(a.s1id, a.s1lvl, a.s1fl),
-        make_substat(a.s2id, a.s2lvl, a.s2fl),
-        make_substat(a.s3id, a.s3lvl, a.s3fl),
-        make_substat(a.s4id, a.s4lvl, a.s4fl),
+        make_substat(a.s1id, a.s1lvl, a.s1fl, a.sub_values[0]),
+        make_substat(a.s2id, a.s2lvl, a.s2fl, a.sub_values[1]),
+        make_substat(a.s3id, a.s3lvl, a.s3fl, a.sub_values[2]),
+        make_substat(a.s4id, a.s4lvl, a.s4fl, a.sub_values[3]),
     ]
     .into_iter()
     .flatten()
     .collect();
 
-    // sub_values: (variant, value=0.0) per substat so variant-presence matching works
-    // in the TestItemRaw evaluator even without actual roll values.
-    let sub_values: Vec<(i64, f64)> = substats.iter().map(|s| (s.variant, 0.0)).collect();
+    // sub_values the evaluator thresholds against, folding duplicate variants the way the
+    // app's buildSubValueMap does — two slots can carry the same variant, and a rule
+    // reasons about the consolidated total rather than either half.
+    let mut sub_values: Vec<(i64, f64)> = Vec::with_capacity(substats.len());
+    for substat in &substats {
+        match sub_values.iter_mut().find(|(variant, _)| *variant == substat.variant) {
+            Some(entry) => entry.1 += substat.value,
+            None => sub_values.push((substat.variant, substat.value)),
+        }
+    }
 
     let artifact = SafeguardWasmArtifactIn {
         id: a.id,
@@ -141,7 +257,9 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
         rank,
         rarity,
         level,
-        exact_level: Some(level),
+        // The snapped level is what rules match; exact_level keeps the piece's REAL
+        // upgrade state, which safeguard scoring and improvement chance reason about.
+        exact_level: Some(raw_level),
         faction: a.faction,
         main_stat: main_variant,
         equipped_in_collection: a.c_id.is_some(),
@@ -154,7 +272,13 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
         rank,
         rarity,
         level,
-        faction: Some(a.faction),
+        // Only accessories carry a faction; elsewhere None so faction rules skip the
+        // item rather than matching it against a meaningless 0.
+        faction: if is_accessory_slot(a.slot) && a.faction > 0 {
+            Some(a.faction)
+        } else {
+            None
+        },
         // Carry the Ore rework count through so if_reworked / if_not_reworked rule
         // gates decide the same way here as they do in the TS engine.
         reroll_count: a.reroll_count,
@@ -172,114 +296,32 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
 // ---------------------------------------------------------------------------
 
 fn run(input_json: &str) -> Result<String, String> {
-    // 1. Deserialise the outer NativeInput envelope.
+    // 1. Deserialise the outer envelope.
     let input: NativeInput = serde_json::from_str(input_json).map_err(|e| format!("Invalid input JSON: {e}"))?;
 
-    // 1b. Normalise the raw RSL-Helper wire payloads into compact artifact rows.
-    //     Build the artifact→champion equipped map first (for cID / equipped_in_collection),
-    //     then run the raw ArtifactLog rows through the same parser logic the app uses.
+    // 2. Normalise the raw wire payloads into compact artifact rows. The champion rows
+    //    only supply the artifact->champion join that marks a piece equipped, which
+    //    safeguard scoring reads.
     let equipped_by_artifact = build_equipped_by_artifact_map(&input.champions);
     let compact_artifacts = parse_artifact_log_array(&input.artifacts, &equipped_by_artifact);
 
-    // 2. Parse the SFC string into normalised builder inputs.
-    //    parse_sfc handles label → code conversion, all SFC schema variants, and
-    //    the sub-minima table used by auto-min-count logic.
-    let parsed = parse_sfc(&input.sfc).map_err(|e| format!("SFC parse error: {e}"))?;
+    // 3. Run the decision pipeline. Every stage lives in pipeline.rs so the benchmark and
+    //    the parity tests drive exactly this code.
+    let outcome = pipeline::decide_with(
+        &input.sfc,
+        &compact_artifacts,
+        pipeline::DecideOptions {
+            improvement_chances: input.improvement_chances,
+            rules: input.rules,
+        },
+    )?;
 
-    // 3. Derive recipe mode strings (one per recipe, indexed).
-    //    Used by the safeguard collector to skip disabled / separator recipes.
-    let recipe_modes: Vec<String> = parsed
-        .recipes
-        .iter()
-        .map(|r| {
-            if r.is_separator {
-                "separator".to_string()
-            } else if !r.use_flag {
-                "disabled".to_string()
-            } else if r.keep {
-                "keep".to_string()
-            } else {
-                "sell".to_string()
-            }
-        })
-        .collect();
-
-    // 4. Build HSF rules for each recipe; accumulate into custom_rules.
-    //    Recipe index is stored in each emitted rule for safeguard bucketing.
-    let minima_ref = parsed.minima.as_ref();
-    let mut custom_rules: Vec<RuleRaw> = Vec::new();
-    for (idx, recipe) in parsed.recipes.iter().enumerate() {
-        let mut rules = build_hsf_rules_for_recipe(recipe, minima_ref, Some(idx as i64))
-            .map_err(|e| format!("Recipe {idx} build error: {e}"))?;
-        custom_rules.append(&mut rules);
-    }
-
-    // 5. Normalise the input artifacts into SafeguardCollectRowIn rows.
-    //    Each row carries both the canonical SafeguardWasmArtifactIn and the
-    //    TestItemRaw needed by the item-evaluator matcher.
-    let rows: Vec<SafeguardCollectRowIn> = compact_artifacts
-        .iter()
-        .map(|a| {
-            let (artifact, item) = normalize_artifact(a);
-            SafeguardCollectRowIn {
-                item,
-                // base_match fields: no pre-evaluated match from outside; the safeguard
-                // collector will evaluate each artifact from scratch against the rules.
-                base_match_defined: false,
-                base_match: None,
-                artifact,
-            }
-        })
-        .collect();
-
-    // 6. Run safeguard detection when safeguards are active and data is present.
-    //    The resulting snapshot drives safeguard-injected sell rules in step 7.
-    let safeguard_detection = if parsed.safeguards_enabled && !parsed.safeguard_rules.is_empty() && !rows.is_empty() {
-        let combined = collect_and_compute_safeguard_protection_core(
-            rows.clone(),
-            custom_rules.clone(),
-            recipe_modes,
-            None, // ignore_safeguard_recipe_indices
-            parsed.safeguard_rules.clone(),
-            None, // expected_payload
-            true,
-            0.0,             // now (timestamp; not used for rule logic)
-            BTreeMap::new(), // improvement_chances: empty = threshold gating disabled
-        )
-        .map_err(|e| format!("Safeguard detection error: {e}"))?;
-        Some(combined.detection)
-    } else {
-        None
-    };
-
-    // 7. Merge custom rules + safeguard-injected rules into the final HSF rule list.
-    //    Result-typed since the placeholder-rehydration gate; in this single-process
-    //    flow detection ran moments ago, so a store mismatch is a programming error.
-    let merged_rules = compute_merged_rules_core(ComputeMergedRulesIn {
-        base_rules: vec![],
-        custom_rules,
-        final_sell_remainder: parsed.final_sell,
-        all_known_set_ids: parsed.all_known_set_ids,
-        omit_disabled_before_safeguards: false,
-        dedupe_before_safeguards: false,
-        safeguard_enabled: parsed.safeguards_enabled,
-        safeguard_rules: parsed.safeguard_rules.clone(),
-        safeguard_detection,
-        safeguard_recipe_id_base: None,
-    })
-    .map_err(|e| format!("Merge error: {e}"))?;
-
-    // 8. Compute per-artifact improvement-chance percentages.
-    //    Returns an empty vec when safeguards are disabled or no rules/rows are present.
-    //    debug=false: the DLL output schema carries only the entry vec; perf diagnostics
-    //    are discarded (they are dev-only instrumentation used by the WASM worker).
-    let (improvement_chances, _diag) =
-        compute_improvement_chance_core(&rows, parsed.safeguard_rules, parsed.safeguards_enabled, false);
-
-    // 9. Serialise and return the output as a JSON string.
+    // 4. Project to the wire shape and serialise.
     let output = NativeOutput {
-        rules: merged_rules,
-        improvement_chances,
+        verdicts: outcome.verdicts.iter().map(VerdictOut::from).collect(),
+        safeguard_ranks: outcome.safeguard_ranks.iter().map(SafeguardRankOut::from).collect(),
+        improvement_chances: outcome.improvement_chances,
+        rules: outcome.rules,
     };
     serde_json::to_string(&output).map_err(|e| format!("Serialise error: {e}"))
 }
@@ -288,22 +330,46 @@ fn run(input_json: &str) -> Result<String, String> {
 // C ABI
 // ---------------------------------------------------------------------------
 
-/// Generate merged HSF rules and improvement-chance entries from an SFC + artifact list.
+/// Decide keep/sell for every supplied artifact against a sellfile.
 ///
-/// `input_json` must be a valid UTF-8, null-terminated JSON string matching `NativeInput`:
+/// `input_json` must be a valid UTF-8, null-terminated JSON string:
 /// ```json
-/// { "sfc": "<SFC file contents as a JSON string>", "artifacts": [ ... ] }
+/// {
+///   "sfc":       "<SFC file contents as a JSON string>",
+///   "artifacts": [ /* raw ArtifactLog wire rows */ ],
+///   "champions": [ /* raw champion rows: id + artifacts slot-map */ ]
+/// }
 /// ```
 ///
-/// Returns a heap-allocated null-terminated UTF-8 JSON string.  On any error the
-/// string is `{"error":"<message>"}`.  **The caller must release the pointer with
+/// `champions` is optional but materially affects the answer: it marks which pieces are
+/// equipped, which safeguard scoring reads.
+///
+/// Returns a heap-allocated null-terminated UTF-8 JSON string carrying `verdicts`,
+/// `safeguardRanks`, `improvementChances` and `rules`. On any error the string is
+/// `{"error":"<message>"}` — never null. **The caller must release the pointer with
 /// `sfc_free` — do not call `free()` directly.**
+///
+/// # ABI stability
+///
+/// The JSON contract is **unstable** until a consumer ships against it. Pair every call
+/// with `sfc_version()` and fail loudly on a schema mismatch rather than misparsing.
+///
+/// # Threading
+///
+/// **Thread-safe.** Every call is self-contained: the engine state it configures and the
+/// safeguard placeholder store are both thread-locals, and the core holds no mutable
+/// global, so concurrent calls on different threads cannot observe or corrupt each
+/// other. `tests/decide_parity.rs::concurrent_calls_agree_with_a_single_call` pins this.
+///
+/// Concurrency buys throughput across independent requests, not speed on one: each
+/// thread re-runs the whole chain, including the rule generation that dominates the
+/// cost. Calls on the SAME thread simply run one after another.
 // C ABI entry point: the raw-pointer contract is the caller's, documented above and
-// null-checked below. Marking it `unsafe extern "C"` would change the exported symbol's
-// declared contract for existing DLL consumers, so the lint is allowed here instead.
+// null-checked below. Kept non-`unsafe` so the exported symbol's declared contract stays
+// what a C caller expects; the lint is allowed here instead.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn sfc_generate(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn sfc_decide(input_json: *const c_char) -> *mut c_char {
     // Safety: caller guarantees a valid, null-terminated C string for the lifetime
     //         of this function call.
     let json_str = unsafe {
@@ -326,17 +392,37 @@ pub extern "C" fn sfc_generate(input_json: *const c_char) -> *mut c_char {
         .into_raw()
 }
 
-/// Release a string pointer previously returned by `sfc_generate`.
+/// Report the DLL's crate version and the version of the JSON contract above.
+///
+/// A consumer holding a prebuilt DLL has no lockfile to reason about, so this is what
+/// lets it fail loudly on a mismatch instead of misparsing a shape it does not know.
+/// Returns `{"crate":"<semver>","schema":<n>}`; release the pointer with `sfc_free`.
+#[no_mangle]
+pub extern "C" fn sfc_version() -> *mut c_char {
+    // Bump SCHEMA_VERSION whenever the JSON contract changes shape in a way a consumer
+    // could misread — a renamed or removed field, or a changed meaning. Purely additive
+    // fields do not require a bump, since an older consumer simply ignores them.
+    const SCHEMA_VERSION: u32 = 1;
+    let payload = serde_json::json!({
+        "crate": env!("CARGO_PKG_VERSION"),
+        "schema": SCHEMA_VERSION,
+    });
+    CString::new(payload.to_string())
+        .unwrap_or_else(|_| CString::new(r#"{"error":"version encode failed"}"#).unwrap())
+        .into_raw()
+}
+
+/// Release a string pointer previously returned by `sfc_decide` or `sfc_version`.
 /// Passing null is safe and is a no-op.
-// Same C ABI reasoning as sfc_generate: null is handled, and the pointer must have come
-// from sfc_generate's CString::into_raw, which is the documented caller contract.
+// Same C ABI reasoning as sfc_decide: null is handled, and the pointer must have come
+// from one of those functions' CString::into_raw, which is the documented contract.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn sfc_free(ptr: *mut c_char) {
     if ptr.is_null() {
         return;
     }
-    // Safety: ptr was allocated by CString::into_raw in sfc_generate.
+    // Safety: ptr was allocated by CString::into_raw in one of the entry points above.
     unsafe { drop(CString::from_raw(ptr)) };
 }
 
@@ -442,25 +528,25 @@ mod tests {
     }
 
     #[test]
-    fn sfc_generate_c_abi() {
+    fn sfc_decide_c_abi() {
         // Verify the C-ABI wrapper produces valid JSON and sfc_free does not crash.
         let input = make_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON);
         let c_input = CString::new(input).unwrap();
-        let ptr = sfc_generate(c_input.as_ptr());
-        assert!(!ptr.is_null(), "sfc_generate must not return null");
+        let ptr = sfc_decide(c_input.as_ptr());
+        assert!(!ptr.is_null(), "sfc_decide must not return null");
         let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
         sfc_free(ptr);
         let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
         assert!(
             parsed.get("error").is_none(),
-            "unexpected error from sfc_generate: {output}"
+            "unexpected error from sfc_decide: {output}"
         );
     }
 
     #[test]
-    fn sfc_generate_null_input() {
+    fn sfc_decide_null_input() {
         // Null pointer must return an error JSON, not crash.
-        let ptr = sfc_generate(std::ptr::null());
+        let ptr = sfc_decide(std::ptr::null());
         assert!(!ptr.is_null());
         let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
         sfc_free(ptr);

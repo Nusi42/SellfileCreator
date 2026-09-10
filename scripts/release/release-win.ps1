@@ -192,6 +192,15 @@ try {
     throw "Build failed with exit code $LASTEXITCODE"
   }
 
+  # Build the decision library that ships under dev/decision-dll/.
+  # A release always carries a freshly built one, so the DLL in the archive can never
+  # be older than the rules it implements.
+  Write-Host 'Building decision library (npm run sfc-engine:build)...'
+  npm run --silent sfc-engine:build
+  if ($LASTEXITCODE -ne 0) {
+    throw "Decision library build failed with exit code $LASTEXITCODE"
+  }
+
   # Export localization catalogs after build (vite build cleans dist)
   Write-Host 'Exporting localization catalogs (npm run export:l10n)...'
   npm run --silent export:l10n
@@ -339,6 +348,32 @@ try {
   }
 
   # Legacy HTTP sample payloads are no longer staged.
+
+  # Ship the decision library and its C sample under dev/decision-dll/.
+  #
+  # The DLL lets an external program ask "keep or sell?" for a pile of gear and get the
+  # SAME answer the app's own preview gives, without reimplementing the rules. It is
+  # built by `npm run sfc-engine:build`; the release REQUIRES it rather than silently
+  # shipping without it, since a missing library is not something a consumer can
+  # diagnose from the archive.
+  $decisionDllSrc = Join-Path $RepoRoot 'wasm\target\x86_64-pc-windows-msvc\release\sfc_engine.dll'
+  if (-not (Test-Path -LiteralPath $decisionDllSrc)) {
+    throw "Decision library not found: $decisionDllSrc. Run: npm run sfc-engine:build"
+  }
+  $decisionDir = Join-Path $devDir 'decision-dll'
+  if (-not (Test-Path $decisionDir)) { New-Item -ItemType Directory -Path $decisionDir | Out-Null }
+  Copy-Item -LiteralPath $decisionDllSrc -Destination (Join-Path $decisionDir 'sfc_engine.dll') -Force
+
+  # The integration sample: header, a complete C program, a build script and a README.
+  # Sources only - the archive never carries a prebuilt .exe or .obj.
+  $decisionSampleSrc = Join-Path $RepoRoot 'examples\decision-dll'
+  foreach ($sampleFile in @('sfc_decide.h', 'sfc_sample.c', 'build.bat', 'README.md')) {
+    $filePath = Join-Path $decisionSampleSrc $sampleFile
+    if (-not (Test-Path -LiteralPath $filePath)) {
+      throw "Decision sample file not found: $filePath"
+    }
+    Copy-Item -LiteralPath $filePath -Destination (Join-Path $decisionDir $sampleFile) -Force
+  }
 
   # Ship the custom gearsets example under dev/ (keeps root uncluttered).
   $customGearsetsSrc = Join-Path $RepoRoot 'examples\custom.gearsets.json'

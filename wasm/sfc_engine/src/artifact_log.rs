@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use serde_json::Value;
 
-use rule_engine_core::resolve_accessory_faction;
+use rule_engine_core::{resolve_accessory_faction, substat_rule_value};
 
 // ---------------------------------------------------------------------------
 // Compact artifact row — the DLL's internal normalised shape.
@@ -68,6 +68,17 @@ pub struct NativeArtifactIn {
     pub s4id: Option<i64>,
     pub s4lvl: Option<i64>,
     pub s4fl: Option<i64>,
+    // Per-slot substat VALUE a rule compares against, already through the shared
+    // normalisation (fixed-point decode, display units, per-component rounding,
+    // base + mythical, magnitude fold). Indexed 0..3 alongside the s{n} columns.
+    //
+    // The compact row format carries only the roll count, so a value-threshold rule
+    // cannot fire without these: presence matching alone answers "has SPD", never
+    // "has SPD >= 12", and a sellfile that asks the latter got a wrong answer.
+    pub sub_values: [f64; 4],
+    // Main stat value, normalised the same way. Rules threshold on it just as they do
+    // on substats, so it goes through the same path rather than a second one.
+    pub main_value: f64,
     // Equipped champion id — Some(id>0) marks the artifact equipped_in_collection.
     pub c_id: Option<i64>,
     // Pre-resolved faction id (from accset via resolve_accessory_faction); 0 = Any.
@@ -83,9 +94,11 @@ pub struct NativeArtifactIn {
 // One primary/secondary/ascend stat block. Values kept as raw serde_json::Value so
 // to_number() can reproduce JS Number() coercion (numeric strings included).
 //
-// The DLL pipeline consumes only id/level/isAbsolute (presence-based substat matching);
-// stat_value/glyph_value/m_value are declared to faithfully mirror the wire shape and
-// document it, but are not read — hence `dead_code` is allowed for them.
+// Every value field here is READ: the rule value a threshold compares against is built
+// from stat_value plus the mythical bonus (see mythical_raw below). glyph_value is the
+// deliberate exception — it is mirrored to document the wire shape but never counted,
+// because the app's own subValues are pre-glyph (buildSubValueMap). Counting it would
+// make a piece clear a threshold that the app's preview of the same sellfile fails.
 #[derive(Debug, Default, Deserialize)]
 pub struct RawStatBlock {
     #[serde(default)]
@@ -95,14 +108,30 @@ pub struct RawStatBlock {
     #[serde(default, rename = "isAbsolute")]
     pub is_absolute: Value,
     #[serde(default, rename = "statValue")]
-    #[allow(dead_code)]
     pub stat_value: Value,
+    // Mirrored to document the wire shape; NOT part of the value a rule sees.
     #[serde(default, rename = "glyphValue")]
     #[allow(dead_code)]
     pub glyph_value: Value,
+    // The mythical substat bonus as the APP's wire spells it.
     #[serde(default, rename = "mValue")]
-    #[allow(dead_code)]
     pub m_value: Value,
+    // The same bonus as the GAME's own field spells it (`RarityBasedPowerUpValue`).
+    //
+    // Two producers disagree about which key carries this: on some wires the live bonus
+    // arrives as `mValue`, on others `mValue` is dead (zero on every block of every
+    // piece) and the live value is here. Reading only one key finds 0 on the other
+    // producer's payload and silently drops the bonus, so both are summed — a given
+    // block only ever populates one of them, making the sum the value either way.
+    #[serde(default, rename = "rValue")]
+    pub r_value: Value,
+}
+
+// The mythical bonus a rule must see, whichever key the producer used.
+// One definition so the two spellings are reconciled in exactly one place.
+fn mythical_raw(block: Option<&RawStatBlock>) -> f64 {
+    let Some(block) = block else { return 0.0 };
+    to_number(&block.m_value).unwrap_or(0.0) + to_number(&block.r_value).unwrap_or(0.0)
 }
 
 // A raw ArtifactLog row (the `artifacts` / `inboxArtifacts` element). Also serves as
@@ -258,6 +287,16 @@ fn parse_artifact_log_row(
         s4id: Some(0),
         s4lvl: Some(0),
         s4fl: Some(0),
+        // Filled per slot in the substat loop below.
+        sub_values: [0.0; 4],
+        // Main stat value through the shared normalisation. A main stat carries no
+        // mythical bonus of its own, so the bonus component is zero.
+        main_value: substat_rule_value(
+            to_i64_or(primary_field(|p| &p.id), 0),
+            to_i64_or(primary_field(|p| &p.is_absolute), 0) != 0,
+            to_number(primary_field(|p| &p.stat_value)).unwrap_or(0.0),
+            0.0,
+        ),
         c_id,
         // Resolve faction from the raw accessory code (SSOT generated map); 0 = Any.
         // Gated on accessory slots (slot > 6) to mirror determineFaction's isAccessorySlot
@@ -277,13 +316,26 @@ fn parse_artifact_log_row(
         (&mut result.s3id, &mut result.s3lvl, &mut result.s3fl),
         (&mut result.s4id, &mut result.s4lvl, &mut result.s4fl),
     ];
+    // Values are collected alongside the id/roll/flag columns so one pass fills both.
+    let mut values = [0.0_f64; 4];
     for (index, (id_col, lvl_col, fl_col)) in slots.into_iter().enumerate() {
         let stat = row.secondary.get(index);
         let field = |f: fn(&RawStatBlock) -> &Value| stat.map(f).unwrap_or(&Value::Null);
-        *id_col = Some(to_i64_or(field(|s| &s.id), 0));
+        let stat_id = to_i64_or(field(|s| &s.id), 0);
+        let is_flat = to_i64_or(field(|s| &s.is_absolute), 0) != 0;
+        *id_col = Some(stat_id);
         *lvl_col = Some(to_i64_or(field(|s| &s.level), 0));
-        *fl_col = Some(to_i64_or(field(|s| &s.is_absolute), 0));
+        *fl_col = Some(if is_flat { 1 } else { 0 });
+        // Base + the mythical bonus, never the glyph — through the shared normaliser so
+        // the DLL and the app round a boundary value onto the same side.
+        values[index] = substat_rule_value(
+            stat_id,
+            is_flat,
+            to_number(field(|s| &s.stat_value)).unwrap_or(0.0),
+            mythical_raw(stat),
+        );
     }
+    result.sub_values = values;
 
     Some(result)
 }
