@@ -202,8 +202,8 @@ metadata stripped, `RecipeID`/`RecipeName` hoisted ahead of the schema fields, a
 ```jsonc
 {
   "sfc":       "…",   // as NativeInput
-  "artifacts": [ … ], // as NativeInput — protection names the pieces it rescues, so a
-                      // request with no gear yields no protection whatever the switch says
+  "artifacts": [ … ], // as NativeInput — a safeguard names the pieces it rescues, so a
+                      // request with no gear yields no safeguards whatever the switch says
   "champions": [ … ], // as NativeInput
 
   // Omitted = follow the sellfile's own setting, so a request naming none of them
@@ -332,7 +332,7 @@ The recipe field `reworkGate` narrows the rules a recipe emits to one **rework**
 - **Matching is Rust-owned.** The gate lives in `match_rule_gate` (`matcher_evaluator.rs`) alongside the other constant-per-group fields; TypeScript delegates through the WASM engine and has no second implementation. Missing item rework data counts as *not reworked*, matching how the Gear Inspector's Chaos Ore filter reads the same field.
 - **The item side needed a new wire field.** `rerollCount` (the pre-existing DB/field spelling for the rework count — the `REROLLCOUNT` column) lives in `previewExtras` on the TS side, and `previewExtras` is deliberately stripped down to `id` at the WASM boundary — so `TestItemRaw` gained its own `rerollCount`, projected in `toWasmTestItem` (`src/lib/wasm/wasmRuleEngine.ts`). If that projection regresses, `tests/unit/chaos-ore-rule-gating.test.ts` fails.
 - **`Ore` participates in every dedupe identity.** Two rules differing only by their chaos-ore gate select different gear, so merging them would drop a constraint. It is part of `BuilderEmissionSignatureKey` (`hsf_builder_execution.rs`) and of all three keys in `rule_dedupe.rs` (`ObsoleteCoarseKey`, `CollapseCanonicalKey`, `ExportDedupeBaseKey`).
-- **Safeguards are never ore-gated.** Injected keep-rules and the Final Sell catch-all emit `Ore: None`, so protection and the final sweep stay independent of rework state.
+- **Safeguards are never ore-gated.** Injected keep-rules and the Final Sell catch-all emit `Ore: None`, so safeguards and the final sweep stay independent of rework state.
 - **Preview column.** The rules table shows an `Ore` column in `auto` mode: hidden until some rule actually constrains it (`isChaosOreConstrained`), exactly like the `Faction` column. Unconstrained rules render blank, mirroring how an `Any` main stat shows nothing.
 
 ### Roll Semantics (builder)

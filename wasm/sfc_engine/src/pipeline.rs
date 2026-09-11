@@ -183,7 +183,7 @@ fn detect_safeguards(
 // including only the sources `options` asks for.
 //
 // The three toggles land on three separate merge inputs, which is why they compose without
-// interfering: recipes arrive already filtered in `custom_rules`, protection is gated by
+// interfering: recipes arrive already filtered in `custom_rules`, safeguards are gated by
 // the safeguard switch, and the catch-all is simply withheld.
 fn merge_rules_with(
     parsed: &SfcParsed,
@@ -204,7 +204,7 @@ fn merge_rules_with(
         all_known_set_ids: parsed.all_known_set_ids.clone(),
         omit_disabled_before_safeguards: false,
         dedupe_before_safeguards: false,
-        // The caller's switch can only turn protection OFF; a sellfile that disabled it
+        // The caller's switch can only turn safeguards OFF; a sellfile that disabled it
         // stays disabled, since the merge would otherwise inject rules the file never asked
         // for.
         safeguard_enabled: options.safeguards && parsed.safeguards_enabled,
@@ -458,7 +458,7 @@ pub fn decide(sfc: &str, compact: &[NativeArtifactIn]) -> Result<DecisionOutcome
 // Which of a sellfile's three rule sources contribute to a generated `.hsf`.
 //
 // The three are INDEPENDENT on purpose: a caller asks for them by what they mean
-// ("protect my best gear", "sell the rest") rather than by knowing which rules inside the
+// ("safeguard my best gear", "sell the rest") rather than by knowing which rules inside the
 // file carry which marker. Every one defaults ON, so the default output is the same file
 // the app exports for that sellfile.
 #[derive(Debug, Clone, Copy)]
@@ -466,11 +466,11 @@ pub struct HsfOptions {
     // The recipes themselves — the keep/sell rules the user wrote. Off yields a file with
     // no opinions of its own, which is only useful together with one of the other two.
     pub recipes: bool,
-    // The protection rules, which turn into extra keep rows for the specific pieces they
+    // The safeguard rules, which turn into extra keep rows for the specific pieces they
     // rescue. They depend on the gear supplied with the request: with no gear there is
-    // nothing to protect and this contributes nothing regardless of the flag.
+    // nothing to safeguard and this contributes nothing regardless of the flag.
     //
-    // A sellfile whose own switch has protection turned off contributes nothing either —
+    // A sellfile whose own switch has safeguards turned off contributes nothing either —
     // this flag can only take away, never enable something the file did not ask for.
     pub safeguards: bool,
     // The trailing "sell everything not named above" catch-all. Off yields a file that
@@ -499,7 +499,7 @@ pub fn build_hsf_rules(sfc: &str, compact: &[NativeArtifactIn], options: HsfOpti
     let recipe_modes = derive_recipe_modes(&parsed);
     // Dropping the recipe rules has to happen HERE rather than after the merge: safeguard
     // detection reads them to decide which pieces a rule would have sold, so leaving them
-    // in and filtering later would inject protection for sells that the requested file
+    // in and filtering later would inject safeguards for sells that the requested file
     // does not contain.
     let custom_rules = if options.recipes {
         build_rules(&parsed)?

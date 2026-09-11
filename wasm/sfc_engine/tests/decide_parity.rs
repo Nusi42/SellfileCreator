@@ -339,13 +339,13 @@ fn a_named_rule_reaches_the_caller() {
 // Safeguards: the verdict state a .hsf cannot express, and the ranks behind it
 // ---------------------------------------------------------------------------
 
-// A sellfile that sells everything, with one safeguard protecting the best SPD pieces.
+// A sellfile that sells everything, with one safeguard keeping the best SPD pieces.
 //
 // `grouped` wraps the safeguard in a Group, which pools its members' feeds into one
 // quota. Grouped rules are the case §6 calls out specifically: the reader must mirror the
 // TS group-nesting parser, or every grouped rule is silently dropped and its gear sold.
 fn sfc_with_spd_safeguard(required_count: i64, grouped: bool) -> String {
-    // One safeguard member: protect the top SPD chestplates.
+    // One safeguard member: safeguard the top SPD chestplates.
     let member = json!({
         "appearance": { "name": "Protect: Speed" },
         "requiredCount": required_count,
@@ -425,7 +425,7 @@ fn a_safeguarded_piece_is_kept_and_says_why() {
         assert!(verdict.keep, "a rescued piece is KEPT");
         assert!(verdict.matched, "a rule decided it; it was not kept by default");
     }
-    // The highest-SPD piece is the one a quota of 1 protects.
+    // The highest-SPD piece is the one a quota of 1 safeguards.
     let best = verdict_for(&verdicts, 103);
     assert!(best.keep && best.safeguarded, "the best SPD piece is the one rescued");
     // A piece nothing rescued is still sold, so `safeguarded` marks a real distinction
@@ -470,14 +470,14 @@ fn safeguard_ranks_are_exposed_with_their_buckets() {
 // §6 — grouped safeguards must survive the reader.
 //
 // If the SFC reader does not mirror the TS group-nesting parser, a grouped rule is
-// silently dropped: no candidates, no protection, and every piece it should have saved is
+// silently dropped: no candidates, no safeguards, and every piece it should have saved is
 // sold without a trace.
 #[test]
-fn a_grouped_safeguard_still_protects_its_gear() {
+fn a_grouped_safeguard_still_keeps_its_gear() {
     let grouped = decide_rows(&sfc_with_spd_safeguard(1, true), spd_ladder());
     assert!(
         grouped.iter().any(|v| v.safeguarded),
-        "a safeguard nested inside a Group must still be read and still protect gear — \
+        "a safeguard nested inside a Group must still be read and still safeguard gear — \
          silently dropping it sells everything it was meant to save"
     );
 
@@ -488,7 +488,7 @@ fn a_grouped_safeguard_still_protects_its_gear() {
     let kept_ungrouped: Vec<i64> = ungrouped.iter().filter(|v| v.keep).map(|v| v.artifact_id).collect();
     assert_eq!(
         kept_grouped, kept_ungrouped,
-        "one member in a group of quota 1 protects the same piece as that member alone"
+        "one member in a group of quota 1 safeguards the same piece as that member alone"
     );
 }
 

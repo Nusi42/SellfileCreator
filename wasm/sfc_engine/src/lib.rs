@@ -75,9 +75,9 @@ fn default_true() -> bool {
 // Top-level input for `sfc_build_hsf`: the same sellfile + gear `sfc_decide` takes, plus
 // the switches that say what goes into the generated file.
 //
-// The gear matters even though a `.hsf` describes rules rather than pieces: protection
+// The gear matters even though a `.hsf` describes rules rather than pieces: a safeguard
 // rules turn into keep rows for the specific items they rescue, so a request that sends no
-// gear produces a file with no protection in it, whatever `safeguards` says.
+// gear produces a file with no safeguards in it, whatever `safeguards` says.
 // camelCase so `finalSell` on the wire reaches `final_sell` here. Without it serde looks
 // for the snake_case key, silently ignores the one a caller actually sends, and applies the
 // default — turning a request to omit the catch-all into a file that still sells everything.
@@ -374,7 +374,7 @@ fn run_hsf(input_json: &str) -> Result<String, String> {
     // 1. Deserialise the outer envelope.
     let input: NativeHsfInput = serde_json::from_str(input_json).map_err(|e| format!("Invalid input JSON: {e}"))?;
 
-    // 2. Normalise the raw wire payloads exactly as the decide path does, so protection
+    // 2. Normalise the raw wire payloads exactly as the decide path does, so safeguard
     //    rules rank the same pieces the same way in both.
     let equipped_by_artifact = build_equipped_by_artifact_map(&input.champions);
     let compact_artifacts = parse_artifact_log_array(&input.artifacts, &equipped_by_artifact);
@@ -486,9 +486,9 @@ pub extern "C" fn sfc_decide(input_json: *const c_char) -> *mut c_char {
 /// stripped on export, so the finished file cannot be filtered after the fact.
 ///
 /// * `recipes` — the keep/sell rules the user wrote.
-/// * `safeguards` — the protection rules, as keep rows for the pieces they rescue. These
-///   are derived from `artifacts`, so a request that sends no gear yields no protection
-///   however this is set. A sellfile with protection switched off contributes none either:
+/// * `safeguards` — the safeguard rules, as keep rows for the pieces they rescue. These
+///   are derived from `artifacts`, so a request that sends no gear yields no safeguards
+///   however this is set. A sellfile with safeguards switched off contributes none either:
 ///   the switch can only take away.
 /// * `finalSell` — the trailing "sell everything not named above" catch-all. Turning it off
 ///   leaves every unnamed piece untouched instead of sold.
@@ -759,11 +759,11 @@ mod tests {
     #[test]
     fn build_hsf_toggles_the_safeguard_rules() {
         // A sellfile that sells every 5* Epic and safeguards the two best SPD pieces. With
-        // protection on the file carries extra keep rows for the rescued pieces; with it
+        // safeguards on the file carries extra keep rows for the rescued pieces; with it
         // off those rows are gone and the same gear would be sold.
         //
         // This is the toggle that cannot be applied after the fact: the export strips the
-        // marker saying which rows came from protection, so a caller filtering the finished
+        // marker saying which rows came from a safeguard, so a caller filtering the finished
         // file has no way to tell them apart. It has to be decided here.
         const SAFEGUARD_SFC: &str = r#"{
             "Version": "1.0",
@@ -779,7 +779,7 @@ mod tests {
         // has candidates to rescue. SAMPLE_ARTIFACTS_JSON cannot serve here: its second
         // piece is a 4* Rare that the recipe never names, so nothing would be rescued and
         // the test would pass for the wrong reason.
-        const PROTECTABLE_ARTIFACTS: &str = r#"[
+        const SAFEGUARDABLE_ARTIFACTS: &str = r#"[
             {
                 "id": 1001, "kindId": 1, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 10,
                 "primary": { "id": 1, "isAbsolute": 0 },
@@ -791,10 +791,10 @@ mod tests {
                 "secondary": [ { "id": 4, "level": 1, "isAbsolute": 1, "statValue": 42949672960 } ]
             }
         ]"#;
-        let on = run_hsf(&make_hsf_input(SAFEGUARD_SFC, PROTECTABLE_ARTIFACTS, "")).unwrap();
+        let on = run_hsf(&make_hsf_input(SAFEGUARD_SFC, SAFEGUARDABLE_ARTIFACTS, "")).unwrap();
         let off = run_hsf(&make_hsf_input(
             SAFEGUARD_SFC,
-            PROTECTABLE_ARTIFACTS,
+            SAFEGUARDABLE_ARTIFACTS,
             r#", "safeguards": false"#,
         ))
         .unwrap();
@@ -802,9 +802,9 @@ mod tests {
         let off_count = hsf_rules_of(&off).len();
         assert!(
             on_count > off_count,
-            "protection must add keep rows: on={on_count} off={off_count}"
+            "safeguards must add keep rows: on={on_count} off={off_count}"
         );
-        // Turning protection off must leave the recipe rules alone — the toggles are
+        // Turning safeguards off must leave the recipe rules alone — the toggles are
         // independent, so one switch may not quietly take another's rules with it.
         assert!(off_count > 0, "recipes must survive safeguards:false");
     }
@@ -828,7 +828,7 @@ mod tests {
         }"#;
         // Two pieces the recipe would sell, so the safeguard has candidates to rescue and
         // the safeguard half is non-empty.
-        const BOTH_PROTECTABLE: &str = r#"[
+        const BOTH_SAFEGUARDABLE: &str = r#"[
             {
                 "id": 1001, "kindId": 1, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 10,
                 "primary": { "id": 1, "isAbsolute": 0 },
@@ -855,15 +855,20 @@ mod tests {
         }
 
         let whole = keys(&hsf_rules_of(
-            &run_hsf(&make_hsf_input(SPLIT_SFC, BOTH_PROTECTABLE, "")).unwrap(),
+            &run_hsf(&make_hsf_input(SPLIT_SFC, BOTH_SAFEGUARDABLE, "")).unwrap(),
         ));
         let recipes_and_final_sell = keys(&hsf_rules_of(
-            &run_hsf(&make_hsf_input(SPLIT_SFC, BOTH_PROTECTABLE, r#", "safeguards": false"#)).unwrap(),
+            &run_hsf(&make_hsf_input(
+                SPLIT_SFC,
+                BOTH_SAFEGUARDABLE,
+                r#", "safeguards": false"#,
+            ))
+            .unwrap(),
         ));
         let safeguards_only = keys(&hsf_rules_of(
             &run_hsf(&make_hsf_input(
                 SPLIT_SFC,
-                BOTH_PROTECTABLE,
+                BOTH_SAFEGUARDABLE,
                 r#", "recipes": false, "finalSell": false"#,
             ))
             .unwrap(),
