@@ -264,6 +264,16 @@ pub struct ReadableSfc {
     pub recipes_enabled: Option<bool>,
     #[serde(default)]
     pub note: Option<Vec<String>>,
+    // UI-only dynamic-overrides state the app writes (sfcIO.ts buildSfcPayload): the user's
+    // deviations from the Note DSL's authored defaults, and the switch that turns them off.
+    // The rule engine reads the already-resolved Note, so it ignores all three, but they must
+    // be declared so deny_unknown_fields does not reject current .sfc files.
+    #[serde(default)]
+    pub note_recipe_overrides_answers: Option<serde_json::Value>,
+    #[serde(default)]
+    pub note_safeguard_overrides_answers: Option<serde_json::Value>,
+    #[serde(default, rename = "NoteRecipeOverridesDisabled")]
+    pub note_recipe_overrides_disabled: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -1566,7 +1576,10 @@ mod label_tests {
                 }
             ],
             "Safeguards": [],
-            "SafeguardsEnabled": false
+            "SafeguardsEnabled": false,
+            "NoteRecipeOverridesAnswers": { "tier": ["high"] },
+            "NoteSafeguardOverridesAnswers": { "keepUniques": ["yes"] },
+            "NoteRecipeOverridesDisabled": true
         }"##;
         let parsed = parse_sfc(sfc).expect("current-format SFC must parse");
         assert_eq!(parsed.recipes.len(), 1);
