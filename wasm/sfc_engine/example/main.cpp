@@ -1,8 +1,8 @@
 /*
  * sfc_engine — C/C++ integration example and smoke test.
  *
- * Loads the DLL at runtime, calls sfc_version and sfc_decide with a hardcoded input,
- * validates the output, and exits 0 on success / 1 on any failure.
+ * Loads the DLL at runtime, calls sfc_version, sfc_decide and sfc_build_hsf with a
+ * hardcoded input, validates the output, and exits 0 on success / 1 on any failure.
  * Suitable as a CI sanity test on both Linux (debug .so) and Windows (.dll).
  *
  * Build & run — Linux/WSL (debug .so), from wasm/sfc_engine/example/:
@@ -46,6 +46,7 @@
 #endif
 
 typedef char* (*SfcDecideFn)(const char*);
+typedef char* (*SfcBuildHsfFn)(const char*);
 typedef void  (*SfcFreeFn)(char*);
 typedef char* (*SfcVersionFn)(void);
 
@@ -86,7 +87,13 @@ static const char* SFC_CONTENT =
     "    }"
     "  ],"
     "  \"Safeguards\": [],"
-    "  \"SafeguardsEnabled\": false"
+    "  \"SafeguardsEnabled\": false,"
+    /* The trailing catch-all, so the finalSell switch below has something to drop. */
+    "  \"FinalSellRemainder\": {"
+    "    \"artifacts\": true,"
+    "    \"accessories\": true,"
+    "    \"levels\": [0, 4, 8, 12, 16]"
+    "  }"
     "}";
 
 /* Two artifacts in the RAW game wire shape (kindId/rankId/primary/secondary) —
@@ -123,8 +130,13 @@ static const char* CHAMPION_ARRAY =
     "  { \"id\": 5000, \"artifacts\": { \"1\": 1001 } }"
     "]";
 
-/* Build the outer NativeInput JSON, embedding the SFC as a JSON string value. */
-static std::string build_input() {
+/* Build the outer request JSON, embedding the SFC as a JSON string value.
+ *
+ * `switches` is appended verbatim: empty for a decide call, or the sell-file content
+ * switches (", \"finalSell\": false" and friends) for a sfc_build_hsf call. One builder
+ * for both keeps the two requests provably identical apart from those switches, which is
+ * what makes the rule-count comparison below mean anything. */
+static std::string build_input(const char* switches = "") {
     /* Escape the SFC string so it can be embedded as a JSON string value. */
     std::string sfc_escaped;
     sfc_escaped.reserve(512);
@@ -145,8 +157,17 @@ static std::string build_input() {
     result += ARTIFACT_ARRAY;
     result += ", \"champions\": ";
     result += CHAMPION_ARRAY;
+    result += switches;
     result += "}";
     return result;
+}
+
+/* Read the "ruleCount" a sfc_build_hsf answer reports. Returns -1 when absent. */
+static long long hsf_rule_count(const std::string& json) {
+    const std::string needle = "\"ruleCount\":";
+    size_t pos = json.find(needle);
+    if (pos == std::string::npos) return -1;
+    return atoll(json.c_str() + pos + needle.size());
 }
 
 /* ─── main ────────────────────────────────────────────────────────────────── */
@@ -168,9 +189,10 @@ int main(int argc, char* argv[]) {
 
     /* Resolve entry points. */
     auto sfc_decide     = reinterpret_cast<SfcDecideFn>(DLL_SYM(lib, "sfc_decide"));
+    auto sfc_build_hsf  = reinterpret_cast<SfcBuildHsfFn>(DLL_SYM(lib, "sfc_build_hsf"));
     auto sfc_free_fn    = reinterpret_cast<SfcFreeFn>(DLL_SYM(lib, "sfc_free"));
     auto sfc_version_fn = reinterpret_cast<SfcVersionFn>(DLL_SYM(lib, "sfc_version"));
-    if (!sfc_decide || !sfc_free_fn || !sfc_version_fn) {
+    if (!sfc_decide || !sfc_build_hsf || !sfc_free_fn || !sfc_version_fn) {
         fprintf(stderr, "[example] FAIL: could not resolve symbols: %s\n", dll_error().c_str());
         DLL_CLOSE(lib);
         return 1;
@@ -200,6 +222,35 @@ int main(int argc, char* argv[]) {
     }
     std::string result(output);
     sfc_free_fn(output);
+
+    /* Sell-file export, twice over the SAME sellfile and gear: once complete, once with
+     * the trailing catch-all withheld. Comparing the two rule counts is what proves the
+     * switch reaches the merge — a file that came back the same size either way would mean
+     * the flag was parsed into nothing and silently ignored. */
+    std::string hsf_full;
+    std::string hsf_no_final_sell;
+    {
+        std::string hsf_input = build_input();
+        printf("[example] Calling sfc_build_hsf (%zu bytes)...\n", hsf_input.size());
+        char* hsf_output = sfc_build_hsf(hsf_input.c_str());
+        if (!hsf_output) {
+            fprintf(stderr, "[example] FAIL: sfc_build_hsf returned NULL\n");
+            DLL_CLOSE(lib);
+            return 1;
+        }
+        hsf_full = hsf_output;
+        sfc_free_fn(hsf_output);
+
+        std::string trimmed_input = build_input(", \"finalSell\": false");
+        char* trimmed_output = sfc_build_hsf(trimmed_input.c_str());
+        if (!trimmed_output) {
+            fprintf(stderr, "[example] FAIL: sfc_build_hsf returned NULL for the trimmed file\n");
+            DLL_CLOSE(lib);
+            return 1;
+        }
+        hsf_no_final_sell = trimmed_output;
+        sfc_free_fn(trimmed_output);
+    }
     DLL_CLOSE(lib);
 
     printf("[example] Output (%zu bytes): %.200s%s\n",
@@ -251,6 +302,32 @@ int main(int argc, char* argv[]) {
           || result.find("\"Keep\": true") != std::string::npos
           || result.find("\"keep\": true") != std::string::npos,
           "at least one rule must have Keep=true");
+
+    /* ── Sell file ──────────────────────────────────────────────────────── */
+
+    const long long full_rules = hsf_rule_count(hsf_full);
+    const long long trimmed_rules = hsf_rule_count(hsf_no_final_sell);
+    printf("[example] Sell file rules: %lld complete, %lld without the final sell\n",
+           full_rules, trimmed_rules);
+
+    CHECK(!json_has_key(hsf_full, "error"),
+          "sfc_build_hsf must not return an error");
+    CHECK(json_has_key(hsf_full, "hsf"),
+          "sfc_build_hsf output must contain an hsf field");
+    CHECK(full_rules > 0,
+          "the generated sell file must contain rules");
+    /* The container RSL Helper looks for. It is inside a JSON string here, so the quotes
+     * around the key arrive escaped. */
+    CHECK(hsf_full.find("\\\"Rules\\\":") != std::string::npos,
+          "the generated sell file must carry a Rules container");
+    /* The UI-only diagnostics must never reach a written file. */
+    CHECK(hsf_full.find("__safeguard") == std::string::npos
+          && hsf_full.find("__source") == std::string::npos
+          && hsf_full.find("__lineIdx") == std::string::npos,
+          "the generated sell file must not carry UI-only metadata");
+    /* Withholding the catch-all has to remove rules and leave the recipe rules standing. */
+    CHECK(trimmed_rules > 0 && trimmed_rules < full_rules,
+          "finalSell=false must drop the catch-all and keep the recipe rules");
 
 #undef CHECK
 

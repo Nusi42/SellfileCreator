@@ -1,7 +1,8 @@
 // sfc_engine — C-ABI entry points for deciding keep/sell from a sellfile + raw gear.
 //
-// Three exported symbols:
+// Four exported symbols:
 //   sfc_decide(input_json: *const c_char) -> *mut c_char
+//   sfc_build_hsf(input_json: *const c_char) -> *mut c_char
 //   sfc_version() -> *mut c_char
 //   sfc_free(ptr: *mut c_char)
 //
@@ -25,6 +26,8 @@ use rule_engine_core::{
 
 // Public so the integration parity test (tests/parity.rs) can drive the normaliser directly.
 pub mod artifact_log;
+// The `.hsf` writer behind sfc_build_hsf; public so tests can render a rule list directly.
+pub mod hsf_export;
 // The decision pipeline, split into named stages; public so the end-to-end parity tests
 // and the bench example drive the same code the ABI runs.
 pub mod pipeline;
@@ -67,6 +70,36 @@ struct NativeInput {
 // serde needs a function for a non-false default; `rules` is returned unless refused.
 fn default_true() -> bool {
     true
+}
+
+// Top-level input for `sfc_build_hsf`: the same sellfile + gear `sfc_decide` takes, plus
+// the switches that say what goes into the generated file.
+//
+// The gear matters even though a `.hsf` describes rules rather than pieces: protection
+// rules turn into keep rows for the specific items they rescue, so a request that sends no
+// gear produces a file with no protection in it, whatever `safeguards` says.
+// camelCase so `finalSell` on the wire reaches `final_sell` here. Without it serde looks
+// for the snake_case key, silently ignores the one a caller actually sends, and applies the
+// default — turning a request to omit the catch-all into a file that still sells everything.
+// `deny_unknown_fields` makes that class of mistake an error rather than a wrong file: a
+// misspelled switch is refused instead of quietly defaulting to on.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct NativeHsfInput {
+    // Raw SFC JSON as a string — identical to the decide request's field.
+    sfc: String,
+    #[serde(default)]
+    artifacts: Vec<RawArtifactLogRow>,
+    #[serde(default)]
+    champions: Vec<RawChampionRow>,
+    // The three content switches, all defaulting ON so an omitted field yields the same
+    // file the app itself exports for this sellfile.
+    #[serde(default = "default_true")]
+    recipes: bool,
+    #[serde(default = "default_true")]
+    safeguards: bool,
+    #[serde(default = "default_true")]
+    final_sell: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +201,17 @@ impl From<&pipeline::SubstatBucket> for SubstatBucketOut {
     }
 }
 
-// Error envelope used on all failure paths — sfc_decide never returns null.
+// `sfc_build_hsf` output. The file arrives as one string so a caller writes it straight to
+// disk; `ruleCount` is reported beside it because "how many rules did that produce" is the
+// one thing a caller would otherwise have to parse the whole file to learn.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeHsfOutput {
+    hsf: String,
+    rule_count: usize,
+}
+
+// Error envelope used on all failure paths — neither entry point ever returns null.
 #[derive(Debug, Serialize)]
 struct NativeError {
     error: String,
@@ -326,6 +369,35 @@ fn run(input_json: &str) -> Result<String, String> {
     serde_json::to_string(&output).map_err(|e| format!("Serialise error: {e}"))
 }
 
+// Build a `.hsf` file from a sellfile, honouring the caller's content switches.
+fn run_hsf(input_json: &str) -> Result<String, String> {
+    // 1. Deserialise the outer envelope.
+    let input: NativeHsfInput = serde_json::from_str(input_json).map_err(|e| format!("Invalid input JSON: {e}"))?;
+
+    // 2. Normalise the raw wire payloads exactly as the decide path does, so protection
+    //    rules rank the same pieces the same way in both.
+    let equipped_by_artifact = build_equipped_by_artifact_map(&input.champions);
+    let compact_artifacts = parse_artifact_log_array(&input.artifacts, &equipped_by_artifact);
+
+    // 3. Build the merged rule list the requested file is written from.
+    let rules = pipeline::build_hsf_rules(
+        &input.sfc,
+        &compact_artifacts,
+        pipeline::HsfOptions {
+            recipes: input.recipes,
+            safeguards: input.safeguards,
+            final_sell: input.final_sell,
+        },
+    )?;
+
+    // 4. Render the file, then wrap it in the response envelope.
+    let output = NativeHsfOutput {
+        hsf: hsf_export::render_hsf(&rules)?,
+        rule_count: rules.len(),
+    };
+    serde_json::to_string(&output).map_err(|e| format!("Serialise error: {e}"))
+}
+
 // ---------------------------------------------------------------------------
 // C ABI
 // ---------------------------------------------------------------------------
@@ -392,6 +464,69 @@ pub extern "C" fn sfc_decide(input_json: *const c_char) -> *mut c_char {
         .into_raw()
 }
 
+/// Build a RSL Helper `.hsf` sellfile from a sellfile and the gear it applies to.
+///
+/// `input_json` must be a valid UTF-8, null-terminated JSON string:
+/// ```json
+/// {
+///   "sfc":       "<SFC file contents as a JSON string>",
+///   "artifacts": [ /* raw ArtifactLog wire rows */ ],
+///   "champions": [ /* raw champion rows: id + artifacts slot-map */ ],
+///
+///   "recipes":   true,
+///   "safeguards": true,
+///   "finalSell": true
+/// }
+/// ```
+///
+/// The three switches choose what the generated file contains, and each defaults to true —
+/// so a request naming none of them produces the same file the app itself exports. They
+/// name what a caller MEANS rather than how the file is put together: no knowledge of which
+/// rules inside a sellfile carry which marker is needed, and the markers are in any case
+/// stripped on export, so the finished file cannot be filtered after the fact.
+///
+/// * `recipes` — the keep/sell rules the user wrote.
+/// * `safeguards` — the protection rules, as keep rows for the pieces they rescue. These
+///   are derived from `artifacts`, so a request that sends no gear yields no protection
+///   however this is set. A sellfile with protection switched off contributes none either:
+///   the switch can only take away.
+/// * `finalSell` — the trailing "sell everything not named above" catch-all. Turning it off
+///   leaves every unnamed piece untouched instead of sold.
+///
+/// Returns a heap-allocated null-terminated UTF-8 JSON string
+/// `{"hsf":"<file contents>","ruleCount":<n>}`. The `hsf` string is the complete file, so
+/// it can be written to disk verbatim. On any error the string is `{"error":"<message>"}` —
+/// never null. **Release the pointer with `sfc_free`.**
+///
+/// # Threading
+///
+/// **Thread-safe**, for the same reason as `sfc_decide`: every call is self-contained.
+// Same C ABI reasoning as sfc_decide — the raw-pointer contract is the caller's, documented
+// above and null-checked below.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn sfc_build_hsf(input_json: *const c_char) -> *mut c_char {
+    // Safety: caller guarantees a valid, null-terminated C string for the lifetime
+    //         of this function call.
+    let json_str = unsafe {
+        if input_json.is_null() {
+            return error_cstring("input_json pointer is null");
+        }
+        match CStr::from_ptr(input_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return error_cstring("input_json is not valid UTF-8"),
+        }
+    };
+    let json_out = match run_hsf(json_str) {
+        Ok(s) => s,
+        Err(e) => serde_json::to_string(&NativeError { error: e })
+            .unwrap_or_else(|_| r#"{"error":"serialisation failed"}"#.to_string()),
+    };
+    CString::new(json_out)
+        .unwrap_or_else(|_| CString::new(r#"{"error":"output contains null byte"}"#).unwrap())
+        .into_raw()
+}
+
 /// Report the DLL's crate version and the version of the JSON contract above.
 ///
 /// A consumer holding a prebuilt DLL has no lockfile to reason about, so this is what
@@ -412,7 +547,8 @@ pub extern "C" fn sfc_version() -> *mut c_char {
         .into_raw()
 }
 
-/// Release a string pointer previously returned by `sfc_decide` or `sfc_version`.
+/// Release a string pointer previously returned by `sfc_decide`, `sfc_build_hsf` or
+/// `sfc_version`.
 /// Passing null is safe and is a no-op.
 // Same C ABI reasoning as sfc_decide: null is handled, and the pointer must have come
 // from one of those functions' CString::into_raw, which is the documented contract.
@@ -541,6 +677,175 @@ mod tests {
             parsed.get("error").is_none(),
             "unexpected error from sfc_decide: {output}"
         );
+    }
+
+    // Build a NativeHsfInput JSON string with an explicit set of content switches.
+    fn make_hsf_input(sfc_content: &str, artifacts_json: &str, switches: &str) -> String {
+        let sfc_str = serde_json::to_string(sfc_content).unwrap();
+        format!(r#"{{"sfc": {sfc_str}, "artifacts": {artifacts_json}{switches}}}"#)
+    }
+
+    // Parse the rule array out of a sfc_build_hsf response.
+    fn hsf_rules_of(response: &str) -> Vec<serde_json::Value> {
+        let parsed: serde_json::Value = serde_json::from_str(response).unwrap();
+        assert!(parsed.get("error").is_none(), "unexpected error: {response}");
+        let text = parsed.get("hsf").and_then(|v| v.as_str()).expect("hsf string");
+        let file: serde_json::Value = serde_json::from_str(text).expect("hsf must be valid JSON");
+        file.get("Rules")
+            .and_then(|v| v.as_array())
+            .expect("Rules array")
+            .clone()
+    }
+
+    #[test]
+    fn build_hsf_returns_a_loadable_file() {
+        let input = make_hsf_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON, "");
+        let result = run_hsf(&input).expect("hsf build should not error");
+        let rules = hsf_rules_of(&result);
+        assert!(!rules.is_empty(), "expected rules in the generated file");
+        // RowIdx is 1-based and runs in export order, as the app's own writer emits it.
+        assert_eq!(rules[0].get("RowIdx").and_then(|v| v.as_u64()), Some(1));
+        // ruleCount reports the same list the file carries.
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(
+            parsed.get("ruleCount").and_then(|v| v.as_u64()),
+            Some(rules.len() as u64),
+            "ruleCount must match the file's rule list"
+        );
+    }
+
+    #[test]
+    fn build_hsf_omits_recipe_rules_when_recipes_are_off() {
+        // The minimal sellfile has one recipe and nothing else, so switching recipes off
+        // must leave nothing behind — this is what proves the toggle drops the rules
+        // rather than merely renaming them.
+        let input = make_hsf_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON, r#", "recipes": false"#);
+        let result = run_hsf(&input).expect("hsf build should not error");
+        assert!(
+            hsf_rules_of(&result).is_empty(),
+            "recipes:false must drop the recipe rules: {result}"
+        );
+        // Default (switch absent) still includes them, so the flag is what changed it.
+        let with_recipes = run_hsf(&make_hsf_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON, "")).unwrap();
+        assert!(!hsf_rules_of(&with_recipes).is_empty());
+    }
+
+    #[test]
+    fn build_hsf_toggles_the_final_sell_catch_all() {
+        // A sellfile whose only content is the trailing catch-all: with it on the file has
+        // rules, with it off the file is empty. Recipes are off in both, so the only
+        // difference is the switch under test.
+        const FINAL_SELL_SFC: &str = r#"{
+            "Version": "1.0",
+            "Recipes": [],
+            "Safeguards": [],
+            "SafeguardsEnabled": false,
+            "FinalSellRemainder": { "artifacts": true, "accessories": true, "levels": [0, 4, 8, 12, 16] }
+        }"#;
+        let on = run_hsf(&make_hsf_input(FINAL_SELL_SFC, "[]", r#", "recipes": false"#)).unwrap();
+        assert!(!hsf_rules_of(&on).is_empty(), "final sell should emit rules: {on}");
+        let off = run_hsf(&make_hsf_input(
+            FINAL_SELL_SFC,
+            "[]",
+            r#", "recipes": false, "finalSell": false"#,
+        ))
+        .unwrap();
+        assert!(
+            hsf_rules_of(&off).is_empty(),
+            "finalSell:false must drop the catch-all: {off}"
+        );
+    }
+
+    #[test]
+    fn build_hsf_toggles_the_protection_rules() {
+        // A sellfile that sells every 5* Epic and protects the two best SPD pieces. With
+        // protection on the file carries extra keep rows for the rescued pieces; with it
+        // off those rows are gone and the same gear would be sold.
+        //
+        // This is the toggle that cannot be applied after the fact: the export strips the
+        // marker saying which rows came from protection, so a caller filtering the finished
+        // file has no way to tell them apart. It has to be decided here.
+        const SAFEGUARD_SFC: &str = r#"{
+            "Version": "1.0",
+            "Recipes": [
+                { "keep": false, "Rank": "5★", "Rarity": "Epic", "substats": ["SPD"], "minCount": 1 }
+            ],
+            "Safeguards": [
+                { "activation": "protectExisting", "requiredCount": 2, "substats": ["SPD"], "substatMatch": "any" }
+            ],
+            "SafeguardsEnabled": true
+        }"#;
+        // Two pieces the recipe above would sell (5* Epic, carrying SPD) so the safeguard
+        // has candidates to rescue. SAMPLE_ARTIFACTS_JSON cannot serve here: its second
+        // piece is a 4* Rare that the recipe never names, so nothing would be rescued and
+        // the test would pass for the wrong reason.
+        const PROTECTABLE_ARTIFACTS: &str = r#"[
+            {
+                "id": 1001, "kindId": 1, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 10,
+                "primary": { "id": 1, "isAbsolute": 0 },
+                "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1, "statValue": 90194313216 } ]
+            },
+            {
+                "id": 1002, "kindId": 2, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 5,
+                "primary": { "id": 2, "isAbsolute": 0 },
+                "secondary": [ { "id": 4, "level": 1, "isAbsolute": 1, "statValue": 42949672960 } ]
+            }
+        ]"#;
+        let on = run_hsf(&make_hsf_input(SAFEGUARD_SFC, PROTECTABLE_ARTIFACTS, "")).unwrap();
+        let off = run_hsf(&make_hsf_input(
+            SAFEGUARD_SFC,
+            PROTECTABLE_ARTIFACTS,
+            r#", "safeguards": false"#,
+        ))
+        .unwrap();
+        let on_count = hsf_rules_of(&on).len();
+        let off_count = hsf_rules_of(&off).len();
+        assert!(
+            on_count > off_count,
+            "protection must add keep rows: on={on_count} off={off_count}"
+        );
+        // Turning protection off must leave the recipe rules alone — the toggles are
+        // independent, so one switch may not quietly take another's rules with it.
+        assert!(off_count > 0, "recipes must survive safeguards:false");
+    }
+
+    #[test]
+    fn build_hsf_never_leaks_ui_metadata() {
+        // The `__`-prefixed fields are diagnostics the app strips on export; RSL Helper
+        // must never see them, and the safeguard markers in particular would expose
+        // internals a sellfile has no field for.
+        let input = make_hsf_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON, "");
+        let result = run_hsf(&input).expect("hsf build should not error");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        let text = parsed.get("hsf").and_then(|v| v.as_str()).unwrap();
+        assert!(!text.contains("__"), "generated file must not carry UI-only fields");
+    }
+
+    #[test]
+    fn sfc_build_hsf_c_abi() {
+        // Verify the C-ABI wrapper produces valid JSON and sfc_free does not crash.
+        let input = make_hsf_input(MINIMAL_SFC, SAMPLE_ARTIFACTS_JSON, "");
+        let c_input = CString::new(input).unwrap();
+        let ptr = sfc_build_hsf(c_input.as_ptr());
+        assert!(!ptr.is_null(), "sfc_build_hsf must not return null");
+        let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
+        sfc_free(ptr);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(
+            parsed.get("error").is_none(),
+            "unexpected error from sfc_build_hsf: {output}"
+        );
+    }
+
+    #[test]
+    fn sfc_build_hsf_null_input() {
+        // Null pointer must return an error JSON, not crash.
+        let ptr = sfc_build_hsf(std::ptr::null());
+        assert!(!ptr.is_null());
+        let output = unsafe { CStr::from_ptr(ptr).to_str().unwrap().to_string() };
+        sfc_free(ptr);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(parsed.get("error").is_some(), "null input must yield error field");
     }
 
     #[test]

@@ -316,7 +316,9 @@ under `dev/decision-dll/` in the archive, together with the integration sample i
 
 An external program hands it a `.sfc` plus raw gear and gets back per-piece keep/sell
 verdicts identical to the app's own preview — same core, same normalisation — rather than
-reimplementing the rules against a generated `.hsf`.
+reimplementing the rules against a generated `.hsf`. The same input also renders a `.hsf`
+directly (`sfc_build_hsf`), so a consumer can write a sellfile without reproducing the
+app's export path.
 
 **C-ABI surface**
 
@@ -326,6 +328,13 @@ reimplementing the rules against a generated `.hsf`.
 // On any error returns {"error":"<message>"}. Never returns NULL.
 // Caller MUST release every returned pointer with sfc_free.
 char* sfc_decide(const char* input_json);
+
+// Render a .hsf from the same sellfile + gear. input_json is the NativeHsfInput schema
+// below: the decide fields plus `recipes` / `safeguards` / `finalSell`, each defaulting
+// true, which independently select the three rule sources the merge composes. Returns
+// {"hsf":"<file text>","ruleCount":<n>}; the string is the complete file, written verbatim.
+// On any error returns {"error":"<message>"}. Never returns NULL.
+char* sfc_build_hsf(const char* input_json);
 
 
 // {"crate":"<semver>","schema":<n>} — lets a consumer holding a prebuilt DLL fail loudly
@@ -396,8 +405,8 @@ this crate shipped it was ungated — do not let it become so again.
 **C/C++ smoke test**
 
 `wasm/sfc_engine/example/main.cpp` is the "does the ABI actually load" check: it
-loads the library at runtime, calls `sfc_version` then `sfc_decide`, validates the output
-and exits non-zero on any failure. The compiled binary is gitignored.
+loads the library at runtime, calls `sfc_version`, `sfc_decide` and `sfc_build_hsf`,
+validates the output and exits non-zero on any failure. The compiled binary is gitignored.
 
 ```sh
 # Build and run (Linux/WSL):
@@ -406,7 +415,10 @@ cd wasm/sfc_engine/example && make run
 
 It verifies: no `error` key; `sfc_version` reports crate + schema; `verdicts` non-empty with
 the matching artifact `matched:true, keep:true`; `safeguardRanks`, `rules` and
-`improvementChances` present; at least one rule with `Keep=true`.
+`improvementChances` present; at least one rule with `Keep=true`. For the export it also
+checks that the file carries a `Rules` container, that no `__`-prefixed UI metadata
+survives, and that `finalSell:false` yields strictly fewer rules than the complete file —
+a same-size result would mean the switch was parsed into nothing and silently ignored.
 
 **Normalisation is the risk, not the plumbing.** The five rules that decide whether a
 verdict matches the app's preview live in `rule_engine_core::gear_ingest` (one definition,
@@ -570,7 +582,7 @@ definition lives in the generated layer (which owns the id domain) and is re-exp
 - The Windows `.dll` is **built and verified**: `npm run sfc-engine:build` produces it,
   the release stages it under `dev/decision-dll/`, and the C sample in
   `examples/decision-dll/` loads it and reads verdicts back.
-- A hand-written header (`examples/decision-dll/sfc_decide.h`) documents the three
+- A hand-written header (`examples/decision-dll/sfc_decide.h`) documents the four
   exports; no cbindgen. `sfc_version()` carries the schema number so a consumer holding
   a prebuilt DLL fails loudly on a mismatch.
 - `npm run test:unit` compiles and tests the crate, so a `rule_engine_core` change that

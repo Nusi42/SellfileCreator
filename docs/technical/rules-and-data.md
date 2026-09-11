@@ -69,7 +69,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
 ### NativeInput / NativeOutput (native DLL)
 
 These JSON schemas are consumed and produced by the `sfc_decide` C-ABI function in
-`wasm/sfc_engine`. They are distinct from the browser WASM bindings and require no JavaScript runtime. Build, ABI surface, threading and
+`wasm/sfc_engine` (the `.hsf` export entry point, `sfc_build_hsf`, is documented below
+under [NativeHsfInput / NativeHsfOutput](#nativehsfinput--nativehsfoutput-native-dll)). They are distinct from the browser WASM bindings and require no JavaScript runtime. Build, ABI surface, threading and
 measured cost: [decision engine DLL](build-and-tooling.md#decision-engine-dll-sfc_engine).
 
 **NativeInput** — passed as a JSON string to `sfc_decide`:
@@ -187,6 +188,52 @@ On any error the DLL returns `{"error":"<message>"}` instead, never null — the
 is that object and nothing else, so detect it by the payload STARTING with `{"error"`.
 Scanning the whole body for the token also matches a rule name, reporting a problem on a
 good answer.
+
+### NativeHsfInput / NativeHsfOutput (native DLL)
+
+Consumed and produced by the `sfc_build_hsf` C-ABI function, which renders a `.hsf` from
+the same sellfile + gear a decision uses. The writer (`wasm/sfc_engine/src/hsf_export.rs`)
+mirrors `src/lib/hsfIO.ts`: `{"Rules":[…]}` pretty-printed at two spaces, `__`-prefixed UI
+metadata stripped, `RecipeID`/`RecipeName` hoisted ahead of the schema fields, a 1-based
+`RowIdx` appended per rule, and final-sell rows relabelled `"Final Sell"`.
+
+**NativeHsfInput** — the decide fields plus three content switches:
+
+```jsonc
+{
+  "sfc":       "…",   // as NativeInput
+  "artifacts": [ … ], // as NativeInput — protection names the pieces it rescues, so a
+                      // request with no gear yields no protection whatever the switch says
+  "champions": [ … ], // as NativeInput
+
+  // All default TRUE: an omitted switch reproduces the app's own export for that sellfile.
+  "recipes":    true, // the recipe rules (dropped BEFORE detection, so protection is not
+                      // injected for sells the requested file does not contain)
+  "safeguards": true, // AND-ed with the sellfile's own switch — it can only take away
+  "finalSell":  true  // withholds the merge's finalSellRemainder, dropping the catch-all
+}
+```
+
+`deny_unknown_fields` + `rename_all = "camelCase"` are deliberate: a misspelled switch is
+refused rather than silently defaulting to on, which would hand back a file that still
+sells everything.
+
+**NativeHsfOutput**:
+
+```jsonc
+{
+  "hsf":       "{
+  \"Rules\": [ … ]
+}",  // the complete file; write verbatim
+  "ruleCount": 412                          // so a caller need not re-parse to size it
+}
+```
+
+The three switches map onto three separate `ComputeMergedRulesIn` inputs (`custom_rules`,
+`safeguard_enabled` + detection, `final_sell_remainder`), which is why they compose without
+interfering. **The choice must be made here**: `cleanHsfForExport` strips `__source`, so a
+finished `.hsf` records nothing about which rule came from which source and cannot be
+filtered after the fact.
 
 ### IO Helpers (SFC)
 - Parse text/file: `parseSfcText`, `readSfcFile`.

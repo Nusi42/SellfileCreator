@@ -179,25 +179,49 @@ fn detect_safeguards(
     Ok(Some(combined.detection))
 }
 
-// Merge the recipe rules with the safeguard-injected keep rules into the final list.
-fn merge_rules(
+// Merge the recipe rules with the safeguard-injected keep rules into the final list,
+// including only the sources `options` asks for.
+//
+// The three toggles land on three separate merge inputs, which is why they compose without
+// interfering: recipes arrive already filtered in `custom_rules`, protection is gated by
+// the safeguard switch, and the catch-all is simply withheld.
+fn merge_rules_with(
     parsed: &SfcParsed,
     custom_rules: Vec<RuleRaw>,
     detection: Option<SafeguardWasmSnapshotOut>,
+    options: HsfOptions,
 ) -> Result<Vec<RuleRaw>, String> {
     compute_merged_rules_core(ComputeMergedRulesIn {
         base_rules: vec![],
         custom_rules,
-        final_sell_remainder: parsed.final_sell.clone(),
+        // Withholding the remainder is what drops the catch-all: the merge emits those rows
+        // from this description, so `None` means the file simply has no trailing sell.
+        final_sell_remainder: if options.final_sell {
+            parsed.final_sell.clone()
+        } else {
+            None
+        },
         all_known_set_ids: parsed.all_known_set_ids.clone(),
         omit_disabled_before_safeguards: false,
         dedupe_before_safeguards: false,
-        safeguard_enabled: parsed.safeguards_enabled,
+        // The caller's switch can only turn protection OFF; a sellfile that disabled it
+        // stays disabled, since the merge would otherwise inject rules the file never asked
+        // for.
+        safeguard_enabled: options.safeguards && parsed.safeguards_enabled,
         safeguard_rules: parsed.safeguard_rules.clone(),
         safeguard_detection: detection,
         safeguard_recipe_id_base: None,
     })
     .map_err(|e| format!("Merge error: {e}"))
+}
+
+// Merge every source, which is what a decision always evaluates against.
+fn merge_rules(
+    parsed: &SfcParsed,
+    custom_rules: Vec<RuleRaw>,
+    detection: Option<SafeguardWasmSnapshotOut>,
+) -> Result<Vec<RuleRaw>, String> {
+    merge_rules_with(parsed, custom_rules, detection, HsfOptions::default())
 }
 
 // Project the detection snapshot's candidates into the per-artifact rank rows.
@@ -425,6 +449,72 @@ pub fn decide_with(sfc: &str, compact: &[NativeArtifactIn], options: DecideOptio
 // Run the chain with the default options.
 pub fn decide(sfc: &str, compact: &[NativeArtifactIn]) -> Result<DecisionOutcome, String> {
     decide_with(sfc, compact, DecideOptions::default())
+}
+
+// ---------------------------------------------------------------------------
+// Sellfile export
+// ---------------------------------------------------------------------------
+
+// Which of a sellfile's three rule sources contribute to a generated `.hsf`.
+//
+// The three are INDEPENDENT on purpose: a caller asks for them by what they mean
+// ("protect my best gear", "sell the rest") rather than by knowing which rules inside the
+// file carry which marker. Every one defaults ON, so the default output is the same file
+// the app exports for that sellfile.
+#[derive(Debug, Clone, Copy)]
+pub struct HsfOptions {
+    // The recipes themselves — the keep/sell rules the user wrote. Off yields a file with
+    // no opinions of its own, which is only useful together with one of the other two.
+    pub recipes: bool,
+    // The protection rules, which turn into extra keep rows for the specific pieces they
+    // rescue. They depend on the gear supplied with the request: with no gear there is
+    // nothing to protect and this contributes nothing regardless of the flag.
+    //
+    // A sellfile whose own switch has protection turned off contributes nothing either —
+    // this flag can only take away, never enable something the file did not ask for.
+    pub safeguards: bool,
+    // The trailing "sell everything not named above" catch-all. Off yields a file that
+    // sells only what a recipe explicitly names, leaving the rest untouched.
+    pub final_sell: bool,
+}
+
+impl Default for HsfOptions {
+    fn default() -> Self {
+        // The app's own export: every source included.
+        Self {
+            recipes: true,
+            safeguards: true,
+            final_sell: true,
+        }
+    }
+}
+
+// Build the merged rule list a `.hsf` is written from, honouring the three toggles.
+//
+// Shares every stage with `decide_with` rather than restating the chain: the file a caller
+// writes and the verdicts it displays must come from the same rules, or the preview and
+// the exported file disagree.
+pub fn build_hsf_rules(sfc: &str, compact: &[NativeArtifactIn], options: HsfOptions) -> Result<Vec<RuleRaw>, String> {
+    let parsed = rule_engine_core::parse_sfc(sfc).map_err(|e| format!("SFC parse error: {e}"))?;
+    let recipe_modes = derive_recipe_modes(&parsed);
+    // Dropping the recipe rules has to happen HERE rather than after the merge: safeguard
+    // detection reads them to decide which pieces a rule would have sold, so leaving them
+    // in and filtering later would inject protection for sells that the requested file
+    // does not contain.
+    let custom_rules = if options.recipes {
+        build_rules(&parsed)?
+    } else {
+        Vec::new()
+    };
+    let rows = build_rows(compact);
+    // Detection is skipped outright when unwanted — it is the expensive stage, and its only
+    // product is the injected keep rows the merge below would then discard.
+    let detection = if options.safeguards {
+        detect_safeguards(&parsed, &rows, &custom_rules, recipe_modes)?
+    } else {
+        None
+    };
+    merge_rules_with(&parsed, custom_rules, detection, options)
 }
 
 // Run the same chain, timing each stage. Used by the bench example only; it exists so

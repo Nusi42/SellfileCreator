@@ -1,20 +1,23 @@
 # Decision library — calling it from your own program
 
 This folder has everything you need to ask "keep or sell?" for a pile of gear from your
-own Windows program, in C.
+own Windows program, in C — and to write a sell file the helper app can load.
 
 You give it a sell file and your gear. It gives you back, for every piece, whether to
-keep it, which rule decided that, and whether a protection rule is the only reason it
+keep it, which rule decided that, and whether a safeguard rule is the only reason it
 survived. The answers are the same ones you would see in the app's own preview, because
 it is the same decision code — that is the whole point of shipping it as a library rather
 than leaving you to reimplement the rules.
+
+It can also hand you a finished `.hsf` sell file built from the same sell file and gear,
+with separate switches for the recipes, the safeguards, and the closing "sell the rest".
 
 ## What is here
 
 | File | What it is |
 |---|---|
-| `sfc_decide.h` | The interface. Three functions, all documented in the file. |
-| `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them. |
+| `sfc_decide.h` | The interface. Four functions, all documented in the file. |
+| `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them, and builds two sell files. |
 | `build.bat` | Builds the example. Finds your compiler for you. |
 
 The library itself (`sfc_engine.dll`) sits in the same folder as this README.
@@ -26,8 +29,9 @@ build.bat
 sfc_sample.exe
 ```
 
-You should see a version line and then the decisions for two example pieces. If the
-library is somewhere else, pass its path:
+You should see a version line, the decisions for two example pieces, and the size of two
+sell files — one complete, one with the closing "sell the rest" left out. If the library is
+somewhere else, pass its path:
 
 ```
 sfc_sample.exe C:\somewhere\sfc_engine.dll
@@ -38,9 +42,10 @@ You need a C compiler. The free Community edition of Visual Studio with the
 
 ## How it works
 
-Three functions, all taking and returning UTF-8 text:
+Four functions, all taking and returning UTF-8 text:
 
 - **`sfc_decide`** — hand it a sell file plus your gear, get decisions back.
+- **`sfc_build_hsf`** — same input, plus three switches; get a sell file back as text.
 - **`sfc_version`** — which build you are talking to. Check it at startup.
 - **`sfc_free`** — release anything the library gave you.
 
@@ -75,7 +80,7 @@ banners with no set are their own kind of item and rules name them specifically;
 with no set is simply setless. They look alike but must not be treated alike, and the
 library keeps them apart.
 
-**Send who is wearing what.** It is optional, but protection rules treat worn gear
+**Send who is wearing what.** It is optional, but safeguard rules treat worn gear
 differently, so leaving it out can change an answer.
 
 In short: pass the raw numbers straight through. The library exists to get this right.
@@ -89,17 +94,38 @@ Each piece comes back with `keep`, `matched` and `safeguarded`:
   Nothing said to sell it, and gear is never sold on silence. Worth showing differently
   from a real decision: it usually means the sell file does not cover that kind of gear.
 - **`keep=false`, `matched=true`** — a rule decided to sell it.
-- **`safeguarded=true`** — a rule would have sold it and a protection rule saved it. A
+- **`safeguarded=true`** — a rule would have sold it and a safeguard rule saved it. A
   written-out sell file cannot express this; only a live decision can tell you.
 
-`safeguardRanks` gives you the reasoning behind protection: where each piece placed, which
+`safeguardRanks` gives you the reasoning behind the safeguards: where each piece placed, which
 group of similar pieces it was compared against, and whether it made the cut.
+
+## Writing a sell file
+
+`sfc_build_hsf` takes the same sell file and gear and gives you back a finished `.hsf` as
+text, ready to write to disk. Three switches choose what goes in, each on unless you turn
+it off:
+
+- **`recipes`** — the keep and sell rules the user wrote.
+- **`safeguards`** — keep entries for the individual pieces the safeguard rules save.
+- **`finalSell`** — the closing "sell everything not mentioned above". Turn it off for a
+  cautious file that only ever sells what a rule actually names.
+
+Send none of them and you get the same file the app itself would write.
+
+Two things are worth knowing. The gear matters even though a sell file describes rules
+rather than pieces: a safeguard works by naming the pieces it saves, so a request with no
+gear comes back with no safeguards in it however the switch is set. And you have to choose
+here — a finished sell file is just a list of rules and does not record which part each one
+came from, so there is nothing to sort out afterwards.
+
+Write the returned text to a file ending in `.hsf` exactly as it stands. Do not reformat it.
 
 ## Speed
 
 A full inventory of around 8,000 pieces against a large sell file takes roughly two thirds
 of a second. Most of that is turning the sell file into rules, which has to happen every
-time because protection rules depend on the gear itself.
+time because safeguard rules depend on the gear itself.
 
 Every call is independent — nothing is remembered between calls, so there is no session to
 open or state to invalidate. Call it whenever your gear changes.

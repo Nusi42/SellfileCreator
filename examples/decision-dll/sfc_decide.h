@@ -3,7 +3,7 @@
  *
  * Drop this header next to your own code and load the library at run time (see
  * sfc_sample.c for a complete, working loader). Everything the library does is
- * reachable through the three functions below.
+ * reachable through the four functions below.
  *
  * All strings are UTF-8 and null-terminated. Every string the library hands back is
  * heap-allocated by the library itself, so it must be released with sfc_free — never
@@ -43,7 +43,7 @@ extern "C" {
  *                       no verdicts). Shape below.
  *
  *   champions           Who is wearing what. Optional, but it changes answers:
- *                       protection rules treat worn gear differently. Shape below.
+ *                       safeguard rules treat worn gear differently. Shape below.
  *
  *   improvementChances  Off by default. Adds a per-piece "how likely is this to get
  *                       better" projection. It costs several times more than the whole
@@ -173,14 +173,14 @@ extern "C" {
  *         "matched":     true,     // did any rule cover this piece at all
  *         "ruleName":    "...",    // name of the deciding rule, or null if the rule
  *                                  // has no name or nothing matched
- *         "safeguarded": false     // kept only because protection overrode a sell rule
+ *         "safeguarded": false     // kept only because a safeguard overrode a sell rule
  *       }
  *     ],
  *
  *     "safeguardRanks": [
  *       {
  *         "artifactId":    7380,
- *         "ruleOrdinal":   2,      // which protection rule, counting from 1 in file order
+ *         "ruleOrdinal":   2,      // which safeguard rule, counting from 1 in file order
  *         "score":         41.5,   // how well this piece scored for that rule
  *         "candidateRank": 7,      // its place across everything that rule considered
  *         "bucketRank":    2,      // its place among the similar pieces it competes with
@@ -201,7 +201,7 @@ extern "C" {
  *   }
  *
  * A piece appears in "verdicts" once. It appears in "safeguardRanks" once per
- * protection rule that considered it, or not at all if none did.
+ * safeguard rule that considered it, or not at all if none did.
  *
  * Reading the three verdict fields together:
  *
@@ -211,7 +211,7 @@ extern "C" {
  *                              showing differently: it usually means the sell file does
  *                              not cover that kind of gear.
  *   keep=false, matched=true   A rule decided to sell it.
- *   safeguarded=true           A rule would have sold it and a protection rule saved it.
+ *   safeguarded=true           A rule would have sold it and a safeguard rule saved it.
  *                              Only a live decision can tell you this; a written-out
  *                              sell file has no way to express it.
  *
@@ -225,7 +225,7 @@ extern "C" {
  * shares nothing with the others, so nothing needs locking on your side.
  *
  * That helps you answer separate requests in parallel. It does NOT make one answer
- * arrive sooner: every call does the whole job from scratch, because the protection
+ * arrive sooner: every call does the whole job from scratch, because the safeguard
  * rules depend on the gear you send and cannot be prepared in advance.
  *
  * Nothing is remembered between calls - there is no session to open, nothing to
@@ -237,6 +237,85 @@ extern "C" {
  * Release the result with sfc_free.
  */
 char *sfc_decide(const char *input_json);
+
+
+/*
+ * Write a sell file (.hsf) that the helper app can load.
+ *
+ * Same sell file and same gear as sfc_decide, plus three switches choosing what goes
+ * into the result. Use this when you want to hand the helper app a file; use sfc_decide
+ * when you want the answers yourself.
+ *
+ * ===========================================================================
+ * WHAT YOU SEND
+ * ===========================================================================
+ *
+ *   {
+ *     "sfc":       "<the sell file's text, as a JSON string>",
+ *     "artifacts": [ <gear row>, ... ],
+ *     "champions": [ <champion row>, ... ],
+ *
+ *     "recipes":    true,
+ *     "safeguards": true,
+ *     "finalSell":  true
+ *   }
+ *
+ * "sfc", "artifacts" and "champions" are exactly as described for sfc_decide above -
+ * same shapes, same rules about passing the game's numbers through untouched.
+ *
+ * The gear matters even though the result describes rules rather than pieces. A safeguard
+ * works by naming the individual pieces it saves, so a request with no gear produces a
+ * file with no safeguards in it, whichever way the switch is set.
+ *
+ * ---------------------------------------------------------------------------
+ * The three switches
+ * ---------------------------------------------------------------------------
+ *
+ * Each one is on unless you say otherwise, so sending none of them gives you the same
+ * file the app itself would write for that sell file. Each names a part of the result by
+ * what it MEANS, so you never need to know how a sell file is put together:
+ *
+ *   recipes      The keep and sell rules the user wrote. Turn off to get a file that
+ *                carries only the safeguards, or only the final sell.
+ *
+ *   safeguards   Extra keep entries for the specific pieces the sell file's safeguard
+ *                rules rescue. Turn off and those pieces are no longer spared.
+ *                This switch can only take safeguards AWAY - a sell file with them
+ *                turned off gets none either way.
+ *
+ *   finalSell    The closing "sell everything not mentioned above". Turn off and anything
+ *                no rule names is simply left alone instead of sold. Worth turning off
+ *                when you want a cautious file that only ever sells what it names.
+ *
+ * You must choose these HERE. The finished file does not record which entry came from
+ * where, so you cannot sort them out afterwards - a written sell file is just a list of
+ * rules.
+ *
+ * ===========================================================================
+ * WHAT YOU GET BACK
+ * ===========================================================================
+ *
+ *   {
+ *     "hsf":       "<the complete file>",
+ *     "ruleCount": 412
+ *   }
+ *
+ *   hsf         The whole file as text. Write it to disk exactly as it is - do not
+ *               reformat it or add anything. Name it with a .hsf ending.
+ *
+ *   ruleCount   How many rules it contains, so you can show or check the size without
+ *               reading the file back.
+ *
+ * A big sell file turns into tens of thousands of rules, so expect a large string.
+ *
+ * On failure the result is {"error":"<what went wrong>"} instead, exactly as for
+ * sfc_decide. The function never returns NULL.
+ *
+ * You may call this from several threads at once, like everything else here.
+ *
+ * Release the result with sfc_free.
+ */
+char *sfc_build_hsf(const char *input_json);
 
 
 /*

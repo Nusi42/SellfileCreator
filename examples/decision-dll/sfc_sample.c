@@ -3,8 +3,10 @@
  * from C on Windows.
  *
  * It loads the library, checks the version, asks for a decision on two pieces of
- * gear, prints the answers, and cleans up. Everything is plain C99 and the Windows
- * API - no other libraries needed.
+ * gear, prints the answers, then writes a sell file the helper app can load - once
+ * complete, and once with the closing "sell everything else" left out, to show what
+ * the switches do. Everything is plain C99 and the Windows API - no other libraries
+ * needed.
  *
  * Build and run (from this folder):
  *
@@ -35,11 +37,14 @@
 
 /* The functions we call, as pointers we look up after loading the library. */
 typedef char *(*sfc_decide_fn)(const char *);
+typedef char *(*sfc_build_hsf_fn)(const char *);
 typedef char *(*sfc_version_fn)(void);
 typedef void (*sfc_free_fn)(char *);
 
 /*
- * A sell file with one rule: keep 5-star Epic pieces that have a Speed substat.
+ * A small sell file: keep 5-star Epic pieces that have a Speed substat, and sell whatever
+ * is left over at every upgrade level. That closing "sell the rest" is the part the
+ * finalSell switch turns off further down, which is why it is here.
  *
  * A real one comes from a file on disk - this is inline only to keep the example to a
  * single source file. Note the escaped quotes: the sell file is passed as a JSON
@@ -56,7 +61,13 @@ static const char *SELL_FILE =
     "\\\"minCount\\\": 1"
     "}],"
     "\\\"Safeguards\\\": [],"
-    "\\\"SafeguardsEnabled\\\": false"
+    "\\\"SafeguardsEnabled\\\": false,"
+    /* The closing catch-all: sell anything no rule above named, at any level. */
+    "\\\"FinalSellRemainder\\\": {"
+    "\\\"artifacts\\\": true,"
+    "\\\"accessories\\\": true,"
+    "\\\"levels\\\": [0, 4, 8, 12, 16]"
+    "}"
     "}";
 
 /*
@@ -97,7 +108,7 @@ static const char *GEAR =
     "]";
 
 /*
- * Who is wearing what. Optional, but worth sending: protection rules treat worn gear
+ * Who is wearing what. Optional, but worth sending: safeguard rules treat worn gear
  * differently, so leaving it out can change an answer. Champion 5000 wears piece 1001.
  */
 static const char *CHAMPIONS =
@@ -120,6 +131,49 @@ static char *build_request(void)
                 " \"rules\": false}",
                 SELL_FILE, GEAR, CHAMPIONS);
     return buffer;
+}
+
+/*
+ * Build the request for a sell file. Caller frees with free().
+ *
+ * `switches` is pasted in as-is, so a caller can leave it empty for the complete file or
+ * pass something like ", \"finalSell\": false" to leave a part out. The gear goes along
+ * because a safeguard names the individual pieces it saves - without gear the file comes
+ * back with no safeguards in it.
+ */
+static char *build_hsf_request(const char *switches)
+{
+    size_t capacity = strlen(SELL_FILE) + strlen(GEAR) + strlen(CHAMPIONS) + strlen(switches) + 256;
+    char *buffer = (char *)malloc(capacity);
+    if (!buffer) {
+        return NULL;
+    }
+    _snprintf_s(buffer, capacity, _TRUNCATE,
+                "{\"sfc\": \"%s\", \"artifacts\": %s, \"champions\": %s%s}",
+                SELL_FILE, GEAR, CHAMPIONS, switches);
+    return buffer;
+}
+
+/*
+ * Report how many rules a sell file came back with, and say what it would be saved as.
+ *
+ * The answer holds the whole file in "hsf" - this only reads the count beside it, to keep
+ * the example short. Real code pulls out "hsf" with its JSON library and writes that
+ * string to a .hsf file exactly as it stands, without reformatting it.
+ */
+static void report_sell_file(const char *label, const char *answer)
+{
+    const char *count = strstr(answer, "\"ruleCount\":");
+
+    if (strncmp(answer, "{\"error\"", 8) == 0) {
+        fprintf(stderr, "  %-24s failed: %s\n", label, answer);
+        return;
+    }
+    if (!count) {
+        fprintf(stderr, "  %-24s no rule count in the answer.\n", label);
+        return;
+    }
+    printf("  %-24s %lld rule(s)\n", label, _atoi64(count + strlen("\"ruleCount\":")));
 }
 
 /*
@@ -171,7 +225,7 @@ static void print_verdicts(const char *answer)
         if (!keep) {
             printf("  %lld  SELL  - a rule says to sell it\n", id);
         } else if (safeguarded) {
-            printf("  %lld  KEEP  - a rule would sell it, but protection saved it\n", id);
+            printf("  %lld  KEEP  - a rule would sell it, but a safeguard saved it\n", id);
         } else if (matched) {
             printf("  %lld  KEEP  - a rule says to keep it\n", id);
         } else {
@@ -200,11 +254,14 @@ int main(int argc, char *argv[])
     const char *library_path = (argc > 1) ? argv[1] : DEFAULT_LIBRARY_NAME;
     HMODULE library = NULL;
     sfc_decide_fn decide = NULL;
+    sfc_build_hsf_fn build_hsf = NULL;
     sfc_version_fn version = NULL;
     sfc_free_fn release = NULL;
     char *request = NULL;
     char *version_text = NULL;
     char *answer = NULL;
+    char *hsf_request = NULL;
+    char *hsf_answer = NULL;
     int exit_code = 1;
 
     /* 1. Load the library. */
@@ -218,9 +275,10 @@ int main(int argc, char *argv[])
 
     /* 2. Find the functions. */
     decide = (sfc_decide_fn)GetProcAddress(library, "sfc_decide");
+    build_hsf = (sfc_build_hsf_fn)GetProcAddress(library, "sfc_build_hsf");
     version = (sfc_version_fn)GetProcAddress(library, "sfc_version");
     release = (sfc_free_fn)GetProcAddress(library, "sfc_free");
-    if (!decide || !version || !release) {
+    if (!decide || !build_hsf || !version || !release) {
         fprintf(stderr, "The library loaded but does not have the expected functions.\n");
         fprintf(stderr, "It is probably an older or unrelated file.\n");
         goto cleanup;
@@ -264,6 +322,44 @@ int main(int argc, char *argv[])
 
     printf("Decisions:\n");
     print_verdicts(answer);
+
+    /* 6. Ask for a sell file the helper app could load.
+     *
+     * Twice, to show the switches: once complete, and once without the closing "sell
+     * everything else". The second is the cautious file - it only ever sells what a rule
+     * actually names, and leaves everything else alone.
+     *
+     * The switches have to be chosen HERE. A finished sell file is just a list of rules
+     * and does not record which part each one came from, so there is nothing left to
+     * sort out afterwards. */
+    printf("\nSell files:\n");
+
+    hsf_request = build_hsf_request("");
+    if (hsf_request) {
+        hsf_answer = build_hsf(hsf_request);
+        if (hsf_answer) {
+            report_sell_file("everything", hsf_answer);
+            release(hsf_answer);
+            hsf_answer = NULL;
+        }
+        free(hsf_request);
+        hsf_request = NULL;
+    }
+
+    /* Same request, one switch flipped. Everything else is identical. */
+    hsf_request = build_hsf_request(", \"finalSell\": false");
+    if (hsf_request) {
+        hsf_answer = build_hsf(hsf_request);
+        if (hsf_answer) {
+            report_sell_file("without the final sell", hsf_answer);
+            release(hsf_answer);
+            hsf_answer = NULL;
+        }
+        free(hsf_request);
+        hsf_request = NULL;
+    }
+
+    printf("\nTo save one, write its \"hsf\" text to a file ending in .hsf, as it stands.\n");
     exit_code = 0;
 
 cleanup:
@@ -274,8 +370,12 @@ cleanup:
     if (version_text && release) {
         release(version_text);
     }
-    /* The request buffer is ours, so it uses the ordinary free(). */
+    if (hsf_answer && release) {
+        release(hsf_answer);
+    }
+    /* The request buffers are ours, so they use the ordinary free(). */
     free(request);
+    free(hsf_request);
     FreeLibrary(library);
     return exit_code;
 }
