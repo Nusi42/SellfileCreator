@@ -35,6 +35,38 @@ function Write-TextUtf8WithBom([string]$Path, [string]$Text) {
   [System.IO.File]::WriteAllText($Path, $Text, $enc)
 }
 
+# Helper: keep the Rust workspace version in step with package.json.
+# The crates ship inside the app (sfc_engine reports CARGO_PKG_VERSION over its C ABI),
+# so their version must be the app's. package.json remains the single source of truth;
+# wasm/Cargo.toml just mirrors it via [workspace.package], and every member crate
+# inherits that with `version.workspace = true`.
+function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
+  $cargoPath = Join-Path $RepoRoot 'wasm\Cargo.toml'
+  if (-not (Test-Path -LiteralPath $cargoPath)) {
+    Write-Warning "wasm/Cargo.toml not found; skipping crate version sync"
+    return
+  }
+  $raw = Get-Content -Raw -LiteralPath $cargoPath
+  # Only the version line inside [workspace.package] may move. Anchoring on that header
+  # keeps dependency versions ("serde = { version = ... }") untouched.
+  $pattern = '(?ms)(^\[workspace\.package\]\s*$.*?^version\s*=\s*")[^"]*(")'
+  if ($raw -notmatch $pattern) {
+    throw "Could not locate [workspace.package] version in wasm/Cargo.toml"
+  }
+  $updated = [regex]::Replace($raw, $pattern, "`${1}$Version`${2}", 1)
+  Write-TextUtf8NoBom -Path $cargoPath -Text $updated
+  # Refresh Cargo.lock so the committed lockfile records the new crate versions.
+  # Failure here is non-fatal: the build re-resolves the lockfile anyway.
+  Push-Location (Join-Path $RepoRoot 'wasm')
+  try {
+    cargo metadata --format-version 1 --no-deps --quiet > $null 2>&1
+  } catch {
+    Write-Warning "cargo metadata failed while refreshing Cargo.lock: $_"
+  } finally {
+    Pop-Location
+  }
+}
+
 # Helper: convert README markdown to a flat UTF-8 text file with injected version badge.
 function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [string]$VersionLabel) {
   if (-not (Test-Path -LiteralPath $SourcePath)) { return }
@@ -90,6 +122,8 @@ try {
       $pkg.version = $releaseVersion
       $json = $pkg | ConvertTo-Json -Depth 20
       Write-TextUtf8NoBom -Path $pkgPath -Text $json
+      # The shipped crates carry the app version, so clean them in the same step.
+      Set-CrateVersion -RepoRoot $RepoRoot -Version $releaseVersion
       $versionWasCleaned = $true
     }
 
@@ -458,6 +492,7 @@ public static class Crc32Helper {
     if (-not $DevBuild) {
       Write-Host "Restoring original package.json version ($origVersion) due to failure" -ForegroundColor Yellow
       Write-TextUtf8NoBom -Path $pkgPath -Text $pkgRaw
+      Set-CrateVersion -RepoRoot $RepoRoot -Version $origVersion
     }
     throw
   }
@@ -493,6 +528,7 @@ public static class Crc32Helper {
       $pkg.version = $next
       $json2 = $pkg | ConvertTo-Json -Depth 20
       Write-TextUtf8NoBom -Path $pkgPath -Text $json2
+      Set-CrateVersion -RepoRoot $RepoRoot -Version $next
     } else {
       Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
     }

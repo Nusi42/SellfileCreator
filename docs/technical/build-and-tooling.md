@@ -588,6 +588,15 @@ definition lives in the generated layer (which owns the id domain) and is re-exp
 - A hand-written header (`examples/decision-dll/sfc_decide.h`) documents the four
   exports; no cbindgen. `sfc_version()` carries the schema number so a consumer holding
   a prebuilt DLL fails loudly on a mismatch.
+- **Crate versions are the app version.** All four workspace crates inherit
+  `[workspace.package] version` in `wasm/Cargo.toml` via `version.workspace = true`, and
+  that field mirrors `version` in the root `package.json` — which stays the single source
+  of truth. `sfc_engine` reports it as `crate` from `sfc_version()` (`env!("CARGO_PKG_VERSION")`),
+  so a shipped DLL names the app build that produced it. `Set-CrateVersion` in
+  `scripts/release/release-win.ps1` rewrites the workspace field wherever the release
+  script writes `package.json` (release clean, failure restore, post-release dev bump) and
+  refreshes `Cargo.lock`, so the two cannot drift. Never hand-edit the crate version to a
+  value `package.json` does not have.
 - `npm run test:unit` compiles and tests the crate, so a `rule_engine_core` change that
   breaks it fails the standard gate.
 

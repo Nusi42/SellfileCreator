@@ -3,6 +3,16 @@ members = ["rule_engine_core", "rule_engine_wasm", "rule_engine_dsim_wasm", "sfc
 exclude = ["rule_engine"]
 resolver = "2"
 
+# Every crate in the workspace ships as part of the app, so they all carry the app's
+# version rather than a private one — a consumer reading `sfc_version()` off a prebuilt
+# DLL learns which app build produced it. This field is the ONE place the Rust side
+# spells that version; members inherit it with `version.workspace = true`.
+# It mirrors `version` in the repo-root package.json, which stays the single source of
+# truth: the release script rewrites both together (see scripts/release/release-win.ps1),
+# so never hand-edit this to a value package.json does not have.
+[workspace.package]
+version = "1.0.48-dev"
+
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patches.
 # Fixes a talc 5.0.3 bug where the tag byte overlaps the end-size MSB, causing is_allocated()
 # to misidentify free gaps ≥16 MiB as allocated chunks, ultimately corrupting the free list.

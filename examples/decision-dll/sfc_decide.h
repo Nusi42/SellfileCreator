@@ -340,6 +340,9 @@ char *sfc_build_hsf(const char *input_json);
 /*
  * Report which build you are talking to: {"crate":"<version>","schema":<number>}.
  *
+ * "crate" is the version of Sellfile Creator this library shipped with, so it matches
+ * the version shown in the app. It is useful in bug reports; do not gate on it.
+ *
  * Check "schema" once at startup and refuse to run if it is not the number your code
  * was written against. That turns a version mismatch into a clear message instead of
  * silently misreading fields. Release the result with sfc_free.
