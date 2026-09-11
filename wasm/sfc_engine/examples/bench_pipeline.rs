@@ -17,6 +17,20 @@ use std::time::Instant;
 use sfc_engine::artifact_log::{build_equipped_by_artifact_map, parse_artifact_log_array};
 use sfc_engine::pipeline;
 
+/// Reads a row array, accepting either a bare array or the JSON-RPC notification
+/// it arrives in on the wire (`{"method":…,"params":{"<key>":[…]}}`).
+///
+/// Both shapes are real inputs: the crate's own parity fixtures are captured
+/// notifications, while a caller that already unwrapped them passes the array.
+/// Accepting one only meant the benchmark panicked on the fixtures committed
+/// beside it.
+fn parse_rows<T: serde::de::DeserializeOwned>(raw: &str, key: &str) -> Vec<T> {
+    let value: serde_json::Value = serde_json::from_str(raw).unwrap_or_else(|e| panic!("{key} must be JSON: {e}"));
+    // A notification nests the rows under params; a bare array is already them.
+    let rows = value.get("params").and_then(|p| p.get(key)).unwrap_or(&value);
+    serde_json::from_value(rows.clone()).unwrap_or_else(|e| panic!("{key} must deserialise: {e}"))
+}
+
 fn main() {
     // Positional args keep the harness dependency-free; all three are required.
     let args: Vec<String> = std::env::args().collect();
@@ -31,10 +45,8 @@ fn main() {
     // Stage 0 — JSON parse of the input envelope. Measured because §5 argues the caller
     // pays no transcoding cost; this is the one cost the DLL side actually does pay.
     let t = Instant::now();
-    let raw_artifacts: Vec<sfc_engine::artifact_log::RawArtifactLogRow> =
-        serde_json::from_str(&artifacts_raw).expect("artifacts must deserialise");
-    let raw_champions: Vec<sfc_engine::artifact_log::RawChampionRow> =
-        serde_json::from_str(&champions_raw).expect("champions must deserialise");
+    let raw_artifacts: Vec<sfc_engine::artifact_log::RawArtifactLogRow> = parse_rows(&artifacts_raw, "artifacts");
+    let raw_champions: Vec<sfc_engine::artifact_log::RawChampionRow> = parse_rows(&champions_raw, "champions");
     let json_ms = t.elapsed().as_secs_f64() * 1000.0;
 
     // Stage 1 — raw→compact normalisation (the §4 rules run here).
