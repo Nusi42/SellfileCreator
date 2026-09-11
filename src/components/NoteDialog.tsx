@@ -145,6 +145,8 @@ import { CONTEXT_HINT_IDS } from '../hooks/contextMenuHintIds'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import type { SimpleVariant } from '../lib/externalWsProtocol'
 import { dirtyStampIsClean } from '../lib/stalenessRamp'
+import { useClientCapability } from '../hooks/useClientCapability'
+import { CAPABILITY_SFC_FILE_AS_SELLFILE } from '../lib/clientCapabilities'
 import UniformChoiceDialog from './dialogs/UniformChoiceDialog'
 import { GoldCornerOrnaments } from './GoldCornerOrnament'
 import {
@@ -4395,6 +4397,10 @@ export default function NoteDialog({
   drawerLeftPx?: number
 }) {
   const { t, lang, setLang } = useI18n()
+  // SfcFileAsSellfile: auto-push uploads the .sfc file rather than the compiled sellfile,
+  // so the express strip's tooltips must name that document. Hook-read because the
+  // capability lands mid-session (and drops with the socket), which has to repaint these.
+  const autoPushSendsSfcFile = useClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)
   const theme = useTheme()
   const { colorScheme } = useColorScheme()
   // Editor background adapts to the active theme mode; the syntax/note colours
@@ -4759,9 +4765,13 @@ export default function NoteDialog({
           // is disabled until then and says why. The tooltip needs the span wrapper: a disabled
           // MUI Button swallows pointer events, and without it the explanation never appears.
           <MarkdownTooltip markdown={
-            !noteConnected ? t('simpleModeAutoPushDisconnectedTooltip')
-            : autoPushExpressEnabled ? t('simpleModeAutoPushOnTooltip')
-            : t('simpleModeAutoPushOffTooltip')
+            // Under SfcFileAsSellfile auto-push sends the .sfc file, not the compiled
+            // sellfile, so all three states name what the client actually receives.
+            !noteConnected
+              ? t(autoPushSendsSfcFile ? 'simpleModeAutoPushSfcFileDisconnectedTooltip' : 'simpleModeAutoPushDisconnectedTooltip')
+            : autoPushExpressEnabled
+              ? t(autoPushSendsSfcFile ? 'simpleModeAutoPushSfcFileOnTooltip' : 'simpleModeAutoPushOnTooltip')
+            : t(autoPushSendsSfcFile ? 'simpleModeAutoPushSfcFileOffTooltip' : 'simpleModeAutoPushOffTooltip')
           }>
             <Box component="span" sx={{ display: 'inline-flex' }}>
               {/* key change on each push remounts the button so the CSS animation replays.

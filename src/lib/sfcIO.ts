@@ -1743,6 +1743,28 @@ export function sfcToText(payload: unknown): string {
   return JSON.stringify(payload, null, 2)
 }
 
+/**
+ * Change fingerprint of a serialized .sfc document.
+ *
+ * Auto-push under SfcFileAsSellfile compares this against the last PUSHED document to decide
+ * whether anything actually changed (see externalWsProtocol.pushWatchesSfcDocument). It reads
+ * the same bytes `sfcToText` produces, so the fingerprint moves exactly when the pushed file
+ * would differ — no field can change the upload without changing this, and cosmetic churn
+ * that serializes identically correctly reads as unchanged.
+ *
+ * DJB2: a change detector, not a security digest. Collisions only ever mean one skipped push
+ * of an already-identical-looking document, and the next real edit moves it again.
+ */
+export function sfcTextFingerprint(text: string): string {
+  let hash = 5381
+  for (let i = 0; i < text.length; i += 1) {
+    // (hash * 33) + char, kept in int32 so the result is stable across engines.
+    hash = ((hash << 5) + hash) + text.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash).toString(36)
+}
+
 /** Wrap already-serialized .sfc text as a download Blob (same MIME as every SFC export). */
 export function sfcTextToBlob(text: string): Blob {
   return new Blob([text], { type: SFC_EXPORT_CONTENT_TYPE })

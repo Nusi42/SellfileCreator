@@ -10,6 +10,11 @@
  * gear) on a dedicated one-shot worker, and uploads the resulting sellfile stamped with
  * that account's id — all without touching the active session's state.
  *
+ * Under the SfcFileAsSellfile capability the uploaded document is the account's .sfc
+ * instead, which needs no pipeline run at all. A gear burst cannot change that document,
+ * so an unchanged one is fingerprinted and NOT re-sent (outcome `unchanged`) — the burst's
+ * gear is still persisted either way, which is why that step is independent of the upload.
+ *
  * SSOT dependencies (never re-derive these inline here):
  *  - override chain            → lib/documentOverrides.buildDocumentOverridesView
  *  - gear normalization        → lib/importers (createDatasetFromSnapshot, patchArtifactRowsCID,
@@ -35,7 +40,7 @@ import {
   type SfcAccount,
 } from './accounts'
 import { loadAutosave, saveAutosave } from './autosave'
-import { buildSfcPayloadFromParsed, parseSfcObject, SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
+import { buildSfcPayloadFromParsed, parseSfcObject, sfcTextFingerprint, sfcToText, SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
 import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
@@ -58,7 +63,9 @@ import {
   getSellfileAutoPushForAccount,
   getSellfileDedupForAccount,
   getSellfileOmitDisabledForAccount,
+  getSellfileLastPushSfcHashForAccount,
   markSellfileLastPushForAccount,
+  setSellfileLastPushSfcHashForAccount,
 } from '../state/exportPreferences'
 import { getPersistEndpointGearForAccount } from '../state/gearDbPreferences'
 import { APP_VERSION } from '../version'
@@ -72,6 +79,10 @@ const BACKGROUND_PUSH_COALESCE_MS = 1500
 export type BackgroundAccountPushOutcome =
   | { kind: 'pushed'; account: SfcAccount; itemCount: number }
   | { kind: 'autoPushOff'; account: SfcAccount }
+  // The .sfc document was byte-identical to the one last pushed, so nothing was uploaded
+  // (SfcFileAsSellfile only — a gear burst never changes that document). NOT a failure:
+  // the client already holds this exact file. The burst's gear was still persisted.
+  | { kind: 'unchanged'; account: SfcAccount }
   | { kind: 'noDocument'; account: SfcAccount }
   | { kind: 'failed'; account: SfcAccount; message: string }
 
@@ -136,6 +147,40 @@ export const createBackgroundAccountPushService = (
     lastUsed: burst.lastUsed ?? [],
   })
 
+  // Upload one payload stamped with the account's identity, and record the success.
+  // Shared by both document kinds so neither can drift on stamping or the success contract.
+  // Throws on rejection — flush's catch turns that into a `failed` outcome.
+  const uploadAndRecord = async (
+    account: SfcAccount,
+    method: ExternalWsRequestMethod,
+    upload: { fileName: string; contentType: string; data: unknown },
+  ): Promise<void> => {
+    const response = await deps.sendRequest(method, {
+      ...(account.helperAccountId ? { playerId: account.helperAccountId } : {}),
+      // displayName IS the in-game player name (kept fresh from helper-sent names);
+      // optional — an empty name is no identity and is omitted like the id.
+      ...(account.displayName ? { playerName: account.displayName } : {}),
+      ...upload,
+    })
+    if (!response.ok) throw new Error(response.error ?? 'upload rejected')
+    // Record the success for the account menu's "Pushed <date>" summary line.
+    markSellfileLastPushForAccount(account.id)
+  }
+
+  // Persist the burst's gear into the account's own gearInspector autosave so its next
+  // session starts from this data instead of a stale queue — unless the account disabled
+  // persisting endpoint gear to localStorage (per-account perf/sanity toggle).
+  //
+  // Deliberately independent of whether anything was UPLOADED: a skipped (unchanged) push
+  // still received gear, and dropping it here would leave that account stale.
+  const persistBurstGear = (account: SfcAccount, items: GearInspectorItem[]): void => {
+    if (!getPersistEndpointGearForAccount(account.id)) return
+    saveAutosave(
+      resolveAccountScopedKeyFor(account.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR),
+      buildGearInspectorAutosavePayload(items),
+    )
+  }
+
   // The actual build+push for one settled burst. Never throws — failures become outcomes.
   const flush = async (burst: PendingBurst): Promise<void> => {
     const account = burst.account
@@ -192,57 +237,56 @@ export const createBackgroundAccountPushService = (
       // this path will receive. Gear normalization above still ran, so step 6 persists the
       // burst either way.
       const uploadTarget = resolveSellfileUploadTarget()
-      const upload = uploadTarget.sfcDocument
-        ? {
-            fileName: sfcFilename(),
-            contentType: SFC_EXPORT_CONTENT_TYPE,
-            data: buildSfcPayloadFromParsed(doc, APP_VERSION),
-          }
-        : await (async () => {
-            const safeguardsEnabled = (doc.safeguardsEnabled ?? false) && view.effectiveSafeguardRules.length > 0
-            const result = await deps.runPipeline({
-              recipes: view.pipelineRecipes,
-              metasets: doc.metasets,
-              substatTargets: view.effectiveSubstatTargets,
-              // Autosaved documents carry no base .hsf file (that is transient session state).
-              hsf: null,
-              ...(doc.finalSellRemainder ? { finalSellRemainder: doc.finalSellRemainder } : {}),
-              safeguards: { enabled: safeguardsEnabled, rules: [...view.effectiveSafeguardRules], detection: null },
-              // The export transforms are per-account — read the TARGET account's dedup/omit so a
-              // background build for account X uses X's chosen transforms, not the active account's.
-              omitDisabledBeforeSafeguards: getSellfileOmitDisabledForAccount(account.id),
-              dedupeBeforeSafeguards: getSellfileDedupForAccount(account.id),
-              recipeModes: view.recipeModes,
-              artifacts,
-              computeImprovementChance: false,
-            })
-            // Serialize with the shared writer.
-            return {
-              fileName: sellfileFilename(),
-              contentType: HSF_EXPORT_CONTENT_TYPE,
-              data: buildHsfFileFromMerged(result.mergedRules, { recipeNames: view.exportRecipeNames }),
-            }
-          })()
-      // 5. Upload, stamped with X's identity.
-      const response = await deps.sendRequest(uploadTarget.method, {
-        ...(account.helperAccountId ? { playerId: account.helperAccountId } : {}),
-        // displayName IS the in-game player name (kept fresh from helper-sent names);
-        // optional — an empty name is no identity and is omitted like the id.
-        ...(account.displayName ? { playerName: account.displayName } : {}),
-        ...upload,
-      })
-      if (!response.ok) throw new Error(response.error ?? 'upload rejected')
-      // Record the success for the account menu's "Pushed <date>" summary line.
-      markSellfileLastPushForAccount(account.id)
-      // 6. Persist the fresh gear into X's own gearInspector autosave so its next
-      // session starts from this data instead of a stale queue — unless X disabled
-      // persisting endpoint gear to localStorage (per-account perf/sanity toggle).
-      if (getPersistEndpointGearForAccount(account.id)) {
-        saveAutosave(
-          resolveAccountScopedKeyFor(account.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR),
-          buildGearInspectorAutosavePayload(items),
-        )
+      // Under SfcFileAsSellfile the upload is this account's .sfc, which a GEAR burst cannot
+      // change — the document is loaded from autosave and gear is not part of it. Fingerprint
+      // it and skip an unchanged one: without this every packet re-sends a byte-identical file.
+      // The skip covers the UPLOAD ONLY — persistence (step 6) still runs below, or the
+      // account's next session would start from stale gear.
+      if (uploadTarget.sfcDocument) {
+        const sfcPayload = buildSfcPayloadFromParsed(doc, APP_VERSION)
+        const fingerprint = sfcTextFingerprint(sfcToText(sfcPayload))
+        if (fingerprint === getSellfileLastPushSfcHashForAccount(account.id)) {
+          // Nothing to send. Persist the gear that arrived, then report the no-op.
+          persistBurstGear(account, items)
+          deps.onOutcome({ kind: 'unchanged', account })
+          return
+        }
+        await uploadAndRecord(account, uploadTarget.method, {
+          fileName: sfcFilename(),
+          contentType: SFC_EXPORT_CONTENT_TYPE,
+          data: sfcPayload,
+        })
+        // Only a CONFIRMED upload advances the baseline, so a failed push retries next burst.
+        setSellfileLastPushSfcHashForAccount(account.id, fingerprint)
+        persistBurstGear(account, items)
+        deps.onOutcome({ kind: 'pushed', account, itemCount: items.length })
+        return
       }
+      // Default path: compile the sellfile on a dedicated worker and upload the .hsf.
+      const safeguardsEnabled = (doc.safeguardsEnabled ?? false) && view.effectiveSafeguardRules.length > 0
+      const result = await deps.runPipeline({
+        recipes: view.pipelineRecipes,
+        metasets: doc.metasets,
+        substatTargets: view.effectiveSubstatTargets,
+        // Autosaved documents carry no base .hsf file (that is transient session state).
+        hsf: null,
+        ...(doc.finalSellRemainder ? { finalSellRemainder: doc.finalSellRemainder } : {}),
+        safeguards: { enabled: safeguardsEnabled, rules: [...view.effectiveSafeguardRules], detection: null },
+        // The export transforms are per-account — read the TARGET account's dedup/omit so a
+        // background build for account X uses X's chosen transforms, not the active account's.
+        omitDisabledBeforeSafeguards: getSellfileOmitDisabledForAccount(account.id),
+        dedupeBeforeSafeguards: getSellfileDedupForAccount(account.id),
+        recipeModes: view.recipeModes,
+        artifacts,
+        computeImprovementChance: false,
+      })
+      // 5. Upload, stamped with X's identity. Serialized with the shared writer.
+      await uploadAndRecord(account, uploadTarget.method, {
+        fileName: sellfileFilename(),
+        contentType: HSF_EXPORT_CONTENT_TYPE,
+        data: buildHsfFileFromMerged(result.mergedRules, { recipeNames: view.exportRecipeNames }),
+      })
+      persistBurstGear(account, items)
       deps.onOutcome({ kind: 'pushed', account, itemCount: items.length })
     } catch (error) {
       deps.onOutcome({ kind: 'failed', account, message: error instanceof Error ? error.message : String(error) })

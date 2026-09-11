@@ -94,6 +94,15 @@ const overrides: Catalog = {
   pushSellfileShort: "Надіслати Sellfile",
   pushSellfileMin: "Надіслати",
   pushSellfileTooltip: "Надсилає Sellfile на {endpoint}",
+  // Push labels for a client that asked for the SFC FILE instead of the compiled sellfile.
+  // Named after the file itself, matching "Save .sfc"/"Load SFC file" elsewhere in the UI:
+  // the document carries recipes, safeguards, metasets, targets, the note and the dynamic
+  // override answers, so naming any one section would understate what is sent. Export keeps
+  // its own wording — it still writes the compiled sellfile, so only the PUSH side changes.
+  pushSfcFile: "Надіслати SFC-файл до {client}",
+  pushSfcFileShort: "Надіслати SFC-файл",
+  pushSfcFileMin: "Надіслати",
+  pushSfcFileTooltip: "Надсилає SFC-файл на {endpoint}",
   manageColorsAria: "Керування кольорами",
   // Gear Inspector
   gearDialogOpenTooltip: "Відкрийте діалог Інструменти на вкладці «Спорядження», щоб завантажити базу {client} або зібрати зразкові речі, не виходячи з перегляду.",
@@ -285,6 +294,10 @@ const overrides: Catalog = {
   simpleModeAutoPushOnTooltip: "**Авто-надсилання увімкнено** — Sellfile надсилається до {client} автоматично при кожній зміні. Натисніть, щоб вимкнути.",
   simpleModeAutoPushOffTooltip: "**Авто-надсилання вимкнено** — натисніть, щоб автоматично надсилати Sellfile до {client} при кожній зміні.",
   simpleModeAutoPushDisconnectedTooltip: "**Авто-надсиланню потрібне підключення** — спочатку підключіться до {client}; доти Sellfile нікуди надсилати.",
+  // Same three states, worded for a client that receives the SFC file instead.
+  simpleModeAutoPushSfcFileOnTooltip: "**Авто-надсилання увімкнено** — ваш SFC-файл надсилається до {client} автоматично при кожній зміні. Натисніть, щоб вимкнути.",
+  simpleModeAutoPushSfcFileOffTooltip: "**Авто-надсилання вимкнено** — натисніть, щоб автоматично надсилати ваш SFC-файл до {client} при кожній зміні.",
+  simpleModeAutoPushSfcFileDisconnectedTooltip: "**Авто-надсиланню потрібне підключення** — спочатку підключіться до {client}; доти SFC-файл нікуди надсилати.",
 
   counting: "Підрахунок…",
 
@@ -1614,6 +1627,7 @@ const overrides: Catalog = {
   toastSellfileExportFailed: "Не вдалося експортувати Sellfile. Перевірте консоль.",
   // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile надіслано.",
+  toastSfcFilePushed: "SFC-файл надіслано.",
   toastSellfilePushFailed: "Не вдалося надіслати Sellfile. Перевірте консоль.",
   toastGearDbImportedShort: "Імпортовано {count}",
   toastGearDbImportedShortWithInbox: "Імпортовано {count} (+{inboxCount} з пошти)",

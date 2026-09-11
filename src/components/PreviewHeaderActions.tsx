@@ -27,6 +27,8 @@ import PublishIcon from '@mui/icons-material/Publish'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { exportLabelTiers } from '../lib/exportLabelTiers'
+import { useClientCapability } from '../hooks/useClientCapability'
+import { CAPABILITY_SFC_FILE_AS_SELLFILE } from '../lib/clientCapabilities'
 import { useFittingLabel } from '../hooks/useFittingLabel'
 import { EXPORT_LABEL_RESERVED_PX, EXPORT_BUTTON_MAX_WIDTH_PX, EXPORT_CHEVRON_RESERVED_PX } from '../lib/constants'
 import ClearIconButton from './ClearIconButton'
@@ -810,9 +812,14 @@ export default function PreviewHeaderActions(props: {
   // the full wording is discoverable even when the visible text is shortened or hidden.
   // Memoized so the array identity is stable across renders — useFittingLabel's measure
   // effect re-subscribes its ResizeObserver only when the tiers actually change.
+  // A client announcing SfcFileAsSellfile receives the .sfc FILE, not the compiled sellfile,
+  // so the push wording has to follow it. Read through the hook (not the on-demand
+  // predicate) because the capability arrives mid-session and can drop with the socket —
+  // the label must repaint when it does.
+  const pushesSfcFile = useClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)
   const exportLabelTierList = React.useMemo(
-    () => exportLabelTiers(t, pushActive, !!baseRuleCount),
-    [t, pushActive, baseRuleCount],
+    () => exportLabelTiers(t, pushActive, !!baseRuleCount, pushesSfcFile),
+    [t, pushActive, baseRuleCount, pushesSfcFile],
   )
   const exportLabel = exportLabelTierList[0]
   // Measure the button and pick the widest tier that fits; null → render icon-only.
@@ -834,7 +841,9 @@ export default function PreviewHeaderActions(props: {
     exportTooltipParts.push(exportLabel)
   }
   if (pushActive && pushEndpoint) {
-    exportTooltipParts.push(t('pushSellfileTooltip', { endpoint: pushEndpoint }))
+    exportTooltipParts.push(
+      t(pushesSfcFile ? 'pushSfcFileTooltip' : 'pushSellfileTooltip', { endpoint: pushEndpoint }),
+    )
   }
   if (filterActive) {
     exportTooltipParts.push(pushActive ? t('pushIgnoresFilters') : t('exportIgnoresFilters'))

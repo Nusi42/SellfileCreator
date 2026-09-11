@@ -94,6 +94,15 @@ const overrides: Catalog = {
   pushSellfileShort: "Sellfile gönder",
   pushSellfileMin: "Gönder",
   pushSellfileTooltip: "{endpoint} adresine Sellfile gönderir",
+  // Push labels for a client that asked for the SFC FILE instead of the compiled sellfile.
+  // Named after the file itself, matching "Save .sfc"/"Load SFC file" elsewhere in the UI:
+  // the document carries recipes, safeguards, metasets, targets, the note and the dynamic
+  // override answers, so naming any one section would understate what is sent. Export keeps
+  // its own wording — it still writes the compiled sellfile, so only the PUSH side changes.
+  pushSfcFile: "SFC dosyasını {client}'a gönder",
+  pushSfcFileShort: "SFC dosyasını gönder",
+  pushSfcFileMin: "Gönder",
+  pushSfcFileTooltip: "{endpoint} adresine SFC dosyasını gönderir",
   manageColorsAria: "Renkleri yönet",
   // Gear Inspector
   gearDialogOpenTooltip: "Önizlemeden çıkmadan {client} veritabanı yüklemek veya örnek eşyalar hazırlamak için Araçlar iletişim kutusunu “Ekipman” sekmesinde açın.",
@@ -285,6 +294,10 @@ const overrides: Catalog = {
   simpleModeAutoPushOnTooltip: "**Otomatik gönderme açık** — Sellfile her değişiklikte {client}'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
   simpleModeAutoPushOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte Sellfile'ı {client}'a otomatik göndermek için tıklayın.",
   simpleModeAutoPushDisconnectedTooltip: "**Otomatik gönderme bağlantı gerektirir** — önce {client}'a bağlanın; o zamana kadar Sellfile'ın gideceği bir yer yok.",
+  // Same three states, worded for a client that receives the SFC file instead.
+  simpleModeAutoPushSfcFileOnTooltip: "**Otomatik gönderme açık** — SFC dosyanız her değişiklikte {client}'a otomatik olarak gönderilir. Devre dışı bırakmak için tıklayın.",
+  simpleModeAutoPushSfcFileOffTooltip: "**Otomatik gönderme kapalı** — her değişiklikte SFC dosyanızı {client}'a otomatik göndermek için tıklayın.",
+  simpleModeAutoPushSfcFileDisconnectedTooltip: "**Otomatik gönderme bağlantı gerektirir** — önce {client}'a bağlanın; o zamana kadar SFC dosyasının gideceği bir yer yok.",
 
   counting: "Sayılıyor…",
 
@@ -1614,6 +1627,7 @@ const overrides: Catalog = {
   toastSellfileExportFailed: "Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.",
   // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile gönderildi.",
+  toastSfcFilePushed: "SFC dosyası gönderildi.",
   toastSellfilePushFailed: "Sellfile gönderme başarısız oldu. Ayrıntılar için konsola bakın.",
   toastGearDbImportedShort: "İçe aktarıldı {count}",
   toastGearDbImportedShortWithInbox: "İçe aktarıldı {count} (+{inboxCount} gelen kutusu)",

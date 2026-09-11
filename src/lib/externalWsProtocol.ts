@@ -289,6 +289,28 @@ export const resolveSellfileUploadTarget = (): SellfileUploadTarget => (
     : { method: EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, sfcDocument: false }
 )
 
+/**
+ * True when auto-push must watch the .sfc DOCUMENT for changes instead of the compiled
+ * .hsf fingerprint.
+ *
+ * Auto-push fires on "the pushed document changed", so the watched document has to be the
+ * one actually uploaded. Under SfcFileAsSellfile those differ, and the compiled fingerprint
+ * is wrong in BOTH directions: a note/recipe-name edit changes the .sfc while compiling to
+ * identical rules (a real edit never reaching the client), and gear-DB churn that shifts
+ * safeguard detection moves the .hsf crc while the .sfc is byte-identical (pushing a
+ * document nobody changed). The compiled fingerprint also only exists after a pipeline run,
+ * which the .sfc path otherwise has no reason to pay for.
+ *
+ * Deliberately derived from the SAME capability as resolveSellfileUploadTarget so the
+ * trigger and the payload cannot disagree about which document is in play.
+ *
+ * Callers that must REPAINT when the capability arrives mid-session read the same token
+ * through `useClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)` instead — this on-demand
+ * form is for the non-React push paths (the background per-account service).
+ */
+export const pushWatchesSfcDocument = (): boolean =>
+  resolveSellfileUploadTarget().sfcDocument
+
 // Event names reuse the existing external command identifiers.
 export const EXTERNAL_WS_EVENT_SELECT_RULE = 'selectRule'
 export const EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY = 'gearDbFileBinary'

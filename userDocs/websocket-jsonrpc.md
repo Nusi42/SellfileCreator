@@ -305,6 +305,16 @@ Two timing rules worth knowing:
   a reconnect starts from the default again. (The client *name* is remembered instead — it
   labels the UI even while disconnected.)
 
+With `SfcFileAsSellfile`, auto-push also changes **when** it fires. It sends the `.sfc` file
+whenever that file changes — not when the generated rules change. Two consequences:
+
+- Gear updates you send (artifacts, champions, and the rest) no longer trigger a push on
+  their own. They are not part of the `.sfc` file, so there is nothing new to send; you keep
+  the copy you already have. Edits that change the file — including ones that produce exactly
+  the same rules, like renaming a recipe or editing the note — do trigger a push.
+- If an upload fails, the next change tries again. A file is only considered delivered once
+  you answer with a `result`.
+
 ### selectRule
 
 **Params**

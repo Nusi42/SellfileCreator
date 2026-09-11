@@ -94,6 +94,15 @@ const enUS: Catalog = {
   pushSellfileShort: "Push Sellfile",
   pushSellfileMin: "Push",
   pushSellfileTooltip: "Sends the Sellfile to {endpoint}",
+  // Push labels for a client that asked for the SFC FILE instead of the compiled sellfile.
+  // Named after the file itself, matching "Save .sfc"/"Load SFC file" elsewhere in the UI:
+  // the document carries recipes, safeguards, metasets, targets, the note and the dynamic
+  // override answers, so naming any one section would understate what is sent. Export keeps
+  // its own wording — it still writes the compiled sellfile, so only the PUSH side changes.
+  pushSfcFile: "Push SFC File to {client}",
+  pushSfcFileShort: "Push SFC File",
+  pushSfcFileMin: "Push",
+  pushSfcFileTooltip: "Sends the SFC file to {endpoint}",
   manageColorsAria: "Manage Colors",
   // Gear Inspector
   gearDialogOpenTooltip: "Open the **Tools** dialog on the **Gear** tab to load a {client} database or craft sample gear without leaving the preview.",
@@ -285,6 +294,10 @@ const enUS: Catalog = {
   simpleModeAutoPushOnTooltip: "**Auto-Push is on** — your Sellfile is sent to {client} automatically on every change. Click to disable.",
   simpleModeAutoPushOffTooltip: "**Auto-Push is off** — click to send your Sellfile to {client} automatically whenever it changes.",
   simpleModeAutoPushDisconnectedTooltip: "**Auto-Push needs a connection** — connect to {client} first; there is nowhere to send the Sellfile until then.",
+  // Same three states, worded for a client that receives the SFC file instead.
+  simpleModeAutoPushSfcFileOnTooltip: "**Auto-Push is on** — your SFC file is sent to {client} automatically on every change. Click to disable.",
+  simpleModeAutoPushSfcFileOffTooltip: "**Auto-Push is off** — click to send your SFC file to {client} automatically whenever it changes.",
+  simpleModeAutoPushSfcFileDisconnectedTooltip: "**Auto-Push needs a connection** — connect to {client} first; there is nowhere to send the SFC file until then.",
 
   counting: "Counting…",
 
@@ -1614,6 +1627,7 @@ const enUS: Catalog = {
   toastSellfileExportFailed: "Sellfile export failed. See console for details.",
   // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile pushed.",
+  toastSfcFilePushed: "SFC file pushed.",
   toastSellfilePushFailed: "Sellfile push failed. See console for details.",
   toastGearDbImportedShort: "Imported {count}",
   toastGearDbImportedShortWithInbox: "Imported {count} (+{inboxCount} inbox)",

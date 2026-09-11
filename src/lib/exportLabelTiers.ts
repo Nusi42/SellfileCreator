@@ -9,7 +9,12 @@ import type { TranslateFn, I18nKey } from './i18n'
 // pick between them: push-active vs export, and merged (base rules present) vs not.
 // Mirrors the existing exportLabel selection in PreviewHeaderActions so there is one
 // place that knows the variant→key mapping.
-type ExportVariant = 'export' | 'exportMerged' | 'push' | 'pushMerged'
+type ExportVariant =
+  | 'export'
+  | 'exportMerged'
+  | 'push'
+  | 'pushMerged'
+  | 'pushSfcFile'
 
 // Maps a variant to its three catalog keys, ordered widest-first. Keeping the base
 // key names here (the "…Short"/"…Min" suffixes are appended) ties each tier set to
@@ -19,11 +24,23 @@ const VARIANT_BASE_KEY: Record<ExportVariant, I18nKey> = {
   exportMerged: 'exportMergedSellfile',
   push: 'pushSellfile',
   pushMerged: 'pushMergedSellfile',
+  // A client that asked for the SFC file gets push labels naming THAT document. It has no
+  // "merged" variant: merging means folding a loaded base .hsf's rules into the COMPILED
+  // sellfile, which the .sfc document never participates in. Export is likewise absent —
+  // it still writes the compiled sellfile either way.
+  pushSfcFile: 'pushSfcFile',
 }
 
 // Resolve the active variant from the same flags the button already computes.
-function pickVariant(pushActive: boolean, hasBaseRules: boolean): ExportVariant {
-  if (pushActive) return hasBaseRules ? 'pushMerged' : 'push'
+// `pushesSfcFile` is the SfcFileAsSellfile capability: under it the button uploads the
+// .sfc file, so it must not keep promising a Sellfile.
+function pickVariant(pushActive: boolean, hasBaseRules: boolean, pushesSfcFile: boolean): ExportVariant {
+  if (pushActive) {
+    // A loaded base .hsf changes nothing about the .sfc that gets pushed, so this variant
+    // ignores hasBaseRules rather than promising a merge that does not happen.
+    if (pushesSfcFile) return 'pushSfcFile'
+    return hasBaseRules ? 'pushMerged' : 'push'
+  }
   return hasBaseRules ? 'exportMerged' : 'export'
 }
 
@@ -33,8 +50,9 @@ export function exportLabelTiers(
   t: TranslateFn,
   pushActive: boolean,
   hasBaseRules: boolean,
+  pushesSfcFile = false,
 ): [string, string, string] {
-  const base = VARIANT_BASE_KEY[pickVariant(pushActive, hasBaseRules)]
+  const base = VARIANT_BASE_KEY[pickVariant(pushActive, hasBaseRules, pushesSfcFile)]
   // The suffixed keys are guaranteed present in every catalog (added alongside the
   // base key); the cast keeps the template-literal key assignable to I18nKey.
   const shortKey = `${base}Short` as I18nKey

@@ -57,7 +57,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { applyClientCapabilitiesPacket } from './lib/clientCapabilities'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToText, sfcTextToBlob, sfcTextToFile, CUSTOM_SFC_FILENAME, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToText, sfcTextFingerprint, sfcTextToBlob, sfcTextToFile, CUSTOM_SFC_FILENAME, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -228,6 +228,8 @@ import PongFlyout from './components/PongFlyout'
 import SellfallFlyout from './components/SellfallFlyout'
 import { useAutosave } from './hooks/useAutosave'
 import { useStalenessTracking, type SfcRecoverySignal } from './hooks/useStalenessTracking'
+import { useClientCapability } from './hooks/useClientCapability'
+import { CAPABILITY_SFC_FILE_AS_SELLFILE } from './lib/clientCapabilities'
 import { useNonUrgentStateDispatch } from './hooks/useNonUrgentStateDispatch'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
@@ -4488,6 +4490,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     && currentMergedRulesHash !== null
     && currentMergedRulesHash !== lastExportedHash
 
+  // ---- Push dirtiness (what AUTO-PUSH watches) ------------------------------------------
+  // Distinct from hsfDirty above, which stays the EXPORT/Save signal and keeps driving the
+  // .hsf badge. Under SfcFileAsSellfile the uploaded document is the .sfc, so the trigger
+  // has to watch that document instead — lib/externalWsProtocol.pushWatchesSfcDocument owns
+  // the capability read so trigger and payload cannot disagree.
+  const pushWatchesSfc = useClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)
+  // Fingerprint of the document a push WOULD upload right now. Cheap next to a pipeline run
+  // and, unlike currentMergedRulesHash, available immediately — the .sfc path never has to
+  // wait for (or pay for) a rule build just to learn whether anything changed.
+  const currentSfcHash = useMemo(
+    () => (pushWatchesSfc ? sfcTextFingerprint(sfcToText(buildCurrentSfcPayload())) : null),
+    [pushWatchesSfc, buildCurrentSfcPayload],
+  )
+  // Baseline = the document fingerprint captured at the last successful PUSH. Deliberately
+  // its own state rather than a reuse of the Save-based dirty flag: saving to disk must not
+  // mark a never-pushed document clean, and a push must not mark it saved.
+  const [lastPushedSfcHash, setLastPushedSfcHash] = useState<string | null>(null)
+  // Adopt a baseline on first availability so a freshly-loaded document starts CLEAN, mirroring
+  // how lastExportedHash adopts currentMergedRulesHash above.
+  if (currentSfcHash !== null && lastPushedSfcHash === null) setLastPushedSfcHash(currentSfcHash)
+  // What the auto-push edge actually watches. One expression, so no call site re-derives it.
+  const pushDirty = pushWatchesSfc
+    ? (lastPushedSfcHash !== null && currentSfcHash !== null && currentSfcHash !== lastPushedSfcHash)
+    : hsfDirty
+
   // Capture the moment each dirty state began (rising edge of clean→dirty) so the
   // badge tooltip can show "not saved since <time>" and the dot can age from neutral
   // toward red. The hook owns the edge-stamping (including the latch that lets a
@@ -4680,6 +4707,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // reload in one click, so there is nothing unsaved to warn about.
     anchorNextSnapshot('anchored')
     setLastExportedHash(null)
+    // The pushed .sfc baseline resets with it: a document replacement means the last
+    // PUSHED fingerprint describes a document that is no longer loaded.
+    setLastPushedSfcHash(null)
     setExportBaselineResetPending(true)
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => { markSavedNow() })
@@ -7212,8 +7242,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Per-account single-owner gate so two tabs never background-push the same account.
       claimAutoPushOwnership,
       onOutcome: (outcome) => {
-        // autoPushOff means nothing was attempted — no feedback warranted.
-        if (outcome.kind === 'autoPushOff') return
+        // autoPushOff means nothing was attempted — no feedback warranted. `unchanged` is
+        // the same story for a different reason: the client already holds this exact .sfc,
+        // so there was nothing to send. Neither is a failure and neither pulses the switcher.
+        if (outcome.kind === 'autoPushOff' || outcome.kind === 'unchanged') return
         // noDocument counts as a failure: auto-push was expected but could not run.
         if (outcome.kind === 'failed' || outcome.kind === 'noDocument') {
           markSellfileLastPushErrorForAccount(outcome.account.id)
@@ -7965,6 +7997,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     anchorNextSnapshot(provenance)
     signalSfcRecovery(loadProvenance)
     setLastExportedHash(null)
+    // The pushed .sfc baseline resets with it: a document replacement means the last
+    // PUSHED fingerprint describes a document that is no longer loaded.
+    setLastPushedSfcHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
   }, [
@@ -8179,6 +8214,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // from the moment it lands — it used to anchor as saved and show no dot.
     anchorNextSnapshot('derived')
     setLastExportedHash(null)
+    // The pushed .sfc baseline resets with it: a document replacement means the last
+    // PUSHED fingerprint describes a document that is no longer loaded.
+    setLastPushedSfcHash(null)
     setExportBaselineResetPending(true)
     flushTransientUi()
     return { deferredConflict: false }
@@ -9552,7 +9590,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let payloadCache: ReturnType<typeof buildExportPayload> | null = null
     const payloadOnce = () => (payloadCache ??= buildExportPayload())
     const filename = sellfileFilename()
-    const outcomeToast = (successKey: 'toastSellfileSaved' | 'toastSellfilePushed') => {
+    const outcomeToast = (successKey: 'toastSellfileSaved' | 'toastSellfilePushed' | 'toastSfcFilePushed') => {
       if (!silent) showToast(t(successKey))
     }
     // forceLocal bypasses the push path so the menu "Export to file" item always downloads.
@@ -9568,8 +9606,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // `uploadSfcFile` instead of the compiled sellfile — same resolver the background
         // push uses, so the two paths cannot disagree about what a client receives.
         const uploadTarget = resolveSellfileUploadTarget()
-        const upload = uploadTarget.sfcDocument
-          ? { fileName: sfcFilename(), contentType: SFC_EXPORT_CONTENT_TYPE, data: buildCurrentSfcPayload() }
+        // Built once and reused for the baseline stamp below, so the fingerprint recorded on
+        // success describes exactly the document that went over the wire — not a re-serialization
+        // that an interleaved edit could have moved underneath us.
+        const sfcPayload = uploadTarget.sfcDocument ? buildCurrentSfcPayload() : null
+        const upload = sfcPayload !== null
+          ? { fileName: sfcFilename(), contentType: SFC_EXPORT_CONTENT_TYPE, data: sfcPayload }
           : { fileName: filename, contentType: HSF_EXPORT_CONTENT_TYPE, data: payloadOnce() }
         const response = await sendExternalRequest(uploadTarget.method, {
           // Account stamp first so a phase-2 Helper can save sellfiles per game account;
@@ -9583,7 +9625,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pushToast = 'success'
           // Record the success for the account menu's "Pushed <date>" summary line.
           markSellfileLastPushForAccount(getActiveAccount().id)
-          setLastExportedHash(currentMergedRulesHash)
+          // Clear whichever dirty signal this push actually satisfied. A .sfc push says nothing
+          // about the compiled sellfile, so it must NOT clear the .hsf export baseline — the
+          // Export button's badge keeps meaning "the file you would save has changed".
+          if (sfcPayload !== null) setLastPushedSfcHash(sfcTextFingerprint(sfcToText(sfcPayload)))
+          else setLastExportedHash(currentMergedRulesHash)
           // Notify the express-mode button so it plays its blink animation.
           if (silent) setAutoPushFlashSeq((s) => s + 1)
         } else {
@@ -9596,8 +9642,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         pushToast = 'failure'
       }
       if (pushToast === 'success') {
-        // Push path: report the endpoint upload as a "push", not a file export.
-        outcomeToast('toastSellfilePushed')
+        // Push path: report the endpoint upload as a "push", not a file export — and name the
+        // document that actually went out, which under the capability is the .sfc file.
+        outcomeToast(pushWatchesSfc ? 'toastSfcFilePushed' : 'toastSellfilePushed')
       } else {
         showToast(t('toastSellfilePushFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
       }
@@ -9613,6 +9660,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     buildCurrentSfcPayload,
     currentMergedRulesHash,
     pushExportEndpoint,
+    pushWatchesSfc,
     sendExternalRequest,
     setAutoPushFlashSeq,
     updatePushEndpointReachable,
@@ -9628,21 +9676,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [queueSellfileExportIfNeeded, runSellfileExportNow])
   // Silent variant used by auto-push — same logic but suppresses the success toast.
   const handleExportSellfileSilent = useCallback(() => {
-    if (!exportRulesCountRef.current) return
-    if (queueSellfileExportIfNeeded(true)) return
+    // Both guards below exist to protect the COMPILED payload: "no rules" means an .hsf export
+    // would be empty, and the worker gate keeps it from serializing mid-rebuild. Neither
+    // applies when the upload is the .sfc document — it is serialized straight from live
+    // document state, needs no pipeline, and a rule build in flight cannot change its bytes.
+    // Skipping them here is what keeps a .sfc push off the ~400ms rule-build path entirely.
+    if (!pushWatchesSfc) {
+      if (!exportRulesCountRef.current) return
+      if (queueSellfileExportIfNeeded(true)) return
+    }
     void runSellfileExportNow(false, true)
-  }, [queueSellfileExportIfNeeded, runSellfileExportNow])
-  // Auto-push: fire on the rising edge of hsfDirty (or when autoPushEnabled turns on while already dirty).
-  const prevHsfDirtyRef = useRef(false)
+  }, [pushWatchesSfc, queueSellfileExportIfNeeded, runSellfileExportNow])
+  // Auto-push: fire on the rising edge of pushDirty (or when autoPushEnabled turns on while
+  // already dirty). pushDirty — not hsfDirty — because the edge must track the document this
+  // client actually receives; under SfcFileAsSellfile that is the .sfc (see its definition).
+  const prevPushDirtyRef = useRef(false)
   const prevAutoPushRef = useRef(false)
   useEffect(() => {
-    const wasDirty = prevHsfDirtyRef.current
+    const wasDirty = prevPushDirtyRef.current
     const wasAutoPush = prevAutoPushRef.current
-    prevHsfDirtyRef.current = hsfDirty
+    prevPushDirtyRef.current = pushDirty
     prevAutoPushRef.current = autoPushEnabled
-    const shouldPush = autoPushEnabled && hsfDirty && !!pushExportEndpoint
+    const shouldPush = autoPushEnabled && pushDirty && !!pushExportEndpoint
     // Only act on state transitions to avoid repeated pushes while conditions hold.
-    const justBecameDirty = hsfDirty && !wasDirty
+    const justBecameDirty = pushDirty && !wasDirty
     const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
     // Rising-edge detection requires tracking prev values across renders; an event handler
     // cannot observe the transition from false→true without this effect pattern.
@@ -9656,7 +9713,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
       handleExportSellfileSilent()
     }
-  }, [hsfDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
+  }, [pushDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
   // Keep this tab's auto-push claim warm while the user is looking at it, so the tab in
   // focus stays the auto-push owner without a steady heartbeat (lazy by design — friendly
   // to background-tab freezing). Only refreshes an existing claim; never steals ownership.
@@ -10771,6 +10828,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             // a non-clean provenance.
             bumpSfcLoadNonce(restoredProvenance)
             setLastExportedHash(null)
+            // Baseline for the pushed .sfc resets alongside the export one (see above).
+            setLastPushedSfcHash(null)
             setExportBaselineResetPending(true)
             // Coalesce downstream rebuilds into a single pass.
             restoringAutosaveRef.current = true

@@ -94,6 +94,15 @@ const overrides: Catalog = {
   pushSellfileShort: "Sellfile senden",
   pushSellfileMin: "Senden",
   pushSellfileTooltip: "Sendet das Sellfile an {endpoint}",
+  // Push labels for a client that asked for the SFC FILE instead of the compiled sellfile.
+  // Named after the file itself, matching "Save .sfc"/"Load SFC file" elsewhere in the UI:
+  // the document carries recipes, safeguards, metasets, targets, the note and the dynamic
+  // override answers, so naming any one section would understate what is sent. Export keeps
+  // its own wording — it still writes the compiled sellfile, so only the PUSH side changes.
+  pushSfcFile: "SFC-Datei an {client} senden",
+  pushSfcFileShort: "SFC-Datei senden",
+  pushSfcFileMin: "Senden",
+  pushSfcFileTooltip: "Sendet die SFC-Datei an {endpoint}",
   manageColorsAria: "Farben verwalten",
   // Gear Inspector
   gearDialogOpenTooltip: "Öffne den `Tools`-Dialog im Tab „Ausrüstung”, um eine RSL-Helper-Datenbank zu laden oder Beispielgear zu erstellen, ohne die Vorschau zu verlassen.",
@@ -285,6 +294,10 @@ const overrides: Catalog = {
   simpleModeAutoPushOnTooltip: "**Auto-Push ist an** — das Sellfile wird bei jeder Änderung automatisch an {client} gesendet. Klicken zum Deaktivieren.",
   simpleModeAutoPushOffTooltip: "**Auto-Push ist aus** — klicken, um das Sellfile bei jeder Änderung automatisch an {client} zu senden.",
   simpleModeAutoPushDisconnectedTooltip: "**Auto-Push braucht eine Verbindung** — verbinde dich zuerst mit {client}; bis dahin gibt es kein Ziel für das Sellfile.",
+  // Same three states, worded for a client that receives the SFC file instead.
+  simpleModeAutoPushSfcFileOnTooltip: "**Auto-Push ist an** — deine SFC-Datei wird bei jeder Änderung automatisch an {client} gesendet. Klicken zum Deaktivieren.",
+  simpleModeAutoPushSfcFileOffTooltip: "**Auto-Push ist aus** — klicken, um deine SFC-Datei bei jeder Änderung automatisch an {client} zu senden.",
+  simpleModeAutoPushSfcFileDisconnectedTooltip: "**Auto-Push braucht eine Verbindung** — verbinde dich zuerst mit {client}; bis dahin gibt es kein Ziel für die SFC-Datei.",
 
   counting: "Zählen…",
 
@@ -1614,6 +1627,7 @@ const overrides: Catalog = {
   toastSellfileExportFailed: "Sellfile-Export fehlgeschlagen. Details in der Konsole.",
   // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile gesendet.",
+  toastSfcFilePushed: "SFC-Datei gesendet.",
   toastSellfilePushFailed: "Senden des Sellfile fehlgeschlagen. Details in der Konsole.",
   toastGearDbImportedShort: "Importiert {count}",
   toastGearDbImportedShortWithInbox: "Importiert {count} (+{inboxCount} Postfach)",

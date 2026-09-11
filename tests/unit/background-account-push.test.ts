@@ -23,11 +23,21 @@ import {
   getSellfileAutoPushForAccount,
   getSellfileLastPushAtForAccount,
   getSellfileLastPushErrorAtForAccount,
+  getSellfileLastPushSfcHashForAccount,
   hasExplicitSellfileAutoPushForAccount,
   markSellfileLastPushErrorForAccount,
   markSellfileLastPushForAccount,
   setSellfileAutoPushForAccount,
 } from '../../src/state/exportPreferences.js'
+import {
+  CAPABILITY_SFC_FILE_AS_SELLFILE,
+  adoptClientCapabilities,
+  resetClientCapabilities,
+} from '../../src/lib/clientCapabilities.js'
+import {
+  EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
+  EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE,
+} from '../../src/lib/externalWsProtocol.js'
 import { defaultSubstatTargets } from '../../src/lib/hsfBuilder.js'
 import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 import type { ExternalCommand } from '../../src/lib/externalCommands.js'
@@ -384,6 +394,138 @@ test('buildDocumentOverridesView: empty document yields empty views and honors r
   assert.deepEqual(view.pipelineRecipes, view.ruleRecipes)
   const disabledView = buildDocumentOverridesView({ ...base, recipesEnabled: false })
   assert.deepEqual(disabledView.pipelineRecipes, [])
+})
+
+// ---------------------------------------------------------------------------
+// SfcFileAsSellfile - the pushed document is the .sfc, so a GEAR burst changes nothing
+// ---------------------------------------------------------------------------
+
+// Arm an inactive account for a background push and announce the capability.
+const seedSfcCapabilityAccount = (helperId = 'um2') => {
+  const storage = freshWindow()
+  const inactive = seedBoundInactiveAccount(helperId)
+  storage.setItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH), '1')
+  seedInactiveDocument(inactive.id)
+  adoptClientCapabilities([CAPABILITY_SFC_FILE_AS_SELLFILE])
+  return inactive
+}
+
+test('SfcFileAsSellfile: the first burst uploads the .sfc and runs no pipeline', async () => {
+  const inactive = seedSfcCapabilityAccount()
+  const harness = makeHarness()
+  try {
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    const outcome = await harness.waitForOutcome()
+    assert.equal(outcome.kind, 'pushed')
+    // The .sfc document travels under its own method...
+    assert.equal(harness.uploads.length, 1)
+    assert.equal(harness.uploads[0]?.method, EXTERNAL_WS_METHOD_UPLOAD_SFC_FILE)
+    // ...and compiling a sellfile nobody receives is skipped entirely.
+    assert.equal(harness.pipelineParams.length, 0)
+    // The baseline is stamped so the next identical burst can be skipped.
+    assert.ok(getSellfileLastPushSfcHashForAccount(inactive.id) !== null)
+  } finally {
+    resetClientCapabilities()
+  }
+})
+
+test('SfcFileAsSellfile: a second gear burst does not re-push the unchanged .sfc', async () => {
+  seedSfcCapabilityAccount()
+  const harness = makeHarness()
+  try {
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    assert.equal((await harness.waitForOutcome()).kind, 'pushed')
+    assert.equal(harness.uploads.length, 1)
+    // A further burst carries new GEAR, which is not part of the .sfc document at all.
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    // Nothing re-sent, and the no-op is reported as `unchanged` rather than a failure.
+    assert.equal(harness.uploads.length, 1)
+    assert.equal(harness.outcomes[harness.outcomes.length - 1]?.kind, 'unchanged')
+  } finally {
+    resetClientCapabilities()
+  }
+})
+
+test('SfcFileAsSellfile: a skipped push still persists the burst gear', async () => {
+  const inactive = seedSfcCapabilityAccount()
+  const harness = makeHarness()
+  try {
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    assert.equal((await harness.waitForOutcome()).kind, 'pushed')
+    // Drop what the first push persisted so the second burst's write is unambiguous.
+    globalThis.localStorage.removeItem(
+      resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR),
+    )
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    assert.equal(harness.outcomes[harness.outcomes.length - 1]?.kind, 'unchanged')
+    // Skipping the UPLOAD must not skip persistence, or the account starts stale next session.
+    assert.ok(loadAutosave(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_AUTOSAVE_GEAR_INSPECTOR)) !== null)
+  } finally {
+    resetClientCapabilities()
+  }
+})
+
+test('SfcFileAsSellfile: an edited .sfc pushes again', async () => {
+  const inactive = seedSfcCapabilityAccount()
+  const harness = makeHarness()
+  try {
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    assert.equal((await harness.waitForOutcome()).kind, 'pushed')
+    // Edit the account's document the way the user would - the fingerprint must move.
+    saveAutosave(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_AUTOSAVE_SFC), {
+      Version: '1.0.0',
+      Metasets: [],
+      Recipes: [],
+      Note: 'a note that changes the document but compiles to the same rules',
+    })
+    harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    // A note-only edit changes NO rule, so an .hsf fingerprint would have missed it.
+    assert.equal(harness.uploads.length, 2)
+    assert.equal(harness.outcomes[harness.outcomes.length - 1]?.kind, 'pushed')
+  } finally {
+    resetClientCapabilities()
+  }
+})
+
+test('a failed .sfc push does not advance the baseline, so the next burst retries', async () => {
+  const inactive = seedSfcCapabilityAccount()
+  const outcomes: BackgroundAccountPushOutcome[] = []
+  let notify: (() => void) | null = null
+  const service = createBackgroundAccountPushService({
+    sendRequest: () => Promise.resolve({ ok: false, error: 'nope' }),
+    runPipeline: () => Promise.resolve({ mergedRules: [], mergedRulesHash: 'TESTCRC' }),
+    onOutcome: (outcome) => { outcomes.push(outcome); notify?.() },
+    claimAutoPushOwnership: () => true,
+    coalesceMs: 5,
+  })
+  try {
+    service.noteInboundGearCommand(artifactsCommand('um2'))
+    await new Promise<void>((resolve) => { notify = resolve })
+    assert.equal(outcomes[0]?.kind, 'failed')
+    // Nothing was delivered, so the baseline must stay empty - otherwise the retry would
+    // read as "unchanged" and the client would never receive the document at all.
+    assert.equal(getSellfileLastPushSfcHashForAccount(inactive.id), null)
+  } finally {
+    resetClientCapabilities()
+  }
+})
+
+test('without the capability the .hsf path is unchanged: pipeline runs, uploadSellfile sent', async () => {
+  const storage = freshWindow()
+  const inactive = seedBoundInactiveAccount('um2')
+  storage.setItem(resolveAccountScopedKeyFor(inactive.id, ACCOUNT_BASE_KEY_SELLFILE_AUTO_PUSH), '1')
+  seedInactiveDocument(inactive.id)
+  const harness = makeHarness()
+  harness.service.noteInboundGearCommand(artifactsCommand('um2'))
+  assert.equal((await harness.waitForOutcome()).kind, 'pushed')
+  assert.equal(harness.uploads[0]?.method, EXTERNAL_WS_METHOD_UPLOAD_SELLFILE)
+  // The compiled path still builds, and gear bursts still push every time.
+  assert.equal(harness.pipelineParams.length, 1)
+  // The .sfc baseline belongs to the capability path only; it must stay untouched here.
+  assert.equal(getSellfileLastPushSfcHashForAccount(inactive.id), null)
 })
 
 export const __backgroundAccountPushTestMarker = true

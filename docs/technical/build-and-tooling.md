@@ -257,6 +257,35 @@ answer to `requestSfcSync`.
   account's parsed autosave via `buildSfcPayloadFromParsed` and **skips the headless pipeline
   entirely** (it only exists to compile an `.hsf` that path never sends); gear normalization
   still runs, so the burst is persisted either way.
+- **Auto-push watches the document it actually uploads.** `pushWatchesSfcDocument()` sits
+  beside the upload resolver and reads the same capability, so trigger and payload can never
+  disagree. Without the capability the trigger stays `hsfDirty` (the compiled-export crc);
+  with it the trigger is a fingerprint of the serialized `.sfc` (`sfcTextFingerprint`), held
+  against its own baseline:
+  - The compiled crc is wrong in **both** directions for a `.sfc` push. A note or
+    recipe-name edit changes the document while compiling to identical rules (a real edit the
+    client would never receive), and gear-DB churn that shifts safeguard detection moves the
+    crc while the document is byte-identical (a push nobody asked for).
+  - The push baseline is **separate from** the export baseline on purpose: saving to disk
+    must not mark a never-pushed document clean, and a `.sfc` push must not clear the `.hsf`
+    export badge — Export still writes the compiled sellfile.
+  - Live session: `lastPushedSfcHash` is session state (switching accounts reloads the page,
+    so it is per-account by construction) and resets on every document load/import/restore.
+    Background: `ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH`, account-scoped and persisted.
+  - **Gear bursts therefore stop pushing** under this capability: gear is not part of the
+    `.sfc`, so an unchanged document yields the `unchanged` outcome and no upload. The skip
+    wraps the UPLOAD ONLY — `persistBurstGear` still runs, or the account's next session
+    would start from stale gear. Only a confirmed upload advances the baseline, so a failed
+    push retries on the next burst instead of being mistaken for "already sent".
+  - The `.sfc` push also bypasses the `exportRulesCount`/`rulesBuilding` gates in
+    `handleExportSellfileSilent`: both exist to protect the COMPILED payload, and a document
+    serialized from live state needs no pipeline at all.
+- **Push labels follow the capability.** `exportLabelTiers` gains a `pushSfcFile` variant
+  (read reactively via `useClientCapability`, since the capability lands mid-session and
+  drops with the socket) covering the button tiers, its tooltip, the success toast and the
+  express strip's three auto-push tooltips. There is deliberately **no** merged variant:
+  merging folds a loaded base `.hsf`'s rules into the compiled sellfile, which the `.sfc`
+  never participates in. **Export wording is unchanged** — it still writes the `.hsf`.
 
 - `scripts/watchers/run-db-watcher.ps1` demonstrates an external tool opening the packaged app via `Start-Process`, appending the encoded endpoint automatically, and hosting a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (default `exported-sellfile.hsf`, `-OutputPath` configurable). Targets PowerShell 7; `[R]` emits demo `selectRule` events, `[F]` forces a DB snapshot, and it can watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Gear Inspector refreshes without drag-and-drop.
 

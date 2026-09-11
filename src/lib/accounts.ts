@@ -70,6 +70,11 @@ export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH = 'sellfileCreator.sellfile.las
 // Last FAILED background push (ISO timestamp). Background outcomes are toast-free — the
 // switcher list surfaces this marker instead; any later successful push clears it.
 export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR = 'sellfileCreator.sellfile.lastPushError.v1'
+// Fingerprint of the .sfc document last PUSHED for this account (SfcFileAsSellfile only).
+// Under that capability a gear burst changes no part of the uploaded document, so the
+// background service compares against this to skip re-sending an identical file. Persisted
+// per account so the skip survives a reload rather than re-pushing once per session.
+export const ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH = 'sellfileCreator.sellfile.lastPushSfcHash.v1'
 // Tiny stats snapshot (generated-rule count + gear sell/keep outcome summary) the LIVE
 // session writes for its own account — pipeline results are not derivable from autosaves
 // at menu-open cost, so the switcher's summary lines read this instead.
@@ -110,6 +115,7 @@ export const ACCOUNT_SCOPED_BASE_KEYS: ReadonlySet<string> = new Set([
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH,
   ACCOUNT_BASE_KEY_ACCOUNT_STATS,
   ACCOUNT_BASE_KEY_GEAR_DB_PERSIST_ENDPOINT_GEAR,
   ACCOUNT_BASE_KEY_RESTORE_CUSTOM_GEAR,

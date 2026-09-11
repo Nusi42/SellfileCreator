@@ -11,6 +11,7 @@ import {
   ACCOUNT_BASE_KEY_SELLFILE_OMIT_DISABLED,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH,
   ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR,
+  ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH,
   resolveAccountScopedKeyFor,
 } from '../lib/accounts'
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../lib/safeStorage'
@@ -111,4 +112,19 @@ export const getSellfileLastPushErrorAtForAccount = (accountId: string): string 
 
 export const markSellfileLastPushErrorForAccount = (accountId: string): void => {
   safeSetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_ERROR), new Date().toISOString())
+}
+
+/**
+ * Fingerprint of the .sfc document last pushed for an account (SfcFileAsSellfile only).
+ *
+ * The background service compares the document it is about to upload against this and skips
+ * an identical one — under that capability a gear burst changes no part of the .sfc, so
+ * re-sending it on every packet is pure noise. Persisted, so the skip holds across reloads
+ * instead of allowing one redundant push per session.
+ */
+export const getSellfileLastPushSfcHashForAccount = (accountId: string): string | null =>
+  safeGetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH))
+
+export const setSellfileLastPushSfcHashForAccount = (accountId: string, hash: string): void => {
+  safeSetItem(resolveAccountScopedKeyFor(accountId, ACCOUNT_BASE_KEY_SELLFILE_LAST_PUSH_SFC_HASH), hash)
 }

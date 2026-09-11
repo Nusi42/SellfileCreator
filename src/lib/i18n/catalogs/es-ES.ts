@@ -94,6 +94,15 @@ const overrides: Catalog = {
   pushSellfileShort: "Enviar Sellfile",
   pushSellfileMin: "Enviar",
   pushSellfileTooltip: "Envía el Sellfile a {endpoint}",
+  // Push labels for a client that asked for the SFC FILE instead of the compiled sellfile.
+  // Named after the file itself, matching "Save .sfc"/"Load SFC file" elsewhere in the UI:
+  // the document carries recipes, safeguards, metasets, targets, the note and the dynamic
+  // override answers, so naming any one section would understate what is sent. Export keeps
+  // its own wording — it still writes the compiled sellfile, so only the PUSH side changes.
+  pushSfcFile: "Enviar archivo SFC a {client}",
+  pushSfcFileShort: "Enviar archivo SFC",
+  pushSfcFileMin: "Enviar",
+  pushSfcFileTooltip: "Envía el archivo SFC a {endpoint}",
   manageColorsAria: "Gestionar colores",
   // Gear Inspector
   gearDialogOpenTooltip: "Abre el diálogo Herramientas en la pestaña «Equipo» para cargar una base de datos de ~~{client}~~ o crear equipo de ejemplo sin salir de la vista previa.",
@@ -285,6 +294,10 @@ const overrides: Catalog = {
   simpleModeAutoPushOnTooltip: "**Envío automático activado** — el Sellfile se envía a {client} automáticamente con cada cambio. Haz clic para desactivar.",
   simpleModeAutoPushOffTooltip: "**Envío automático desactivado** — haz clic para enviar el Sellfile a {client} automáticamente con cada cambio.",
   simpleModeAutoPushDisconnectedTooltip: "**El envío automático necesita conexión** — conéctate primero a {client}; hasta entonces no hay adónde enviar el Sellfile.",
+  // Same three states, worded for a client that receives the SFC file instead.
+  simpleModeAutoPushSfcFileOnTooltip: "**Envío automático activado** — tu archivo SFC se envía a {client} automáticamente con cada cambio. Haz clic para desactivar.",
+  simpleModeAutoPushSfcFileOffTooltip: "**Envío automático desactivado** — haz clic para enviar tu archivo SFC a {client} automáticamente con cada cambio.",
+  simpleModeAutoPushSfcFileDisconnectedTooltip: "**El envío automático necesita conexión** — conéctate primero a {client}; hasta entonces no hay adónde enviar el archivo SFC.",
 
   counting: "Contando…",
 
@@ -1614,6 +1627,7 @@ const overrides: Catalog = {
   toastSellfileExportFailed: "Error al exportar el Sellfile. Consulta la consola.",
   // Push variants — shown when uploading to an active push endpoint instead of downloading a file.
   toastSellfilePushed: "Sellfile enviado.",
+  toastSfcFilePushed: "Archivo SFC enviado.",
   toastSellfilePushFailed: "Error al enviar el Sellfile. Consulta la consola.",
   toastGearDbImportedShort: "Importadas {count}",
   toastGearDbImportedShortWithInbox: "Importadas {count} (+{inboxCount} buzón)",
