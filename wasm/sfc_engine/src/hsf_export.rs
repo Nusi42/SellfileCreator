@@ -8,8 +8,8 @@
 //
 // Mirrors of `cleanHsfForExport` + `buildHsfFileFromMerged` + `hsfToBlob`:
 //   - UI-only `__`-prefixed metadata is stripped (it is diagnostics, not schema),
-//   - RecipeID / RecipeName lead each rule, the rest follows in builder order,
-//   - a 1-based RowIdx closes it, so a host can recover preview ordering after merges,
+//   - RecipeID / RecipeName are emitted when set (key order is alphabetical, see export_rule),
+//   - a 1-based RowIdx is attached, so a host can recover preview ordering after merges,
 //   - final-sell rows export under one fixed label,
 //   - the container is {"Rules":[...]} pretty-printed with two spaces.
 
@@ -29,11 +29,15 @@ fn is_ui_metadata_key(key: &str) -> bool {
     key.starts_with("__")
 }
 
-// Serialise one rule into its exported object, in the app's field order.
+// Serialise one rule into its exported object.
 //
-// Ordering is not cosmetic here: it is what makes a generated file diff-comparable against
-// one the app wrote for the same sellfile, which is how a caller checks it got the same
-// answer.
+// Field ORDER is not preserved and must not be relied on: `serde_json::Map` is a BTreeMap
+// unless the `preserve_order` feature is enabled (it is not, here or anywhere in the
+// workspace), so every key — RecipeID, RecipeName and the trailing RowIdx included — sorts
+// alphabetically in the written file regardless of the order it is inserted below. A `.hsf`
+// is a JSON object and RSL Helper reads it by key, so this changes nothing about loading;
+// it only means a generated file is not byte-comparable against an app-written one. Compare
+// the two by parsing them, not by diffing the text.
 fn export_rule(rule: &RuleRaw, row_idx: usize) -> Result<Value, String> {
     // Round-trip through serde so the field set and the wire names come from RuleRaw's own
     // serde attributes — a second hand-written field list here would be a copy that drifts.
@@ -57,22 +61,25 @@ fn export_rule(rule: &RuleRaw, row_idx: usize) -> Result<Value, String> {
     };
 
     let mut out = Map::new();
-    // RecipeID and RecipeName lead, and only when they carry something.
+    // RecipeID and RecipeName are written first for readability of this code; the BTreeMap
+    // reorders them alphabetically on output either way. Both are emitted only when set.
     if let Some(recipe_id) = rule.RecipeID {
         out.insert("RecipeID".to_string(), Value::from(recipe_id));
     }
     if let Some(name) = recipe_name {
         out.insert("RecipeName".to_string(), Value::from(name));
     }
-    // Then every schema field in RuleRaw's declared order, minus the two hoisted above,
-    // minus the UI-only diagnostics, minus nulls (an omitted field means "Any").
+    // Then every remaining schema field, minus the two handled above, minus the UI-only
+    // diagnostics, minus nulls. A null here means the field was `None`: RuleRaw has no
+    // skip_serializing_if, so serde emits an explicit null that the app never writes, and an
+    // omitted field is what RSL Helper reads as "Any".
     for (key, value) in fields {
         if key == "RecipeID" || key == "RecipeName" || is_ui_metadata_key(&key) || value.is_null() {
             continue;
         }
         out.insert(key, value);
     }
-    // The stable 1-based row index closes the object, as it does in the app's export.
+    // The stable 1-based row index, so a host can recover preview ordering after merges.
     out.insert("RowIdx".to_string(), Value::from(row_idx));
     Ok(Value::Object(out))
 }
@@ -88,8 +95,8 @@ pub fn render_hsf(rules: &[RuleRaw]) -> Result<String, String> {
         exported.push(export_rule(rule, index + 1)?);
     }
     let file = Value::Object(Map::from_iter([("Rules".to_string(), Value::Array(exported))]));
-    // Two-space indent matches hsfToBlob; RSL Helper does not care, but a file a human
-    // opens beside an app-written one should not differ only in whitespace.
+    // Two-space indent matches hsfToBlob. Key ORDER still differs from an app-written file
+    // (see export_rule), so this makes the two comparably readable, not byte-identical.
     serde_json::to_string_pretty(&file).map_err(|e| format!("HSF serialise error: {e}"))
 }
 

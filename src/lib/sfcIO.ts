@@ -1747,7 +1747,7 @@ export function sfcToText(payload: unknown): string {
  * Change fingerprint of a serialized .sfc document.
  *
  * Auto-push under SfcFileAsSellfile compares this against the last PUSHED document to decide
- * whether anything actually changed (see externalWsProtocol.pushWatchesSfcDocument). It reads
+ * whether anything actually changed (see externalWsProtocol.resolveSellfileUploadTarget). It reads
  * the same bytes `sfcToText` produces, so the fingerprint moves exactly when the pushed file
  * would differ — no field can change the upload without changing this, and cosmetic churn
  * that serializes identically correctly reads as unchanged.
@@ -1763,6 +1763,20 @@ export function sfcTextFingerprint(text: string): string {
     hash |= 0
   }
   return Math.abs(hash).toString(36)
+}
+
+/**
+ * Fingerprint of the .sfc document an unserialized payload would produce.
+ *
+ * The one definition of "fingerprint this payload": every push site compares documents by
+ * calling THIS, never by pairing `sfcTextFingerprint` with its own `sfcToText` call. Three
+ * call sites re-derived that pair (the live push baseline, the interactive push stamp and
+ * the background per-account skip), which is the duplicated-computation case the project's
+ * One Definition Rule names — if the serialization a fingerprint is taken over ever changes,
+ * it must change for all of them at once or the baselines silently stop comparing equal.
+ */
+export function sfcPayloadFingerprint(payload: unknown): string {
+  return sfcTextFingerprint(sfcToText(payload))
 }
 
 /** Wrap already-serialized .sfc text as a download Blob (same MIME as every SFC export). */

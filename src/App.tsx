@@ -57,7 +57,7 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderRecipe, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { normalizeFactionSlotScope } from './lib/recipeNormalization'
 import { applyClientCapabilitiesPacket } from './lib/clientCapabilities'
-import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToText, sfcTextFingerprint, sfcTextToBlob, sfcTextToFile, CUSTOM_SFC_FILENAME, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
+import { parseRecipesFromText, buildReadableRecipe, readSfcFile, buildSfcPayload, sfcToText, sfcPayloadFingerprint, sfcTextToBlob, sfcTextToFile, CUSTOM_SFC_FILENAME, SFC_EXPORT_CONTENT_TYPE, parseSfcText, firstSelectableRecipeIndex, type ParsedSfcResult } from './lib/sfcIO'
 import { loadAutosave, saveAutosave } from './lib/autosave'
 import { currentSfcMatchesAnyPreset, matchedPreset, presetRaw, presetFilename } from './lib/sfcPresetMatch'
 import type { SfcSetupFields, PresetVariant } from './lib/sfcPresetMatch'
@@ -4493,23 +4493,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // ---- Push dirtiness (what AUTO-PUSH watches) ------------------------------------------
   // Distinct from hsfDirty above, which stays the EXPORT/Save signal and keeps driving the
   // .hsf badge. Under SfcFileAsSellfile the uploaded document is the .sfc, so the trigger
-  // has to watch that document instead — lib/externalWsProtocol.pushWatchesSfcDocument owns
-  // the capability read so trigger and payload cannot disagree.
+  // has to watch that document instead. The capability token is the SAME one
+  // resolveSellfileUploadTarget reads, so trigger and payload cannot disagree.
   const pushWatchesSfc = useClientCapability(CAPABILITY_SFC_FILE_AS_SELLFILE)
   // Fingerprint of the document a push WOULD upload right now. Cheap next to a pipeline run
   // and, unlike currentMergedRulesHash, available immediately — the .sfc path never has to
   // wait for (or pay for) a rule build just to learn whether anything changed.
   const currentSfcHash = useMemo(
-    () => (pushWatchesSfc ? sfcTextFingerprint(sfcToText(buildCurrentSfcPayload())) : null),
+    () => (pushWatchesSfc ? sfcPayloadFingerprint(buildCurrentSfcPayload()) : null),
     [pushWatchesSfc, buildCurrentSfcPayload],
   )
   // Baseline = the document fingerprint captured at the last successful PUSH. Deliberately
   // its own state rather than a reuse of the Save-based dirty flag: saving to disk must not
   // mark a never-pushed document clean, and a push must not mark it saved.
   const [lastPushedSfcHash, setLastPushedSfcHash] = useState<string | null>(null)
-  // Adopt a baseline on first availability so a freshly-loaded document starts CLEAN, mirroring
-  // how lastExportedHash adopts currentMergedRulesHash above.
-  if (currentSfcHash !== null && lastPushedSfcHash === null) setLastPushedSfcHash(currentSfcHash)
+  // Adopt a baseline so a freshly-loaded document starts CLEAN, mirroring how lastExportedHash
+  // adopts currentMergedRulesHash above — and gated on the SAME pending flag, which is what
+  // makes the adoption survive a document swap.
+  //
+  // `lastPushedSfcHash === null` alone is not enough: every load/import/restore path clears
+  // this baseline URGENTLY while writing the new document inside a startTransition, so React
+  // commits an intermediate render holding a null baseline and the OLD document. Adopting
+  // there latched the outgoing document's fingerprint; the transition then landed the new one,
+  // currentSfcHash diverged, and a file the user merely OPENED read as dirty and auto-pushed
+  // itself. Re-adopting while the reset is still pending keeps the baseline tracking the
+  // document until the load has fully settled.
+  if (currentSfcHash !== null && (exportBaselineResetPending || lastPushedSfcHash === null)) {
+    if (currentSfcHash !== lastPushedSfcHash) setLastPushedSfcHash(currentSfcHash)
+  }
   // What the auto-push edge actually watches. One expression, so no call site re-derives it.
   const pushDirty = pushWatchesSfc
     ? (lastPushedSfcHash !== null && currentSfcHash !== null && currentSfcHash !== lastPushedSfcHash)
@@ -9597,6 +9608,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const target = forceLocal ? null : pushExportEndpoint
     if (target) {
       let pushToast: 'success' | 'failure'
+      // Which document actually went out, decided by the SAME resolver read that built the
+      // payload below. Reading the capability a second time for the toast let a socket drop
+      // between the upload and the await resolving rename a .sfc push "Sellfile pushed".
+      let pushedSfcDocument = false
       try {
         // Send the upload command using the shared endpoint compatibility shim.
         // Pass the object directly so the WS envelope serialises it inline — no double-encoding.
@@ -9610,6 +9625,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // success describes exactly the document that went over the wire — not a re-serialization
         // that an interleaved edit could have moved underneath us.
         const sfcPayload = uploadTarget.sfcDocument ? buildCurrentSfcPayload() : null
+        pushedSfcDocument = sfcPayload !== null
         const upload = sfcPayload !== null
           ? { fileName: sfcFilename(), contentType: SFC_EXPORT_CONTENT_TYPE, data: sfcPayload }
           : { fileName: filename, contentType: HSF_EXPORT_CONTENT_TYPE, data: payloadOnce() }
@@ -9628,7 +9644,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           // Clear whichever dirty signal this push actually satisfied. A .sfc push says nothing
           // about the compiled sellfile, so it must NOT clear the .hsf export baseline — the
           // Export button's badge keeps meaning "the file you would save has changed".
-          if (sfcPayload !== null) setLastPushedSfcHash(sfcTextFingerprint(sfcToText(sfcPayload)))
+          if (sfcPayload !== null) setLastPushedSfcHash(sfcPayloadFingerprint(sfcPayload))
           else setLastExportedHash(currentMergedRulesHash)
           // Notify the express-mode button so it plays its blink animation.
           if (silent) setAutoPushFlashSeq((s) => s + 1)
@@ -9643,8 +9659,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (pushToast === 'success') {
         // Push path: report the endpoint upload as a "push", not a file export — and name the
-        // document that actually went out, which under the capability is the .sfc file.
-        outcomeToast(pushWatchesSfc ? 'toastSfcFilePushed' : 'toastSellfilePushed')
+        // document that actually went out, taken from the upload decision itself so the
+        // wording cannot describe a different document than the one sent.
+        outcomeToast(pushedSfcDocument ? 'toastSfcFilePushed' : 'toastSellfilePushed')
       } else {
         showToast(t('toastSellfilePushFailed'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
       }
@@ -9660,7 +9677,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     buildCurrentSfcPayload,
     currentMergedRulesHash,
     pushExportEndpoint,
-    pushWatchesSfc,
     sendExternalRequest,
     setAutoPushFlashSeq,
     updatePushEndpointReachable,

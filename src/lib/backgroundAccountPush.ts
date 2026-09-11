@@ -40,7 +40,7 @@ import {
   type SfcAccount,
 } from './accounts'
 import { loadAutosave, saveAutosave } from './autosave'
-import { buildSfcPayloadFromParsed, parseSfcObject, sfcTextFingerprint, sfcToText, SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
+import { buildSfcPayloadFromParsed, parseSfcObject, sfcPayloadFingerprint, SFC_EXPORT_CONTENT_TYPE } from './sfcIO'
 import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
@@ -244,7 +244,7 @@ export const createBackgroundAccountPushService = (
       // account's next session would start from stale gear.
       if (uploadTarget.sfcDocument) {
         const sfcPayload = buildSfcPayloadFromParsed(doc, APP_VERSION)
-        const fingerprint = sfcTextFingerprint(sfcToText(sfcPayload))
+        const fingerprint = sfcPayloadFingerprint(sfcPayload)
         if (fingerprint === getSellfileLastPushSfcHashForAccount(account.id)) {
           // Nothing to send. Persist the gear that arrived, then report the no-op.
           persistBurstGear(account, items)
