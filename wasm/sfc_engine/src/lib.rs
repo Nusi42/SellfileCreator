@@ -757,8 +757,8 @@ mod tests {
     }
 
     #[test]
-    fn build_hsf_toggles_the_protection_rules() {
-        // A sellfile that sells every 5* Epic and protects the two best SPD pieces. With
+    fn build_hsf_toggles_the_safeguard_rules() {
+        // A sellfile that sells every 5* Epic and safeguards the two best SPD pieces. With
         // protection on the file carries extra keep rows for the rescued pieces; with it
         // off those rows are gone and the same gear would be sold.
         //
@@ -807,6 +807,92 @@ mod tests {
         // Turning protection off must leave the recipe rules alone — the toggles are
         // independent, so one switch may not quietly take another's rules with it.
         assert!(off_count > 0, "recipes must survive safeguards:false");
+    }
+
+    #[test]
+    fn build_hsf_splits_a_sellfile_into_disjoint_halves() {
+        // The switches exist so a caller can split ONE sellfile into separate files by
+        // where each rule came from. That is only useful if the parts partition the whole:
+        // no rule in both, and none lost. A rule that appeared twice would be applied
+        // twice, and a lost sell rule would silently spare gear the file meant to sell.
+        const SPLIT_SFC: &str = r#"{
+            "Version": "1.0",
+            "Recipes": [
+                { "keep": false, "Rank": "5★", "Rarity": "Epic", "substats": ["SPD"], "minCount": 1 }
+            ],
+            "Safeguards": [
+                { "activation": "protectExisting", "requiredCount": 2, "substats": ["SPD"], "substatMatch": "any" }
+            ],
+            "SafeguardsEnabled": true,
+            "FinalSellRemainder": { "artifacts": true, "accessories": true, "levels": [0, 4, 8, 12, 16] }
+        }"#;
+        // Two pieces the recipe would sell, so the safeguard has candidates to rescue and
+        // the safeguard half is non-empty.
+        const BOTH_PROTECTABLE: &str = r#"[
+            {
+                "id": 1001, "kindId": 1, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 10,
+                "primary": { "id": 1, "isAbsolute": 0 },
+                "secondary": [ { "id": 4, "level": 4, "isAbsolute": 1, "statValue": 90194313216 } ]
+            },
+            {
+                "id": 1002, "kindId": 2, "rankId": 5, "rarityId": 4, "level": 16, "setKindId": 5,
+                "primary": { "id": 2, "isAbsolute": 0 },
+                "secondary": [ { "id": 4, "level": 1, "isAbsolute": 1, "statValue": 42949672960 } ]
+            }
+        ]"#;
+
+        // Identify a rule by its content minus RowIdx, which is positional by design and
+        // therefore differs between a part and the whole for the very same rule.
+        fn keys(rules: &[serde_json::Value]) -> Vec<String> {
+            rules
+                .iter()
+                .map(|rule| {
+                    let mut copy = rule.clone();
+                    copy.as_object_mut().map(|object| object.remove("RowIdx"));
+                    serde_json::to_string(&copy).unwrap()
+                })
+                .collect()
+        }
+
+        let whole = keys(&hsf_rules_of(
+            &run_hsf(&make_hsf_input(SPLIT_SFC, BOTH_PROTECTABLE, "")).unwrap(),
+        ));
+        let recipes_and_final_sell = keys(&hsf_rules_of(
+            &run_hsf(&make_hsf_input(SPLIT_SFC, BOTH_PROTECTABLE, r#", "safeguards": false"#)).unwrap(),
+        ));
+        let safeguards_only = keys(&hsf_rules_of(
+            &run_hsf(&make_hsf_input(
+                SPLIT_SFC,
+                BOTH_PROTECTABLE,
+                r#", "recipes": false, "finalSell": false"#,
+            ))
+            .unwrap(),
+        ));
+
+        // Each half must actually carry something, or the split is vacuously "disjoint".
+        assert!(!recipes_and_final_sell.is_empty(), "the recipe half must not be empty");
+        assert!(!safeguards_only.is_empty(), "the safeguard half must not be empty");
+
+        // Disjoint: no rule is written into both files.
+        for rule in &safeguards_only {
+            assert!(
+                !recipes_and_final_sell.contains(rule),
+                "a rule appears in both halves: {rule}"
+            );
+        }
+        // Complete: together the halves are exactly the whole file, nothing lost or added.
+        let mut rejoined: Vec<String> = recipes_and_final_sell
+            .iter()
+            .chain(safeguards_only.iter())
+            .cloned()
+            .collect();
+        let mut expected = whole.clone();
+        rejoined.sort();
+        expected.sort();
+        assert_eq!(
+            rejoined, expected,
+            "the two halves must reunite into exactly the complete file"
+        );
     }
 
     #[test]

@@ -3,10 +3,9 @@
  * from C on Windows.
  *
  * It loads the library, checks the version, asks for a decision on two pieces of
- * gear, prints the answers, then writes a sell file the helper app can load - once
- * complete, and once with the closing "sell everything else" left out, to show what
- * the switches do. Everything is plain C99 and the Windows API - no other libraries
- * needed.
+ * gear, prints the answers, then writes sell files the helper app can load - the
+ * complete one, and the two halves it splits into - to show what the switches do.
+ * Everything is plain C99 and the Windows API - no other libraries needed.
  *
  * Build and run (from this folder):
  *
@@ -42,9 +41,9 @@ typedef char *(*sfc_version_fn)(void);
 typedef void (*sfc_free_fn)(char *);
 
 /*
- * A small sell file: keep 5-star Epic pieces that have a Speed substat, and sell whatever
- * is left over at every upgrade level. That closing "sell the rest" is the part the
- * finalSell switch turns off further down, which is why it is here.
+ * A small sell file using all three sources, so the switches further down have something
+ * to separate: a rule that sells 5-star Epic pieces with a Speed substat, a safeguard that
+ * keeps the two best of them anyway, and a closing "sell the rest".
  *
  * A real one comes from a file on disk - this is inline only to keep the example to a
  * single source file. Note the escaped quotes: the sell file is passed as a JSON
@@ -54,14 +53,21 @@ static const char *SELL_FILE =
     "{"
     "\\\"Version\\\": \\\"1.0\\\","
     "\\\"Recipes\\\": [{"
-    "\\\"keep\\\": true,"
+    "\\\"keep\\\": false,"
     "\\\"Rank\\\": \\\"5\\\\u2605\\\","
     "\\\"Rarity\\\": \\\"Epic\\\","
     "\\\"substats\\\": [\\\"SPD\\\"],"
     "\\\"minCount\\\": 1"
     "}],"
-    "\\\"Safeguards\\\": [],"
-    "\\\"SafeguardsEnabled\\\": false,"
+    /* A safeguard: whatever the rule above would sell, keep the two best Speed
+     * pieces anyway. This is the part the safeguards switch separates out. */
+    "\\\"Safeguards\\\": [{"
+    "\\\"activation\\\": \\\"protectExisting\\\","
+    "\\\"requiredCount\\\": 2,"
+    "\\\"substats\\\": [\\\"SPD\\\"],"
+    "\\\"substatMatch\\\": \\\"any\\\""
+    "}],"
+    "\\\"SafeguardsEnabled\\\": true,"
     /* The closing catch-all: sell anything no rule above named, at any level. */
     "\\\"FinalSellRemainder\\\": {"
     "\\\"artifacts\\\": true,"
@@ -73,8 +79,8 @@ static const char *SELL_FILE =
 /*
  * Two pieces of gear, exactly as the game reports them.
  *
- * The first is a 5-star Epic helmet with Speed, so the rule above keeps it. The second is
- * a 4-star Rare chestplate that no rule mentions.
+ * Both are 5-star Epic pieces carrying Speed, so the rule above would sell both - and the
+ * safeguard then keeps them, which is what gives the split below something to show.
  *
  * Note statValue: the game stores stats as fixed-point integers, where the number you
  * see in game is the stored value divided by 2^32. Pass the stored value through
@@ -98,12 +104,13 @@ static const char *GEAR =
     "{"
     "\"id\": 1002,"
     "\"kindId\": 2,"           /* 2 = chestplate */
-    "\"rankId\": 4,"
-    "\"rarityId\": 3,"         /* 3 = Rare */
-    "\"level\": 0,"
+    "\"rankId\": 5,"
+    "\"rarityId\": 4,"         /* 4 = Epic */
+    "\"level\": 16,"
     "\"setKindId\": 5,"
     "\"primary\": { \"id\": 2, \"isAbsolute\": 0 },"
-    "\"secondary\": [ { \"id\": 2, \"level\": 1, \"isAbsolute\": 0, \"statValue\": 4294967296 } ]"
+    /* Speed 10, so this piece is a weaker Speed candidate than 1001 above. */
+    "\"secondary\": [ { \"id\": 4, \"level\": 1, \"isAbsolute\": 1, \"statValue\": 42949672960 } ]"
     "}"
     "]";
 
@@ -186,6 +193,7 @@ static void report_sell_file(const char *label, const char *answer)
 static void print_verdicts(const char *answer)
 {
     const char *cursor = strstr(answer, "\"verdicts\"");
+    const char *verdicts_end = NULL;
     int count = 0;
 
     if (!cursor) {
@@ -193,8 +201,17 @@ static void print_verdicts(const char *answer)
         return;
     }
 
+    /* Stop at the end of the verdicts array. "artifactId" also appears in
+     * safeguardRanks, so a scan that ran to the end of the answer would report every
+     * piece a second time, with the rank row's fields read as a verdict. */
+    verdicts_end = strchr(cursor, ']');
+    if (!verdicts_end) {
+        printf("No verdicts in the answer.\n");
+        return;
+    }
+
     /* Each verdict object starts at an "artifactId" key. */
-    while ((cursor = strstr(cursor, "\"artifactId\":")) != NULL) {
+    while ((cursor = strstr(cursor, "\"artifactId\":")) != NULL && cursor < verdicts_end) {
         long long id = 0;
         const char *object_end = NULL;
         int keep = 0, matched = 0, safeguarded = 0;
@@ -323,17 +340,19 @@ int main(int argc, char *argv[])
     printf("Decisions:\n");
     print_verdicts(answer);
 
-    /* 6. Ask for a sell file the helper app could load.
+    /* 6. Ask for sell files the helper app could load.
      *
-     * Twice, to show the switches: once complete, and once without the closing "sell
-     * everything else". The second is the cautious file - it only ever sells what a rule
-     * actually names, and leaves everything else alone.
+     * Three times over the SAME sell file and the same gear, to show what the switches
+     * are for: the complete file, then the two halves it splits into. The halves do not
+     * overlap and together they hold exactly the entries of the complete one, so writing
+     * both covers everything the single file would.
      *
      * The switches have to be chosen HERE. A finished sell file is just a list of rules
      * and does not record which part each one came from, so there is nothing left to
      * sort out afterwards. */
     printf("\nSell files:\n");
 
+    /* No switches: every source the sell file asks for. */
     hsf_request = build_hsf_request("");
     if (hsf_request) {
         hsf_answer = build_hsf(hsf_request);
@@ -346,12 +365,25 @@ int main(int argc, char *argv[])
         hsf_request = NULL;
     }
 
-    /* Same request, one switch flipped. Everything else is identical. */
-    hsf_request = build_hsf_request(", \"finalSell\": false");
+    /* One half: the rules the user wrote, plus the closing sell. */
+    hsf_request = build_hsf_request(", \"safeguards\": false");
     if (hsf_request) {
         hsf_answer = build_hsf(hsf_request);
         if (hsf_answer) {
-            report_sell_file("without the final sell", hsf_answer);
+            report_sell_file("recipes + final sell", hsf_answer);
+            release(hsf_answer);
+            hsf_answer = NULL;
+        }
+        free(hsf_request);
+        hsf_request = NULL;
+    }
+
+    /* The other half: only the pieces the safeguards rescue. */
+    hsf_request = build_hsf_request(", \"recipes\": false, \"finalSell\": false");
+    if (hsf_request) {
+        hsf_answer = build_hsf(hsf_request);
+        if (hsf_answer) {
+            report_sell_file("safeguards only", hsf_answer);
             release(hsf_answer);
             hsf_answer = NULL;
         }

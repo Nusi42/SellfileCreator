@@ -330,8 +330,11 @@ app's export path.
 char* sfc_decide(const char* input_json);
 
 // Render a .hsf from the same sellfile + gear. input_json is the NativeHsfInput schema
-// below: the decide fields plus `recipes` / `safeguards` / `finalSell`, each defaulting
-// true, which independently select the three rule sources the merge composes. Returns
+// below: the decide fields plus `recipes` / `safeguards` / `finalSell`. Each omitted switch
+// follows the sellfile's own setting; `false` withholds that source, and `true` cannot add
+// one the file did not ask for. Omitting a source is what lets a caller SPLIT one sellfile
+// into disjoint files by origin (recipes+finalSell / safeguards) that reunite exactly.
+// Returns
 // {"hsf":"<file text>","ruleCount":<n>}; the string is the complete file, written verbatim.
 // On any error returns {"error":"<message>"}. Never returns NULL.
 char* sfc_build_hsf(const char* input_json);

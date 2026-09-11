@@ -206,9 +206,13 @@ metadata stripped, `RecipeID`/`RecipeName` hoisted ahead of the schema fields, a
                       // request with no gear yields no protection whatever the switch says
   "champions": [ … ], // as NativeInput
 
-  // All default TRUE: an omitted switch reproduces the app's own export for that sellfile.
-  "recipes":    true, // the recipe rules (dropped BEFORE detection, so protection is not
-                      // injected for sells the requested file does not contain)
+  // Omitted = follow the sellfile's own setting, so a request naming none of them
+  // reproduces the app's own export. `false` withholds that source; `true` adds nothing,
+  // since each source is already gated by the sellfile (safeguards_enabled, a defined
+  // FinalSellRemainder, each recipe's use_flag) and a caller must not be able to invent
+  // a sell the author did not ask for.
+  "recipes":    true, // recipe rules, dropped BEFORE detection so safeguards are not
+                      // injected for sells the requested file does not contain
   "safeguards": true, // AND-ed with the sellfile's own switch — it can only take away
   "finalSell":  true  // withholds the merge's finalSellRemainder, dropping the catch-all
 }
@@ -231,7 +235,10 @@ sells everything.
 
 The three switches map onto three separate `ComputeMergedRulesIn` inputs (`custom_rules`,
 `safeguard_enabled` + detection, `final_sell_remainder`), which is why they compose without
-interfering. **The choice must be made here**: `cleanHsfForExport` strips `__source`, so a
+interfering — and why the outputs **partition**: `{safeguards:false}` and
+`{recipes:false, finalSell:false}` are disjoint and their union is byte-identical to the
+complete file's rule set, so a caller can split one sellfile into separate `.hsf` files by
+origin without duplicating or losing a rule. **The choice must be made here**: `cleanHsfForExport` strips `__source`, so a
 finished `.hsf` records nothing about which rule came from which source and cannot be
 filtered after the fact.
 

@@ -17,7 +17,7 @@ with separate switches for the recipes, the safeguards, and the closing "sell th
 | File | What it is |
 |---|---|
 | `sfc_decide.h` | The interface. Four functions, all documented in the file. |
-| `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them, and builds two sell files. |
+| `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them, and splits a sell file into parts. |
 | `build.bat` | Builds the example. Finds your compiler for you. |
 
 The library itself (`sfc_engine.dll`) sits in the same folder as this README.
@@ -29,8 +29,8 @@ build.bat
 sfc_sample.exe
 ```
 
-You should see a version line, the decisions for two example pieces, and the size of two
-sell files — one complete, one with the closing "sell the rest" left out. If the library is
+You should see a version line, the decisions for two example pieces, and the size of
+three sell files — the complete one and the two halves it splits into. If the library is
 somewhere else, pass its path:
 
 ```
@@ -103,21 +103,45 @@ group of similar pieces it was compared against, and whether it made the cut.
 ## Writing a sell file
 
 `sfc_build_hsf` takes the same sell file and gear and gives you back a finished `.hsf` as
-text, ready to write to disk. Three switches choose what goes in, each on unless you turn
-it off:
+text, ready to write to disk.
+
+A sell file is written from three separate sources, and one switch each leaves one out:
 
 - **`recipes`** — the keep and sell rules the user wrote.
 - **`safeguards`** — keep entries for the individual pieces the safeguard rules save.
 - **`finalSell`** — the closing "sell everything not mentioned above". Turn it off for a
   cautious file that only ever sells what a rule actually names.
 
-Send none of them and you get the same file the app itself would write.
+Leave a switch out and that source is written the way the sell file itself asks for, so
+sending none of them gives you the complete file — the same one the app would write. Set
+one to `false` and that source is left out.
 
-Two things are worth knowing. The gear matters even though a sell file describes rules
+A switch only ever takes a source away. Setting one to `true` adds nothing, because there
+is nothing to add: a sell file with its safeguards turned off, or with no closing sell
+defined, has none to begin with — and a file must never sell gear its author did not ask
+to sell.
+
+### Splitting one sell file into several
+
+Ask twice over the same sell file and the same gear, leaving out a different source each
+time:
+
+| Request | What you get |
+|---|---|
+| `{ …, "safeguards": false }` | the recipes and the closing sell |
+| `{ …, "recipes": false, "finalSell": false }` | the safeguards on their own |
+| `{ … }` | all three together |
+
+The two parts do not overlap, and together they hold exactly the entries of the complete
+file — nothing duplicated, nothing lost. So you can write them as separate files and still
+have covered everything the complete one would.
+
+You have to choose here, though: a finished sell file is just a list of rules and does not
+record which part each one came from, so there is nothing to sort out afterwards.
+
+One more thing worth knowing. The gear matters even though a sell file describes rules
 rather than pieces: a safeguard works by naming the pieces it saves, so a request with no
-gear comes back with no safeguards in it however the switch is set. And you have to choose
-here — a finished sell file is just a list of rules and does not record which part each one
-came from, so there is nothing to sort out afterwards.
+gear comes back with no safeguards in it however the switch is set.
 
 Write the returned text to a file ending in `.hsf` exactly as it stands. Do not reformat it.
 

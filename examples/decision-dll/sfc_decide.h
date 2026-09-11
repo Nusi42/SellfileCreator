@@ -271,25 +271,44 @@ char *sfc_decide(const char *input_json);
  * The three switches
  * ---------------------------------------------------------------------------
  *
- * Each one is on unless you say otherwise, so sending none of them gives you the same
- * file the app itself would write for that sell file. Each names a part of the result by
- * what it MEANS, so you never need to know how a sell file is put together:
+ * A sell file is written from three separate sources. Each switch leaves one of them out,
+ * which is how you split one sell file into several files by where its entries came from.
  *
- *   recipes      The keep and sell rules the user wrote. Turn off to get a file that
- *                carries only the safeguards, or only the final sell.
+ * Leave a switch out and that source is written the way the sell file itself asks for -
+ * so a request naming none of them gives you the complete file, the same one the app
+ * would write. Set it to false and that source is left out entirely.
+ *
+ * A switch can only ever take a source AWAY. Setting one to true does not add anything,
+ * because there is nothing to add: a sell file with its safeguards turned off, or with no
+ * closing sell defined, has none to begin with, and a file must never sell gear its author
+ * did not ask to sell.
+ *
+ *   recipes      The keep and sell rules the user wrote.
  *
  *   safeguards   Extra keep entries for the specific pieces the sell file's safeguard
  *                rules rescue. Turn off and those pieces are no longer spared.
- *                This switch can only take safeguards AWAY - a sell file with them
- *                turned off gets none either way.
  *
  *   finalSell    The closing "sell everything not mentioned above". Turn off and anything
  *                no rule names is simply left alone instead of sold. Worth turning off
  *                when you want a cautious file that only ever sells what it names.
  *
- * You must choose these HERE. The finished file does not record which entry came from
- * where, so you cannot sort them out afterwards - a written sell file is just a list of
- * rules.
+ * ---------------------------------------------------------------------------
+ * Splitting one sell file into several
+ * ---------------------------------------------------------------------------
+ *
+ * Ask twice over the same sell file and the same gear, leaving out a different source
+ * each time:
+ *
+ *   { ..., "safeguards": false }                    the recipes and the closing sell
+ *   { ..., "recipes": false, "finalSell": false }   the safeguards on their own
+ *   { ... }                                         all three together
+ *
+ * The two parts do not overlap, and together they hold exactly the entries of the
+ * complete file - nothing is duplicated and nothing is lost. So you can write them as
+ * separate files and still have covered everything the complete one would.
+ *
+ * You must choose HERE. The finished file does not record which entry came from where,
+ * so you cannot sort them out afterwards - a written sell file is just a list of rules.
  *
  * ===========================================================================
  * WHAT YOU GET BACK
