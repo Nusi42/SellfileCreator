@@ -489,7 +489,8 @@ pub fn prepare_rule(raw: RuleRaw) -> PreparedRule {
     let source_fallback = if source_bits == 0 { source_raw.clone() } else { None };
     let is_keep_override_source =
         (source_bits & RULE_SOURCE_BIT_SAFEGUARDS) != 0 || source_fallback.as_deref() == Some(RULE_SOURCE_SAFEGUARDS);
-    let recipe_idx = raw.RecipeID.and_then(|cfg| if cfg > 0 { Some(cfg - 1) } else { None });
+    // 1-based `RecipeID` -> 0-based gate index, through the one definition of that offset.
+    let recipe_idx = recipe_index_from_id(raw.RecipeID);
 
     let substats = raw
         .Substats
@@ -703,6 +704,26 @@ pub const RECIPE_MODE_ACTIVE: &str = "active";
 pub const RECIPE_MODE_DISABLED: &str = "disabled";
 /// A layout-only entry in the recipe list. It produces no rules at all.
 pub const RECIPE_MODE_SEPARATOR: &str = "separator";
+
+/// The `RecipeID` a recipe at 0-based `index` must carry.
+///
+/// `RecipeID` is 1-BASED: the builder drops any value <= 0
+/// (`hsf_builder_execution`: `RecipeID: input.recipe_id.filter(|v| *v > 0)`), so 0 would
+/// erase recipe 0's identity, and `recipe_index_from_id` below recovers the index by
+/// subtracting 1. Producers call this rather than writing `index + 1` inline, so the
+/// offset and its inverse cannot drift apart.
+pub fn recipe_id_for_index(index: usize) -> i64 {
+    index as i64 + 1
+}
+
+/// The 0-based recipe index a `RecipeID` refers to, or `None` when it names no recipe.
+///
+/// The inverse of `recipe_id_for_index`, and the one definition of that offset: a
+/// non-positive id (absent, or a safeguard's sentinel) belongs to no recipe, so it gates
+/// against no `recipe_modes` entry.
+pub fn recipe_index_from_id(recipe_id: Option<i64>) -> Option<i64> {
+    recipe_id.and_then(|id| if id > 0 { Some(id - 1) } else { None })
+}
 
 // Recipe visibility gate (disabled/separator modes + explicit exclusions). SSOT here;
 // the TS evaluateMatchesByRecipe delegates to this engine rather than re-implementing it.

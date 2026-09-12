@@ -401,6 +401,23 @@ deliberately **stateless**: no handle, no session, no cached gear. Crossing an A
 cache means owning invalidation across a boundary the caller can restart at any time; if
 that ever changes, the numbers above are the baseline to beat.
 
+**`RecipeID` is 1-based — the recipe-mode gate depends on it.**
+
+A generated rule's `RecipeID` is *not* a raw index. Emission drops any value `<= 0`
+(`hsf_builder_execution`: `RecipeID: input.recipe_id.filter(|v| *v > 0)`), and the evaluator
+recovers the recipe's position as `RecipeID - 1` to look it up in `recipe_modes`
+(`matcher_evaluator::prepare_rule`). Build the id with
+`matcher_evaluator::recipe_id_for_index`; `recipe_index_from_id` is its inverse, and the two
+are the single definition of that offset. The app's TS builder stamps the same convention
+(`recipeIdForExport = recipeIdx + 1`, `merge.ts`).
+
+Stamping the 0-based enumeration index instead breaks the gate twice over: recipe 0 loses its
+id to the `> 0` filter, and every later recipe reads its *predecessor's* entry in
+`recipe_modes`. A sellfile whose list is headed by a separator, or that contains any disabled
+recipe, then has the following *active* recipe silenced — the DLL keeps gear the app's
+preview sells, which reads as "the DLL decides almost nothing". This shipped once; the
+regression is pinned by `decide_parity.rs::a_disabled_recipe_silences_only_itself`.
+
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before
 this crate shipped it was ungated — do not let it become so again.

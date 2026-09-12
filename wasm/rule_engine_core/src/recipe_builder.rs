@@ -478,6 +478,12 @@ fn variant_to_main_choice(variant: i64) -> EmitHsfMainChoiceIn {
 /// `minima` is the user-provided substat target table from the SFC (may be None;
 /// factory defaults are used when absent).  `recipe_id` tags the generated rules
 /// so consumers can trace them back to their source recipe.
+///
+/// `recipe_id` must be 1-BASED — build it with `matcher_evaluator::recipe_id_for_index`
+/// rather than passing a raw enumeration index. Emission drops any value <= 0, and the
+/// evaluator recovers the `recipe_modes` index as `recipe_id - 1`, so a 0-based id both
+/// erases the first recipe's identity and shifts every later recipe onto its
+/// predecessor's mode.
 pub fn build_hsf_rules_for_recipe(
     recipe: &ReadableRecipeParsed,
     minima: Option<&SubstatTargetTableIn>,

@@ -14,9 +14,10 @@ use std::time::Instant;
 
 use rule_engine_core::{
     build_hsf_rules_for_recipe, collect_and_compute_safeguard_protection_core, compute_improvement_chance_core,
-    compute_merged_rules_core, configure_engine, evaluate_engine, safeguard_bucket_key_from_artifact,
-    ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw, ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn,
-    SafeguardWasmSnapshotOut, SfcParsed, RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
+    compute_merged_rules_core, configure_engine, evaluate_engine, recipe_id_for_index,
+    safeguard_bucket_key_from_artifact, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
+    ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn, SafeguardWasmSnapshotOut, SfcParsed, RECIPE_MODE_ACTIVE,
+    RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
 };
 
 use crate::artifact_log::NativeArtifactIn;
@@ -122,13 +123,26 @@ fn derive_recipe_modes(parsed: &SfcParsed) -> Vec<String> {
         .collect()
 }
 
-// Build the HSF rules for every recipe, stamping each with its recipe index so
-// safeguard bucketing can attribute a rule back to the recipe that produced it.
+// Build the HSF rules for every recipe, stamping each with its recipe id so the
+// recipe-mode gate and safeguard bucketing can attribute a rule back to the recipe that
+// produced it.
+//
+// The id is 1-BASED, matching the app's own builder (`recipeIdForExport = recipeIdx + 1`).
+// `RecipeID` is not a raw index anywhere downstream: the builder drops any value <= 0
+// (hsf_builder_execution: `RecipeID: input.recipe_id.filter(|v| *v > 0)`) and the evaluator
+// recovers the index as `RecipeID - 1` (matcher_evaluator::prepare_rule), treating a
+// non-positive id as "belongs to no recipe".
+//
+// Passing the 0-based enumeration index therefore broke the gate in two ways at once:
+// recipe 0's rules lost their id to the filter, and every later recipe read its
+// PREDECESSOR's entry in `recipe_modes` — so one separator or disabled recipe silenced the
+// real sell recipe behind it and the DLL kept gear the app's preview sells.
 fn build_rules(parsed: &SfcParsed) -> Result<Vec<RuleRaw>, String> {
     let minima_ref = parsed.minima.as_ref();
     let mut custom_rules: Vec<RuleRaw> = Vec::new();
     for (idx, recipe) in parsed.recipes.iter().enumerate() {
-        let mut rules = build_hsf_rules_for_recipe(recipe, minima_ref, Some(idx as i64))
+        // 1-based id; `recipe_id_for_index` is the one definition of that offset.
+        let mut rules = build_hsf_rules_for_recipe(recipe, minima_ref, Some(recipe_id_for_index(idx)))
             .map_err(|e| format!("Recipe {idx} build error: {e}"))?;
         custom_rules.append(&mut rules);
     }

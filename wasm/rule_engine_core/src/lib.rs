@@ -69,10 +69,11 @@ pub use auto_rarity_runtime::{
 };
 use hsf_builder_core::*;
 pub use matcher_evaluator::{
-    collect_safeguard_candidates_core, evaluate_item, prepare_evaluate_options, prepare_rule, BucketedRules, EvalMatch,
-    EvaluateItemResult, EvaluateItemScratch, EvaluateOptionsRaw, MatchingRecipeDecision, PreparedRule,
-    SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn, SafeguardCollectedCandidateOut,
-    SafeguardCollectedSnapshotOut, RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
+    collect_safeguard_candidates_core, evaluate_item, prepare_evaluate_options, prepare_rule, recipe_id_for_index,
+    recipe_index_from_id, BucketedRules, EvalMatch, EvaluateItemResult, EvaluateItemScratch, EvaluateOptionsRaw,
+    MatchingRecipeDecision, PreparedRule, SafeguardCandidateResolveBaseMatchIn, SafeguardCollectRowIn,
+    SafeguardCollectedCandidateOut, SafeguardCollectedSnapshotOut, RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED,
+    RECIPE_MODE_SEPARATOR,
 };
 pub use rule_postprocess::{
     build_final_sell_rules_core, build_generated_rules_core, compute_merged_rules_core,

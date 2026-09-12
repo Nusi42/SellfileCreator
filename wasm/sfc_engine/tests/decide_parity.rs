@@ -568,3 +568,292 @@ fn concurrent_calls_agree_with_a_single_call() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Preview parity: the two evaluate options the app sets and the DLL did not
+// ---------------------------------------------------------------------------
+
+// A sellfile with a safeguard but NO rule that would sell the safeguarded piece.
+//
+// The distinction from `sfc_with_spd_safeguard` is deliberate: there, a blanket sell rule
+// matches first, so `first_non_excluded_match` is seeded from that sell and the baseline
+// reads SELL whether or not the caller asked for a baseline pass. Here the recipe cannot
+// reach the piece, so the safeguard rule is the ONLY match — and a baseline computed
+// without `baseline_exclude_sources` reports that same safeguard keep as the baseline,
+// which is the app's own pre-safeguard verdict read wrong.
+fn sfc_safeguarding_an_otherwise_unmatched_piece() -> String {
+    json!({
+        "Version": "1.0",
+        // Sells only RINGS, so the chestplate below is never condemned by a recipe.
+        "Recipes": [{
+            "appearance": { "name": "Sell rings" },
+            "keep": false,
+            "Rank": "Any",
+            "Rarity": "Any",
+            "artifactTypeNames": ["Ring"],
+            "substats": [],
+            "minCount": 0,
+        }],
+        "Safeguards": [{
+            "appearance": { "name": "Protect: Speed" },
+            "requiredCount": 1,
+            "activation": "always",
+            "countMode": { "perRule": false, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": true },
+            "tuple": {
+                "slots": ["Chestplate"],
+                "sets": [],
+                "ranks": ["6\u{2605}"],
+                "rarities": ["Legendary"],
+                "mainStats": [],
+                "factions": [],
+            },
+            "substats": ["SPD"],
+            "substatMatch": "1",
+            "substatWeights": { "SPD": 1.0 },
+        }],
+        "SafeguardsEnabled": true,
+    })
+    .to_string()
+}
+
+// `safeguarded` must mean "a rule would have sold this and a safeguard re-kept it", so a
+// piece no recipe condemns must NOT be flagged — it was never at risk.
+//
+// This is the half of the baseline read that a missing `baseline_exclude_sources` gets
+// RIGHT by accident, pinned so the fix cannot invert it.
+#[test]
+fn an_unthreatened_piece_is_not_flagged_as_rescued() {
+    let sfc = sfc_safeguarding_an_otherwise_unmatched_piece();
+    let verdicts = decide_rows(&sfc, spd_ladder());
+    for verdict in &verdicts {
+        assert!(verdict.keep, "no recipe sells a chestplate in this sellfile");
+        assert!(
+            !verdict.safeguarded,
+            "artifact {} was never condemned, so nothing rescued it",
+            verdict.artifact_id
+        );
+    }
+}
+
+// A recipe flagged `IgnoredBySafeguards` opts its keeps OUT of safeguard coverage.
+//
+// The app passes those recipe indices into BOTH the detection collector and the evaluator
+// (buildIgnoreSafeguardRecipeIndices -> ignoreSafeguardRecipeIndices). The DLL passed
+// `None` for both while the reader parsed the flag into `ReadableRecipe`, so the field was
+// read and then dropped: the app and the DLL disagreed on every sellfile using it.
+//
+// Semantics pinned here: the flag says a KEEP from this recipe does not count as coverage,
+// so the safeguard must still rank and rescue candidates rather than standing down because
+// the recipe already keeps them.
+#[test]
+fn a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard() {
+    // One recipe KEEPS every chestplate, and opts out of counting as safeguard coverage.
+    // A second recipe sells them, placed after the keep so first-match still keeps.
+    let sfc = json!({
+        "Version": "1.0",
+        "Recipes": [
+            {
+                "appearance": { "name": "Keep chestplates (not coverage)" },
+                "keep": true,
+                "Rank": "Any",
+                "Rarity": "Any",
+                "artifactTypeNames": ["Chestplate"],
+                "IgnoredBySafeguards": true,
+                "substats": [],
+                "minCount": 0,
+            },
+        ],
+        "Safeguards": [{
+            "appearance": { "name": "Protect: Speed" },
+            "requiredCount": 1,
+            "activation": "always",
+            "countMode": { "perRule": false, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": true },
+            "tuple": {
+                "slots": ["Chestplate"],
+                "sets": [],
+                "ranks": ["6\u{2605}"],
+                "rarities": ["Legendary"],
+                "mainStats": [],
+                "factions": [],
+            },
+            "substats": ["SPD"],
+            "substatMatch": "1",
+            "substatWeights": { "SPD": 1.0 },
+        }],
+        "SafeguardsEnabled": true,
+    })
+    .to_string();
+
+    let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!(spd_ladder())).expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let outcome = decide(&sfc, &compact).expect("decision chain");
+
+    // The safeguard must have ranked candidates. With the ignore list dropped, the keep
+    // recipe reads as coverage and detection stands down, leaving this empty.
+    assert!(
+        !outcome.safeguard_ranks.is_empty(),
+        "the recipe opted out of coverage, so the safeguard must still rank its candidates"
+    );
+}
+
+// The expected-bucket domain: a quota counts the buckets that COULD exist, not the ones
+// this vault happens to fill.
+//
+// `required_total = required_per_bucket * bucket_count`, and the app always supplies a
+// bucket domain (buildSafeguardExpectedBucketDomain) so the count comes from the catalog:
+// a "keep 1 per slot" safeguard over all six slots has a quota of 6 regardless of what the
+// player owns. The DLL passed `expected_payload: None`, so the count fell back to the
+// buckets OBSERVED in the gear on hand — a different quota, and so a different number of
+// pieces rescued, for the same sellfile and the same vault.
+//
+// Pinned on a rule whose tuple names several slots while the gear fills only one, which is
+// the case where observed and expected bucket counts must differ.
+#[test]
+fn a_quota_counts_the_expected_bucket_domain_not_the_observed_one() {
+    // Keep 1 per SLOT, over a tuple naming all six gear slots.
+    let sfc = json!({
+        "Version": "1.0",
+        "Recipes": [{
+            "appearance": { "name": "Sell everything" },
+            "keep": false,
+            "Rank": "Any",
+            "Rarity": "Any",
+            "substats": [],
+            "minCount": 0,
+        }],
+        "Safeguards": [{
+            "appearance": { "name": "Protect: Speed per slot" },
+            "requiredCount": 1,
+            "activation": "always",
+            "countMode": { "perRule": false, "perSet": false, "perFaction": false, "perMainStat": false, "perSlot": true },
+            "tuple": {
+                "slots": ["Weapon", "Helmet", "Shield", "Gauntlets", "Chestplate", "Boots"],
+                "sets": [],
+                "ranks": ["6\u{2605}"],
+                "rarities": ["Legendary"],
+                "mainStats": [],
+                "factions": [],
+            },
+            "substats": ["SPD"],
+            "substatMatch": "1",
+            "substatWeights": { "SPD": 1.0 },
+        }],
+        "SafeguardsEnabled": true,
+    })
+    .to_string();
+
+    // Every piece is a CHESTPLATE, so exactly one of the six expected slot buckets is filled.
+    let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!(spd_ladder())).expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let outcome = decide(&sfc, &compact).expect("decision chain");
+
+    // The entry reports the quota it worked to. Six named slots, one required each.
+    let entry = outcome
+        .safeguard_ranks
+        .iter()
+        .find(|rank| rank.artifact_id == 103)
+        .expect("the best piece must be ranked");
+    assert_eq!(entry.bucket_rank, 1, "the highest SPD ranks first in its slot bucket");
+
+    // Only ONE chestplate is rescued: the per-slot quota is 1 for the chestplate bucket,
+    // and the five empty slot buckets cannot lend their allowance to it.
+    let rescued = outcome.verdicts.iter().filter(|v| v.safeguarded).count();
+    assert_eq!(
+        rescued, 1,
+        "a per-slot quota of 1 rescues one chestplate, not the unfilled slots' share"
+    );
+}
+
+// RecipeID is 1-BASED, and the DLL must stamp it that way.
+//
+// `prepare_rule` derives the gate index as `RecipeID - 1` and treats `RecipeID <= 0` as
+// "belongs to no recipe" (matcher_evaluator.rs), and the app's own builder stamps
+// `recipeIdForExport = recipeIdx + 1` (merge.ts) to match. The DLL passed the 0-based
+// enumeration index instead, which broke the recipe_modes alignment in two ways at once:
+//
+//   - recipe 0 stamped RecipeID=0, which the `> 0` filter drops to None, so its rules
+//     belong to no recipe and no mode can gate them;
+//   - recipe N stamped RecipeID=N, so the evaluator read mode N-1 — every recipe after the
+//     first was judged by its PREDECESSOR's mode.
+//
+// A file whose first recipe is a separator (the common way to head a list with a title)
+// therefore handed its "separator" mode to recipe 1, silencing a real sell recipe. That is
+// the "the host application sells almost nothing" shape: the rules exist, and the gate throws them away.
+#[test]
+fn a_disabled_recipe_silences_only_itself() {
+    // Three recipes: a separator title, a DISABLED sell-rings rule, and an ACTIVE
+    // sell-chestplates rule. Only the chestplate rule may decide anything.
+    let sfc = json!({
+        "Version": "1.0",
+        "Recipes": [
+            { "appearance": { "name": "— Title —" }, "Separator": true },
+            {
+                "appearance": { "name": "Sell rings (OFF)" },
+                "keep": false, "Rank": "Any", "Rarity": "Any",
+                "artifactTypeNames": ["Ring"],
+                "ExportMode": "Disabled",
+                "substats": [], "minCount": 0,
+            },
+            {
+                "appearance": { "name": "Sell chestplates (ON)" },
+                "keep": false, "Rank": "Any", "Rarity": "Any",
+                "artifactTypeNames": ["Chestplate"],
+                "substats": [], "minCount": 0,
+            },
+        ],
+        "Safeguards": [],
+        "SafeguardsEnabled": false,
+    })
+    .to_string();
+
+    // Chestplates, which only the third (active) recipe names.
+    let verdicts = decide_rows(&sfc, spd_ladder());
+    for verdict in &verdicts {
+        assert!(
+            !verdict.keep,
+            "artifact {} is named by the ACTIVE sell recipe and must be SOLD; a \
+             misaligned recipe_modes gate silences it instead",
+            verdict.artifact_id
+        );
+        assert!(verdict.matched, "the active recipe decided it");
+    }
+}
+
+// Each recipe's rules carry ITS OWN id, so a caller can attribute a verdict and the mode
+// gate lines up entry-for-entry with the recipe list.
+//
+// Pins the alignment directly rather than only through a silenced-rule symptom: with the
+// 0-based stamp the first recipe emitted no id at all and the rest were off by one.
+#[test]
+fn every_recipe_stamps_its_own_one_based_id() {
+    // Three ACTIVE sell recipes, one per slot, so each owns a disjoint set of rules.
+    let sfc = json!({
+        "Version": "1.0",
+        "Recipes": [
+            { "appearance": { "name": "Sell rings" }, "keep": false, "Rank": "Any", "Rarity": "Any",
+              "artifactTypeNames": ["Ring"], "substats": [], "minCount": 0 },
+            { "appearance": { "name": "Sell chestplates" }, "keep": false, "Rank": "Any", "Rarity": "Any",
+              "artifactTypeNames": ["Chestplate"], "substats": [], "minCount": 0 },
+            { "appearance": { "name": "Sell boots" }, "keep": false, "Rank": "Any", "Rarity": "Any",
+              "artifactTypeNames": ["Boots"], "substats": [], "minCount": 0 },
+        ],
+        "Safeguards": [],
+        "SafeguardsEnabled": false,
+    })
+    .to_string();
+
+    let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!(spd_ladder())).expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let outcome = decide(&sfc, &compact).expect("decision chain");
+
+    // Ids actually present on the generated rules, which is what the gate indexes by.
+    let ids: std::collections::BTreeSet<i64> = outcome.rules.iter().filter_map(|rule| rule.RecipeID).collect();
+    assert!(
+        ids.contains(&1) && ids.contains(&2) && ids.contains(&3),
+        "three recipes must stamp ids 1, 2 and 3; got {ids:?}"
+    );
+    assert!(
+        !ids.contains(&0),
+        "0 is not a valid RecipeID — emission drops it, orphaning the recipe's rules"
+    );
+}
