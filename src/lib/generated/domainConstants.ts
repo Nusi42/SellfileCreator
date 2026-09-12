@@ -200,6 +200,21 @@ export const ARTIFACT_SET_NAMES: Record<number, string> = { 1: "Life", 2: "Offen
 // Artifact/accessory set name → numeric id (SSOT for the ArtifactSet enum).
 export const ARTIFACT_SET_IDS = { Life: 1, Offense: 2, Defense: 3, Speed: 4, CriticalRate: 5, CritDamage: 6, Accuracy: 7, Resistance: 8, Lifesteal: 9, Fury: 10, Daze: 11, Cursed: 12, Frost: 13, Frenzy: 14, Regeneration: 15, Immunity: 16, Shield: 17, Relentless: 18, Savage: 19, Destroy: 20, Stun: 21, Toxic: 22, Provoke: 23, Retaliation: 24, Avenging: 25, Stalwart: 26, Reflex: 27, Curing: 28, Cruel: 29, Immortal: 30, DivineOffense: 31, DivineCriticalRate: 32, DivineLife: 33, DivineSpeed: 34, SwiftParry: 35, Deflection: 36, Resilience: 37, Perception: 38, Affinitybreaker: 39, Untouchable: 40, Fatal: 41, Frostbite: 42, Bloodthirst: 43, Guardian: 44, Fortitude: 45, Lethal: 46, Protection: 47, Stoneskin: 48, Killstroke: 49, Instinct: 50, Bolster: 51, Defiant: 52, Impulse: 53, Zeal: 54, Righteous: 57, Supersonic: 58, Merciless: 59, Slayer: 60, Feral: 61, Pinpoint: 62, Stonecleaver: 63, Rebirth: 64, Chronophage: 65, Mercurial: 66, Refresh: 1000, Cleansing: 1001, Bloodshield: 1002, Reaction: 1003, Revenge: 1004 } as const
 
+// Set ids whose bonus is per-piece (accessory slots).
+export const ACCESSORY_SET_ID_LIST: readonly number[] = [1000, 1001, 1002, 1003, 1004]
+
+// Set ids with a fixed 2- or 4-piece bonus.
+export const ARTIFACT_FIXED_SET_ID_LIST: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 57]
+
+// Set ids with a variable (1-9) piece bonus; these fit artifact AND accessory slots.
+export const ARTIFACT_VARIABLE_SET_ID_LIST: readonly number[] = [35, 36, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65, 66]
+
+// Sets an artifact slot can carry: every non-accessory set.
+export const ARTIFACT_COMPATIBLE_SET_IDS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66]
+
+// Sets an accessory slot can carry: accessory sets plus the variable-piece sets.
+export const ACCESSORY_COMPATIBLE_SET_IDS: readonly number[] = [-99, 35, 36, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65, 66, 1000, 1001, 1002, 1003, 1004]
+
 // Anomalous Accessories.
 // Substat ids are the REAL RSL Helper ids (11..14 dealt, 15..18 taken), all eight
 // confirmed against docs/orig/anomalous.hsf. Variants use the standard

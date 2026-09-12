@@ -398,6 +398,33 @@ pub fn set_id_from_name(raw: &str) -> Option<i64> {
         .map(|(_, id)| *id)
 }
 
+// Set ids whose bonus is per-piece (accessory slots).
+pub const ACCESSORY_SET_ID_LIST: &[i64] = &[1000, 1001, 1002, 1003, 1004];
+
+// Set ids with a fixed 2- or 4-piece bonus.
+pub const ARTIFACT_FIXED_SET_ID_LIST: &[i64] = &[
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+    32, 33, 34, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 49, 50, 51, 52, 53, 54, 57,
+];
+
+// Set ids with a variable (1-9) piece bonus; these fit artifact AND accessory slots.
+pub const ARTIFACT_VARIABLE_SET_ID_LIST: &[i64] = &[35, 36, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65, 66];
+
+// Sets an artifact slot can carry: every non-accessory set.
+pub const ARTIFACT_COMPATIBLE_SET_IDS: &[i64] = &[
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+    32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 57, 58, 59, 60, 61, 62,
+    63, 64, 65, 66,
+];
+
+// Sets an accessory slot can carry: accessory sets plus the variable-piece sets.
+pub const ACCESSORY_COMPATIBLE_SET_IDS: &[i64] = &[
+    -99, 35, 36, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65, 66, 1000, 1001, 1002, 1003, 1004,
+];
+
+// Every real faction id, ascending (0 = "no faction" is excluded).
+pub const ALL_FACTION_IDS: &[i64] = &[1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+
 // Artifact slot display names by numeric ID, sorted by ID ascending.
 pub const ARTIFACT_TYPE_DISPLAY_NAMES: &[(i64, &str)] = &[
     (1, "Helmet"),

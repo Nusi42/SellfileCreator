@@ -14,10 +14,12 @@ use std::time::Instant;
 
 use rule_engine_core::{
     build_hsf_rules_for_recipe, collect_and_compute_safeguard_protection_core, compute_improvement_chance_core,
-    compute_merged_rules_core, configure_engine, evaluate_engine, recipe_id_for_index,
-    safeguard_bucket_key_from_artifact, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
-    ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn, SafeguardWasmSnapshotOut, SfcParsed, RECIPE_MODE_ACTIVE,
-    RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR, SAFEGUARD_RECIPE_ID_BASE,
+    compute_merged_rules_core, configure_engine, evaluate_engine, normalize_safeguard_expected_bucket_domain_core,
+    recipe_id_for_index, safeguard_bucket_key_from_artifact, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
+    ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn, SafeguardWasmExpectedBucketDomainIn,
+    SafeguardWasmExpectedBucketsPayloadIn, SafeguardWasmSnapshotOut, SfcParsed, ACCESSORY_COMPATIBLE_SET_IDS,
+    ALLOWED_MAINS_BY_SLOT, ALL_FACTION_IDS, ARTIFACT_COMPATIBLE_SET_IDS, PREFERRED_ARTIFACT_TYPE_ORDER,
+    RECIPE_MODE_ACTIVE, RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR, SAFEGUARD_RECIPE_ID_BASE,
 };
 
 use crate::artifact_log::NativeArtifactIn;
@@ -146,6 +148,41 @@ fn derive_ignore_safeguard_recipe_indices(parsed: &SfcParsed) -> Option<Vec<i64>
     (!indices.is_empty()).then_some(indices)
 }
 
+// The buckets that COULD exist, which is what a safeguard quota multiplies by.
+//
+// A quota is `required_per_bucket * bucket_count`. With no domain supplied the count falls
+// back to the buckets OBSERVED in the gear on hand, so a "keep 1 per slot" safeguard over six
+// slots rescues fewer pieces when the player happens to own nothing in some slot — the app,
+// which always supplies a domain, would keep more. Measured on a real 8,388-piece vault the
+// gap was 10,312 injected safeguard keep-rules here against the app's 17,235.
+//
+// Mirror of `buildSafeguardExpectedBucketDomain` in src/lib/safeguards.ts. Every field comes
+// from `generated_domain_constants.rs`, emitted from the same `shared/domain-constants.json`
+// entries that emit the app's own catalogs, so the two domains cannot drift. The shared
+// normalizer then applies the sorting/dedupe/slot-ordering both sides rely on, rather than
+// this crate re-stating those rules. The two normalized domains were diffed field-by-field on
+// a real account and came out byte-identical.
+fn expected_bucket_domain_payload() -> SafeguardWasmExpectedBucketsPayloadIn {
+    // Per-slot allowed mains keyed by slot id as a string, matching the wire shape.
+    let allowed_main_by_slot = ALLOWED_MAINS_BY_SLOT
+        .iter()
+        .map(|(slot, mains)| (slot.to_string(), mains.to_vec()))
+        .collect();
+    let domain = SafeguardWasmExpectedBucketDomainIn {
+        slot_order: PREFERRED_ARTIFACT_TYPE_ORDER.to_vec(),
+        accessory_compatible_set_ids: ACCESSORY_COMPATIBLE_SET_IDS.to_vec(),
+        artifact_compatible_set_ids: ARTIFACT_COMPATIBLE_SET_IDS.to_vec(),
+        allowed_main_by_slot,
+        all_faction_ids: ALL_FACTION_IDS.to_vec(),
+    };
+    SafeguardWasmExpectedBucketsPayloadIn {
+        // Only the domain is precomputed here. Per-rule expected buckets are derived from it
+        // inside the collector, which is where the app gets them too.
+        expected_buckets_by_rule_id: Default::default(),
+        expected_bucket_domain: Some(normalize_safeguard_expected_bucket_domain_core(domain)),
+    }
+}
+
 // Build the HSF rules for every recipe, stamping each with its recipe id so the
 // recipe-mode gate and safeguard bucketing can attribute a rule back to the recipe that
 // produced it.
@@ -208,18 +245,9 @@ fn detect_safeguards(
         // The recipes that opted out of counting as coverage, same list the app passes.
         derive_ignore_safeguard_recipe_indices(parsed),
         parsed.safeguard_rules.clone(),
-        // NOT at parity with the app, which precomputes an expected-bucket DOMAIN from
-        // TS-only catalogs (all faction ids, set-slot compatibility) this crate has no
-        // generated equivalent of. Without it a quota counts the buckets OBSERVED in the
-        // gear on hand instead of the buckets that COULD exist, so a "keep 1 per slot"
-        // safeguard over six slots can rescue a different number of pieces than the app's
-        // preview does. Measured on a real 8,388-piece vault this is now the ONLY source of
-        // verdict divergence left: 10,312 safeguard keep-rules injected here against the
-        // app's 17,235, while recipe rules and the catch-all match exactly. Closing it needs
-        // ALLOWED_MAIN_BY_SLOT + ALL_FACTION_IDS emitted into generated_domain_constants.rs,
-        // and the accessory/artifact set split, which needs a piece count the shared spec
-        // does not carry yet. See docs/technical/build-and-tooling.md.
-        None, // expected_payload
+        // The bucket DOMAIN, without which a quota counts only the buckets observed in the
+        // gear on hand (see expected_bucket_domain_payload).
+        Some(expected_bucket_domain_payload()),
         true,
         0.0,             // now (timestamp; not used for rule logic)
         BTreeMap::new(), // improvement_chances: empty = threshold gating disabled

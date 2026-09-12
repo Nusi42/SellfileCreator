@@ -820,7 +820,7 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     for (i, raw) in raw_recipes.iter().enumerate() {
         let recipe: ReadableRecipe =
             serde_json::from_value(raw.clone()).map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
-        let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref())?;
+        let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref(), &metasets)?;
         parsed_recipes.push(parsed);
     }
 
@@ -860,7 +860,11 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 
 // `source_version` is the owning file's `Version`; it gates the legacy behaviour-tag
 // fallback so this reader converts exactly the files the TS loader converts.
-fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> Result<ReadableRecipeParsed, String> {
+fn parse_readable_recipe(
+    rec: &ReadableRecipe,
+    source_version: Option<&str>,
+    metasets: &[SafeguardWasmMetasetIn],
+) -> Result<ReadableRecipeParsed, String> {
     // Determine export mode. `Separator: true` is the current marker; the
     // visibility label "Separator" is the legacy spelling (still accepted).
     let vis_raw = rec
@@ -1008,11 +1012,25 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         .filter(|entry| !entry.excluded.unwrap_or(false))
         .filter_map(|entry| entry.name.as_deref().and_then(set_id_from_name))
         .collect();
+    // Excluded entries are remembered, NOT just skipped: an exclusion must be able to remove
+    // a set a METASET contributed below, which is what `resolveArtifactSetSelections` does
+    // (expand, then apply exclusions last so an explicit remove always wins).
+    let mut excluded_set_ids: Vec<i64> = rec
+        .artifact_set_names
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .filter(|entry| entry.excluded.unwrap_or(false))
+        .filter_map(|entry| entry.name.as_deref().and_then(set_id_from_name))
+        .collect();
     // Legacy numeric entries (back-compat); append any not already present.
     for entry in rec.artifact_set_ids.as_deref().unwrap_or(&[]) {
         let id = match entry {
             ReadableArtifactSetEntry::Object { id, excluded } => {
                 if excluded.unwrap_or(false) {
+                    if !excluded_set_ids.contains(id) {
+                        excluded_set_ids.push(*id);
+                    }
                     continue;
                 }
                 *id
@@ -1032,6 +1050,28 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
+
+    // Expand the recipe's metasets into their member set ids and union them in. Mirror of
+    // `resolveArtifactSetSelections` (gearSets/selection.ts), which the app runs BEFORE rule
+    // generation so the builder only ever sees resolved ids.
+    //
+    // Without this a metaset-driven recipe carries NO set filter at all, so it matches every
+    // set instead of its members. On a real sellfile 107 of 195 recipes select their sets this
+    // way; the DLL kept 668 pieces the app sells and sold others the app keeps, because the
+    // rules it built were not the rules the recipe describes.
+    for meta_name in &artifact_meta_set_names {
+        // Metaset names are matched case-insensitively, like every other name in this reader.
+        let Some(meta) = metasets.iter().find(|m| m.name.eq_ignore_ascii_case(meta_name)) else {
+            continue;
+        };
+        for &id in &meta.sets {
+            if !artifact_set_ids.contains(&id) {
+                artifact_set_ids.push(id);
+            }
+        }
+    }
+    // Exclusions apply LAST so an explicit remove beats anything a metaset contributed.
+    artifact_set_ids.retain(|id| !excluded_set_ids.contains(id));
 
     // Level window — clamp to valid milestones.
     let min_level = clamp_milestone(rec.min_level.unwrap_or(0));
@@ -1681,6 +1721,70 @@ mod label_tests {
         // Metaset member set names expanded to ids (Speed=4, Swift Parry=35).
         assert_eq!(parsed.metasets.len(), 1);
         assert_eq!(parsed.metasets[0].sets, vec![4, 35]);
+    }
+
+    // A recipe that selects its sets through a METASET must end up with those set ids.
+    //
+    // The app expands metasets before rule generation (`resolveArtifactSetSelections`), so the
+    // builder only ever sees resolved ids. The reader used to keep `artifactMetaSetNames` as
+    // names and expand nothing, leaving `artifact_set_ids` EMPTY — a recipe whose only set
+    // selection was a metaset then built rules with no set filter and matched every set. On a
+    // real sellfile 107 of 195 recipes select this way, and the DLL disagreed with the app on
+    // 668 pieces.
+    //
+    // Exclusions are pinned alongside because they apply LAST: an explicit remove has to beat
+    // a set the metaset contributed, or a recipe cannot subtract one member of its own metaset.
+    #[test]
+    fn recipe_metasets_expand_to_set_ids_and_exclusions_win() {
+        let sfc = r##"{
+            "Version": "1.0",
+            "Metasets": [
+                { "name": "Speedy", "setNames": ["Speed", "Swift Parry", "Lifesteal"] }
+            ],
+            "Recipes": [
+                {
+                    "appearance": { "name": "Via metaset" },
+                    "keep": true,
+                    "Rank": "Any",
+                    "Rarity": "Any",
+                    "artifactMetaSetNames": ["Speedy"],
+                    "artifactSetNames": [ { "name": "Lifesteal", "excluded": true } ],
+                    "substats": [],
+                    "minCount": 0
+                },
+                {
+                    "appearance": { "name": "Direct plus metaset" },
+                    "keep": true,
+                    "Rank": "Any",
+                    "Rarity": "Any",
+                    "artifactMetaSetNames": ["speedy"],
+                    "artifactSetNames": [ { "name": "Offense" } ],
+                    "substats": [],
+                    "minCount": 0
+                }
+            ],
+            "Safeguards": [],
+            "SafeguardsEnabled": false
+        }"##;
+        let parsed = parse_sfc(sfc).expect("SFC must parse");
+
+        // Speed=4 and Swift Parry=35 come from the metaset; Lifesteal is excluded explicitly
+        // even though the metaset lists it, because exclusions are applied last.
+        let mut via_meta = parsed.recipes[0].artifact_set_ids.clone();
+        via_meta.sort_unstable();
+        assert_eq!(
+            via_meta,
+            vec![4, 35],
+            "a metaset-only recipe must carry its members' set ids; empty here means the reader \
+             never expanded the metaset and the recipe matches EVERY set"
+        );
+
+        // Direct selections union with metaset members, and the lookup is case-insensitive
+        // (the recipe spells the metaset "speedy").
+        let mut mixed = parsed.recipes[1].artifact_set_ids.clone();
+        mixed.sort_unstable();
+        // Offense=2 direct; Speed=4, Lifesteal=9 and Swift Parry=35 from the metaset.
+        assert_eq!(mixed, vec![2, 4, 9, 35], "direct + metaset members must union");
     }
 
     // The app writes the safeguard "ignore previous" flag under `ignorePreviousSafeguards_v2`;

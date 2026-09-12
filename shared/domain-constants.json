@@ -341,283 +341,352 @@
       "name": "Argonites"
     }
   },
-  "_comment_artifactSet": "Artifact/accessory set catalog (id<->name). SSOT for artifactSetNames in types.ts and the set-name resolver in the native DLL's sfc_reader. Ids match the ArtifactSet enum in artifactSets.ts.",
+  "_comment_artifactSet": "Artifact/accessory set catalog (id<->name<->pieceGroup). SSOT for artifactSetNames in types.ts, the set-name resolver in the native DLL's sfc_reader, and the set-compatibility pools both sides feed the safeguard expected-bucket domain. pieceGroup follows the set's piece count in setDescriptions.ts (1 = accessories, 2 or 4 = artifactFixed, variable = artifactVariable) and is stored rather than re-derived so TS and Rust cannot disagree. Ids match the ArtifactSet enum in artifactSets.ts.",
   "artifactSet": {
     "life": {
       "id": 1,
-      "name": "Life"
+      "name": "Life",
+      "pieceGroup": "artifactFixed"
     },
     "offense": {
       "id": 2,
-      "name": "Offense"
+      "name": "Offense",
+      "pieceGroup": "artifactFixed"
     },
     "defense": {
       "id": 3,
-      "name": "Defense"
+      "name": "Defense",
+      "pieceGroup": "artifactFixed"
     },
     "speed": {
       "id": 4,
-      "name": "Speed"
+      "name": "Speed",
+      "pieceGroup": "artifactFixed"
     },
     "criticalRate": {
       "id": 5,
-      "name": "Critical Rate"
+      "name": "Critical Rate",
+      "pieceGroup": "artifactFixed"
     },
     "critDamage": {
       "id": 6,
-      "name": "Crit Damage"
+      "name": "Crit Damage",
+      "pieceGroup": "artifactFixed"
     },
     "accuracy": {
       "id": 7,
-      "name": "Accuracy"
+      "name": "Accuracy",
+      "pieceGroup": "artifactFixed"
     },
     "resistance": {
       "id": 8,
-      "name": "Resistance"
+      "name": "Resistance",
+      "pieceGroup": "artifactFixed"
     },
     "lifesteal": {
       "id": 9,
-      "name": "Lifesteal"
+      "name": "Lifesteal",
+      "pieceGroup": "artifactFixed"
     },
     "fury": {
       "id": 10,
-      "name": "Fury"
+      "name": "Fury",
+      "pieceGroup": "artifactFixed"
     },
     "daze": {
       "id": 11,
-      "name": "Daze"
+      "name": "Daze",
+      "pieceGroup": "artifactFixed"
     },
     "cursed": {
       "id": 12,
-      "name": "Cursed"
+      "name": "Cursed",
+      "pieceGroup": "artifactFixed"
     },
     "frost": {
       "id": 13,
-      "name": "Frost"
+      "name": "Frost",
+      "pieceGroup": "artifactFixed"
     },
     "frenzy": {
       "id": 14,
-      "name": "Frenzy"
+      "name": "Frenzy",
+      "pieceGroup": "artifactFixed"
     },
     "regeneration": {
       "id": 15,
-      "name": "Regeneration"
+      "name": "Regeneration",
+      "pieceGroup": "artifactFixed"
     },
     "immunity": {
       "id": 16,
-      "name": "Immunity"
+      "name": "Immunity",
+      "pieceGroup": "artifactFixed"
     },
     "shield": {
       "id": 17,
-      "name": "Shield"
+      "name": "Shield",
+      "pieceGroup": "artifactFixed"
     },
     "relentless": {
       "id": 18,
-      "name": "Relentless"
+      "name": "Relentless",
+      "pieceGroup": "artifactFixed"
     },
     "savage": {
       "id": 19,
-      "name": "Savage"
+      "name": "Savage",
+      "pieceGroup": "artifactFixed"
     },
     "destroy": {
       "id": 20,
-      "name": "Destroy"
+      "name": "Destroy",
+      "pieceGroup": "artifactFixed"
     },
     "stun": {
       "id": 21,
-      "name": "Stun"
+      "name": "Stun",
+      "pieceGroup": "artifactFixed"
     },
     "toxic": {
       "id": 22,
-      "name": "Toxic"
+      "name": "Toxic",
+      "pieceGroup": "artifactFixed"
     },
     "provoke": {
       "id": 23,
-      "name": "Provoke"
+      "name": "Provoke",
+      "pieceGroup": "artifactFixed"
     },
     "retaliation": {
       "id": 24,
-      "name": "Retaliation"
+      "name": "Retaliation",
+      "pieceGroup": "artifactFixed"
     },
     "avenging": {
       "id": 25,
-      "name": "Avenging"
+      "name": "Avenging",
+      "pieceGroup": "artifactFixed"
     },
     "stalwart": {
       "id": 26,
-      "name": "Stalwart"
+      "name": "Stalwart",
+      "pieceGroup": "artifactFixed"
     },
     "reflex": {
       "id": 27,
-      "name": "Reflex"
+      "name": "Reflex",
+      "pieceGroup": "artifactFixed"
     },
     "curing": {
       "id": 28,
-      "name": "Curing"
+      "name": "Curing",
+      "pieceGroup": "artifactFixed"
     },
     "cruel": {
       "id": 29,
-      "name": "Cruel"
+      "name": "Cruel",
+      "pieceGroup": "artifactFixed"
     },
     "immortal": {
       "id": 30,
-      "name": "Immortal"
+      "name": "Immortal",
+      "pieceGroup": "artifactFixed"
     },
     "divineOffense": {
       "id": 31,
-      "name": "Divine Offense"
+      "name": "Divine Offense",
+      "pieceGroup": "artifactFixed"
     },
     "divineCriticalRate": {
       "id": 32,
-      "name": "Divine Critical Rate"
+      "name": "Divine Critical Rate",
+      "pieceGroup": "artifactFixed"
     },
     "divineLife": {
       "id": 33,
-      "name": "Divine Life"
+      "name": "Divine Life",
+      "pieceGroup": "artifactFixed"
     },
     "divineSpeed": {
       "id": 34,
-      "name": "Divine Speed"
+      "name": "Divine Speed",
+      "pieceGroup": "artifactFixed"
     },
     "swiftParry": {
       "id": 35,
-      "name": "Swift Parry"
+      "name": "Swift Parry",
+      "pieceGroup": "artifactVariable"
     },
     "deflection": {
       "id": 36,
-      "name": "Deflection"
+      "name": "Deflection",
+      "pieceGroup": "artifactVariable"
     },
     "resilience": {
       "id": 37,
-      "name": "Resilience"
+      "name": "Resilience",
+      "pieceGroup": "artifactFixed"
     },
     "perception": {
       "id": 38,
-      "name": "Perception"
+      "name": "Perception",
+      "pieceGroup": "artifactFixed"
     },
     "affinitybreaker": {
       "id": 39,
-      "name": "Affinitybreaker"
+      "name": "Affinitybreaker",
+      "pieceGroup": "artifactFixed"
     },
     "untouchable": {
       "id": 40,
-      "name": "Untouchable"
+      "name": "Untouchable",
+      "pieceGroup": "artifactFixed"
     },
     "fatal": {
       "id": 41,
-      "name": "Fatal"
+      "name": "Fatal",
+      "pieceGroup": "artifactFixed"
     },
     "frostbite": {
       "id": 42,
-      "name": "Frostbite"
+      "name": "Frostbite",
+      "pieceGroup": "artifactFixed"
     },
     "bloodthirst": {
       "id": 43,
-      "name": "Bloodthirst"
+      "name": "Bloodthirst",
+      "pieceGroup": "artifactFixed"
     },
     "guardian": {
       "id": 44,
-      "name": "Guardian"
+      "name": "Guardian",
+      "pieceGroup": "artifactFixed"
     },
     "fortitude": {
       "id": 45,
-      "name": "Fortitude"
+      "name": "Fortitude",
+      "pieceGroup": "artifactFixed"
     },
     "lethal": {
       "id": 46,
-      "name": "Lethal"
+      "name": "Lethal",
+      "pieceGroup": "artifactFixed"
     },
     "protection": {
       "id": 47,
-      "name": "Protection"
+      "name": "Protection",
+      "pieceGroup": "artifactVariable"
     },
     "stoneskin": {
       "id": 48,
-      "name": "Stoneskin"
+      "name": "Stoneskin",
+      "pieceGroup": "artifactVariable"
     },
     "killstroke": {
       "id": 49,
-      "name": "Killstroke"
+      "name": "Killstroke",
+      "pieceGroup": "artifactFixed"
     },
     "instinct": {
       "id": 50,
-      "name": "Instinct"
+      "name": "Instinct",
+      "pieceGroup": "artifactFixed"
     },
     "bolster": {
       "id": 51,
-      "name": "Bolster"
+      "name": "Bolster",
+      "pieceGroup": "artifactFixed"
     },
     "defiant": {
       "id": 52,
-      "name": "Defiant"
+      "name": "Defiant",
+      "pieceGroup": "artifactFixed"
     },
     "impulse": {
       "id": 53,
-      "name": "Impulse"
+      "name": "Impulse",
+      "pieceGroup": "artifactFixed"
     },
     "zeal": {
       "id": 54,
-      "name": "Zeal"
+      "name": "Zeal",
+      "pieceGroup": "artifactFixed"
     },
     "righteous": {
       "id": 57,
-      "name": "Righteous"
+      "name": "Righteous",
+      "pieceGroup": "artifactFixed"
     },
     "supersonic": {
       "id": 58,
-      "name": "Supersonic"
+      "name": "Supersonic",
+      "pieceGroup": "artifactVariable"
     },
     "merciless": {
       "id": 59,
-      "name": "Merciless"
+      "name": "Merciless",
+      "pieceGroup": "artifactVariable"
     },
     "slayer": {
       "id": 60,
-      "name": "Slayer"
+      "name": "Slayer",
+      "pieceGroup": "artifactVariable"
     },
     "feral": {
       "id": 61,
-      "name": "Feral"
+      "name": "Feral",
+      "pieceGroup": "artifactVariable"
     },
     "pinpoint": {
       "id": 62,
-      "name": "Pinpoint"
+      "name": "Pinpoint",
+      "pieceGroup": "artifactVariable"
     },
     "stonecleaver": {
       "id": 63,
-      "name": "Stonecleaver"
+      "name": "Stonecleaver",
+      "pieceGroup": "artifactVariable"
     },
     "rebirth": {
       "id": 64,
-      "name": "Rebirth"
+      "name": "Rebirth",
+      "pieceGroup": "artifactVariable"
     },
     "chronophage": {
       "id": 65,
-      "name": "Chronophage"
+      "name": "Chronophage",
+      "pieceGroup": "artifactVariable"
     },
     "mercurial": {
       "id": 66,
-      "name": "Mercurial"
+      "name": "Mercurial",
+      "pieceGroup": "artifactVariable"
     },
     "refresh": {
       "id": 1000,
-      "name": "Refresh"
+      "name": "Refresh",
+      "pieceGroup": "accessories"
     },
     "cleansing": {
       "id": 1001,
-      "name": "Cleansing"
+      "name": "Cleansing",
+      "pieceGroup": "accessories"
     },
     "bloodshield": {
       "id": 1002,
-      "name": "Bloodshield"
+      "name": "Bloodshield",
+      "pieceGroup": "accessories"
     },
     "reaction": {
       "id": 1003,
-      "name": "Reaction"
+      "name": "Reaction",
+      "pieceGroup": "accessories"
     },
     "revenge": {
       "id": 1004,
-      "name": "Revenge"
+      "name": "Revenge",
+      "pieceGroup": "accessories"
     }
   },
   "_comment_anomalousAccessories": "'Anomalous Accessories' (Champion Proving Grounds jewelry with mode-scoped damage substats). All eight substat ids are CONFIRMED against docs/orig/anomalous.hsf, an RSL Helper sellfile whose eight rules match a screenshot one-for-one: 11=PvE DMG+, 12=PvP DMG+, 13=Boss DMG+, 14=DNG DMG+, 15=PvE DMG-, 16=PvP DMG-, 17=Boss DMG-, 18=DNG DMG- (this confirmed 14/15/17/18, which had been inferred from mode-order contiguity against examples/um109288203_RSLHelper.db artifacts 264537-264539). The same sample fixes the HSF wire format: rules are ORDINARY — one substat line, IsFlat false (percent-shaped, matching the DB fl=0 lines), Condition '>=', the other three slots ID -1 padding — and the only special rule is the VALUE SCALE, hsfValueScale: displayed 0.25% stores as 25 and 2.25% as 225, i.e. hundredths of a percent, where classic percent stats store the plain number (docs/orig/rules.hsf: 5 = 5%). The sample also proves 0.25 granularity is expressible, so targets quantize to hundredths rather than to a coarse roll grid. DB storage is unchanged (values scale by 2^32; the damage-taken family stores negative magnitudes and folds to magnitude at ingest). rollValueByRank is the CONFIRMED per-rank per-line value: 5-star = 1.25% and 6-star = 1.5% are observed, and the series steps by a uniform 0.25 per rank, so ranks 1-4 (0.25/0.5/0.75/1.0) extrapolate along it and bottom out exactly on minTargetValue. The game does not currently offer anomalous accessories below 5 stars, so the low ranks are forward-looking rather than load-bearing. The step is FIXED: an anomalous line is always its rank value times the number of lines, with no per-roll variance and no dependence on the substat target the user set - which is why the 6-star value doubles as the normalization denominator (see SUBSTAT_ROLL_MAX_6_BY_VARIANT / safeguard_substat_max6_by_variant) and why the damage-taken family, folded to magnitude at ingest, normalizes identically to the dealt family. A rank-5 Banner with a set was observed, confirming Banner eligibility. Labels mirror the announcement wording; final in-game strings may differ. eligibleSets is announced and final (keys reference the artifactSet catalog above). These substats deliberately stay OUT of allowedSubsBySlot: that table feeds the Rust engine's substat-gap anticipation (see anomalousAccessories.ts). Full ledger: docs/technical/anomalous-accessories.md.",

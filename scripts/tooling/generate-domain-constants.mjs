@@ -582,8 +582,25 @@ const accessoryFactionEntries = [...accessoryFactionByCode.entries()].sort((a, b
 
 // Artifact-set catalog entries, sorted by id for stable output.
 const artifactSetEntries = Object.entries(artifactSetSpec)
-  .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name) }))
+  .map(([key, val]) => ({ key, id: Number(val.id), name: String(val.name), pieceGroup: String(val.pieceGroup) }))
   .sort((a, b) => a.id - b.id)
+
+// Set ids grouped by piece behaviour. The spec stores `pieceGroup` per set (derived from the
+// set's piece count) so this classification has ONE definition both languages read, instead
+// of TS re-deriving it from tooltip prose and Rust having no equivalent at all.
+const setIdsInGroup = (group) => artifactSetEntries.filter((e) => e.pieceGroup === group).map((e) => e.id)
+const accessorySetIds = setIdsInGroup('accessories')
+const artifactFixedSetIds = setIdsInGroup('artifactFixed')
+const artifactVariableSetIds = setIdsInGroup('artifactVariable')
+// The two compatibility pools the safeguard expected-bucket domain is built from.
+// Artifact slots take every non-accessory set; accessory slots take accessory sets plus the
+// variable-piece sets, which fit both. Sorted + deduped so the emitted arrays are stable.
+const sortedUnique = (ids) => Array.from(new Set(ids)).sort((a, b) => a - b)
+const artifactCompatibleSetIds = sortedUnique([...artifactFixedSetIds, ...artifactVariableSetIds])
+// The no-set sentinel belongs here: an accessory slot can legitimately carry an UNSET
+// accessory (Spider dungeon), and the app's ACCESSORY_SLOTS_COMPATIBLE_SET_IDS seeds it for
+// exactly that reason. Omitting it would drop a real bucket from the expected domain.
+const accessoryCompatibleSetIds = sortedUnique([accessoryNoSetId, ...accessorySetIds, ...artifactVariableSetIds])
 
 // ── Anomalous Accessories ─────────────────────────────────────────────────
 // Mode-scoped damage substats with the REAL RSL Helper stat ids, all eight now
@@ -754,6 +771,25 @@ tsLines.push('// Artifact/accessory set name → numeric id (SSOT for the Artifa
 tsLines.push(
   `export const ARTIFACT_SET_IDS = { ${artifactSetIdEntries.join(', ')} } as const`
 )
+
+// TS: set-id groups by piece behaviour + the two slot-compatibility pools. types.ts consumes
+// these instead of deriving the grouping from setDescriptions.ts piece counts, so the app and
+// the native DLL classify every set identically.
+tsLines.push('')
+tsLines.push('// Set ids whose bonus is per-piece (accessory slots).')
+tsLines.push(`export const ACCESSORY_SET_ID_LIST: readonly number[] = [${accessorySetIds.join(', ')}]`)
+tsLines.push('')
+tsLines.push('// Set ids with a fixed 2- or 4-piece bonus.')
+tsLines.push(`export const ARTIFACT_FIXED_SET_ID_LIST: readonly number[] = [${artifactFixedSetIds.join(', ')}]`)
+tsLines.push('')
+tsLines.push('// Set ids with a variable (1-9) piece bonus; these fit artifact AND accessory slots.')
+tsLines.push(`export const ARTIFACT_VARIABLE_SET_ID_LIST: readonly number[] = [${artifactVariableSetIds.join(', ')}]`)
+tsLines.push('')
+tsLines.push('// Sets an artifact slot can carry: every non-accessory set.')
+tsLines.push(`export const ARTIFACT_COMPATIBLE_SET_IDS: readonly number[] = [${artifactCompatibleSetIds.join(', ')}]`)
+tsLines.push('')
+tsLines.push('// Sets an accessory slot can carry: accessory sets plus the variable-piece sets.')
+tsLines.push(`export const ACCESSORY_COMPATIBLE_SET_IDS: readonly number[] = [${accessoryCompatibleSetIds.join(', ')}]`)
 
 // ── TS: Anomalous Accessories ──────────────────────────────────────────────
 // Consumed via src/lib/anomalousAccessories.ts; see docs/technical/anomalous-accessories.md.
@@ -1037,6 +1073,35 @@ rustLines.push('    let s = raw.trim();')
 rustLines.push('    if s.is_empty() { return None; }')
 rustLines.push('    SET_NAME_IDS.iter().find(|(name, _)| name.eq_ignore_ascii_case(s)).map(|(_, id)| *id)')
 rustLines.push('}')
+
+// Rust: the same set-id groups and compatibility pools the TS side emits, so the DLL can
+// build a safeguard expected-bucket domain identical to the app's.
+rustLines.push('')
+rustLines.push('// Set ids whose bonus is per-piece (accessory slots).')
+rustLines.push(`pub const ACCESSORY_SET_ID_LIST: &[i64] = &[${accessorySetIds.join(', ')}];`)
+rustLines.push('')
+rustLines.push('// Set ids with a fixed 2- or 4-piece bonus.')
+rustLines.push(`pub const ARTIFACT_FIXED_SET_ID_LIST: &[i64] = &[${artifactFixedSetIds.join(', ')}];`)
+rustLines.push('')
+rustLines.push('// Set ids with a variable (1-9) piece bonus; these fit artifact AND accessory slots.')
+rustLines.push(`pub const ARTIFACT_VARIABLE_SET_ID_LIST: &[i64] = &[${artifactVariableSetIds.join(', ')}];`)
+rustLines.push('')
+rustLines.push('// Sets an artifact slot can carry: every non-accessory set.')
+rustLines.push(`pub const ARTIFACT_COMPATIBLE_SET_IDS: &[i64] = &[${artifactCompatibleSetIds.join(', ')}];`)
+rustLines.push('')
+rustLines.push('// Sets an accessory slot can carry: accessory sets plus the variable-piece sets.')
+rustLines.push(`pub const ACCESSORY_COMPATIBLE_SET_IDS: &[i64] = &[${accessoryCompatibleSetIds.join(', ')}];`)
+
+// Rust: ALL_FACTION_IDS — the last catalog the safeguard expected-bucket domain needs that
+// Rust did not already have (ALLOWED_MAINS_BY_SLOT is emitted below, and
+// PREFERRED_ARTIFACT_TYPE_ORDER above). The app builds the same domain from its own copy in
+// safeguards.ts; emitting it from the same spec is what lets the DLL compute a bucket count
+// identical to the app's instead of falling back to the buckets merely OBSERVED in the gear.
+// Positive ids only, mirroring the app's filter (0 is "no faction", not a real bucket).
+const allFactionIds = factionEntries.map((e) => e.id).filter((id) => id > 0).sort((a, b) => a - b)
+rustLines.push('')
+rustLines.push('// Every real faction id, ascending (0 = "no faction" is excluded).')
+rustLines.push(`pub const ALL_FACTION_IDS: &[i64] = &[${allFactionIds.join(', ')}];`)
 
 // ── Rust: ARTIFACT_TYPE_DISPLAY_NAMES ────────────────────────────────────
 const artifactTypeDisplayRust = artifactTypeDisplayEntries

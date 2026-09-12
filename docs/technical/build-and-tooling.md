@@ -455,24 +455,39 @@ mostly metaset-driven collapsed the domain to 11 of 69 sets. Gear from the other
 matched no rule and was KEPT where the app sold it — 649 of 8,388 pieces on a real vault.
 Pinned by `decide_parity.rs::the_final_sell_catch_all_covers_sets_no_recipe_names`.
 
-**Known gap: the expected-bucket domain.** A quota is
-`required_per_bucket * bucket_count`, and the app precomputes the bucket *domain* from
-TS-only catalogs (`buildSafeguardExpectedBucketDomain`: every faction id, set/slot
-compatibility) so the count reflects the buckets that *could* exist. The DLL passes
-`expected_payload: None`, so its count comes from the buckets *observed* in the gear on
-hand — a "keep 1 per slot" safeguard over six slots can therefore rescue a different number
-of pieces than the app's preview. Measured on a real 8,388-piece vault, the DLL injects
-10,312 safeguard keep-rules where the app injects 17,235; recipe rules (26,380) and the
-catch-all (5) match exactly, so this is the ONLY remaining source of verdict divergence.
+**A recipe's metasets must be expanded to set ids.** The app resolves them before rule
+generation (`resolveArtifactSetSelections` in gearSets/selection.ts: union the direct
+selections with each metaset's members, then apply exclusions LAST so an explicit remove
+beats a set its own metaset contributed), so the builder only ever sees resolved ids.
+`sfc_reader` mirrors that. Skipping it does not narrow a recipe — it WIDENS it: a recipe
+whose only set selection is a metaset ends up with an empty `artifact_set_ids`, which is "any
+set", so it matches gear it never described. On a real sellfile 107 of 195 recipes select
+this way and the DLL disagreed with the app on 668 pieces. Pinned by
+`sfc_reader::label_tests::recipe_metasets_expand_to_set_ids_and_exclusions_win`.
 
-Closing it needs four catalogs on the Rust side. `PREFERRED_ARTIFACT_TYPE_ORDER` is already
-generated; `ALLOWED_MAIN_BY_SLOT` and `ALL_FACTION_IDS` have spec entries
-(`allowedMainsBySlot`, `faction`) and need only emitters. The accessory/artifact set split
-does NOT: it derives from `artifactSetDescriptions[name].pieces` in TS, a piece count that is
-not in `shared/domain-constants.json`, so that one needs a spec extension first. The
-normalizer is already Rust (`normalize_safeguard_expected_bucket_domain_core`), so once the
-catalogs exist the DLL can build the payload the same way the app does. The call site in
-`pipeline::detect_safeguards` carries the same note.
+**The safeguard expected-bucket domain is supplied.** A quota is
+`required_per_bucket * bucket_count`; with no domain the count falls back to the buckets
+*observed* in the gear on hand, so a "keep 1 per slot" safeguard rescues fewer pieces when
+the player owns nothing in some slot. `pipeline::expected_bucket_domain_payload` builds the
+same domain the app does (`buildSafeguardExpectedBucketDomain`) from generated catalogs, then
+runs it through the shared `normalize_safeguard_expected_bucket_domain_core`. The two
+normalized domains were diffed field-by-field on a real account and are byte-identical.
+
+Three of its four inputs already existed in Rust (`PREFERRED_ARTIFACT_TYPE_ORDER`,
+`ALLOWED_MAINS_BY_SLOT`, and the set catalog); `ALL_FACTION_IDS` and the set-compatibility
+pools are new. The pools need each set's piece behaviour, which TS derived from
+`artifactSetDescriptions[name].pieces` — UI tooltip prose with no Rust equivalent — so
+`shared/domain-constants.json` now stores `pieceGroup` per set (1 piece = accessories, 2 or 4
+= artifactFixed, variable = artifactVariable) and both languages read that. The accessory
+pool deliberately includes the `-99` no-set sentinel: an accessory slot can carry an UNSET
+accessory (Spider dungeon), and dropping it would lose a real bucket.
+
+**Known gap: accessories.** After the above, 8,299 of 8,388 pieces on a real vault agree with
+the app. The residue is concentrated in the accessory slots (ring/amulet/banner): 71 of 89
+keep disagreements and 182 of 200 `safeguarded` disagreements. Two shapes are visible — an
+`Auto` rarity accessory recipe matching in the DLL but not the app, and safeguard rescues the
+DLL misses — so suspect the auto-rarity resolve and the accessory faction/set bucketing
+before anything else. Not yet diagnosed.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before
