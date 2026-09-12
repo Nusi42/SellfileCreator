@@ -1,0 +1,1 @@
+The trailing catch-all is expanded over the WHOLE set catalog, not the sets this document names. Only Speed (4) is named, so every other set's gear must still be sold by the remainder. Deriving that domain from the document leaves those pieces unmatched and kept.

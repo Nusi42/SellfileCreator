@@ -1,0 +1,1 @@
+anticipateGaps emits PLACEHOLDER keep rules for the buckets a quota cannot fill from the gear on hand, on top of the artifact keeps. Per-slot counting over a quota of 2 leaves gaps in most slots, so both rule kinds appear. The expected-bucket domain decides how many buckets a quota multiplies by.

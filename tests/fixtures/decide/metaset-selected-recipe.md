@@ -1,0 +1,1 @@
+A recipe that selects its sets through a METASET, plus an explicit exclusion of one member. The metaset must expand to set ids and the exclusion must win, or the recipe carries no set filter at all and matches every set instead of its three.

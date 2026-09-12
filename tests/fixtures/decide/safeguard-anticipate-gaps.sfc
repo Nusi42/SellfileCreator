@@ -1,0 +1,50 @@
+{
+  "Version": "1.0",
+  "Recipes": [
+    {
+      "appearance": {
+        "name": "Sell everything"
+      },
+      "keep": false,
+      "Rank": "Any",
+      "Rarity": "Any",
+      "substats": [],
+      "minCount": 0
+    }
+  ],
+  "Safeguards": [
+    {
+      "appearance": {
+        "name": "Anticipate: 2 per slot"
+      },
+      "requiredCount": 2,
+      "activation": "anticipateGaps",
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "tuple": {
+        "slots": [],
+        "sets": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [],
+        "factions": []
+      },
+      "substats": [
+        "SPD",
+        "ACC"
+      ],
+      "substatMatch": "1",
+      "substatWeights": {
+        "SPD": 1.0,
+        "ACC": 0.5
+      }
+    }
+  ],
+  "SafeguardsEnabled": true,
+  "RecipesEnabled": true
+}

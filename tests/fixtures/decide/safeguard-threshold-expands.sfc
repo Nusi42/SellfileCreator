@@ -1,0 +1,54 @@
+{
+  "Version": "1.0",
+  "Recipes": [
+    {
+      "appearance": {
+        "name": "Sell everything"
+      },
+      "keep": false,
+      "Rank": "Any",
+      "Rarity": "Any",
+      "substats": [],
+      "minCount": 0
+    }
+  ],
+  "Safeguards": [
+    {
+      "appearance": {
+        "name": "Protect: best SPD"
+      },
+      "requiredCount": 1,
+      "activation": "always",
+      "improvementChanceThreshold": {
+        "atLevel0": 0,
+        "atLevel4": 0,
+        "atLevel8": 0,
+        "atLevel12": 0
+      },
+      "countMode": {
+        "perRule": false,
+        "perSet": false,
+        "perFaction": false,
+        "perMainStat": false,
+        "perSlot": true
+      },
+      "tuple": {
+        "slots": [],
+        "sets": [],
+        "ranks": [],
+        "rarities": [],
+        "mainStats": [],
+        "factions": []
+      },
+      "substats": [
+        "SPD"
+      ],
+      "substatMatch": "1",
+      "substatWeights": {
+        "SPD": 1.0
+      }
+    }
+  ],
+  "SafeguardsEnabled": true,
+  "RecipesEnabled": true
+}

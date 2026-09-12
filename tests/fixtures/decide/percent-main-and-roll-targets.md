@@ -1,0 +1,1 @@
+A CDMG% main (a PERCENT main, flat flag 0 — defaulting it to 1 describes gear that cannot exist) with an explicit substatRollTargets ladder. The ladder must be read from the recipe rather than falling back to the factory minimum, which is a lower bar and keeps gear the ladder excludes.

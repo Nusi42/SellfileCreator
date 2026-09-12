@@ -1,0 +1,87 @@
+{
+  "Version": "1.0",
+  "Recipes": [
+    {
+      "appearance": {
+        "name": "Keep CDMG amulets"
+      },
+      "keep": true,
+      "Rank": "6★",
+      "Rarity": "Any",
+      "mainStats": [
+        "CDMG%"
+      ],
+      "artifactTypeNames": [
+        "Amulet"
+      ],
+      "substats": [
+        {
+          "stat": "HP",
+          "rollBounds": {
+            "any": true
+          }
+        },
+        {
+          "stat": "ATK",
+          "rollBounds": {
+            "any": true
+          }
+        }
+      ],
+      "substatRollTargets": {
+        "HP": {
+          "base": 300,
+          "increments": [
+            600,
+            900,
+            1200,
+            1500
+          ]
+        },
+        "ATK": {
+          "base": 20,
+          "increments": [
+            40,
+            60,
+            80,
+            100
+          ]
+        }
+      },
+      "minCount": 1,
+      "minLevel": 0,
+      "maxLevel": 16
+    },
+    {
+      "appearance": {
+        "name": "Keep CR rings"
+      },
+      "keep": true,
+      "Rank": "6★",
+      "Rarity": "Any",
+      "mainStats": [
+        "C.RATE%"
+      ],
+      "artifactTypeNames": [
+        "Ring"
+      ],
+      "substats": [],
+      "minCount": 0
+    }
+  ],
+  "FinalSellRemainder": {
+    "artifacts": true,
+    "accessories": true,
+    "levels": [
+      0,
+      4,
+      8,
+      12,
+      16
+    ],
+    "setsMode": "explicit"
+  },
+  "Safeguards": [],
+  "SafeguardsEnabled": false,
+  "RecipesEnabled": true
+}

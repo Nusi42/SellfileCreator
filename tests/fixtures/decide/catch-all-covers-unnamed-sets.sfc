@@ -1,0 +1,35 @@
+{
+  "Version": "1.0",
+  "Recipes": [
+    {
+      "appearance": {
+        "name": "Keep Speed"
+      },
+      "keep": true,
+      "Rank": "Any",
+      "Rarity": "Any",
+      "artifactSetNames": [
+        {
+          "name": "Speed"
+        }
+      ],
+      "substats": [],
+      "minCount": 0
+    }
+  ],
+  "FinalSellRemainder": {
+    "artifacts": true,
+    "accessories": true,
+    "levels": [
+      0,
+      4,
+      8,
+      12,
+      16
+    ],
+    "setsMode": "explicit"
+  },
+  "Safeguards": [],
+  "SafeguardsEnabled": false,
+  "RecipesEnabled": true
+}

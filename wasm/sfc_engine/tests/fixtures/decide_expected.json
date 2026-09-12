@@ -1,0 +1,1069 @@
+{
+  "fixtures": {
+    "catch-all-covers-unnamed-sets.sfc": {
+      "ruleCount": 6,
+      "bySource": {
+        "sfc": 1,
+        "finalSell": 5
+      },
+      "verdicts": [
+        {
+          "artifactId": 2817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2823,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2936,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2966,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 3652,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4394,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4402,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4621,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4622,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5217,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5400,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5818,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 6801,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7380,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7733,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7800,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7861,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9070,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9567,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 14263,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15245,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15718,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15723,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16067,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16634,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 19078,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21382,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21545,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25068,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25287,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25798,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25867,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25878,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        }
+      ]
+    },
+    "metaset-selected-recipe.sfc": {
+      "ruleCount": 6,
+      "bySource": {
+        "sfc": 1,
+        "finalSell": 5
+      },
+      "verdicts": [
+        {
+          "artifactId": 2817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2823,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2936,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2966,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 3652,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4394,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4402,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4621,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4622,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5217,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5400,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5818,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 6801,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7380,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7733,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7800,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7861,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9070,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9567,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 14263,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15245,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15718,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15723,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16067,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16634,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 19078,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21382,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21545,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25068,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25287,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25798,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25867,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25878,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        }
+      ]
+    },
+    "percent-main-and-roll-targets.sfc": {
+      "ruleCount": 16,
+      "bySource": {
+        "sfc": 11,
+        "finalSell": 5
+      },
+      "verdicts": [
+        {
+          "artifactId": 2817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2823,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2936,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2966,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 3652,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4394,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4402,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4621,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4622,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5217,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5400,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5818,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 6801,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7380,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7733,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7800,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7861,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9070,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9567,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 14263,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15245,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15718,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15723,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16067,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 16634,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 19078,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21382,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21545,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25068,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25287,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25798,
+          "keep": true,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25867,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25878,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        }
+      ]
+    },
+    "safeguard-anticipate-gaps.sfc": {
+      "ruleCount": 20,
+      "bySource": {
+        "safeguards": 19,
+        "sfc": 1
+      },
+      "verdicts": [
+        {
+          "artifactId": 2817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 2823,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 2936,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 2966,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 3652,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4394,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4402,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4621,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 4622,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5217,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5400,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 5817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5818,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 6801,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7380,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 7733,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 7800,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7861,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 9070,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 9567,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 14263,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 15245,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 15718,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 15723,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 16067,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 16634,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 19078,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 21382,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 21545,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25068,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25287,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 25798,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25867,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25878,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        }
+      ]
+    },
+    "safeguard-threshold-expands.sfc": {
+      "ruleCount": 25,
+      "bySource": {
+        "safeguards": 24,
+        "sfc": 1
+      },
+      "verdicts": [
+        {
+          "artifactId": 2817,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 2823,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 2936,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 2966,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 3652,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4394,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4402,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4621,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 4622,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5217,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 5400,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 5817,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 5818,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 6801,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 7380,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7733,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7800,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 7861,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 9070,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 9567,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 14263,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 15245,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 15718,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 15723,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 16067,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 16634,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 19078,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 21382,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 21545,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 25068,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25287,
+          "keep": true,
+          "matched": true,
+          "safeguarded": true
+        },
+        {
+          "artifactId": 25798,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25867,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        },
+        {
+          "artifactId": 25878,
+          "keep": false,
+          "matched": true,
+          "safeguarded": false
+        }
+      ]
+    }
+  }
+}

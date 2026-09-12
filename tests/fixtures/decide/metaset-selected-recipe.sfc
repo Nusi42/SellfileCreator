@@ -1,0 +1,49 @@
+{
+  "Version": "1.0",
+  "Metasets": [
+    {
+      "name": "Speedy",
+      "setNames": [
+        "Speed",
+        "Swift Parry",
+        "Lifesteal"
+      ]
+    }
+  ],
+  "Recipes": [
+    {
+      "appearance": {
+        "name": "Keep speedy sets, not Lifesteal"
+      },
+      "keep": true,
+      "Rank": "Any",
+      "Rarity": "Any",
+      "artifactMetaSetNames": [
+        "Speedy"
+      ],
+      "artifactSetNames": [
+        {
+          "name": "Lifesteal",
+          "excluded": true
+        }
+      ],
+      "substats": [],
+      "minCount": 0
+    }
+  ],
+  "FinalSellRemainder": {
+    "artifacts": true,
+    "accessories": true,
+    "levels": [
+      0,
+      4,
+      8,
+      12,
+      16
+    ],
+    "setsMode": "explicit"
+  },
+  "Safeguards": [],
+  "SafeguardsEnabled": false,
+  "RecipesEnabled": true
+}
