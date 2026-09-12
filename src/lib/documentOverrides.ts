@@ -49,6 +49,22 @@ export type DocumentOverridesInput = {
   recipesEnabled: boolean
 }
 
+/**
+ * The three rule slices that define WHICH document a consumer sees: recipes, safeguards and
+ * substat targets. One exported shape, so the producers below and every consumer that writes
+ * a payload from them (sfcIO's `buildSfcPayloadFromParsed`, App's .sfc writer) agree by type
+ * rather than by two structurally-identical inline declarations that can drift apart.
+ *
+ * Two producers fill it: `buildOverrideAppliedDocumentSlices` (resolved) and
+ * `buildRawDocumentSlices` (as authored). Everything else in the payload is document state
+ * that neither of them touches.
+ */
+export type OverrideAppliedDocumentSlices = {
+  recipes: BuilderRecipe[]
+  safeguardRules: SafeguardRule[]
+  substatTargets: SubstatTargetTable
+}
+
 export type DocumentOverridesView = {
   // Raw resolutions — App consumes their instruction lists for UI (chips, diagnostics).
   recipeOverridesResolution: RecipeOverridesResolution
@@ -78,6 +94,12 @@ export type DocumentOverridesView = {
   effectiveSafeguardRules: readonly SafeguardRule[]
   // ...and the same overrides on the RAW rules for display (metasets kept as names).
   displaySafeguardRules: readonly SafeguardRule[]
+  // The document's own rules, carried through untouched. Here so that "resolved or raw?"
+  // is a choice between two readings of ONE object (see buildRawDocumentSlices) instead of
+  // a caller pairing this view with three separately-threaded document fields.
+  rawRecipes: BuilderRecipe[]
+  rawSafeguardRules: readonly SafeguardRule[]
+  rawSubstatTargets: SubstatTargetTable
 }
 
 // The note gate: overrides parse only from a real string note while not disabled.
@@ -154,6 +176,9 @@ export const buildDocumentOverridesView = (input: DocumentOverridesInput): Docum
     effectiveSafeguardInstructions,
     effectiveSafeguardRules,
     displaySafeguardRules,
+    rawRecipes: input.recipes,
+    rawSafeguardRules: input.safeguardRules,
+    rawSubstatTargets: input.substatTargets,
   }
 }
 
@@ -184,12 +209,26 @@ export const buildDocumentOverridesView = (input: DocumentOverridesInput): Docum
  * lets the receiver show which questions produced this file — and, when it is opened in the
  * app again, what keeps the answer state from snapping back to the authored defaults.
  */
-export const buildOverrideAppliedDocumentSlices = (view: DocumentOverridesView): {
-  recipes: BuilderRecipe[]
-  safeguardRules: SafeguardRule[]
-  substatTargets: SubstatTargetTable
-} => ({
+export const buildOverrideAppliedDocumentSlices = (view: DocumentOverridesView): OverrideAppliedDocumentSlices => ({
   recipes: view.recipeOverridesRecipesForRules,
   safeguardRules: view.displaySafeguardRules.slice(),
   substatTargets: view.effectiveSubstatTargets,
+})
+
+/**
+ * The same three slices, RAW — the document exactly as authored, overrides unresolved.
+ *
+ * The counterpart to `buildOverrideAppliedDocumentSlices`, and the shape every EDITABLE
+ * emission wants: "Save .sfc", the Custom snapshot, autosave. A saved file is the editable
+ * source, so the rules the answers address have to survive unresolved or the next open has
+ * nothing left to answer against.
+ *
+ * It reads the view rather than taking the raw inputs again so both slice shapes come from
+ * one object: a caller holds a single `DocumentOverridesView` and picks resolved or raw,
+ * instead of re-threading three document fields alongside it and risking a mismatched pair.
+ */
+export const buildRawDocumentSlices = (view: DocumentOverridesView): OverrideAppliedDocumentSlices => ({
+  recipes: view.rawRecipes,
+  safeguardRules: view.rawSafeguardRules.slice(),
+  substatTargets: view.rawSubstatTargets,
 })

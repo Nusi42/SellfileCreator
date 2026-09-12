@@ -580,7 +580,8 @@ a same-size result would mean the switch was parsed into nothing and silently ig
 **Normalisation is the risk, not the plumbing.** The five rules that decide whether a
 verdict matches the app's preview live in `rule_engine_core::gear_ingest` (one definition,
 called by the DLL and mirrored by the TS ingest): fixed-point decode + per-component
-rounding, level snapping to milestones (ties DOWN), the setless-accessory sentinel vs a
+rounding, level snapping to the milestone BAND a level reached (floored, not nearest — a +15
+is a +12), the setless-accessory sentinel vs a
 setless chestplate's plain 0, base + mythical (never glyph), and the accessory set coming
 from `setKindId` rather than the faction code. Each was once a live wrong answer;
 `wasm/sfc_engine/tests/decide_parity.rs` pins every one end-to-end.

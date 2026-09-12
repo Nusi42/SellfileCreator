@@ -16,7 +16,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
-import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices } from './lib/documentOverrides'
+import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices, buildRawDocumentSlices, type OverrideAppliedDocumentSlices } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
 import AccountSwitcher from './components/AccountSwitcher'
@@ -4427,60 +4427,56 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // display recipeNames — so these exported bytes match the worker's export-dirty fingerprint.
     buildHsfFileFromMerged(mergedRules, { recipeNames: exportRecipeNames })
   ), [mergedRules, exportRecipeNames])
-  // Serialize the LIVE document into an .sfc payload. One definition for both consumers —
-  // the "Save SFC" download and the SfcFileAsSellfile push — so a field can never reach the
-  // saved file but go missing from the pushed one.
-  const buildCurrentSfcPayload = useCallback(() => buildSfcPayload({
-    version: APP_VERSION,
-    metasets,
-    substatTargets,
-    recipes: customRecipes,
-    finalSellRemainder,
-    ...(sfcNote ? { note: sfcNote } : {}),
-    safeguardRules,
-    safeguardsEnabled,
-    recipesEnabled,
-    // Save the user's dynamic-overrides answers with the file so reopening it restores
-    // the same configured state instead of snapping back to the note's authored defaults.
-    noteRecipeOverridesAnswers,
-    noteSafeguardOverridesAnswers,
-    noteOverridesDisabled,
-  }), [
-    metasets, substatTargets, customRecipes, finalSellRemainder, sfcNote,
-    safeguardRules, safeguardsEnabled, recipesEnabled,
-    noteRecipeOverridesAnswers, noteSafeguardOverridesAnswers, noteOverridesDisabled,
-  ])
-  // The document as a DECIDING consumer must receive it: same writer, same fields, but
-  // with the dynamic overrides already applied.
-  //
-  // Saving keeps writing the raw document above — the answers have to stay editable, and a
-  // saved file is the editable source. A PUSH is the other case: the receiver only decides
-  // keep/sell, and resolving the Note DSL lives in lib/documentOverrides (TypeScript), so a
-  // raw document makes it judge the authored defaults. On a real 195-recipe document with
-  // overrides enabled that moved 570 of 8,451 verdicts; with the master switch off the
-  // slices are the raw ones and nothing changes.
-  // The answers still ride along, so reopening the pushed file restores the same state.
-  const buildPushedSfcPayload = useCallback(() => {
-    const effective = buildOverrideAppliedDocumentSlices(documentOverridesView)
-    return buildSfcPayload({
+  // Serialize the LIVE document into an .sfc payload. ONE writer for every .sfc this
+  // component emits — the "Save SFC" download, the Custom snapshot, and the
+  // SfcFileAsSellfile push — so a field can never reach the saved file but go missing from
+  // the pushed one. The only thing that differs between them is WHICH rule slices go in,
+  // which the caller supplies; every other field is the live document verbatim.
+  // Autosave is NOT a consumer: it needs the trimmed note and, more importantly, must not
+  // take on this callback's dependency on documentOverridesView — useAutosave re-fires on a
+  // changed builder identity, so an override answer would become an extra write. It keeps
+  // its own call to the shared buildSfcPayload serializer instead.
+  const buildSfcPayloadWithSlices = useCallback((slices: OverrideAppliedDocumentSlices) => (
+    buildSfcPayload({
       version: APP_VERSION,
       metasets,
-      substatTargets: effective.substatTargets,
-      recipes: effective.recipes,
+      substatTargets: slices.substatTargets,
+      recipes: slices.recipes,
       finalSellRemainder,
       ...(sfcNote ? { note: sfcNote } : {}),
-      safeguardRules: effective.safeguardRules,
+      safeguardRules: slices.safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
+      // Save the user's dynamic-overrides answers with the file so reopening it restores
+      // the same configured state instead of snapping back to the note's authored defaults.
       noteRecipeOverridesAnswers,
       noteSafeguardOverridesAnswers,
       noteOverridesDisabled,
     })
-  }, [
-    documentOverridesView, metasets, finalSellRemainder, sfcNote,
-    safeguardsEnabled, recipesEnabled,
+  ), [
+    metasets, finalSellRemainder, sfcNote, safeguardsEnabled, recipesEnabled,
     noteRecipeOverridesAnswers, noteSafeguardOverridesAnswers, noteOverridesDisabled,
   ])
+  // The RAW document: rules exactly as authored. What "Save SFC" and the Custom snapshot
+  // write — a saved file is the EDITABLE source, so the rules the answers address have to
+  // survive unresolved or the next open has nothing left to answer against.
+  const buildCurrentSfcPayload = useCallback(
+    () => buildSfcPayloadWithSlices(buildRawDocumentSlices(documentOverridesView)),
+    [buildSfcPayloadWithSlices, documentOverridesView],
+  )
+  // The document as a DECIDING consumer must receive it: same writer, same fields, but
+  // with the dynamic overrides already applied.
+  //
+  // A PUSH is the other case: the receiver only decides keep/sell, and resolving the Note
+  // DSL lives in lib/documentOverrides (TypeScript), so a raw document makes it judge the
+  // authored defaults. On a real 195-recipe document with overrides enabled that moved 570
+  // of 8,451 verdicts; with the master switch off the slices are the raw ones and nothing
+  // changes.
+  // The answers still ride along, so reopening the pushed file restores the same state.
+  const buildPushedSfcPayload = useCallback(
+    () => buildSfcPayloadWithSlices(buildOverrideAppliedDocumentSlices(documentOverridesView)),
+    [buildSfcPayloadWithSlices, documentOverridesView],
+  )
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so
@@ -5540,6 +5536,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep autosave scheduling lightweight: only build the heavy SFC snapshot when the
   // debounced write actually executes, not on every render/update.
   const buildAutosavePayload = useCallback(() => {
+    // Deliberately NOT routed through buildSfcPayloadWithSlices, even though the field list
+    // matches: that callback closes over documentOverridesView, whose identity changes on
+    // every override answer. useAutosave re-fires its write effect when the builder identity
+    // changes (the effect depends on writeSnapshot -> buildPayload), so borrowing it here
+    // turns each answer into an extra debounced localStorage write and breaks the
+    // "autosave only on a real payload change" contract this hook is built on.
+    // Autosave reads the RAW document (a restore must stay answerable) and the TRIMMED note.
     const basePayload = buildSfcPayload({
       version: APP_VERSION,
       metasets,
@@ -5550,9 +5553,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       safeguardRules,
       safeguardsEnabled,
       recipesEnabled,
-      // Dynamic-overrides answers now travel INSIDE the SFC payload (buildSfcPayload drops
-      // empty maps itself), so autosave and the saved .sfc file share one writer. The three
-      // hand-rolled spreads that used to live below are gone with it.
+      // Dynamic-overrides answers travel INSIDE the SFC payload (buildSfcPayload drops empty
+      // maps itself), so autosave and the saved .sfc file share one serializer.
       noteRecipeOverridesAnswers,
       noteSafeguardOverridesAnswers,
       noteOverridesDisabled,

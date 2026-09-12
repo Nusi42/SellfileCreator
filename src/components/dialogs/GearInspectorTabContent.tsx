@@ -23,7 +23,7 @@ import { clampGearLineValue } from '../../lib/gearInspectorSession'
 import { baseMinForStarV, minGearLineValueForVariant } from '../../lib/hsfBuilder'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
-import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot } from '../../lib/gearInspectorDomain'
+import { allowedGearInspectorSetIds, isAccessorySlot, normalizeGearInspectorSetForSlot, resolveGearLevelLabel } from '../../lib/gearInspectorDomain'
 import { formatGearInspectorSetLabel } from '../../lib/gearInspectorFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
@@ -761,13 +761,9 @@ export function GearInspectorTabContent({
     const slotIconNode = SlotIconComponent
       ? <SlotIconComponent fontSize="inherit" />
       : null
-    const levelBucketLabel = formatLevel(it.level)
-    const exactLevelRaw = it.previewExtras?.exactLevel
-    const hasExactLevel = typeof exactLevelRaw === 'number' && Number.isFinite(exactLevelRaw)
-    const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(exactLevelRaw))))) : null
-    const levelLabel = hasExactLevel
-      ? (exactLevelLabel ?? levelBucketLabel)
-      : levelBucketLabel
+    // Exact upgrade level when the import recorded one, band label otherwise — the shared
+    // decision, so this row and the grid card can never disagree about the same piece.
+    const levelLabel = resolveGearLevelLabel(it.previewExtras?.exactLevel, formatLevel(it.level))
     const manualItem = isManualGearInspectorItem(it)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0

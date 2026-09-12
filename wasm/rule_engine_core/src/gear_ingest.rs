@@ -176,10 +176,10 @@ pub fn snap_level_to_milestone(level: i64) -> i64 {
     let clamped = level.clamp(lowest, highest);
     // The highest milestone at or below the level. Clamping first is what keeps a bad row
     // (a real account carries lvl 32764) reading as +16 rather than running past the top.
+    // rfind rather than filter().next_back(): same scan from the top, one lint fewer.
     *LEVEL_MILESTONES
         .iter()
-        .filter(|milestone| **milestone <= clamped)
-        .next_back()
+        .rfind(|milestone| **milestone <= clamped)
         .unwrap_or(&lowest)
 }
 

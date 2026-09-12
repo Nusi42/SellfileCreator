@@ -1360,9 +1360,14 @@ export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
   if (level === LEVEL_ANY_SENTINEL) return ''
   // Display ranges for checkpoint levels: 0->"0-3", 4->"4-7", … 12->"12-15", 16->"16"
-  if ([0, 4, 8, 12, 16].includes(level)) {
+  // The milestone test and the ceiling both come from LEVEL_MILESTONES — the inline
+  // [0, 4, 8, 12, 16] and the literal 16 that used to sit here were a second copy of that
+  // table, so a raised cap would have widened the bands everywhere EXCEPT this label.
+  if (isLevelMilestone(level)) {
     const start = level
-    const end = Math.min(level + 3, 16)
+    // A band runs up to the level before the next milestone; the top milestone is a point.
+    const top = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1] ?? level
+    const end = Math.min(level + 3, top)
     return start === end ? `${start}` : `${start}-${end}`
   }
   return String(level)

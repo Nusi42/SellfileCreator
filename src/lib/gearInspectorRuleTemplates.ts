@@ -1,5 +1,6 @@
 import { createFactoryBuilderDefaults } from './builderDefaults'
 import { ACCESSORY_NO_SET_ID } from './constants'
+import { coerceExactGearLevel } from './gearInspectorDomain'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { BuilderRecipe } from './hsfBuilder'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
@@ -37,8 +38,10 @@ const resolveItemLevel = (artifact: NormalizedGearArtifact): number => {
   const raw = (typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel))
     ? artifact.exactLevel
     : artifact.level
-  // Clamp to the supported [0,16] range.
-  return Math.max(0, Math.min(16, Math.round(Number(raw) || 0)))
+  // Clamp to the supported upgrade range via the shared domain helper. `raw` falls back to
+  // `artifact.level` (always a milestone) above, so the null branch is unreachable here —
+  // the ?? 0 only exists so this returns the plain number the callers expect.
+  return coerceExactGearLevel(raw) ?? 0
 }
 
 const resolveLevelBracket = (level: number): LevelBracket => {

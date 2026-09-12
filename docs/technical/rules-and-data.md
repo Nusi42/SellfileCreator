@@ -89,7 +89,7 @@ measured cost: [decision engine DLL](build-and-tooling.md#decision-engine-dll-sf
       "kindId": 2,            // slot id
       "rankId": 6,            // stars 1-6
       "rarityId": 5,          // 1=Common … 6=Mythical
-      "level": 9,             // RAW live level; the DLL snaps it to a milestone
+      "level": 9,             // RAW live level; the DLL floors it to its band (9 -> +8)
       "setKindId": 10,        // the set, for EVERY slot (accessories included)
       "requiredFraction": 4,  // accessory faction CODE — never a set id
       "rerollsCount": null,   // chaos-ore rework counter; feeds the Ore rule gate
@@ -125,7 +125,7 @@ once a live wrong answer, and each is silent when wrong:
 | Rule | Why it matters |
 |---|---|
 | Fixed-point decode, then round per component (percent 2dp; flat HP/ATK/DEF + SPD/RES/ACC integral; else 3dp) | A "12" decodes to 11.999999964609742. ~44% of a real vault's substats are non-integral, and each failed a `>= 12` rule. |
-| Level snapped to the nearest milestone, ties DOWN | `.hsf` has no "level >= N": one `LVLForCheck`, exact equality. A raw +9 matches no level rule at all. |
+| Level snapped to the milestone whose BAND it is in (0-3, 4-7, 8-11, 12-15, 16) — i.e. floored | `.hsf` has no "level >= N": a rule carries one `LVLForCheck` matched by EXACT equality, with `LEVEL_ANY_SENTINEL` (99) as the only wildcard — it bypasses the level gate entirely, and is what a full 0..16 window collapses to. Snapping is what lets a rule cover a range at all: a `LVLForCheck: 8` rule is the "8-11" rule, and a +9 matches it because it is snapped to 8 first. Skip the snap and the RAW 9 equals no milestone, so the piece misses every level-naming rule (any-level rules still take it) — and levels 1-3, 5-7, 9-11, 13-15 are ordinary gear, so that is a large share of any vault. The milestones bound those ranges rather than marking points to round to, so a piece belongs to the milestone it has REACHED: snapping to the nearest instead promoted the top of every band (a +15 judged as +16), so "keep only +16" kept gear that is not +16 and "sell below +16" spared it. |
 | Setless ACCESSORY → `ACCESSORY_NO_SET_ID`; setless armour stays `0` | A reference sellfile has 397 rules naming the sentinel and none naming 0. Promoting armour too would hand setless chestplates to accessory rules. |
 | Substat value = base + mythical, **never** the glyph, each component rounded then the sum | The app's `subValues` are pre-glyph. Counting a glyph clears thresholds the app's own preview fails. |
 | Set from `setKindId` for every slot; `requiredFraction` is only the faction | Reading the faction code as an accessory's set gave every accessory a set id in the faction range. |

@@ -75,6 +75,11 @@ import {
   SFC_RECIPE_FIELD_IGNORED_BY_SAFEGUARDS,
   SFC_RECIPE_FIELD_REWORK_GATE,
 } from './generated/domainConstants'
+// Type-only: the shared shape of the three rule slices a deciding consumer receives. Taking
+// it from its owner keeps this signature and the producer from drifting into two
+// structurally-identical declarations. documentOverrides does not import this module, so
+// there is no cycle — and a `type` import erases at build time regardless.
+import type { OverrideAppliedDocumentSlices } from './documentOverrides'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { appearancePersistField, readAppearanceFromRecord, type NameAppearance } from './nameAppearance'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
@@ -1724,24 +1729,25 @@ export function buildSfcPayloadFromParsed(
    * Omit it and the document is re-serialized exactly as parsed — the shape autosave and
    * every file-save path want, where the answers must stay editable.
    */
-  overrideApplied?: {
-    recipes: BuilderRecipe[]
-    safeguardRules: SafeguardRule[]
-    substatTargets: SubstatTargetTable
-  },
+  overrideApplied?: OverrideAppliedDocumentSlices,
 ) {
+  // The three rule slices, resolved once: the override-applied set when the caller supplied
+  // one, the parsed document's own otherwise. Written as one `??` per slice so all three
+  // fall back the same way — safeguards used to nest their own conditional and could drift
+  // into writing raw rules beside overridden recipes.
+  const substatTargets = overrideApplied?.substatTargets ?? parsed.substatTargets
+  const recipes = overrideApplied?.recipes ?? parsed.recipes
+  const safeguardRules = overrideApplied?.safeguardRules ?? parsed.safeguardRules
   return buildSfcPayload({
     version,
     metasets: parsed.metasets,
-    substatTargets: overrideApplied?.substatTargets ?? parsed.substatTargets,
-    recipes: overrideApplied?.recipes ?? parsed.recipes,
+    substatTargets,
+    recipes,
     // Absent (null) keys are omitted rather than written as null, matching how the
     // interactive save path spreads its optional fields.
     ...(parsed.finalSellRemainder ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
     ...(parsed.note ? { note: parsed.note } : {}),
-    ...(overrideApplied
-      ? { safeguardRules: overrideApplied.safeguardRules }
-      : (parsed.safeguardRules ? { safeguardRules: parsed.safeguardRules } : {})),
+    ...(safeguardRules ? { safeguardRules } : {}),
     ...(parsed.safeguardsEnabled !== null ? { safeguardsEnabled: parsed.safeguardsEnabled } : {}),
     recipesEnabled: parsed.recipesEnabled,
     ...(parsed.noteRecipeOverridesAnswers ? { noteRecipeOverridesAnswers: parsed.noteRecipeOverridesAnswers } : {}),

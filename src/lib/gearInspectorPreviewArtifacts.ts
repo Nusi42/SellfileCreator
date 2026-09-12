@@ -1,6 +1,7 @@
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem } from './ruleEval'
+import { coerceExactGearLevel } from './gearInspectorDomain'
 import { isGearInspectorCustomItemId } from './itemIdentity'
 import { StatVariant } from './types'
 
@@ -143,9 +144,8 @@ export function buildPreviewArtifactFromGearInspectorItem(
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
   const substats = extras?.substats ? cloneStats(extras.substats) : buildManualSubstats(item, options?.subOrder)
   const ascension = extras?.ascension ? cloneStat(extras.ascension) : null
-  const exactLevel = (typeof extras?.exactLevel === 'number' && Number.isFinite(extras.exactLevel))
-    ? Math.max(0, Math.min(16, Math.round(extras.exactLevel)))
-    : null
+  // Shared clamp: non-numeric (manual entries carry no exact level) comes back as null.
+  const exactLevel = coerceExactGearLevel(extras?.exactLevel)
   // Last-use metadata only exists for imported gear DB entries.
   const lastUseLocalTimestamp = typeof extras?.lastUseLocalTimestamp === 'string'
     ? extras.lastUseLocalTimestamp

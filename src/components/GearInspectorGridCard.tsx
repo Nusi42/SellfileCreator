@@ -18,6 +18,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
+import { resolveGearLevelLabel } from '../lib/gearInspectorDomain'
 import { useI18n } from '../lib/i18n'
 import type { GearInspectorPreviewRow } from '../types/gearInspectorPreview'
 import {
@@ -751,10 +752,9 @@ export const GearInspectorGridCard = React.memo(function GearInspectorGridCard({
   const setLabelRaw = formatGearInspectorSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t, lang })
   const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetName(setIdNumber as ArtifactSetId) : null
-  const levelBucketLabel = formatLevel(artifact.level)
-  const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
-  const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
-  const levelLabel = exactLevelLabel ?? levelBucketLabel
+  // Exact upgrade level when the import recorded one, band label otherwise — the shared
+  // decision, so this card and the detail row can never disagree about the same piece.
+  const levelLabel = resolveGearLevelLabel(artifact.exactLevel, formatLevel(artifact.level))
   const levelChipLabel = levelLabel || t('any')
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   // Manual/custom gear items carry totalValue:NaN because the actual value is unknown.

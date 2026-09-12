@@ -15,6 +15,7 @@ import {
   type RankValue,
 } from '../types'
 import {
+  coerceExactGearLevel,
   coerceGearInspectorLevel,
   coerceGearInspectorRank,
   coerceGearInspectorRarity,
@@ -469,11 +470,11 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const set = normalizeGearInspectorSetForSlot(slot, rawSet) as ArtifactSetId
   const rank = coerceGearInspectorRank(row.rank, 6)
   const rarity = coerceGearInspectorRarity(row.rarity, 6)
-  const exactLevel = (() => {
-    const value = toNumber(row.lvl)
-    if (value === null) return null
-    return Math.max(0, Math.min(16, Math.round(value)))
-  })()
+  // Two readings of the same raw level, both from the domain module: the exact upgrade state
+  // the UI shows, and the milestone band rule matching uses.
+  // toNumber first so the DB's own "no value" shapes collapse to null before the clamp; the
+  // clamp rejects null as well, so an unrecorded level stays null rather than becoming a +0.
+  const exactLevel = coerceExactGearLevel(toNumber(row.lvl))
   const level = coerceGearInspectorLevel(row.lvl, 0)
   const faction = normalizeGearInspectorFaction(slot, determineFaction(slot, row.accset))
 

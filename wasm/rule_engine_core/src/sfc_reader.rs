@@ -1664,20 +1664,15 @@ fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTa
 
 // Clamp a recipe's level BOUND down to a milestone it may name.
 //
-// This is deliberately NOT `gear_ingest::snap_level_to_milestone`, which snaps a piece's
-// live level to the NEAREST milestone. A bound rounds DOWN: widening a recipe's ceiling to
-// the next milestone up would make it match gear the author excluded. The milestone table
-// itself is shared — the list of legal levels has exactly one definition.
+// This is `gear_ingest::snap_level_to_milestone` and nothing else. A bound must round DOWN
+// — widening a recipe's ceiling to the next milestone up would make it match gear the author
+// excluded — and since levels are banded (a piece belongs to the milestone it has REACHED)
+// that is exactly what snapping a live level does. The two once differed, when snapping went
+// to the NEAREST milestone; they no longer do, so this forwards rather than restating the
+// rule. One definition: a change to the banding cannot move gear without moving bounds with
+// it, which is the only way a recipe and the gear it judges stay on the same scale.
 fn clamp_milestone(v: i64) -> i64 {
-    if LEVEL_MILESTONES.contains(&v) {
-        return v;
-    }
-    for &m in LEVEL_MILESTONES.iter().rev() {
-        if v >= m {
-            return m;
-        }
-    }
-    LEVEL_MILESTONE_0
+    snap_level_to_milestone(v)
 }
 
 // Metaset in the format SafeguardWasmMetasetIn expects.
