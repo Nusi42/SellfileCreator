@@ -70,13 +70,18 @@ export function buildDirtyTooltip(
   dirtySince: number | null | undefined,
   translate: (
     key: 'dirtyBadgeNotSavedSince' | 'dirtyBadgeUnsaved' | 'dirtyBadgeUnsavedFor'
+      | 'dirtyBadgeNotPushedSince' | 'dirtyBadgeUnpushed' | 'dirtyBadgeUnpushedFor'
       | 'dirtyBadgeDurationHours' | 'dirtyBadgeDurationMinutes',
     params?: Record<string, string | number>,
   ) => string,
   now: number = Date.now(),
+  // A dot over a PUSH button describes a document the client has not received, not
+  // an unsaved file. Each shape gets its own whole key (never a spliced sentence),
+  // so a translator reorders freely and no language inherits English word order.
+  describesPush = false,
 ): string {
   const formatted = dirtySince != null ? formatLocalDateTime(dirtySince) : null
-  if (!formatted) return translate('dirtyBadgeUnsaved')
+  if (!formatted) return translate(describesPush ? 'dirtyBadgeUnpushed' : 'dirtyBadgeUnsaved')
   // Only surface a duration once it has left the fresh tier — below that the span
   // is noise ("Unsaved for 0m") and the plain wording reads better.
   const minutes = stalenessMinutes(dirtySince, now)
@@ -87,9 +92,15 @@ export function buildDirtyTooltip(
     const duration = parts.hours > 0
       ? translate('dirtyBadgeDurationHours', { hours: parts.hours, minutes: parts.minutes })
       : translate('dirtyBadgeDurationMinutes', { minutes: parts.minutes })
-    return translate('dirtyBadgeUnsavedFor', { duration, time: formatted })
+    return translate(
+      describesPush ? 'dirtyBadgeUnpushedFor' : 'dirtyBadgeUnsavedFor',
+      { duration, time: formatted },
+    )
   }
-  return translate('dirtyBadgeNotSavedSince', { time: formatted })
+  return translate(
+    describesPush ? 'dirtyBadgeNotPushedSince' : 'dirtyBadgeNotSavedSince',
+    { time: formatted },
+  )
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000

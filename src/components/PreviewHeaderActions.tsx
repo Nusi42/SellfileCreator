@@ -163,6 +163,16 @@ export default function PreviewHeaderActions(props: {
   stalenessNow?: number
   // Timestamp (ms) when the current unexported state began; drives the badge tooltip.
   hsfDirtySince?: number | null
+  /**
+   * Whether the document a PUSH would send has diverged from what the client holds.
+   * Distinct from `hsfDirty`, which is the Save/export signal: under
+   * SfcFileAsSellfile the push carries the `.sfc`, so its dot must track that
+   * document or it reports a staleness the button cannot clear. Optional so a
+   * caller that does not push keeps the export-dot behaviour.
+   */
+  pushDirty?: boolean
+  /** Timestamp (ms) when the push last went stale; drives the push dot's ramp. */
+  pushDirtySince?: number | null
   building?: boolean
   gearInspectorBuilding?: boolean
   workloadProgressRatio: number
@@ -290,6 +300,8 @@ export default function PreviewHeaderActions(props: {
     pushEndpoint,
     hsfDirty,
     hsfDirtySince,
+    pushDirty,
+    pushDirtySince,
     stalenessNow,
     building = false,
     limitHit = false,
@@ -1163,8 +1175,18 @@ export default function PreviewHeaderActions(props: {
   // the primary button (not the chevron) so it sits over the action, not the menu
   // affordance. A flex row with a 1px gap keeps the theme's contained styling on
   // both halves (no ButtonGroup); the gap reads as a seam.
-  // Localized "not saved since <time>" tooltip for the export badge dot.
-  const hsfDirtyTooltip = buildDirtyTooltip(hsfDirtySince, t, stalenessNow)
+  // The dot describes the state THIS button clears, which is not always the export.
+  // When the button pushes, it sends the document the client receives — under
+  // SfcFileAsSellfile that is the `.sfc`, tracked by pushDirty — so a dot wired to
+  // hsfDirty reported an .hsf staleness the push could not clear (and stayed lit
+  // after a successful push, or stayed dark while the pushed document had diverged).
+  // Falls back to the export signal whenever the caller tracks no push state, which
+  // is also the download case: then the button really does write the .hsf.
+  const dotTracksPush = pushActive && pushDirty !== undefined
+  const exportDirtyActive = dotTracksPush ? pushDirty : hsfDirty
+  const exportDirtySince = dotTracksPush ? pushDirtySince : hsfDirtySince
+  // Localized "not pushed/saved since <time>" tooltip for the badge dot.
+  const hsfDirtyTooltip = buildDirtyTooltip(exportDirtySince, t, stalenessNow, dotTracksPush)
   // The export-action explanation wraps ONLY the button (not the badge/chevron) so
   // it never stacks with the dirty-dot's own tooltip when the cursor is on the dot.
   // Icon-only when the label is fully collapsed; affects icon placement + height locking.
@@ -1227,9 +1249,9 @@ export default function PreviewHeaderActions(props: {
         }}
       >
         <DirtyBadge
-          active={hsfDirty}
+          active={exportDirtyActive}
           tooltip={hsfDirtyTooltip}
-          dirtySince={hsfDirtySince}
+          dirtySince={exportDirtySince}
           now={stalenessNow}
           sx={{ display: 'flex', flex: 1, minWidth: 0 }}
         >
