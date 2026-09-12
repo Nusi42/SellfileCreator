@@ -719,6 +719,59 @@ fn all_known_set_ids() -> Vec<i64> {
     ids
 }
 
+/// Per-recipe substat roll TARGETS — the ladder a recipe demands at each level milestone.
+///
+/// The app carries these as `substatRollTargetsV` and hands them to the builder, which uses
+/// `base` for the level-0 threshold and `increments` for the four milestones above it. The
+/// reader parsed the field into a `Value` and then dropped it, so every recipe that sets a
+/// custom ladder fell back to the FACTORY minimum instead: a 6-star amulet recipe demanding
+/// HP 300/600/900/1200/1500 was built as 200/400/600/800/1000, and kept gear the app sells.
+///
+/// Two shapes are accepted, matching what the app has written over time: the current
+/// `{ base, increments: [...] }`, and a legacy `{ min }` that names only the base. Anything
+/// else is skipped rather than guessed at — a target that cannot be read must not silently
+/// become a different number.
+fn parse_substat_roll_targets(raw: Option<&serde_json::Value>) -> BTreeMap<i64, BuildHsfComboTargetEntryIn> {
+    let mut out = BTreeMap::new();
+    // Absent or non-object payloads leave every stat on its factory default.
+    let Some(map) = raw.and_then(|v| v.as_object()) else {
+        return out;
+    };
+    for (label, entry) in map {
+        // Keys are stat LABELS ("HP", "ATK"), resolved through the same table the rest of the
+        // recipe's stats use.
+        let Some(variant) = stat_variant_from_label(label) else {
+            continue;
+        };
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        // Current shape: an explicit base plus one increment per milestone above level 0.
+        let base = obj
+            .get("base")
+            .and_then(serde_json::Value::as_f64)
+            // Legacy shape: `{ min }` carried the base under a different name.
+            .or_else(|| obj.get("min").and_then(serde_json::Value::as_f64));
+        let increments = obj
+            .get("increments")
+            .and_then(serde_json::Value::as_array)
+            .map(|values| {
+                // A null entry means "no target at this milestone" and must stay None rather than
+                // collapsing to 0, which would read as a vacuous `>= 0`.
+                values
+                    .iter()
+                    .map(serde_json::Value::as_f64)
+                    .collect::<Vec<Option<f64>>>()
+            });
+        // An entry that names neither half constrains nothing; skip it.
+        if base.is_none() && increments.is_none() {
+            continue;
+        }
+        out.insert(variant, BuildHsfComboTargetEntryIn { base, increments });
+    }
+    out
+}
+
 /// Minimal substat target table parsed from SFC Minima section.
 // Default star used when a recipe targets "Any" rank (mirrors anyRankDefaultsTo ?? 6).
 fn default_any_rank_star() -> i64 {
@@ -1119,7 +1172,7 @@ fn parse_readable_recipe(
         substats_v,
         fixed_substats_v,
         substat_roll_bounds_v,
-        substat_roll_targets_v: BTreeMap::new(), // V1: targets parsed from Minima table elsewhere
+        substat_roll_targets_v: parse_substat_roll_targets(rec.substat_roll_targets.as_ref()),
         min_count,
         auto_min_count,
         auto_substat_flex,
@@ -1785,6 +1838,62 @@ mod label_tests {
         mixed.sort_unstable();
         // Offense=2 direct; Speed=4, Lifesteal=9 and Swift Parry=35 from the metaset.
         assert_eq!(mixed, vec![2, 4, 9, 35], "direct + metaset members must union");
+    }
+
+    // A recipe's own substat roll TARGETS must survive the read.
+    //
+    // The app hands the builder `substatRollTargetsV`, whose `base`/`increments` set the
+    // threshold ladder at each level milestone. The reader parsed the field and then dropped
+    // it, so every recipe with a custom ladder silently fell back to the FACTORY minimum: a
+    // 6-star amulet recipe asking for HP 300/600/.../1500 was built as 200/400/.../1000 and
+    // kept gear the app sells. On a real sellfile 47 of 195 recipes set a ladder.
+    //
+    // Both persisted shapes are pinned: the current `{ base, increments }` and the legacy
+    // `{ min }`, which names only the base.
+    #[test]
+    fn recipe_substat_roll_targets_are_read() {
+        let sfc = r##"{
+            "Version": "1.0",
+            "Recipes": [
+                {
+                    "appearance": { "name": "Custom ladder" },
+                    "keep": true,
+                    "Rank": "6\u2605",
+                    "Rarity": "Any",
+                    "substats": [
+                        { "stat": "HP", "rollBounds": { "any": true } },
+                        { "stat": "SPD", "rollBounds": { "any": true } }
+                    ],
+                    "substatRollTargets": {
+                        "HP": { "base": 300, "increments": [600, 900, 1200, 1500] },
+                        "SPD": { "min": 2 }
+                    },
+                    "minCount": 1
+                }
+            ],
+            "Safeguards": [],
+            "SafeguardsEnabled": false
+        }"##;
+        let parsed = parse_sfc(sfc).expect("SFC must parse");
+        let targets = &parsed.recipes[0].substat_roll_targets_v;
+
+        // Current shape: base plus one increment per milestone above level 0.
+        let hp = targets.get(&STAT_VARIANT_HP_FLAT).expect("HP target must be read");
+        assert_eq!(
+            hp.base,
+            Some(300.0),
+            "the recipe's own base must beat the factory minimum"
+        );
+        assert_eq!(
+            hp.increments.as_deref(),
+            Some(&[Some(600.0), Some(900.0), Some(1200.0), Some(1500.0)][..]),
+            "the milestone ladder must survive verbatim"
+        );
+
+        // Legacy shape: `min` names the base and leaves the ladder unset.
+        let spd = targets.get(&STAT_VARIANT_SPD).expect("legacy SPD target must be read");
+        assert_eq!(spd.base, Some(2.0), "the legacy `min` key names the base");
+        assert_eq!(spd.increments, None, "a legacy entry sets no ladder");
     }
 
     // The app writes the safeguard "ignore previous" flag under `ignorePreviousSafeguards_v2`;

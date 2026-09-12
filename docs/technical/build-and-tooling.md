@@ -489,20 +489,28 @@ to return `None` and fall through to `MAIN_STAT_F_DEFAULT_FLAG`, which is 1 — 
 recipe emitted `MainStatF: 1`, describing gear that cannot exist. Pinned by
 `recipe_builder::tests::percent_mains_are_not_flagged_flat`.
 
-**Known gap: accessory substat thresholds.** 8,299 of 8,388 pieces on a real vault agree with
-the app; the residue is concentrated in the accessory slots (71 of 89 keep disagreements, 182
-of 200 `safeguarded`). One cause is now understood and NOT yet fixed: for the same recipe and
-the same empty `Minima` table, the two sides emit different substat thresholds — a 6★ amulet
-recipe's HP-flat ladder comes out `1000/800/600/400` here against the app's
-`1500/1200/900/600`. The 1.5x ratio and the generated 6★ HP-flat roll minimum of 200 suggest
-the two disagree about which star/rank the factory minima are read at, not about the table
-itself (`SUBSTAT_ROLL_RANGES_BY_STAR` is generated for both). Start at
-`factory_minima_for_star` and the `star_for_rank_code` fallback against `defaultSubstatTargets`
-in hsfBuilder.ts.
+**A recipe's own substat roll targets must be read.** `substatRollTargets` sets the threshold
+ladder a recipe demands at each level milestone (`base` for level 0, `increments` for the four
+above it); the app passes it to the builder as `substatRollTargetsV`. `sfc_reader` parsed the
+field into a `Value` and then hardcoded an empty map, so every recipe with a custom ladder
+silently fell back to the FACTORY minimum — a 6-star amulet recipe asking for HP
+300/600/900/1200/1500 was built as 200/400/600/800/1000 and kept gear the app sells. 47 of 195
+recipes in the test sellfile set a ladder. Both persisted shapes are read (current
+`{ base, increments }` and legacy `{ min }`); pinned by
+`sfc_reader::label_tests::recipe_substat_roll_targets_are_read`.
 
-The other half of the accessory residue is safeguard rescues the DLL misses (`Protect: %
-Ring`, `Protect: % Banner` and friends). Not yet diagnosed; it may share the same cause, since
-a recipe that keeps the wrong pieces also changes which pieces are at risk.
+Note this only shows up on an override-resolved document: the raw sellfile leaves the field
+unset on the affected recipes and the overrides are what write it, so comparing the DLL
+against the app on a file whose overrides were never applied hides the bug.
+
+**Known gap: accessory safeguard rescues.** 8,314 of 8,388 pieces on a real vault now agree.
+The recipe side is effectively closed (2 disagreements); the remaining 72 are all the app
+rescuing a piece the DLL does not, through accessory safeguards (`Protect: % Ring`,
+`Protect: % Banner`, `Protect: Speed Banner - Across Sets` and friends), and 56 of the 74 are
+in ring/amulet/banner slots. Safeguard injection is still short of the app's
+(17,196 against 17,362). Start at the accessory bucket key — faction and the no-set sentinel
+both participate in it — rather than at the quota arithmetic, which the expected-bucket domain
+already matched byte-for-byte.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before
