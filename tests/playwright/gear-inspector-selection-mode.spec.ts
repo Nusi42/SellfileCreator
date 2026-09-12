@@ -16,6 +16,22 @@ const ENDPOINT_URL = 'ws://localhost:8080/'
 // Stable test-id for the global selection count chip in the bottom bar.
 const SELECTION_COUNT_TESTID = 'gear-inspector-selection-count'
 
+// The mode picker is a two-button exclusive group: both modes are always on screen and the
+// ACTIVE one is the pressed button. So a mode is asserted via aria-pressed, never via a
+// label that flips — clicking a button always means "go to the mode this button names".
+const modeButton = (page: Parameters<typeof test>[0]['page'], name: string) =>
+  page.getByRole('button', { name })
+// Asserts which of the pair is live, checking both buttons so a group that somehow presses
+// neither (or both) cannot pass.
+const expectActiveMode = async (
+  page: Parameters<typeof test>[0]['page'],
+  activeName: string,
+  inactiveName: string,
+) => {
+  await expect(modeButton(page, activeName)).toHaveAttribute('aria-pressed', 'true', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await expect(modeButton(page, inactiveName)).toHaveAttribute('aria-pressed', 'false', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+}
+
 // Waits until at least `minCount` gear cards are present in the DOM.
 const waitForGearCards = async (page: Parameters<typeof test>[0]['page'], minCount = 2) =>
   page.waitForFunction(
@@ -94,8 +110,10 @@ test.describe('gear-inspector-selection-mode', () => {
     const card0 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id0}"]`)
     const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
 
-    // The selection bottom bar must be present when the endpoint is connected.
-    await expect(page.getByRole('button', { name: 'Switch to single select' })).toBeVisible()
+    // The selection bottom bar must be present when the endpoint is connected, with
+    // multi-select (the factory default) showing as the pressed button.
+    await expect(modeButton(page, 'Single select')).toBeVisible()
+    await expectActiveMode(page, 'Multi-select', 'Single select')
 
     // Click card 0: selection grows to 1.
     await card0.click()
@@ -117,12 +135,12 @@ test.describe('gear-inspector-selection-mode', () => {
     const card0 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id0}"]`)
     const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
 
-    // Activate single-select mode.
-    const toggleBtn = page.getByRole('button', { name: 'Switch to single select' })
-    await expect(toggleBtn).toBeVisible()
-    await toggleBtn.click()
-    // Button label flips to reflect the new active mode.
-    await expect(page.getByRole('button', { name: 'Switch to multi-select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Activate single-select mode by picking the button that names it.
+    const singleBtn = modeButton(page, 'Single select')
+    await expect(singleBtn).toBeVisible()
+    await singleBtn.click()
+    // The pressed button moves to single select; both labels stay on screen.
+    await expectActiveMode(page, 'Single select', 'Multi-select')
 
     // Clicking card 0 selects exactly one card.
     await card0.click()
@@ -145,8 +163,8 @@ test.describe('gear-inspector-selection-mode', () => {
     const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
 
     // Activate single-select mode.
-    await page.getByRole('button', { name: 'Switch to single select' }).click()
-    await expect(page.getByRole('button', { name: 'Switch to multi-select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await modeButton(page, 'Single select').click()
+    await expectActiveMode(page, 'Single select', 'Multi-select')
 
     // Plain click anchors the selection to card 0.
     await card0.click()
@@ -177,42 +195,54 @@ test.describe('gear-inspector-selection-mode', () => {
     await setupWithCards(page)
 
     // The pre-seeded key should have restored single-select mode on boot.
-    await expect(page.getByRole('button', { name: 'Switch to multi-select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expectActiveMode(page, 'Single select', 'Multi-select')
 
-    // Toggle back to multi-select; key must flip to '0'.
-    await page.getByRole('button', { name: 'Switch to multi-select' }).click()
-    await expect(page.getByRole('button', { name: 'Switch to single select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    // Poll: the useEffect that writes to localStorage fires after the render cycle.
+    // Re-picking the ALREADY-active mode must be a no-op, not a flip: with both buttons
+    // permanently on screen this gesture is easy to make by accident, and an exclusive
+    // group reports null for it. Guards the early return in the change handler.
+    await modeButton(page, 'Single select').click()
+    await expectActiveMode(page, 'Single select', 'Multi-select')
+    await expect.poll(
+      () => page.evaluate((key: string) => localStorage.getItem(key), GEAR_INSPECTOR_SINGLE_SELECT_KEY),
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
+    ).toBe('1')
+
+    // Pick multi-select; key must flip to '0'.
+    await modeButton(page, 'Multi-select').click()
+    await expectActiveMode(page, 'Multi-select', 'Single select')
+    // Poll: the store's write to localStorage lands after the render cycle.
     await expect.poll(
       () => page.evaluate((key: string) => localStorage.getItem(key), GEAR_INSPECTOR_SINGLE_SELECT_KEY),
       { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
     ).toBe('0')
 
-    // Toggle back to single-select; key must flip to '1'.
-    await page.getByRole('button', { name: 'Switch to single select' }).click()
-    await expect(page.getByRole('button', { name: 'Switch to multi-select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Pick single-select again; key must flip back to '1'.
+    await modeButton(page, 'Single select').click()
+    await expectActiveMode(page, 'Single select', 'Multi-select')
     await expect.poll(
       () => page.evaluate((key: string) => localStorage.getItem(key), GEAR_INSPECTOR_SINGLE_SELECT_KEY),
       { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault },
     ).toBe('1')
   })
 
-  test('autoSellSupported relabels the mode toggle as sell/view and makes view mode strict', async ({ page }) => {
+  test('autoSellSupported relabels the mode picker as sell/view and makes view mode strict', async ({ page }) => {
     test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     const [id0, id1] = await setupWithCards(page, [CAPABILITY_AUTO_SELL_SUPPORTED])
 
     const card0 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id0}"]`)
     const card1 = page.locator(`[data-gear-inspector-grid-card="true"][data-row-id="${id1}"]`)
 
-    // Multi-select is the default, so the toggle offers the mode it switches TO: view mode.
-    const toView = page.getByRole('button', { name: 'Switch to view mode' })
+    // Multi-select is the default, which this client presents as sell mode.
+    const toView = modeButton(page, 'View mode')
     await expect(toView).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expectActiveMode(page, 'Sell mode', 'View mode')
     // The plain select wording must be gone entirely — this client sees sell/view only.
-    await expect(page.getByRole('button', { name: 'Switch to single select' })).toHaveCount(0)
+    await expect(modeButton(page, 'Single select')).toHaveCount(0)
+    await expect(modeButton(page, 'Multi-select')).toHaveCount(0)
 
-    // Switching to view mode offers the way back to sell mode.
+    // Picking view mode moves the pressed state onto it.
     await toView.click()
-    await expect(page.getByRole('button', { name: 'Switch to sell mode' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expectActiveMode(page, 'View mode', 'Sell mode')
 
     // Plain click replaces, as in ordinary single-select.
     await card0.click()
@@ -249,7 +279,7 @@ test.describe('gear-inspector-selection-mode', () => {
 
     // Switching to view mode must reconcile it down to one, so the client is never left
     // holding a multi-id view state.
-    await page.getByRole('button', { name: 'Switch to view mode' }).click()
+    await modeButton(page, 'View mode').click()
     await expect(page.getByTestId(SELECTION_COUNT_TESTID)).toHaveText('1 selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   })
 
@@ -258,7 +288,9 @@ test.describe('gear-inspector-selection-mode', () => {
     // Guards the additive promise: RSL Helper sends no capabilities packet and must be
     // unaffected by the sell/view relabel.
     await setupWithCards(page)
-    await expect(page.getByRole('button', { name: 'Switch to single select' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    await expect(page.getByRole('button', { name: 'Switch to view mode' })).toHaveCount(0)
+    await expect(modeButton(page, 'Single select')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expect(modeButton(page, 'Multi-select')).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    await expect(modeButton(page, 'View mode')).toHaveCount(0)
+    await expect(modeButton(page, 'Sell mode')).toHaveCount(0)
   })
 })

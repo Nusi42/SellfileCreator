@@ -9,6 +9,8 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -65,6 +67,7 @@ import {
   MENU_CONTROL_MIN_WIDTH_PX,
   MENU_RATING_ROW_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
+  SMALL_BUTTON_HEIGHT_PX,
   type SafeguardRankMode,
 } from '../lib/constants'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
@@ -1500,7 +1503,7 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
   // component state because the outbound `selectArtifacts` push stamps the same flag (App.tsx) —
   // one live value, no drift between the toolbar and the wire payload.
   // Only active while gearSelectionEnabled is true; derived as false when the feature is off.
-  const { singleSelectMode, toggleSingleSelectMode } = useGearInspectorSelectionModePreference()
+  const { singleSelectMode, setSingleSelectMode } = useGearInspectorSelectionModePreference()
   const effectiveSingleSelectMode = gearSelectionEnabled ? singleSelectMode : false
   // A client announcing autoSellSupported drives its own sell/view state from this very mode:
   // multi-select = "sell these", single-select = "view this one". That re-labels the toggle
@@ -1534,14 +1537,14 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
     if (!current || current.size <= 1) return
     onGearItemsSelect(clampSelectionToMode(new Set(current)))
   }, [strictSingleSelect, selectedGearItemIds, onGearItemsSelect, clampSelectionToMode])
-  // The toggle advertises the mode it switches TO, so single-select offers multi/sell and
-  // vice versa. One lookup feeds tooltip, aria-label and glyph together.
-  const selectionModeToggleLabelKey = effectiveSingleSelectMode
-    ? (sellViewMode ? 'gearInspectorSelectionSellMode' : 'gearInspectorSelectionMultiSelectMode')
-    : (sellViewMode ? 'gearInspectorSelectionViewMode' : 'gearInspectorSelectionSingleSelectMode')
-  const SelectionModeToggleIcon = effectiveSingleSelectMode
-    ? (sellViewMode ? ShoppingCartIcon : ChecklistIcon)
-    : (sellViewMode ? VisibilityIcon : RadioButtonCheckedIcon)
+  // Both modes are on screen at once, so each button names ITSELF rather than the mode a
+  // click would switch to; the pressed state says which one is live. Label and glyph are
+  // derived together per button so tooltip, aria-label and icon cannot disagree, and the
+  // sell/view capability re-skins the pair without changing which flag it writes.
+  const multiSelectLabelKey = sellViewMode ? 'gearInspectorSelectionSellMode' : 'gearInspectorSelectionMultiSelectMode'
+  const singleSelectLabelKey = sellViewMode ? 'gearInspectorSelectionViewMode' : 'gearInspectorSelectionSingleSelectMode'
+  const MultiSelectModeIcon = sellViewMode ? ShoppingCartIcon : ChecklistIcon
+  const SingleSelectModeIcon = sellViewMode ? VisibilityIcon : RadioButtonCheckedIcon
   // Flat ordered list of artifact IDs in display order; used for shift-range selection.
   const flatOrderedArtifactIds = useMemo(() => {
     const ids: number[] = []
@@ -3176,20 +3179,43 @@ export function GearInspectorItemsGrid(props: GearInspectorItemsGridProps) {
               </IconButton>
             </span>
           </Tooltip>
-          {/* Toggle between single-select (plain click = one card) and multi-select modes.
-              Labelled as sell/view instead when the client mirrors the mode (autoSellSupported).
-              Both the label and the icon name the mode the click SWITCHES TO, and both are
-              derived once so the tooltip, the aria-label and the glyph cannot disagree. */}
-          <Tooltip title={t(selectionModeToggleLabelKey)}>
-            <IconButton
-              size="small"
-              onClick={toggleSingleSelectMode}
-              color={effectiveSingleSelectMode ? 'primary' : 'default'}
-              aria-label={t(selectionModeToggleLabelKey)}
+          {/* Mode picker: multi-select (plain click adds) vs single-select (plain click replaces).
+              Presented as sell/view instead when the client mirrors the mode (autoSellSupported).
+              Both modes sit side by side so the choice — and which one is active — is readable
+              without clicking. Exclusive group: `next` is null when the pressed button is the
+              active one, and returning early there keeps re-picking the live mode idempotent.
+              Pinned to the Sellfile Preview / Gear Inspector view toggle's height: MUI's default
+              small ToggleButton padding renders ~36px, towering over the 28px IconButtons that
+              share this bar. Icon-only, so the padding is tighter than that text-bearing toggle. */}
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={effectiveSingleSelectMode}
+            onChange={(_e, next: boolean | null) => {
+              if (next === null) return
+              setSingleSelectMode(next)
+            }}
+            sx={{ height: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0 }}
+          >
+            <ToggleButton
+              value={false}
+              aria-label={t(multiSelectLabelKey)}
+              sx={{ px: 0.75, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
             >
-              <SelectionModeToggleIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+              <Tooltip title={t(multiSelectLabelKey)}>
+                <MultiSelectModeIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton
+              value={true}
+              aria-label={t(singleSelectLabelKey)}
+              sx={{ px: 0.75, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+            >
+              <Tooltip title={t(singleSelectLabelKey)}>
+                <SingleSelectModeIcon fontSize="small" />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
       )}
     </Box>

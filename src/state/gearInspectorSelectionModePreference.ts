@@ -3,7 +3,7 @@
  *
  * SSOT for the Gear Inspector's selection mode (single-select vs multi-select).
  *
- * The toggle lives on the grid's selection toolbar, but the mode is ALSO part of the
+ * The mode picker lives on the grid's selection toolbar, but the mode is ALSO part of the
  * outbound `selectArtifacts` payload (App.tsx stamps `multiSelect` alongside the ids), so
  * the flag cannot stay as component-local `useState`: two consumers reading the same
  * localStorage key independently would drift the moment one of them re-renders and the
@@ -36,10 +36,13 @@ export const getGearInspectorSingleSelectMode = (): boolean => gearInspectorSele
 
 export function useGearInspectorSelectionModePreference() {
   const singleSelectMode = gearInspectorSelectionModeStore.useValue()
-  // Toggle is the only mutation the UI needs; it flips through the store so every
-  // subscriber (grid toolbar, selection push) re-reads the same value.
-  const toggleSingleSelectMode = useCallback(() => {
-    gearInspectorSelectionModeStore.update((prev) => !prev)
+  // Setting an explicit mode is the only mutation the UI needs: the toolbar's two-button
+  // group names the mode each button represents, so re-picking the active one must be a
+  // no-op. A flip-style toggle would instead switch away from the mode just clicked.
+  // Writes go through the store so every subscriber (grid toolbar, selection push) re-reads
+  // the same value.
+  const setSingleSelectMode = useCallback((value: boolean) => {
+    gearInspectorSelectionModeStore.update(() => value)
   }, [])
-  return { singleSelectMode, toggleSingleSelectMode }
+  return { singleSelectMode, setSingleSelectMode }
 }
