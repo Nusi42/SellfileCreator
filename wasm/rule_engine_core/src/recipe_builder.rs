@@ -80,10 +80,17 @@ fn variant_to_sub_parts(variant: i64) -> (i64, bool) {
     (stat_id, is_flat)
 }
 
-/// (stat_id, flat_flag_opt) from a main-stat variant (None when flat is ambiguous).
+/// (stat_id, flat_flag) from a main-stat variant. Every variant states its flag.
 fn variant_to_main_parts(variant: i64) -> (i64, Option<i64>) {
-    // HP%/ATK%/DEF% have f=0; HP flat/ATK flat/DEF flat have f=1.
-    // All other variants (SPD, CR, etc.) don't use the flat field.
+    // Mirror of `variantToMain` in hsfTypes.ts, which is the SSOT for this mapping.
+    //
+    // `f` is the main stat's FLAT flag: 0 = percent, 1 = flat. The percent/flat pairs are
+    // explicit, and every other variant states its flag rather than falling through to the
+    // `MAIN_STAT_F_DEFAULT_FLAG` default — because that default is 1, and CR/CDMG are PERCENT
+    // mains that need 0. Leaving them to the default emitted `MainStatF: 1` for a CDMG% main,
+    // which matched no such gear and silently shifted the whole rule set: a real sellfile's
+    // CDMG% amulet recipes then also carried different substat thresholds, and 16 amulets the
+    // app keeps came out sold.
     match variant {
         v if v == STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, Some(0)),
         v if v == STAT_VARIANT_HP_FLAT => (STAT_ID_HP, Some(1)),
@@ -91,12 +98,14 @@ fn variant_to_main_parts(variant: i64) -> (i64, Option<i64>) {
         v if v == STAT_VARIANT_ATK_FLAT => (STAT_ID_ATK, Some(1)),
         v if v == STAT_VARIANT_DEF_PERCENT => (STAT_ID_DEF, Some(0)),
         v if v == STAT_VARIANT_DEF_FLAT => (STAT_ID_DEF, Some(1)),
-        v if v == STAT_VARIANT_SPD => (STAT_ID_SPD, None),
-        v if v == STAT_VARIANT_RES => (STAT_ID_RES, None),
-        v if v == STAT_VARIANT_ACC => (STAT_ID_ACC, None),
-        v if v == STAT_VARIANT_CR => (STAT_ID_CR, None),
-        v if v == STAT_VARIANT_CDMG => (STAT_ID_CDMG, None),
-        _ => (STAT_ID_ANY, None),
+        // Flat-valued mains.
+        v if v == STAT_VARIANT_SPD => (STAT_ID_SPD, Some(1)),
+        v if v == STAT_VARIANT_RES => (STAT_ID_RES, Some(1)),
+        v if v == STAT_VARIANT_ACC => (STAT_ID_ACC, Some(1)),
+        // Percent-valued mains — NOT the default.
+        v if v == STAT_VARIANT_CR => (STAT_ID_CR, Some(0)),
+        v if v == STAT_VARIANT_CDMG => (STAT_ID_CDMG, Some(0)),
+        _ => (STAT_ID_ANY, Some(1)),
     }
 }
 
@@ -735,6 +744,26 @@ pub fn build_hsf_rules_for_recipe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // CR and CDMG are PERCENT mains, so their HSF flat flag is 0.
+    //
+    // These two used to return None and pick up `MAIN_STAT_F_DEFAULT_FLAG`, which is 1 — the
+    // flag for a FLAT main. A CDMG% recipe then emitted `MainStatF: 1`, describing gear that
+    // does not exist. `variantToMain` in hsfTypes.ts is the SSOT this mirrors; the two tables
+    // disagreed only for these variants.
+    #[test]
+    fn percent_mains_are_not_flagged_flat() {
+        // Percent mains: flag 0.
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_CR), (STAT_ID_CR, Some(0)));
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_CDMG), (STAT_ID_CDMG, Some(0)));
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_HP_PERCENT), (STAT_ID_HP, Some(0)));
+        // Flat mains keep flag 1.
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_SPD), (STAT_ID_SPD, Some(1)));
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_ACC), (STAT_ID_ACC, Some(1)));
+        assert_eq!(variant_to_main_parts(STAT_VARIANT_HP_FLAT), (STAT_ID_HP, Some(1)));
+        // The emitted choice carries the same flag rather than the default.
+        assert_eq!(variant_to_main_choice(STAT_VARIANT_CDMG).f, Some(0));
+    }
 
     #[test]
     fn star_for_rank_code_branches() {

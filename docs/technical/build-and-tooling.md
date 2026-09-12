@@ -482,12 +482,27 @@ pools are new. The pools need each set's piece behaviour, which TS derived from
 pool deliberately includes the `-99` no-set sentinel: an accessory slot can carry an UNSET
 accessory (Spider dungeon), and dropping it would lose a real bucket.
 
-**Known gap: accessories.** After the above, 8,299 of 8,388 pieces on a real vault agree with
-the app. The residue is concentrated in the accessory slots (ring/amulet/banner): 71 of 89
-keep disagreements and 182 of 200 `safeguarded` disagreements. Two shapes are visible — an
-`Auto` rarity accessory recipe matching in the DLL but not the app, and safeguard rescues the
-DLL misses — so suspect the auto-rarity resolve and the accessory faction/set bucketing
-before anything else. Not yet diagnosed.
+**A percent main stat is not flagged flat.** `variantToMain` (hsfTypes.ts) is the SSOT for
+the HSF main-stat pair `(id, f)`, where `f` is the FLAT flag: 0 = percent, 1 = flat.
+`variant_to_main_parts` mirrors it, and every variant now states its flag. CR and CDMG used
+to return `None` and fall through to `MAIN_STAT_F_DEFAULT_FLAG`, which is 1 — so a CDMG%
+recipe emitted `MainStatF: 1`, describing gear that cannot exist. Pinned by
+`recipe_builder::tests::percent_mains_are_not_flagged_flat`.
+
+**Known gap: accessory substat thresholds.** 8,299 of 8,388 pieces on a real vault agree with
+the app; the residue is concentrated in the accessory slots (71 of 89 keep disagreements, 182
+of 200 `safeguarded`). One cause is now understood and NOT yet fixed: for the same recipe and
+the same empty `Minima` table, the two sides emit different substat thresholds — a 6★ amulet
+recipe's HP-flat ladder comes out `1000/800/600/400` here against the app's
+`1500/1200/900/600`. The 1.5x ratio and the generated 6★ HP-flat roll minimum of 200 suggest
+the two disagree about which star/rank the factory minima are read at, not about the table
+itself (`SUBSTAT_ROLL_RANGES_BY_STAR` is generated for both). Start at
+`factory_minima_for_star` and the `star_for_rank_code` fallback against `defaultSubstatTargets`
+in hsfBuilder.ts.
+
+The other half of the accessory residue is safeguard rescues the DLL misses (`Protect: %
+Ring`, `Protect: % Banner` and friends). Not yet diagnosed; it may share the same cause, since
+a recipe that keeps the wrong pieces also changes which pieces are at risk.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before
