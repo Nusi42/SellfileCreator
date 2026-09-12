@@ -156,3 +156,40 @@ export const buildDocumentOverridesView = (input: DocumentOverridesInput): Docum
     displaySafeguardRules,
   }
 }
+
+/**
+ * The document's rules with its dynamic overrides already APPLIED — the shape to hand
+ * anything that decides keep/sell without running this builder itself.
+ *
+ * A saved `.sfc` stores the authored rules plus the user's ANSWERS, and the answers are
+ * only meaningful to a consumer that owns this module: `resolveRecipeOverridesTags` reads
+ * the Note's DSL, and nothing outside TypeScript does. That is fine for the file format —
+ * the answers must stay editable, so "Save .sfc" keeps writing the raw document — but a
+ * consumer that only DECIDES (the decision library, an external helper) has no way to
+ * resolve them and silently judges the authored defaults instead.
+ *
+ * Measured on a real 195-recipe document with its overrides ENABLED: 158 recipes, all 155
+ * safeguards and the substat targets differ once the answers are applied, moving 570 of
+ * 8,451 verdicts. Selling is irreversible, so the pushed document is the resolved one.
+ *
+ * With `NoteRecipeOverridesDisabled` set, the view resolves no instructions and these
+ * slices are the raw ones — the master switch keeps working by doing nothing here.
+ *
+ * Safeguards come from `displaySafeguardRules`: the same overrides, applied to rules whose
+ * metaset REFERENCES are still names. The payload carries `Metasets` beside them and every
+ * reader expands them itself, so handing over the pre-expanded `effectiveSafeguardRules`
+ * would resolve the same names twice.
+ *
+ * The answers ride along unchanged. They no longer drive the rules here, but they are what
+ * lets the receiver show which questions produced this file — and, when it is opened in the
+ * app again, what keeps the answer state from snapping back to the authored defaults.
+ */
+export const buildOverrideAppliedDocumentSlices = (view: DocumentOverridesView): {
+  recipes: BuilderRecipe[]
+  safeguardRules: SafeguardRule[]
+  substatTargets: SubstatTargetTable
+} => ({
+  recipes: view.recipeOverridesRecipesForRules,
+  safeguardRules: view.displaySafeguardRules.slice(),
+  substatTargets: view.effectiveSubstatTargets,
+})

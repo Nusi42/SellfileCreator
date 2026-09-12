@@ -1715,17 +1715,33 @@ export const SFC_EXPORT_CONTENT_TYPE = 'application/json'
  * `version` is the APP_VERSION to stamp; the caller passes it because this module must not
  * depend on the app's version constant.
  */
-export function buildSfcPayloadFromParsed(parsed: ParsedSfcResult, version: string) {
+export function buildSfcPayloadFromParsed(
+  parsed: ParsedSfcResult,
+  version: string,
+  /**
+   * Rule slices to write INSTEAD of the parsed document's own, for a consumer that decides
+   * keep/sell rather than editing (see documentOverrides.buildOverrideAppliedDocumentSlices).
+   * Omit it and the document is re-serialized exactly as parsed — the shape autosave and
+   * every file-save path want, where the answers must stay editable.
+   */
+  overrideApplied?: {
+    recipes: BuilderRecipe[]
+    safeguardRules: SafeguardRule[]
+    substatTargets: SubstatTargetTable
+  },
+) {
   return buildSfcPayload({
     version,
     metasets: parsed.metasets,
-    substatTargets: parsed.substatTargets,
-    recipes: parsed.recipes,
+    substatTargets: overrideApplied?.substatTargets ?? parsed.substatTargets,
+    recipes: overrideApplied?.recipes ?? parsed.recipes,
     // Absent (null) keys are omitted rather than written as null, matching how the
     // interactive save path spreads its optional fields.
     ...(parsed.finalSellRemainder ? { finalSellRemainder: parsed.finalSellRemainder } : {}),
     ...(parsed.note ? { note: parsed.note } : {}),
-    ...(parsed.safeguardRules ? { safeguardRules: parsed.safeguardRules } : {}),
+    ...(overrideApplied
+      ? { safeguardRules: overrideApplied.safeguardRules }
+      : (parsed.safeguardRules ? { safeguardRules: parsed.safeguardRules } : {})),
     ...(parsed.safeguardsEnabled !== null ? { safeguardsEnabled: parsed.safeguardsEnabled } : {}),
     recipesEnabled: parsed.recipesEnabled,
     ...(parsed.noteRecipeOverridesAnswers ? { noteRecipeOverridesAnswers: parsed.noteRecipeOverridesAnswers } : {}),

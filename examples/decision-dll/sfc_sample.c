@@ -184,11 +184,93 @@ static void report_sell_file(const char *label, const char *answer)
 }
 
 /*
+ * Skip past a JSON string, starting at its opening quote. Returns the character after
+ * the closing quote, or NULL if the text ends first.
+ *
+ * Escapes matter: a rule name may legally contain a quote, and "\\" must not be read as
+ * an escaped quote. Without this, a name carrying a brace or bracket ends the scan below
+ * early and pieces silently vanish from the report.
+ */
+static const char *skip_json_string(const char *p)
+{
+    ++p; /* the opening quote */
+    while (*p) {
+        if (*p == '\\') {
+            if (!p[1]) {
+                return NULL;
+            }
+            p += 2;
+            continue;
+        }
+        if (*p == '"') {
+            return p + 1;
+        }
+        ++p;
+    }
+    return NULL;
+}
+
+/*
+ * Find the structural character `want` at the current nesting depth, ignoring anything
+ * inside a JSON string. `p` starts just after the opening bracket or brace.
+ */
+static const char *find_structural(const char *p, char want)
+{
+    int depth = 0;
+
+    while (*p) {
+        if (*p == '"') {
+            const char *next = skip_json_string(p);
+            if (!next) {
+                return NULL;
+            }
+            p = next;
+            continue;
+        }
+        if (*p == '[' || *p == '{') {
+            ++depth;
+        } else if (*p == ']' || *p == '}') {
+            if (depth == 0 && *p == want) {
+                return p;
+            }
+            --depth;
+        }
+        ++p;
+    }
+    return NULL;
+}
+
+/*
+ * Is `key` present between `from` and `end`, with the value true?
+ *
+ * Bounded by the object it was given, so it never reads a later piece's flag, and it works
+ * straight off the answer rather than a copy - no buffer to overflow when a rule name is long.
+ */
+static int flag_is_true(const char *from, const char *end, const char *key)
+{
+    const char *at = strstr(from, key);
+
+    if (!at || at >= end) {
+        return 0;
+    }
+    at += strlen(key);
+    while (at < end && (*at == ' ' || *at == '\t')) {
+        ++at;
+    }
+    return (size_t)(end - at) >= 4 && strncmp(at, "true", 4) == 0;
+}
+
+/*
  * Print one line per piece, in plain words.
  *
  * This walks the JSON with plain string searching to keep the example dependency-free.
  * Real code should use whatever JSON library it already has - the point here is which
  * fields to read and how the three of them combine, not this parsing.
+ *
+ * Even so, the scan has to respect JSON strings: rule names come from the sell file and
+ * may contain braces or brackets. Treating those as structure made the walk stop mid-array
+ * and report only the pieces before the first such name - a piece marked SELL simply
+ * disappearing from the list, with the count still looking plausible.
  */
 static void print_verdicts(const char *answer)
 {
@@ -204,7 +286,12 @@ static void print_verdicts(const char *answer)
     /* Stop at the end of the verdicts array. "artifactId" also appears in
      * safeguardRanks, so a scan that ran to the end of the answer would report every
      * piece a second time, with the rank row's fields read as a verdict. */
-    verdicts_end = strchr(cursor, ']');
+    cursor = strchr(cursor, '[');
+    if (!cursor) {
+        printf("No verdicts in the answer.\n");
+        return;
+    }
+    verdicts_end = find_structural(cursor + 1, ']');
     if (!verdicts_end) {
         printf("No verdicts in the answer.\n");
         return;
@@ -215,28 +302,21 @@ static void print_verdicts(const char *answer)
         long long id = 0;
         const char *object_end = NULL;
         int keep = 0, matched = 0, safeguarded = 0;
-        size_t length = 0;
-        char body[256];
-
         cursor += strlen("\"artifactId\":");
         id = _atoi64(cursor);
 
         /* Confine the flag search to this one object so we never read the next one. */
-        object_end = strchr(cursor, '}');
+        object_end = find_structural(cursor, '}');
         if (!object_end) {
             break;
         }
 
-        length = (size_t)(object_end - cursor);
-        if (length >= sizeof(body)) {
-            length = sizeof(body) - 1;
-        }
-        memcpy(body, cursor, length);
-        body[length] = '\0';
-
-        keep = strstr(body, "\"keep\":true") != NULL;
-        matched = strstr(body, "\"matched\":true") != NULL;
-        safeguarded = strstr(body, "\"safeguarded\":true") != NULL;
+        /* Read the flags in place. Copying the object into a fixed buffer first would
+         * truncate it once a rule name got long, and "safeguarded" is the LAST field -
+         * so a rescued piece would quietly report as an ordinary keep. */
+        keep = flag_is_true(cursor, object_end, "\"keep\":");
+        matched = flag_is_true(cursor, object_end, "\"matched\":");
+        safeguarded = flag_is_true(cursor, object_end, "\"safeguarded\":");
 
         /* The three fields together are the whole answer for this piece. */
         if (!keep) {

@@ -39,8 +39,17 @@ extern "C" {
  *                       so every quote and backslash inside it is escaped. You do not
  *                       parse or pre-process it; hand over the file contents as read.
  *
- *   artifacts           Your gear. Required, but may be an empty array (you then get
- *                       no verdicts). Shape below.
+ *                       One caveat if the file came from the app's "Save .sfc" rather
+ *                       than from a push: a saved file stores the rules as AUTHORED plus
+ *                       the user's dynamic-overrides answers, and applying those answers
+ *                       to the rules is the app's own step, not this library's. Judged
+ *                       here, such a file decides by the authored defaults - which is not
+ *                       what the app's preview of it shows. A document the app PUSHED has
+ *                       the answers already applied and needs nothing.
+ *
+ *   artifacts           Your gear. Optional and defaulting to empty, though an empty list
+ *                       simply yields no verdicts, so in practice you always send it.
+ *                       Shape below.
  *
  *   champions           Who is wearing what. Optional, but it changes answers:
  *                       safeguard rules treat worn gear differently. Shape below.

@@ -20,22 +20,32 @@ with separate switches for the recipes, the safeguards, and the closing "sell th
 | `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them, and splits a sell file into parts. |
 | `build.bat` | Builds the example. Finds your compiler for you. |
 
-The library itself (`sfc_engine.dll`) sits in the same folder as this README.
+The library itself (`sfc_engine.dll`) is **not** in this folder — it is built from the
+`wasm/` workspace, or taken from a release. Copy it next to the example, or pass its path
+when you run it.
 
 ## Try it
 
 ```
 build.bat
-sfc_sample.exe
+sfc_sample.exe path\to\sfc_engine.dll
 ```
 
 You should see a version line, the decisions for two example pieces, and the size of
-three sell files — the complete one and the two halves it splits into. If the library is
-somewhere else, pass its path:
+three sell files — the complete one and the two halves it splits into. With the library
+copied in beside the example, the path can be left off:
 
 ```
-sfc_sample.exe C:\somewhere\sfc_engine.dll
+sfc_sample.exe
 ```
+
+Building it yourself, from the repository root:
+
+```
+cargo build --release --manifest-path wasm/Cargo.toml --target x86_64-pc-windows-msvc -p sfc_engine
+```
+
+which writes `wasm\target\x86_64-pc-windows-msvc\release\sfc_engine.dll`.
 
 You need a C compiler. The free Community edition of Visual Studio with the
 "Desktop development with C++" option is enough, and `build.bat` will find it.
@@ -70,10 +80,13 @@ differently, and roughly half of all substats sit just under a whole number — 
 game calls "Speed 12" is stored a hair under 12. Compared raw against a "12 or more" rule
 it fails, and gear that should be kept gets sold.
 
-**Send the real upgrade level.** Rules name specific levels, matched exactly. The library
-rounds a level to the nearest one a rule can name, the way the app does, so a +9 piece is
-judged as +8. Levels that sit between the named ones are ordinary gear and a large part of
-any inventory.
+**Send the real upgrade level.** Rules name specific levels — 0, 4, 8, 12 and 16 — and match
+them exactly, so an off-milestone level has to be mapped onto one of them. The library does
+that the same way the app does, which is what keeps the two in step: pass the real level
+through and let it map, rather than rounding first and rounding differently.
+
+Levels between the named ones are ordinary gear and a large part of many inventories, so
+this reaches a lot of pieces.
 
 **Send the set exactly as the game gives it, including "no set".** Rings, amulets and
 banners with no set are their own kind of item and rules name them specifically; armour
@@ -84,6 +97,24 @@ library keeps them apart.
 differently, so leaving it out can change an answer.
 
 In short: pass the raw numbers straight through. The library exists to get this right.
+
+### One thing it cannot do for you: a saved file's dynamic overrides
+
+A sell file can carry *dynamic overrides* — questions the file's note asks, whose answers
+change the rules it means. A file the app **pushed** over its connection already has those
+answers applied, so it decides here exactly as it does there.
+
+A file the user **saved** from the app does not. It holds the rules as authored plus the
+answers, and applying one to the other is the app's own step. Judged straight, such a file
+decides by the authored defaults, which can differ sharply from the app's preview of the
+very same file — on one real document, 570 of 8,451 pieces. There is no error and nothing
+looks wrong.
+
+So prefer a pushed document. If you must take a saved one, look at `NoteRecipeOverridesDisabled`:
+`true` means the user switched the overrides off, the authored rules are what the app uses too,
+and the file decides here exactly as it does there. Otherwise, if it has a `Note` alongside
+`NoteRecipeOverridesAnswers` or `NoteSafeguardOverridesAnswers`, treat its decisions as
+approximate and say so before anything is sold.
 
 ## Reading a decision
 

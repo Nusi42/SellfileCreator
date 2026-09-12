@@ -44,7 +44,7 @@ import { buildSfcPayloadFromParsed, parseSfcObject, sfcPayloadFingerprint, SFC_E
 import { defaultSubstatTargets } from './hsfBuilder'
 import { defaultMetasets } from './metasets'
 import { getPersistedRuntimeGearSetNameMap } from './gearSets/runtimeStore'
-import { buildDocumentOverridesView } from './documentOverrides'
+import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices } from './documentOverrides'
 import {
   applyGearDbPartToSlots,
   createDatasetFromSnapshot,
@@ -243,7 +243,13 @@ export const createBackgroundAccountPushService = (
       // The skip covers the UPLOAD ONLY — persistence (step 6) still runs below, or the
       // account's next session would start from stale gear.
       if (uploadTarget.sfcDocument) {
-        const sfcPayload = buildSfcPayloadFromParsed(doc, APP_VERSION)
+        // Overrides applied, exactly as the interactive push sends them: the receiver only
+        // decides keep/sell and cannot resolve the Note DSL the answers address.
+        const sfcPayload = buildSfcPayloadFromParsed(
+          doc,
+          APP_VERSION,
+          buildOverrideAppliedDocumentSlices(view),
+        )
         const fingerprint = sfcPayloadFingerprint(sfcPayload)
         if (fingerprint === getSellfileLastPushSfcHashForAccount(account.id)) {
           // Nothing to send. Persist the gear that arrived, then report the no-op.

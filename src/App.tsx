@@ -16,7 +16,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
-import { buildDocumentOverridesView } from './lib/documentOverrides'
+import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
 import AccountSwitcher from './components/AccountSwitcher'
@@ -4450,6 +4450,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     safeguardRules, safeguardsEnabled, recipesEnabled,
     noteRecipeOverridesAnswers, noteSafeguardOverridesAnswers, noteOverridesDisabled,
   ])
+  // The document as a DECIDING consumer must receive it: same writer, same fields, but
+  // with the dynamic overrides already applied.
+  //
+  // Saving keeps writing the raw document above — the answers have to stay editable, and a
+  // saved file is the editable source. A PUSH is the other case: the receiver only decides
+  // keep/sell, and resolving the Note DSL lives in lib/documentOverrides (TypeScript), so a
+  // raw document makes it judge the authored defaults. On a real 195-recipe document with
+  // overrides enabled that moved 570 of 8,451 verdicts; with the master switch off the
+  // slices are the raw ones and nothing changes.
+  // The answers still ride along, so reopening the pushed file restores the same state.
+  const buildPushedSfcPayload = useCallback(() => {
+    const effective = buildOverrideAppliedDocumentSlices(documentOverridesView)
+    return buildSfcPayload({
+      version: APP_VERSION,
+      metasets,
+      substatTargets: effective.substatTargets,
+      recipes: effective.recipes,
+      finalSellRemainder,
+      ...(sfcNote ? { note: sfcNote } : {}),
+      safeguardRules: effective.safeguardRules,
+      safeguardsEnabled,
+      recipesEnabled,
+      noteRecipeOverridesAnswers,
+      noteSafeguardOverridesAnswers,
+      noteOverridesDisabled,
+    })
+  }, [
+    documentOverridesView, metasets, finalSellRemainder, sfcNote,
+    safeguardsEnabled, recipesEnabled,
+    noteRecipeOverridesAnswers, noteSafeguardOverridesAnswers, noteOverridesDisabled,
+  ])
   // Baseline = the export fingerprint captured at the last export/push (null until first
   // export or after an SFC load resets it). hsfDirty compares the current fingerprint to it.
   // (currentMergedRulesHash is declared earlier, next to the other pipeline-result state, so
@@ -4506,9 +4537,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Fingerprint of the document a push WOULD upload right now. Cheap next to a pipeline run
   // and, unlike currentMergedRulesHash, available immediately — the .sfc path never has to
   // wait for (or pay for) a rule build just to learn whether anything changed.
+  // Fingerprints the PUSHED document (overrides applied), not the saved one: answering a
+  // dynamic-overrides question rewrites the rules a push would send while leaving the raw
+  // document identical, so hashing the raw one would call that push clean and skip it.
   const currentSfcHash = useMemo(
-    () => (pushWatchesSfc ? sfcPayloadFingerprint(buildCurrentSfcPayload()) : null),
-    [pushWatchesSfc, buildCurrentSfcPayload],
+    () => (pushWatchesSfc ? sfcPayloadFingerprint(buildPushedSfcPayload()) : null),
+    [pushWatchesSfc, buildPushedSfcPayload],
   )
   // Baseline = the document fingerprint captured at the last successful PUSH. Deliberately
   // its own state rather than a reuse of the Save-based dirty flag: saving to disk must not
@@ -9640,7 +9674,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Built once and reused for the baseline stamp below, so the fingerprint recorded on
         // success describes exactly the document that went over the wire — not a re-serialization
         // that an interleaved edit could have moved underneath us.
-        const sfcPayload = uploadTarget.sfcDocument ? buildCurrentSfcPayload() : null
+        // The pushed document carries its overrides APPLIED — the receiver decides, and
+        // only this side can resolve the Note DSL the answers address.
+        const sfcPayload = uploadTarget.sfcDocument ? buildPushedSfcPayload() : null
         pushedSfcDocument = sfcPayload !== null
         const upload = sfcPayload !== null
           ? { fileName: sfcFilename(), contentType: SFC_EXPORT_CONTENT_TYPE, data: sfcPayload }
@@ -9690,7 +9726,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     outcomeToast('toastSellfileSaved')
   }, [
     buildExportPayload,
-    buildCurrentSfcPayload,
+    buildPushedSfcPayload,
     currentMergedRulesHash,
     pushExportEndpoint,
     sendExternalRequest,
