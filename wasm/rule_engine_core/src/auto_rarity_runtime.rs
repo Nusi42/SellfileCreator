@@ -12,7 +12,7 @@ pub(crate) fn auto_rarity_clamp_roll_requirement(value: Option<f64>) -> i64 {
 
 // Auto-rarity tables are generated from shared/domain-constants.json.
 // Clamp unknown values into the supported 0..16 rarity-code domain.
-fn auto_rarity_code_index(rarity_code: i64) -> usize {
+pub(crate) fn auto_rarity_code_index(rarity_code: i64) -> usize {
     // Unknown values are normalized to Any so table lookups stay in-bounds.
     if !(RARITY_CODE_ANY..=RARITY_CODE_GTE_LEGENDARY).contains(&rarity_code) {
         return RARITY_CODE_ANY as usize;

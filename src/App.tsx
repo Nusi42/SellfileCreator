@@ -4478,9 +4478,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // after a reset (SFC load/import/restore). Adopting the current fingerprint as baseline means
   // a freshly-loaded file starts CLEAN; hsfDirty only flips once the fingerprint later diverges.
   // The fingerprint is null until the first pipeline completes, so we wait for it.
+  // NOTE: the shared `exportBaselineResetPending` flag is NOT cleared here. Two baselines
+  // ride on it (this one and the pushed-.sfc one below) and they become ready at different
+  // times: this one waits for an async pipeline result, the .sfc one is derived synchronously
+  // from document state. Clearing it here closed the window the .sfc adoption depends on —
+  // during a load the OLD document's pipeline hash is still non-null, so this block fired on
+  // the intermediate render, cleared the flag, and left the .sfc baseline latched to the
+  // OUTGOING document. The transition then landed the new one and a merely-OPENED file
+  // auto-pushed itself. The single clear now happens after both have adopted (see below).
   if (currentMergedRulesHash !== null && (exportBaselineResetPending || lastExportedHash === null)) {
     setLastExportedHash(currentMergedRulesHash)
-    if (exportBaselineResetPending) setExportBaselineResetPending(false)
   }
   // Dirty ⟺ the exported HSF would differ from what was last exported. Because the fingerprint
   // is the crc of the actual export bytes (volatile detection fields stripped), gear-DB churn
@@ -4520,6 +4527,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // document until the load has fully settled.
   if (currentSfcHash !== null && (exportBaselineResetPending || lastPushedSfcHash === null)) {
     if (currentSfcHash !== lastPushedSfcHash) setLastPushedSfcHash(currentSfcHash)
+  }
+  // The ONE place the shared reset flag is cleared, once every baseline riding on it has
+  // adopted. The .hsf baseline needs a pipeline result; the .sfc one (only watched under
+  // SfcFileAsSellfile — otherwise currentSfcHash stays null and imposes no wait) needs the
+  // document. Clearing on whichever arrived first is what let a load latch a stale baseline.
+  if (exportBaselineResetPending
+    && currentMergedRulesHash !== null
+    && (!pushWatchesSfc || currentSfcHash !== null)) {
+    setExportBaselineResetPending(false)
   }
   // What the auto-push edge actually watches. One expression, so no call site re-derives it.
   const pushDirty = pushWatchesSfc

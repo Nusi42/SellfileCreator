@@ -20,8 +20,8 @@ use std::ffi::{c_char, CStr, CString};
 
 use rule_engine_core::safeguards::fast_path_types::SafeguardWasmSubstatIn;
 use rule_engine_core::{
-    is_accessory_slot, resolve_set_id, snap_level_to_milestone, ImprovementChanceEntry, PreviewExtrasRaw, RuleRaw,
-    SafeguardWasmArtifactIn, TestItemRaw,
+    is_accessory_slot, main_to_variant, resolve_set_id, round_stat_value, snap_level_to_milestone, sub_to_variant,
+    ImprovementChanceEntry, PreviewExtrasRaw, RuleRaw, SafeguardWasmArtifactIn, TestItemRaw, STAT_ID_ANY,
 };
 
 // Public so the integration parity test (tests/parity.rs) can drive the normaliser directly.
@@ -45,7 +45,14 @@ use artifact_log::{
 // endpoint (kindId/rankId/primary/secondary/…, and champions[].artifacts slot-maps),
 // so RSL Helper can pipe its packets straight in. The DLL normalises them internally
 // (see artifact_log.rs) — the caller does NOT pre-run the app's TypeScript.
+// camelCase + deny_unknown_fields for the same reason NativeHsfInput carries them (see the
+// comment on that struct): the documented wire keys are `improvementChances` / `rules`, and
+// without the rename serde looks for `improvement_chances`, ignores the key the caller
+// actually sent, and applies the default — answering a request for improvement projections
+// with an empty array and no error at all. `deny_unknown_fields` turns a misspelled switch
+// into a refusal rather than a silently wrong response.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct NativeInput {
     // Raw SFC JSON as a string (the .sfc file contents).  Passed verbatim to parse_sfc.
     sfc: String,
@@ -221,13 +228,16 @@ struct NativeError {
 // Artifact normalisation helpers
 // ---------------------------------------------------------------------------
 
-// Encode (stat_id, flat_bit) into the StatVariant compact integer.
-// Encoding: high 8 bits = stat_id, low bit = is_flat.  Matches generated_domain_constants.rs.
-fn encode_variant(stat_id: i64, flat_bit: i64) -> i64 {
-    (stat_id << 8) | (flat_bit & 1)
+// Interpret a raw wire flat flag the way the app's `isFlatFlag` does: ANY non-zero value
+// means flat, not just exactly 1. Masking with `& 1` instead would read a flag of 2 as
+// percent while the app reads it as flat, flipping both the encoded variant and the
+// percent scaling applied to the value.
+fn is_flat_flag(flag: Option<i64>) -> bool {
+    flag.unwrap_or(0) != 0
 }
 
-// Normalise one substat slot.  Returns None when stat_id is absent or zero (empty slot).
+// Normalise one substat slot.  Returns None when stat_id is absent or zero (empty slot),
+// or when the id is one the shared encoder does not recognise.
 //
 // `value` is the normalised rule value carried on the compact row (base + mythical,
 // pre-glyph, rounded the way the app's importer rounds). It is what every numeric
@@ -236,11 +246,21 @@ fn encode_variant(stat_id: i64, flat_bit: i64) -> i64 {
 fn make_substat(id: Option<i64>, lvl: Option<i64>, fl: Option<i64>, value: f64) -> Option<SafeguardWasmSubstatIn> {
     // Skip empty or sentinel-zero slots.
     let stat_id = id.filter(|&v| v > 0)?;
-    let flat_bit = fl.unwrap_or(0);
-    let variant = encode_variant(stat_id, flat_bit);
+    let is_flat = is_flat_flag(fl);
+    // Encode through the workspace SSOT rather than shifting the bits here. The shared
+    // encoder CANONICALIZES the flat suffix per stat family (SPD/RES/ACC are always flat,
+    // CR/CDMG always percent) and rejects ids it does not know; a literal `(id << 8) | fl`
+    // therefore produces variants for those families that no rule can ever name, so the
+    // threshold lookup misses and the piece falls through to the final-sell catch-all.
+    let variant = sub_to_variant(stat_id, i64::from(is_flat));
+    // An unknown id decodes to Any; the app's `extractSubstat` drops that slot rather than
+    // inventing a variant for it, so a future game stat cannot fabricate a phantom substat.
+    if variant == STAT_ID_ANY {
+        return None;
+    }
     Some(SafeguardWasmSubstatIn {
         variant,
-        is_flat: flat_bit != 0,
+        is_flat,
         value,
         rolls: lvl.filter(|&r| r >= 0),
     })
@@ -266,30 +286,61 @@ fn normalize_artifact(a: &NativeArtifactIn) -> (SafeguardWasmArtifactIn, TestIte
     let level = snap_level_to_milestone(raw_level);
 
     // Encode main stat variant; 0 falls back to SAFEGUARD_MAIN_ANY in the core.
+    //
+    // Main stats go through `main_to_variant`, NOT the substat encoder: the two disagree
+    // for the ids each family allows (only main stats carry STAT_ID_HP_ATK_DEF, and the
+    // anomalous mode-damage ids are substat-only), so sharing one encoder here would gate
+    // the main stat against the wrong variant.
     let main_variant = match a.mid.filter(|&v| v > 0) {
-        Some(id) => encode_variant(id, a.mfl.unwrap_or(0)),
+        Some(id) => {
+            let variant = main_to_variant(id, i64::from(is_flat_flag(a.mfl)));
+            // Any = an id no main stat can carry; treat it as absent so the piece matches
+            // main-stat-agnostic rules instead of one specific wrong variant.
+            if variant == STAT_ID_ANY {
+                0
+            } else {
+                variant
+            }
+        }
         None => 0,
     };
 
-    // Build the four substat slots; empty slots produce None and are skipped.
-    let substats: Vec<SafeguardWasmSubstatIn> = [
-        make_substat(a.s1id, a.s1lvl, a.s1fl, a.sub_values[0]),
-        make_substat(a.s2id, a.s2lvl, a.s2fl, a.sub_values[1]),
-        make_substat(a.s3id, a.s3lvl, a.s3fl, a.sub_values[2]),
-        make_substat(a.s4id, a.s4lvl, a.s4fl, a.sub_values[3]),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
+    // Build the four substat slots; empty slots produce None and are skipped. The raw stat
+    // id travels alongside each slot because the fold below needs it to re-round, and the
+    // encoded variant alone cannot be decoded back to it.
+    let slots = [
+        (a.s1id, a.s1lvl, a.s1fl, a.sub_values[0]),
+        (a.s2id, a.s2lvl, a.s2fl, a.sub_values[1]),
+        (a.s3id, a.s3lvl, a.s3fl, a.sub_values[2]),
+        (a.s4id, a.s4lvl, a.s4fl, a.sub_values[3]),
+    ];
+    let normalized: Vec<(i64, bool, SafeguardWasmSubstatIn)> = slots
+        .iter()
+        .filter_map(|&(id, lvl, fl, value)| {
+            let substat = make_substat(id, lvl, fl, value)?;
+            // `make_substat` already rejected absent/unknown ids, so the id is real here.
+            Some((id.unwrap_or(0), substat.is_flat, substat))
+        })
+        .collect();
+    let substats: Vec<SafeguardWasmSubstatIn> = normalized.iter().map(|(_, _, s)| s.clone()).collect();
 
     // sub_values the evaluator thresholds against, folding duplicate variants the way the
     // app's buildSubValueMap does — two slots can carry the same variant, and a rule
     // reasons about the consolidated total rather than either half.
-    let mut sub_values: Vec<(i64, f64)> = Vec::with_capacity(substats.len());
-    for substat in &substats {
+    //
+    // The fold mirrors all three steps of that SSOT: skip near-zero magnitudes so the map
+    // does not carry meaningless entries, and RE-ROUND the accumulated sum. Each half was
+    // rounded already, but summing two rounded floats re-introduces binary error (9.06 +
+    // 0 lands at 9.059999999999999), and the evaluator's Equal test is an exact
+    // `(have - want).abs() < f64::EPSILON` that such a value fails outright.
+    let mut sub_values: Vec<(i64, f64)> = Vec::with_capacity(normalized.len());
+    for (stat_id, is_flat, substat) in &normalized {
+        if substat.value.abs() <= 0.0 {
+            continue;
+        }
         match sub_values.iter_mut().find(|(variant, _)| *variant == substat.variant) {
-            Some(entry) => entry.1 += substat.value,
-            None => sub_values.push((substat.variant, substat.value)),
+            Some(entry) => entry.1 = round_stat_value(*stat_id, *is_flat, entry.1 + substat.value),
+            None => sub_values.push((substat.variant, round_stat_value(*stat_id, *is_flat, substat.value))),
         }
     }
 
@@ -578,6 +629,92 @@ fn error_cstring(msg: &str) -> *mut c_char {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A bare artifact row the variant tests can vary one field at a time on.
+    fn probe_artifact(mid: Option<i64>, mfl: Option<i64>, s1id: Option<i64>, s1fl: Option<i64>) -> NativeArtifactIn {
+        NativeArtifactIn {
+            id: Some(1),
+            slot: 1,
+            rank: Some(5),
+            rarity: Some(4),
+            lvl: Some(16),
+            reroll_count: None,
+            aset: Some(10),
+            accset: None,
+            mid,
+            mfl,
+            s1id,
+            s1lvl: Some(1),
+            s1fl,
+            s2id: None,
+            s2lvl: None,
+            s2fl: None,
+            s3id: None,
+            s3lvl: None,
+            s3fl: None,
+            s4id: None,
+            s4lvl: None,
+            s4fl: None,
+            sub_values: [10.0, 0.0, 0.0, 0.0],
+            c_id: None,
+            faction: 0,
+        }
+    }
+
+    // The encoded variants must be the ones the shared encoder produces, NOT a literal
+    // (id << 8) | flag. The two disagree for every stat family whose flat suffix is forced
+    // (SPD/RES/ACC always flat, CR/CDMG always percent), and a variant no rule can name
+    // makes the threshold lookup miss and drops the piece to the final-sell catch-all.
+    #[test]
+    fn substat_and_main_variants_come_from_the_shared_encoder() {
+        // SPD (id 4) is forced flat, so isAbsolute=0 must still encode as the flat variant.
+        let (art, item) = normalize_artifact(&probe_artifact(Some(4), Some(0), Some(4), Some(0)));
+        assert_eq!(art.substats[0].variant, sub_to_variant(4, 0), "SPD substat");
+        // The naive encoding for (id=4, flag=0) is a bare shift — no flat suffix at all.
+        assert_ne!(art.substats[0].variant, 4 << 8, "must not be the naive encoding");
+        assert_eq!(item.main, Some(main_to_variant(4, 0)), "SPD main");
+
+        // CR (id 7) is forced percent, so isAbsolute=1 must still encode as the percent variant.
+        let (art, _) = normalize_artifact(&probe_artifact(None, None, Some(7), Some(1)));
+        assert_eq!(art.substats[0].variant, sub_to_variant(7, 1), "CR substat");
+        assert_ne!(art.substats[0].variant, (7 << 8) | 1, "must not be the naive encoding");
+    }
+
+    // An id the shared encoder does not know decodes to Any; the app drops that slot rather
+    // than inventing a variant, so a future game stat cannot fabricate a phantom substat.
+    #[test]
+    fn an_unknown_substat_id_is_dropped_rather_than_invented() {
+        let unknown = 200;
+        assert_eq!(sub_to_variant(unknown, 0), STAT_ID_ANY, "probe id must be unknown to the encoder");
+        let (art, item) = normalize_artifact(&probe_artifact(Some(unknown), Some(0), Some(unknown), Some(0)));
+        assert!(art.substats.is_empty(), "unknown substat id must not produce a substat");
+        assert_eq!(item.main, None, "unknown main stat id must read as absent");
+    }
+
+    // Any non-zero flat flag means flat, matching the app's isFlatFlag. Masking with `& 1`
+    // would read 2 as percent and flip both the variant and the percent scaling.
+    #[test]
+    fn a_non_boolean_flat_flag_still_reads_as_flat() {
+        assert!(is_flat_flag(Some(2)), "2 is truthy, therefore flat");
+        assert!(!is_flat_flag(Some(0)));
+        assert!(!is_flat_flag(None));
+    }
+
+    // The documented wire keys are camelCase; the snake_case struct field must not be what
+    // serde looks for, or the knob silently defaults and the caller gets an empty array.
+    #[test]
+    fn the_documented_cost_knobs_actually_reach_the_input() {
+        let parsed: NativeInput =
+            serde_json::from_str(r#"{"sfc":"{}","improvementChances":true,"rules":false}"#).expect("camelCase keys");
+        assert!(parsed.improvement_chances, "improvementChances must be read");
+        assert!(!parsed.rules, "rules must be read");
+        // A misspelled switch is refused rather than silently defaulting.
+        assert!(
+            serde_json::from_str::<NativeInput>(r#"{"sfc":"{}","improvementChance":true}"#).is_err(),
+            "unknown field must be rejected"
+        );
+    }
+
 
     // Minimal SFC: one "keep 5★ Epic with any SPD" recipe, safeguards disabled.
     const MINIMAL_SFC: &str = r#"{

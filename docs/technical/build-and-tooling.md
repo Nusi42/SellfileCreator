@@ -604,6 +604,10 @@ in without running the app's TypeScript:
 }
 ```
 
+Both request schemas are camelCase and reject unknown fields, so a misspelled switch comes
+back as an error rather than silently taking its default. Spell the keys exactly as above:
+a request that sends `improvement_chances` is refused, not quietly treated as "off".
+
 **Output schema** — `NativeOutput`:
 
 ```jsonc

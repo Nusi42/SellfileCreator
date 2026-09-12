@@ -59,9 +59,12 @@ function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
   # Failure here is non-fatal: the build re-resolves the lockfile anyway.
   Push-Location (Join-Path $RepoRoot 'wasm')
   try {
+    # cargo is a native command: a non-zero exit sets $LASTEXITCODE but throws nothing, so
+    # the failure has to be read from the exit code rather than caught.
     cargo metadata --format-version 1 --no-deps --quiet > $null 2>&1
-  } catch {
-    Write-Warning "cargo metadata failed while refreshing Cargo.lock: $_"
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "cargo metadata exited $LASTEXITCODE while refreshing Cargo.lock; the build re-resolves it anyway"
+    }
   } finally {
     Pop-Location
   }
@@ -492,7 +495,12 @@ public static class Crc32Helper {
     if (-not $DevBuild) {
       Write-Host "Restoring original package.json version ($origVersion) due to failure" -ForegroundColor Yellow
       Write-TextUtf8NoBom -Path $pkgPath -Text $pkgRaw
-      Set-CrateVersion -RepoRoot $RepoRoot -Version $origVersion
+      # Only undo the crate version when this run actually rewrote it. Restoring
+      # unconditionally wrote $origVersion (the "-dev" spelling) into a manifest the run
+      # never touched, dirtying wasm/Cargo.toml on any early failure.
+      if ($versionWasCleaned) {
+        Set-CrateVersion -RepoRoot $RepoRoot -Version $origVersion
+      }
     }
     throw
   }

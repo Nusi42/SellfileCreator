@@ -108,8 +108,10 @@ import {
   ALLOWED_MAINS_BY_SLOT as GENERATED_ALLOWED_MAINS_BY_SLOT,
   ALLOWED_SUBS_BY_SLOT as GENERATED_ALLOWED_SUBS_BY_SLOT,
   ARTIFACT_TYPE_DISPLAY_NAMES as GENERATED_ARTIFACT_TYPE_DISPLAY_NAMES,
+  ACCESSORY_SET_ID_LIST as GENERATED_ACCESSORY_SET_ID_LIST,
+  ARTIFACT_FIXED_SET_ID_LIST as GENERATED_ARTIFACT_FIXED_SET_ID_LIST,
+  ARTIFACT_VARIABLE_SET_ID_LIST as GENERATED_ARTIFACT_VARIABLE_SET_ID_LIST,
 } from './generated/domainConstants'
-import { artifactSetDescriptions } from './setDescriptions'
 import { ArtifactSetPieceGroup } from './gearSets/groups'
 import { getRuntimeGearSet, getRuntimeGearSetVersion, listRuntimeGearSets } from './gearSets/runtimeStore'
 import {
@@ -172,23 +174,19 @@ export const artifactSetNames: Record<number, string> = { ...GENERATED_ARTIFACT_
 
 type ArtifactSetPieceMeta = { id: number; group: ArtifactSetPieceGroup }
 
+// Read straight from the generated spec grouping rather than re-deriving it from the
+// tooltip `pieces` counts in setDescriptions.ts. The spec's `pieceGroup` is the ONE
+// definition of this classification and the native DLL reads the very same lists
+// (ACCESSORY_SET_ID_LIST / ARTIFACT_FIXED_SET_ID_LIST / ARTIFACT_VARIABLE_SET_ID_LIST),
+// so the app and the DLL cannot classify a set differently. Deriving it here a second
+// time from prose meant a set whose description drifted from the spec silently changed
+// group in the app only.
 const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
-  const metaEntries: ArtifactSetPieceMeta[] = []
-  for (const [id, name] of Object.entries(artifactSetNames)) {
-    const pieces = artifactSetDescriptions[name]?.pieces
-    // Accessory sets always carry a single piece bonus.
-    if (pieces === 1) {
-      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.Accessories })
-      continue
-    }
-    // Artifact sets with 2 or 4 pieces behave as fixed-size set bonuses.
-    if (pieces === 2 || pieces === 4) {
-      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArtifactFixed })
-      continue
-    }
-    // Everything else (1–9 variable sets today) lands in the variable bucket.
-    metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArtifactVariable })
-  }
+  const metaEntries: ArtifactSetPieceMeta[] = [
+    ...GENERATED_ACCESSORY_SET_ID_LIST.map((id) => ({ id, group: ArtifactSetPieceGroup.Accessories })),
+    ...GENERATED_ARTIFACT_FIXED_SET_ID_LIST.map((id) => ({ id, group: ArtifactSetPieceGroup.ArtifactFixed })),
+    ...GENERATED_ARTIFACT_VARIABLE_SET_ID_LIST.map((id) => ({ id, group: ArtifactSetPieceGroup.ArtifactVariable })),
+  ]
   return metaEntries.reduce<Record<number, ArtifactSetPieceGroup>>((acc, entry) => {
     acc[entry.id] = entry.group
     return acc

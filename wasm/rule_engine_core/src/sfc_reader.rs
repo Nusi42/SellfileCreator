@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::*;
+// The aggregate-roll clamp lives with the builder that defines it; the reader applies the
+// same bound when reading a recipe back, so it imports rather than restating it.
+use crate::recipe_builder::clamp_roll_requirement;
 
 // ---------------------------------------------------------------------------
 // Stat variant label table (mirrors labelOfVariant / variantFromLabel in types.ts)
@@ -93,8 +96,14 @@ pub fn rank_code_from_label(raw: &str) -> i64 {
     if s.is_empty() || s.eq_ignore_ascii_case("any") {
         return RANK_CODE_ANY;
     }
-    // Parse the star number from the last token (e.g. "5★" → 5).
-    let star_digit = s.chars().find(|c| c.is_ascii_digit()).and_then(|c| c.to_digit(10));
+    // Parse the star number from the LAST token (e.g. "5★" → 5). Scanning the whole string
+    // for its first digit instead would read a digit that appears earlier — a label like
+    // "Tier 2 ≥ 5★" would yield 2 and silently widen the rule to 2★-and-up gear.
+    let star_digit = s
+        .split_whitespace()
+        .next_back()
+        .and_then(|token| token.chars().find(|c| c.is_ascii_digit()))
+        .and_then(|c| c.to_digit(10));
     let n = match star_digit {
         Some(d) => d as i64,
         None => return RANK_CODE_ANY,
@@ -281,6 +290,13 @@ pub struct ReadableSfc {
 pub struct ReadableMetaset {
     #[serde(default)]
     pub name: Option<String>,
+    // Legacy identity key. Current files key metasets by NAME and omit this, but files
+    // written before that change still carry it, and `deny_unknown_fields` would reject
+    // them outright — the app still reads it (sfcIO.ts builds a legacy id -> name map from
+    // these records), so refusing the key here made the DLL unable to open a file the app
+    // opens fine. Retained for that mapping, below.
+    #[serde(default)]
+    pub id: Option<String>,
     #[serde(default)]
     pub set_names: Option<Vec<String>>,
     // UI-only fields the app writes (sfcIO.ts buildSfcPayload): `show` gates metaset
@@ -383,8 +399,14 @@ pub struct ReadableRecipe {
     // Legacy numeric set entries { id, excluded? } or bare id — accepted for back-compat.
     #[serde(default, rename = "artifactSetIds")]
     pub artifact_set_ids: Option<Vec<ReadableArtifactSetEntry>>,
-    #[serde(default, rename = "artifactMetaSetNames", alias = "artifactMetaSetIds")]
+    #[serde(default, rename = "artifactMetaSetNames")]
     pub artifact_meta_set_names: Option<Vec<String>>,
+    // Legacy key carrying metaset IDS rather than names. It cannot simply alias the field
+    // above: an id is not a name, so aliasing matched the raw id against `meta.name`, found
+    // nothing, and left the recipe with no set filter — i.e. matching every set. Read
+    // separately and resolved through the embedded Metasets list, mirroring sfcIO.ts.
+    #[serde(default, rename = "artifactMetaSetIds")]
+    pub artifact_meta_set_ids: Option<Vec<String>>,
 
     // Keep-mode options
     #[serde(default, rename = "earlyKeepMode")]
@@ -843,6 +865,24 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
 
     let sfc: ReadableSfc = serde_json::from_value(root).map_err(|e| format!("SFC structure error: {e}"))?;
 
+    // Legacy metaset ID -> display name, built from the raw records before they are
+    // narrowed to name+sets. Recipes written before metasets were keyed by name reference
+    // them by this id, and it is the only place the mapping survives.
+    let legacy_meta_id_to_name: BTreeMap<String, String> = sfc
+        .metasets
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|m| {
+            let id = m.id.as_deref()?.trim().to_string();
+            let name = m.name.as_deref().unwrap_or("").trim().to_string();
+            if id.is_empty() || name.is_empty() {
+                return None;
+            }
+            Some((id, name))
+        })
+        .collect();
+
     // Parse metasets (used to expand set IDs in safeguard combinations).
     let metasets: Vec<SafeguardWasmMetasetIn> = sfc
         .metasets
@@ -873,13 +913,23 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     for (i, raw) in raw_recipes.iter().enumerate() {
         let recipe: ReadableRecipe =
             serde_json::from_value(raw.clone()).map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
-        let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref(), &metasets)?;
+        let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref(), &metasets, &legacy_meta_id_to_name)?;
         parsed_recipes.push(parsed);
     }
 
     // Parse safeguard rules, unnesting groups (see parse_sfc_safeguard_entries).
     let raw_safeguards = sfc.safeguards.as_deref().unwrap_or(&[]);
-    let safeguard_rules = parse_sfc_safeguard_entries(raw_safeguards)?;
+    let mut safeguard_rules = parse_sfc_safeguard_entries(raw_safeguards)?;
+    // Expand each rule's metaset references into concrete sets, exactly as the recipe path
+    // above does and as the app does before detection. Skipping this leaves a metaset-only
+    // rule with an empty set list, which the bucket resolver reads as "every set" — so the
+    // rule would protect the whole vault instead of the metaset it names.
+    let safeguard_meta_map = safeguard_metaset_lookup(&metasets);
+    for rule in &mut safeguard_rules {
+        let mut combination = rule.combination.clone().unwrap_or_default();
+        expand_safeguard_combination_metasets(&mut combination, &safeguard_meta_map);
+        rule.combination = Some(combination);
+    }
 
     // Parse final sell remainder.
     let final_sell = sfc.final_sell_remainder.as_ref().map(|fs| FinalSellRemainderIn {
@@ -917,6 +967,7 @@ fn parse_readable_recipe(
     rec: &ReadableRecipe,
     source_version: Option<&str>,
     metasets: &[SafeguardWasmMetasetIn],
+    legacy_meta_id_to_name: &BTreeMap<String, String>,
 ) -> Result<ReadableRecipeParsed, String> {
     // Determine export mode. `Separator: true` is the current marker; the
     // visibility label "Separator" is the legacy spelling (still accepted).
@@ -1021,8 +1072,14 @@ fn parse_readable_recipe(
                 );
                 continue;
             }
-            let min_val = b.min.map(|v| v.max(0.0).min(5.0).floor());
-            let max_val = b.max.map(|v| v.max(0.0).min(4.0).floor());
+            // Roll bounds come off the wire as floats but count whole roll events, so the
+            // ceilings are the generated domain constants rather than spelled-out literals:
+            // a slot holds at most SUBSTAT_MAX_ROLLS_PER_SLOT rolls, and a max bound is
+            // capped at the slot count it can be spread across.
+            let min_val = b
+                .min
+                .map(|v| v.clamp(0.0, SUBSTAT_MAX_ROLLS_PER_SLOT as f64).floor());
+            let max_val = b.max.map(|v| v.clamp(0.0, SUBSTAT_SLOT_COUNT as f64).floor());
             let any_flag = b.any_flag.unwrap_or(false);
             // Only record bounds when at least one constraint is meaningful.
             if min_val.map(|m| m > 0.0).unwrap_or(false) || max_val.is_some() || any_flag {
@@ -1095,7 +1152,7 @@ fn parse_readable_recipe(
         }
     }
 
-    let artifact_meta_set_names: Vec<String> = rec
+    let mut artifact_meta_set_names: Vec<String> = rec
         .artifact_meta_set_names
         .as_deref()
         .unwrap_or(&[])
@@ -1103,6 +1160,17 @@ fn parse_readable_recipe(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
+    // Legacy fallback, and only a fallback — the app consults artifactMetaSetIds solely when
+    // the name list is empty, so a file carrying both keys resolves by name on both sides.
+    if artifact_meta_set_names.is_empty() {
+        artifact_meta_set_names = rec
+            .artifact_meta_set_ids
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(|raw| legacy_meta_id_to_name.get(raw.trim()).cloned())
+            .collect();
+    }
 
     // Expand the recipe's metasets into their member set ids and union them in. Mirror of
     // `resolveArtifactSetSelections` (gearSets/selection.ts), which the app runs BEFORE rule
@@ -1337,9 +1405,18 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
     // Accept the per-level object form (current) or the resolved [f64;4] array form.
     // Legacy bare-number SFC files are normalized to the object form by sfcIO.ts at import,
     // so Rust never needs to handle that case here.
-    let improvement_chance_threshold = rec
-        .get("improvementChanceThreshold")
-        .and_then(|v| serde_json::from_value::<ImprovementChanceThresholdIn>(v.clone()).ok());
+    // A threshold that is PRESENT but unreadable is an error, not an absent threshold:
+    // silently yielding None makes safeguard_rules_have_improvement_threshold report false,
+    // detection skips the whole chance pass, and every thresholded rule quietly loses its
+    // protection expansion. Same principle the roll-target reader above states — a value
+    // that cannot be read must not become a different value.
+    let improvement_chance_threshold = match rec.get("improvementChanceThreshold") {
+        Some(serde_json::Value::Null) | None => None,
+        Some(v) => Some(
+            serde_json::from_value::<ImprovementChanceThresholdIn>(v.clone())
+                .map_err(|e| format!("Safeguard improvementChanceThreshold parse error: {e}"))?,
+        ),
+    };
 
     // Count mode (perRule / perSet / perFaction / perMainStat / perSlot booleans).
     let count_mode = rec.get("countMode").map(parse_sfc_count_mode);
@@ -1585,28 +1662,22 @@ fn parse_substat_target_table(raw: &serde_json::Value) -> Option<SubstatTargetTa
 // Small helpers
 // ---------------------------------------------------------------------------
 
+// Clamp a recipe's level BOUND down to a milestone it may name.
+//
+// This is deliberately NOT `gear_ingest::snap_level_to_milestone`, which snaps a piece's
+// live level to the NEAREST milestone. A bound rounds DOWN: widening a recipe's ceiling to
+// the next milestone up would make it match gear the author excluded. The milestone table
+// itself is shared — the list of legal levels has exactly one definition.
 fn clamp_milestone(v: i64) -> i64 {
-    // Snap to the nearest lower level milestone using generated constants.
-    const MILESTONES: [i64; 5] = [
-        LEVEL_MILESTONE_0,
-        LEVEL_MILESTONE_4,
-        LEVEL_MILESTONE_8,
-        LEVEL_MILESTONE_12,
-        LEVEL_MILESTONE_16,
-    ];
-    if MILESTONES.contains(&v) {
+    if LEVEL_MILESTONES.contains(&v) {
         return v;
     }
-    for &m in MILESTONES.iter().rev() {
+    for &m in LEVEL_MILESTONES.iter().rev() {
         if v >= m {
             return m;
         }
     }
     LEVEL_MILESTONE_0
-}
-
-fn clamp_roll_requirement(v: i64) -> i64 {
-    v.clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT)
 }
 
 // Metaset in the format SafeguardWasmMetasetIn expects.
@@ -1922,4 +1993,111 @@ mod label_tests {
             "legacy ignorePreviousSafeguards must still be read as a fallback"
         );
     }
+    // A safeguard rule that names ONLY a metaset must arrive with that metaset's member sets
+    // expanded into its own set list. The bucket resolver builds its set gate purely from
+    // `combination.sets`, so leaving the list empty reads as "no set gate" and the rule would
+    // protect gear from every set instead of the three the metaset names.
+    #[test]
+    fn safeguard_metaset_only_combination_is_expanded_to_its_member_sets() {
+        let sfc = r#"{
+            "Version": "1.0", "Recipes": [], "SafeguardsEnabled": true,
+            "Metasets": [ { "name": "Speedy", "setNames": ["Speed", "Life"] } ],
+            "Safeguards": [ {
+                "activation": "protectExisting", "requiredCount": 1,
+                "combination": { "sets": [], "metaSetNames": ["Speedy"] }
+            } ]
+        }"#;
+        let parsed = parse_sfc(sfc).expect("SFC must parse");
+        let combination = parsed.safeguard_rules[0]
+            .combination
+            .as_ref()
+            .expect("the rule must carry a combination");
+        let mut ids: Vec<i64> = combination.sets.iter().map(|entry| entry.id).collect();
+        ids.sort_unstable();
+        let speed = set_id_from_name("Speed").expect("Speed is a catalog set");
+        let life = set_id_from_name("Life").expect("Life is a catalog set");
+        let mut want = vec![life, speed];
+        want.sort_unstable();
+        assert_eq!(ids, want, "the metaset's members must be expanded into the set gate");
+        assert!(
+            combination.sets.iter().all(|entry| !entry.excluded),
+            "expanded members are inclusions"
+        );
+    }
+
+    // Legacy files key metasets by `id` as well as name. The reader must accept that key —
+    // rejecting it made the whole file unparseable while the app opens it fine.
+    #[test]
+    fn a_legacy_metaset_id_key_does_not_make_the_file_unreadable() {
+        let sfc = r#"{
+            "Version": "1.0", "Recipes": [], "Safeguards": [], "SafeguardsEnabled": false,
+            "Metasets": [ { "id": "ms_3", "name": "Speedy", "setNames": ["Speed"] } ]
+        }"#;
+        let parsed = parse_sfc(sfc).expect("a file carrying the legacy metaset id must still parse");
+        assert_eq!(parsed.metasets.len(), 1, "the metaset must survive the parse");
+        assert_eq!(parsed.metasets[0].name, "Speedy");
+    }
+
+    // A legacy recipe references metasets by ID, not name. Treating the id as a name found no
+    // metaset and left the recipe with no set filter at all — i.e. matching every set.
+    #[test]
+    fn legacy_recipe_metaset_ids_resolve_through_the_embedded_metaset_list() {
+        let sfc = r#"{
+            "Version": "1.0", "SafeguardsEnabled": false, "Safeguards": [],
+            "Metasets": [ { "id": "ms_3", "name": "Speedy", "setNames": ["Speed", "Life"] } ],
+            "Recipes": [ {
+                "keep": true, "Rank": "Any", "Rarity": "Any",
+                "artifactMetaSetIds": ["ms_3"],
+                "substats": ["SPD"], "minCount": 1
+            } ]
+        }"#;
+        let parsed = parse_sfc(sfc).expect("SFC must parse");
+        let mut ids = parsed.recipes[0].artifact_set_ids.clone();
+        ids.sort_unstable();
+        let speed = set_id_from_name("Speed").expect("Speed is a catalog set");
+        let life = set_id_from_name("Life").expect("Life is a catalog set");
+        let mut want = vec![life, speed];
+        want.sort_unstable();
+        assert_eq!(ids, want, "the legacy metaset id must resolve to its members");
+    }
+
+    // A threshold that is present but unreadable must be an error, not an absent threshold:
+    // silently dropping it makes detection skip the chance pass and every thresholded rule
+    // quietly loses its protection expansion.
+    #[test]
+    fn a_malformed_improvement_chance_threshold_is_refused() {
+        let sfc = r#"{
+            "Version": "1.0", "Recipes": [], "Metasets": [], "SafeguardsEnabled": true,
+            "Safeguards": [ {
+                "activation": "protectExisting", "requiredCount": 1,
+                "improvementChanceThreshold": "not-a-threshold"
+            } ]
+        }"#;
+        // Matched rather than unwrapped: SfcParsed is not Debug, so expect_err cannot format it.
+        let err = match parse_sfc(sfc) {
+            Err(e) => e,
+            Ok(_) => panic!("a malformed threshold must be refused"),
+        };
+        assert!(
+            err.contains("improvementChanceThreshold"),
+            "the error must name the offending field, got: {err}"
+        );
+    }
+
+    // The star number comes from the LAST token, so a digit earlier in the label cannot be
+    // mistaken for the rank. The first two cases cover every label the app writes; the third
+    // pins the digit-selection fix specifically — a label carrying a prefix no longer starts
+    // with the comparator, so it reads as an exact rank, but the STAR must still be the last
+    // token's digit rather than the first one in the string.
+    #[test]
+    fn rank_label_reads_the_star_from_the_last_token() {
+        assert_eq!(rank_code_from_label("\u{2265} 5\u{2605}"), RANK_CODE_GTE_FIVE);
+        assert_eq!(rank_code_from_label("\u{2265} 2\u{2605}"), RANK_CODE_GTE_TWO);
+        assert_eq!(
+            rank_code_from_label("Tier 2 5\u{2605}"),
+            RANK_CODE_FIVE,
+            "the star must come from the last token, not the first digit in the label"
+        );
+    }
 }
+

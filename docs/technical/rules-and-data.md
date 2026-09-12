@@ -129,6 +129,9 @@ once a live wrong answer, and each is silent when wrong:
 | Setless ACCESSORY → `ACCESSORY_NO_SET_ID`; setless armour stays `0` | A reference sellfile has 397 rules naming the sentinel and none naming 0. Promoting armour too would hand setless chestplates to accessory rules. |
 | Substat value = base + mythical, **never** the glyph, each component rounded then the sum | The app's `subValues` are pre-glyph. Counting a glyph clears thresholds the app's own preview fails. |
 | Set from `setKindId` for every slot; `requiredFraction` is only the faction | Reading the faction code as an accessory's set gave every accessory a set id in the faction range. |
+| StatVariant encoded via the shared `sub_to_variant` / `main_to_variant`, never a raw `(id << 8) \| flag` | The shared encoders canonicalize the flat suffix per family (SPD/RES/ACC always flat, CR/CDMG always percent) and reject unknown ids. Taking the wire's `isAbsolute` literally yields a variant no rule can name, so the threshold lookup misses and the piece drops to the final-sell catch-all. Substats and main stats need their own encoder — the two disagree for the ids each family allows. |
+| Any non-zero flat flag means flat; an unknown stat id drops the slot | Masking the flag to its low bit reads a `2` as percent and flips the percent scaling; inventing a variant for an unknown id fabricates a substat the app never sees. |
+| Duplicate-variant substats folded, then the SUM re-rounded | Each half is already rounded, but summing two rounded floats re-introduces error (9.06 lands at 9.059999999999999), and the evaluator's equality test is an exact epsilon compare. |
 
 `s{n}lvl` on the compact row is the **roll count**; the substat VALUE a threshold compares
 against is carried separately (`sub_values`) and is what makes numeric rules fire at all.

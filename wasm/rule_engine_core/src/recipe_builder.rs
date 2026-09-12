@@ -308,7 +308,10 @@ fn minima_for_star(table: &SubstatTargetTableIn, star: i64) -> BTreeMap<i64, f64
 // Aggregate-roll helpers (mirrors recipeNormalization.ts)
 // ---------------------------------------------------------------------------
 
-fn clamp_roll_requirement(v: i64) -> i64 {
+// Clamp an aggregate roll requirement into the range a slot can physically carry.
+// pub(crate) because sfc_reader applies the same clamp when reading a recipe back; two
+// copies of this bound would let the reader and the builder disagree about one recipe.
+pub(crate) fn clamp_roll_requirement(v: i64) -> i64 {
     v.clamp(0, SUBSTAT_MAX_ROLLS_PER_SLOT)
 }
 
@@ -355,9 +358,11 @@ pub(crate) fn derive_roll_baseline_mode(recipe: &ReadableRecipeParsed) -> &'stat
 
 /// Minimum roll events forced by the rarity schedule for a given rarity code.
 fn min_roll_events_for_rarity(rarity_code: i64) -> i64 {
-    // Clamp the code into the valid 0..16 index range of the generated table.
-    let idx = rarity_code.clamp(0, 16) as usize;
-    AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE[idx]
+    // Index through the shared normalizer, NOT a local clamp. The distinction matters for an
+    // out-of-domain code: the normalizer collapses it to Any (0 events, which is what TS's
+    // minRollEventsForRarity returns), whereas clamping to the boundary would return the
+    // LEGENDARY row and emit an aggregate roll floor the app never applies.
+    AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE[crate::auto_rarity_runtime::auto_rarity_code_index(rarity_code)]
 }
 
 /// Derive the global aggregate minimum rolls value (mirrors deriveGlobalMinRolls).

@@ -847,61 +847,81 @@ pub fn collect_safeguard_candidates_value_impl(
 }
 
 // Expand safeguard metaset ids into concrete set selections inside wasm.
+// Expand one safeguard combination's metaset references into concrete set selections.
+//
+// THE SINGLE DEFINITION of that expansion. `meta_set_names` is otherwise only used for
+// hashing/canonicalization, and the bucket resolver builds its set gate purely from
+// `combination.sets` — so a rule that names ONLY a metaset arrives with an empty set list,
+// which `safeguard_artifact_matches_rule` reads as "no set gate" and protects gear from
+// every set instead of the metaset's members.
+pub fn expand_safeguard_combination_metasets(
+    combination: &mut SafeguardWasmCombination,
+    meta_map: &BTreeMap<String, Vec<i64>>,
+) {
+    // Normalize initial set entries so exclusions are canonical before merging metasets.
+    let normalized = safeguard_normalize_set_selections(&combination.sets);
+    let excluded_ids = normalized
+        .iter()
+        .filter_map(|entry| if entry.excluded { Some(entry.id) } else { None })
+        .collect::<HashSet<_>>();
+    let mut included_ids = normalized
+        .iter()
+        .filter_map(|entry| if entry.excluded { None } else { Some(entry.id) })
+        .collect::<HashSet<_>>();
+
+    // Inject metaset members unless explicitly excluded or already included.
+    for meta_id in &combination.meta_set_names {
+        let Some(set_ids) = meta_map.get(meta_id) else {
+            continue;
+        };
+        for set_id in set_ids {
+            if excluded_ids.contains(set_id) {
+                continue;
+            }
+            included_ids.insert(*set_id);
+        }
+    }
+
+    // Always keep the rule, even when metaset expansion adds no new sets.
+    // Readable safeguard rules may intentionally have empty metaset lists.
+    // Rebuild + normalize merged entries so ordering/exclusion precedence stays canonical.
+    let mut merged = Vec::<SafeguardWasmSetSelection>::new();
+    for set_id in &excluded_ids {
+        merged.push(SafeguardWasmSetSelection {
+            id: *set_id,
+            excluded: true,
+        });
+    }
+    for set_id in &included_ids {
+        merged.push(SafeguardWasmSetSelection {
+            id: *set_id,
+            excluded: false,
+        });
+    }
+    combination.sets = safeguard_normalize_set_selections(&merged);
+}
+
+// Build the name -> set-ids lookup the expansion above reads.
+pub fn safeguard_metaset_lookup(metasets: &[SafeguardWasmMetasetIn]) -> BTreeMap<String, Vec<i64>> {
+    let mut meta_map = BTreeMap::<String, Vec<i64>>::new();
+    for meta in metasets {
+        meta_map.insert(meta.name.clone(), meta.sets.clone());
+    }
+    meta_map
+}
+
 pub fn resolve_safeguard_rules_with_metasets_core(
     mut rules: Vec<SafeguardWasmRuleIn>,
     metasets: Vec<SafeguardWasmMetasetIn>,
 ) -> Vec<SafeguardWasmResolvedRuleOut> {
     // Parse metaset definitions into a fast lookup table.
-    let mut meta_map = BTreeMap::<String, Vec<i64>>::new();
-    for meta in metasets {
-        meta_map.insert(meta.name, meta.sets);
-    }
+    let meta_map = safeguard_metaset_lookup(&metasets);
 
     // Expand metaset ids for each rule and emit normalized rule payload rows.
     let mut resolved = Vec::<SafeguardWasmResolvedRuleOut>::with_capacity(rules.len());
     for rule in &mut rules {
         let mut combination = rule.combination.clone().unwrap_or_default();
-        // Normalize initial set entries so exclusions are canonical before merging metasets.
-        let normalized = safeguard_normalize_set_selections(&combination.sets);
-        let excluded_ids = normalized
-            .iter()
-            .filter_map(|entry| if entry.excluded { Some(entry.id) } else { None })
-            .collect::<HashSet<_>>();
-        let mut included_ids = normalized
-            .iter()
-            .filter_map(|entry| if entry.excluded { None } else { Some(entry.id) })
-            .collect::<HashSet<_>>();
-
-        // Inject metaset members unless explicitly excluded or already included.
-        for meta_id in &combination.meta_set_names {
-            let Some(set_ids) = meta_map.get(meta_id) else {
-                continue;
-            };
-            for set_id in set_ids {
-                if excluded_ids.contains(set_id) {
-                    continue;
-                }
-                included_ids.insert(*set_id);
-            }
-        }
-
-        // Always keep the rule, even when metaset expansion adds no new sets.
-        // Readable safeguard rules may intentionally have empty metaset lists.
-        // Rebuild + normalize merged entries so ordering/exclusion precedence stays canonical.
-        let mut merged = Vec::<SafeguardWasmSetSelection>::new();
-        for set_id in &excluded_ids {
-            merged.push(SafeguardWasmSetSelection {
-                id: *set_id,
-                excluded: true,
-            });
-        }
-        for set_id in &included_ids {
-            merged.push(SafeguardWasmSetSelection {
-                id: *set_id,
-                excluded: false,
-            });
-        }
-        combination.sets = safeguard_normalize_set_selections(&merged);
+        expand_safeguard_combination_metasets(&mut combination, &meta_map);
         let resolved_hash = safeguard_hash_combination(&combination);
         let resolved_id = rule
             .id

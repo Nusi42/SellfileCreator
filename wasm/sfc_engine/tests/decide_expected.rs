@@ -47,7 +47,7 @@ struct ExpectedFixture {
     verdicts: Vec<ExpectedVerdict>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 struct ExpectedVerdict {
     #[serde(rename = "artifactId")]
     artifact_id: i64,
@@ -121,13 +121,20 @@ fn every_fixture_decides_exactly_as_the_app_does() {
             })
             .collect();
         got.sort_by_key(|v| v.artifact_id);
+        // Sort the EXPECTATION too, not just the computed side. The fixtures happen to be
+        // generated in artifact-id order today, so zipping the raw list passes — but the day
+        // the generator emits a different order this gate would report spurious per-artifact
+        // mismatches, and the tempting "fix" is to regenerate the fixture, which blesses
+        // whatever the DLL currently does. Comparing two sorted lists cannot drift that way.
+        let mut want_verdicts = want.verdicts.clone();
+        want_verdicts.sort_by_key(|v| v.artifact_id);
 
         assert_eq!(
             got.len(),
-            want.verdicts.len(),
+            want_verdicts.len(),
             "{name}: verdict count differs from the app's"
         );
-        for (got_verdict, want_verdict) in got.iter().zip(want.verdicts.iter()) {
+        for (got_verdict, want_verdict) in got.iter().zip(want_verdicts.iter()) {
             assert_eq!(
                 got_verdict, want_verdict,
                 "{name}: artifact {} decided differently from the app",
