@@ -441,15 +441,38 @@ with the same field-beats-legacy-tag precedence as the rework gate. Pinned by
 compares the injected keep-rule count with the flag on and off — the two runs must differ,
 or the ignore list is not arriving.
 
+**The final-sell catch-all spans the whole set catalog.** `FinalSellRemainder` is expanded
+per set id over `all_known_set_ids`, and that list MUST be the full catalog — the app passes
+`getAllKnownArtifactSetIds()` minus the accessory sentinel (`merge.ts`), so the catch-all
+sells a set no recipe names. `sfc_reader` builds the same list from the generated
+`SET_NAME_IDS` table, which comes from the `artifactSet` entry in
+`shared/domain-constants.json` that also emits the app's catalog, so the two cannot drift
+(69 ids today, sentinel absent by construction).
+
+Deriving that domain from the DOCUMENT instead is the trap: a recipe that selects its sets
+through a METASET leaves `artifact_set_ids` empty, so a real sellfile whose recipes are
+mostly metaset-driven collapsed the domain to 11 of 69 sets. Gear from the other 58 then
+matched no rule and was KEPT where the app sold it — 649 of 8,388 pieces on a real vault.
+Pinned by `decide_parity.rs::the_final_sell_catch_all_covers_sets_no_recipe_names`.
+
 **Known gap: the expected-bucket domain.** A quota is
 `required_per_bucket * bucket_count`, and the app precomputes the bucket *domain* from
 TS-only catalogs (`buildSafeguardExpectedBucketDomain`: every faction id, set/slot
 compatibility) so the count reflects the buckets that *could* exist. The DLL passes
 `expected_payload: None`, so its count comes from the buckets *observed* in the gear on
 hand — a "keep 1 per slot" safeguard over six slots can therefore rescue a different number
-of pieces than the app's preview. Closing this needs those catalogs generated into
-`generated_domain_constants.rs` first; the call site in `pipeline::detect_safeguards` carries
-the same note.
+of pieces than the app's preview. Measured on a real 8,388-piece vault, the DLL injects
+10,312 safeguard keep-rules where the app injects 17,235; recipe rules (26,380) and the
+catch-all (5) match exactly, so this is the ONLY remaining source of verdict divergence.
+
+Closing it needs four catalogs on the Rust side. `PREFERRED_ARTIFACT_TYPE_ORDER` is already
+generated; `ALLOWED_MAIN_BY_SLOT` and `ALL_FACTION_IDS` have spec entries
+(`allowedMainsBySlot`, `faction`) and need only emitters. The accessory/artifact set split
+does NOT: it derives from `artifactSetDescriptions[name].pieces` in TS, a piece count that is
+not in `shared/domain-constants.json`, so that one needs a spec extension first. The
+normalizer is already Rust (`normalize_safeguard_expected_bucket_domain_core`), so once the
+catalogs exist the DLL can build the payload the same way the app does. The call site in
+`pipeline::detect_safeguards` carries the same note.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before

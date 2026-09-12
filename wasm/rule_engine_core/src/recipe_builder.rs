@@ -710,7 +710,22 @@ pub fn build_hsf_rules_for_recipe(
     })
     .map_err(|e| format!("build_hsf_rules_for_recipe: {e}"))?;
 
-    Ok(runtime_out.rules)
+    // Stamp the recipe's name onto every rule it emitted. The runtime builder leaves
+    // RecipeName as None — it takes no name, and threading one through
+    // BuildHsfRulesRuntimeIn would push it across a ts-rs boundary for no other reader.
+    // The name belongs to the RECIPE, not to any one rule, so it is applied here where
+    // the recipe is still in scope. Safeguard-injected rules take a different path
+    // (build_safeguard_rules_core copies the parsed rule's name) and need nothing here.
+    let mut rules = runtime_out.rules;
+    if !recipe.name.is_empty() {
+        // One Arc for the whole batch: RecipeName is Arc<str> precisely so N rules from
+        // one recipe share a single allocation and each clone is a ref-count bump.
+        let shared_name: Arc<str> = Arc::from(recipe.name.as_str());
+        for rule in &mut rules {
+            rule.RecipeName = Some(Arc::clone(&shared_name));
+        }
+    }
+    Ok(rules)
 }
 
 // ---------------------------------------------------------------------------

@@ -675,6 +675,50 @@ fn resolve_ignored_by_safeguards(flag: Option<bool>, tags: Option<&[String]>, so
     })
 }
 
+/// The display name of a recipe/safeguard entry, from either place a name is persisted.
+///
+/// The ONE definition of that precedence, because two call sites need it (recipes and
+/// safeguard rules) and they must not drift. The CURRENT app writes the name nested under
+/// `appearance.name` (`appearancePersistField` in nameAppearance.ts); the bare top-level
+/// `name` key is legacy. Reading only the legacy key left EVERY rule unnamed on every file
+/// the current app exports, so a caller had no way to say which rule decided a piece.
+///
+/// Legacy wins when present so a hand-edited or pre-migration file keeps the name it
+/// states outright. Blank/whitespace-only collapses to `None`: the consumers treat an empty
+/// name as absent (see `evaluate_verdicts`), so normalizing here keeps them from having to.
+fn resolve_entry_name(legacy: Option<&str>, appearance: Option<&str>) -> Option<String> {
+    // Take the first spelling that carries a non-blank name; trim to match the TS
+    // sanitizer, which stores names already stripped of padding.
+    [legacy, appearance]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|name| !name.is_empty())
+        .map(str::to_owned)
+}
+
+/// Every artifact/accessory set the game knows — the domain the trailing "sell the rest"
+/// catch-all is expanded over.
+///
+/// This MUST be the whole catalog, not the sets a document happens to mention. The app
+/// passes `getAllKnownArtifactSetIds()` minus the accessory sentinel (merge.ts), so the
+/// catch-all sells a set no recipe names; deriving the domain from the file instead made
+/// the DLL silently keep that gear. It was previously collected from each recipe's
+/// `artifact_set_ids`, which is empty for a recipe that selects via a METASET — on a real
+/// sellfile that saw 11 of 69 sets and left 649 of 8,388 pieces decided differently from
+/// the app.
+///
+/// `SET_NAME_IDS` is generated from the same `shared/domain-constants.json` entry that
+/// emits the app's catalog, so the two lists cannot drift. The sentinel is absent there by
+/// construction (it is not a real game set), which is exactly what the app filters out.
+fn all_known_set_ids() -> Vec<i64> {
+    // Dedupe: the name→id table is keyed by NAME, and aliases can share one id.
+    let mut ids: Vec<i64> = SET_NAME_IDS.iter().map(|(_, id)| *id).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    ids
+}
+
 /// Minimal substat target table parsed from SFC Minima section.
 // Default star used when a recipe targets "Any" rank (mirrors anyRankDefaultsTo ?? 6).
 fn default_any_rank_star() -> i64 {
@@ -773,15 +817,10 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
     // Parse recipes.
     let raw_recipes = sfc.recipes.as_deref().unwrap_or(&[]);
     let mut parsed_recipes = Vec::with_capacity(raw_recipes.len());
-    let mut all_set_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
     for (i, raw) in raw_recipes.iter().enumerate() {
         let recipe: ReadableRecipe =
             serde_json::from_value(raw.clone()).map_err(|e| format!("Recipe[{i}] parse error: {e}"))?;
         let parsed = parse_readable_recipe(&recipe, sfc.version.as_deref())?;
-        // Collect set IDs for allKnownSetIds.
-        for &id in &parsed.artifact_set_ids {
-            all_set_ids.insert(id);
-        }
         parsed_recipes.push(parsed);
     }
 
@@ -809,7 +848,7 @@ pub fn parse_sfc(sfc_text: &str) -> Result<SfcParsed, String> {
         safeguard_rules,
         safeguards_enabled: sfc.safeguards_enabled.unwrap_or(false),
         final_sell,
-        all_known_set_ids: all_set_ids.into_iter().collect(),
+        all_known_set_ids: all_known_set_ids(),
         minima,
         metasets,
     })
@@ -1030,7 +1069,12 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         keep: rec.keep.unwrap_or(true),
         use_flag,
         is_separator,
-        name: rec.name.as_deref().unwrap_or("").to_string(),
+        // Legacy top-level key, else the nested appearance the current app writes.
+        name: resolve_entry_name(
+            rec.name.as_deref(),
+            rec.appearance.as_ref().and_then(|a| a.name.as_deref()),
+        )
+        .unwrap_or_default(),
         main_stat_variants,
         substats_v,
         fixed_substats_v,
@@ -1261,7 +1305,13 @@ fn parse_sfc_safeguard_rule(raw: &serde_json::Value) -> Result<SafeguardWasmRule
 
     Ok(SafeguardWasmRuleIn {
         id,
-        name: rec.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        // Same precedence as recipes: legacy top-level key, else appearance.name.
+        name: resolve_entry_name(
+            rec.get("name").and_then(|v| v.as_str()),
+            rec.get("appearance")
+                .and_then(|v| v.get("name"))
+                .and_then(|v| v.as_str()),
+        ),
         combination,
         required_count,
         activation,

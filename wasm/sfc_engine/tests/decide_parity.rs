@@ -301,9 +301,10 @@ fn an_unmatched_piece_is_kept_by_default_and_says_so() {
 // This drives pipeline::evaluate_verdicts â the production resolution â rather than
 // restating the channel read, so the test cannot agree with itself while the DLL disagrees.
 //
-// Note the asymmetry this pins: rules GENERATED from a .sfc carry no RecipeName (the
-// builder does not propagate the recipe's display name onto its rules), so `ruleName` is
-// null for them by design. It is populated for the sellfiles that do carry names.
+// This injects a pre-named rule directly, which is what a .hsf supplies. It therefore
+// pins only the CARRY (name on the rule -> name on the verdict) and says nothing about
+// where the name came from — the .sfc path is pinned by
+// `a_recipe_name_survives_the_sfc_round_trip` below, which is the half that was broken.
 #[test]
 fn a_named_rule_reaches_the_caller() {
     use rule_engine_core::{RuleRaw, RECIPE_MODE_ACTIVE};
@@ -334,6 +335,119 @@ fn a_named_rule_reaches_the_caller() {
         Some("Sell fast gear"),
         "the deciding rule's name is what the verdict reports"
     );
+}
+
+// A name written by the CURRENT app must reach the verdict.
+//
+// The app persists a recipe/safeguard display name nested under `appearance.name`
+// (`appearancePersistField`); the bare top-level `name` key is legacy and no file the
+// current app exports carries it. The reader read only the legacy key and the runtime
+// builder hardcoded `RecipeName: None`, so EVERY rule built from a .sfc came out unnamed —
+// on a real 8,388-piece vault, 0 of ~44,600 merged rules had a name, and a caller asking
+// "which rule decided this piece?" got null for all of them.
+//
+// Both halves are pinned here because either one alone reinstates the bug: the reader must
+// pick up `appearance.name`, and the builder must stamp it onto the rules it emits. The
+// safeguard leg covers the reader's second call site, which takes a separate path
+// (`build_safeguard_rules_core` copies the parsed rule's name, so naming the reader names
+// those too).
+#[test]
+fn a_recipe_name_survives_the_sfc_round_trip() {
+    // The same fixture the safeguard tests use: a named "Sell everything" recipe that
+    // condemns every chestplate, and a named safeguard that rescues the best SPD ones.
+    let sfc = sfc_with_spd_safeguard(1, false);
+    let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!(spd_ladder())).expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let outcome = decide(&sfc, &compact).expect("decision chain");
+
+    // A sold piece is decided by the recipe's own generated rule, which must carry the
+    // recipe's display name rather than the None the runtime builder used to leave.
+    let sold = outcome
+        .verdicts
+        .iter()
+        .find(|v| !v.keep)
+        .expect("the sell-everything recipe must condemn at least one piece");
+    assert_eq!(
+        sold.rule_name.as_deref(),
+        Some("Sell everything"),
+        "a rule generated from a .sfc must carry its recipe's appearance.name"
+    );
+
+    // The rescued piece is decided by the injected safeguard rule, named through the
+    // reader's other call site.
+    let rescued = outcome
+        .verdicts
+        .iter()
+        .find(|v| v.safeguarded)
+        .expect("the safeguard must rescue at least one piece");
+    assert_eq!(
+        rescued.rule_name.as_deref(),
+        Some("Protect: Speed"),
+        "the deciding safeguard rule must report the safeguard's name"
+    );
+}
+
+// The trailing "sell the rest" catch-all must cover EVERY set the game has, not just the
+// sets the sellfile happens to mention.
+//
+// `FinalSellRemainder` is expanded per set id over `all_known_set_ids`. The app passes the
+// whole catalog (`getAllKnownArtifactSetIds()` minus the accessory sentinel, merge.ts), so
+// a piece from a set no recipe names is still sold. The reader used to accumulate that list
+// from each parsed recipe's `artifact_set_ids` instead — which is EMPTY for a recipe that
+// selects its sets through a METASET, the common case. On a real 8,388-piece vault that saw
+// 11 of 69 sets and left 649 pieces decided differently from the app: gear from the missing
+// 58 sets matched no rule at all and was kept, where the app sold it.
+//
+// The fixture is exactly that shape: one recipe that names set 5 and nothing else, and a
+// piece from set 21 that no recipe mentions. Collecting the domain from the document sells
+// nothing here; the catalog sells the unnamed piece, which is the app's behaviour.
+#[test]
+fn the_final_sell_catch_all_covers_sets_no_recipe_names() {
+    let sfc = json!({
+        "Version": "1.0",
+        // Keep 6-star Legendary chestplates of set 5 — the ONLY set this document names.
+        "Recipes": [{
+            "appearance": { "name": "Keep crit rate chestplates" },
+            "keep": true,
+            "Rank": "Any",
+            "Rarity": "Any",
+            "artifactSetNames": [{ "name": "Critical Rate" }],
+            "artifactTypeNames": ["Chestplate"],
+            "substats": [],
+            "minCount": 0,
+        }],
+        // "Sell everything else", the catch-all the app expands over the whole catalog.
+        "FinalSellRemainder": { "artifacts": true, "accessories": true, "levels": [16], "setsMode": "explicit" },
+        "Safeguards": [],
+        "SafeguardsEnabled": false,
+    })
+    .to_string();
+
+    // Two 6-star Legendary chestplates at level 16: one of the named set, one of a set the
+    // document never mentions (21 = Immortal).
+    let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!([
+        artifact_row(1, 2, 5, 16, &[(4, 1, 10.0, 1)], true),
+        artifact_row(2, 2, 21, 16, &[(4, 1, 10.0, 1)], true),
+    ]))
+    .expect("rows");
+    let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
+    let outcome = decide(&sfc, &compact).expect("decision chain");
+
+    // The named set is kept by its recipe — the document's own rule still wins.
+    assert!(
+        verdict_for(&outcome.verdicts, 1).keep,
+        "the recipe keeps the set it names"
+    );
+
+    // The UNNAMED set must be sold by the catch-all. A document-derived domain never emits
+    // a rule for set 21, so this piece would match nothing and default to KEEP.
+    let unnamed = verdict_for(&outcome.verdicts, 2);
+    assert!(
+        !unnamed.keep,
+        "a piece from a set no recipe names must still be sold by the catch-all; keeping it \
+         means all_known_set_ids came from the document instead of the generated catalog"
+    );
+    assert!(unnamed.matched, "the catch-all rule is a real match, not a default");
 }
 
 // ---------------------------------------------------------------------------

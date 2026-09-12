@@ -213,7 +213,12 @@ fn detect_safeguards(
         // generated equivalent of. Without it a quota counts the buckets OBSERVED in the
         // gear on hand instead of the buckets that COULD exist, so a "keep 1 per slot"
         // safeguard over six slots can rescue a different number of pieces than the app's
-        // preview does. Closing this needs those catalogs generated into Rust first.
+        // preview does. Measured on a real 8,388-piece vault this is now the ONLY source of
+        // verdict divergence left: 10,312 safeguard keep-rules injected here against the
+        // app's 17,235, while recipe rules and the catch-all match exactly. Closing it needs
+        // ALLOWED_MAIN_BY_SLOT + ALL_FACTION_IDS emitted into generated_domain_constants.rs,
+        // and the accessory/artifact set split, which needs a piece count the shared spec
+        // does not carry yet. See docs/technical/build-and-tooling.md.
         None, // expected_payload
         true,
         0.0,             // now (timestamp; not used for rule logic)
