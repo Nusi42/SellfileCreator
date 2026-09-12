@@ -87,7 +87,7 @@ const overrides: Catalog = {
   dirtyBadgeUnsavedFor: "Sin guardar desde hace {duration} — sin guardar desde {time}",
   dirtyBadgeNotPushedSince: "Cambios sin enviar — sin enviar desde {time}",
   dirtyBadgeUnpushed: "Cambios sin enviar",
-  dirtyBadgeUnpushedFor: "Sin enviar desde hace {duration} — último envío {time}",
+  dirtyBadgeUnpushedFor: "Sin enviar desde hace {duration} — sin enviar desde {time}",
   dirtyBadgeDurationHours: "{hours} h {minutes} min",
   dirtyBadgeDurationMinutes: "{minutes} min",
   pushMergedSellfile: "Enviar Sellfile fusionado a {client}",

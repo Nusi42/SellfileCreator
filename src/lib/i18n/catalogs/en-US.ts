@@ -87,7 +87,7 @@ const enUS: Catalog = {
   dirtyBadgeUnsavedFor: "Unsaved for {duration} — not saved since {time}",
   dirtyBadgeNotPushedSince: "Changes not pushed — not pushed since {time}",
   dirtyBadgeUnpushed: "Changes not pushed",
-  dirtyBadgeUnpushedFor: "Not pushed for {duration} — last pushed {time}",
+  dirtyBadgeUnpushedFor: "Not pushed for {duration} — not pushed since {time}",
   dirtyBadgeDurationHours: "{hours}h {minutes}m",
   dirtyBadgeDurationMinutes: "{minutes}m",
   pushMergedSellfile: "Push Merged {client} Sellfile",

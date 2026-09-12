@@ -4,18 +4,20 @@
  * Owns the "how long has this been unsaved" clock behind the dirty-badge dots.
  *
  * Two jobs the badges cannot do themselves:
- *  1. PERSIST the moment each document went dirty, so the age survives a restart.
+ *  1. PERSIST the moment each SAVED document went dirty, so the age survives a restart.
  *     Without this the stamps live only in React state and reset on reload — the
  *     precise reason a user lost an hour of edits without the dot ever warning them.
+ *     The push stamp is the deliberate exception (see `pushDirty` below).
  *  2. TICK, so a badge that is mounted but untouched still ages. Nothing else
  *     re-renders the header when the only thing that changed is the wall clock.
+ *     Every stamp gates the tick, persisted or not.
  *
  * The ramp itself (stops, colours, formatting) lives in lib/stalenessRamp.ts.
  */
 
 import { useEffect, useRef, useState } from 'react'
 import { STALENESS_SINCE_KEY, STALENESS_TICK_MS } from '../lib/constants'
-import { resolveDirtySince } from '../lib/stalenessRamp'
+import { anyStampPending, resolveDirtySince } from '../lib/stalenessRamp'
 import { provenanceKeepsStalenessStamp, type SfcProvenance } from '../lib/sfcProvenance'
 
 /** Persisted shape: epoch-ms stamps, either null when that document is clean. */
@@ -57,6 +59,11 @@ export interface StalenessTracking {
   sfcDirtySince: number | null
   /** When the HSF export went stale (epoch ms), or null while it is current. */
   hsfDirtySince: number | null
+  /**
+   * When the PUSHED document went stale (epoch ms), or null while the client holds
+   * the current one. EPHEMERAL by design — see the `pushDirty` parameter.
+   */
+  pushDirtySince: number | null
   /** Advances on every tick so consumers re-render as the ramp progresses. */
   now: number
 }
@@ -90,16 +97,33 @@ export interface SfcRecoverySignal {
 
 const NO_RECOVERY: SfcRecoverySignal = { seq: 0, divergedAt: null, provenance: 'anchored' }
 
+/**
+ * Tracks the three dots' ages. `pushDirty` is the document a PUSH would send, which
+ * under SfcFileAsSellfile is the `.sfc` and not the compiled export — a different fact
+ * from `hsfDirty`, since saving does not push and pushing does not save.
+ *
+ * Its stamp is EPHEMERAL: unlike the other two it is never mirrored to localStorage and
+ * never restored, because a push baseline cannot survive a reload (the receiver is a live
+ * socket and the pushed-document fingerprint starts null), so a persisted stamp would
+ * resume an age against a client that never got the document. It still lives here rather
+ * than in the caller so all three share ONE edge resolver and ONE tick — a stamp kept
+ * outside the hook is invisible to the tick gate below, and its dot freezes at whatever
+ * `now` happened to be when the other two documents were last clean.
+ */
 export function useStalenessTracking(
   sfcDirty: boolean,
   hsfDirty: boolean,
   sfcRecovery: SfcRecoverySignal = NO_RECOVERY,
+  pushDirty = false,
 ): StalenessTracking {
   // Restore once, at mount, before any edge has been observed this session.
   const [restored] = useState(() => readPersistedStamps(Date.now()))
 
   const [sfcDirtySince, setSfcDirtySince] = useState<number | null>(restored.sfc)
   const [hsfDirtySince, setHsfDirtySince] = useState<number | null>(restored.hsf)
+  // No restored seed for the push stamp: nothing persists it (see the doc comment above),
+  // so it always starts clean and has no boot-time grace to protect.
+  const [pushDirtySince, setPushDirtySince] = useState<number | null>(null)
 
   // Edge trackers seeded from the RESTORED state, not from `false`. Seeding from
   // false would treat an already-dirty restored session as a fresh clean→dirty
@@ -107,6 +131,9 @@ export function useStalenessTracking(
   // reloaded. Seeding from the stamp keeps a restored hour reading as an hour.
   const prevSfcDirtyRef = useRef(restored.sfc !== null)
   const prevHsfDirtyRef = useRef(restored.hsf !== null)
+  // Seeded from false, not from a stamp: the push stamp is never restored, so the
+  // session genuinely starts on the clean side of the edge.
+  const prevPushDirtyRef = useRef(false)
   // A restored stamp must survive the FIRST observation of a clean document.
   //
   // The app always boots clean — the history baseline is established before any edit
@@ -196,12 +223,29 @@ export function useStalenessTracking(
       return next
     })
   }, [hsfDirty])
+
+  useEffect(() => {
+    // Same snapshot-then-close rule as the two effects above. No restore grace is
+    // passed: with nothing persisted there is no restored stamp to shield from the
+    // boot-time clean read, so a dirty→clean edge here is always a real push.
+    const wasDirty = prevPushDirtyRef.current
+    const now = Date.now()
+    prevPushDirtyRef.current = pushDirty
+    setPushDirtySince((current) => resolveDirtySince({
+      dirty: pushDirty,
+      wasDirty,
+      current,
+      restorePending: false,
+      now,
+    }).next)
+  }, [pushDirty])
   /* eslint-enable react-you-might-not-need-an-effect/no-derived-state,
      react-you-might-not-need-an-effect/no-event-handler */
 
-  // Mirror both stamps to storage whenever either moves. Writing the pair as one
-  // record keeps the two documents' clocks atomic — a half-written pair could show
-  // one dot aging while the other silently reset.
+  // Mirror the two SAVED-document stamps to storage whenever either moves. Writing the
+  // pair as one record keeps their clocks atomic — a half-written pair could show one dot
+  // aging while the other silently reset. The push stamp is deliberately absent (and must
+  // stay absent): it describes a live socket's view, which no reload can carry forward.
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- writing to
      localStorage is a real external side effect (the whole point of this hook), not an
      event handler that could be called from the save/edit sites instead. */
@@ -224,7 +268,10 @@ export function useStalenessTracking(
 
   // Coarse clock driving re-renders as the ramp advances. Only runs while something
   // is actually unsaved — a saved session pays nothing.
-  const anythingDirty = sfcDirtySince !== null || hsfDirtySince !== null
+  // EVERY stamp gates the tick, through the shared predicate rather than an OR chain
+  // maintained here — including the push stamp, which is ephemeral but ages like the
+  // rest (see anyStampPending for the freeze that omitting it caused).
+  const anythingDirty = anyStampPending(sfcDirtySince, hsfDirtySince, pushDirtySince)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!anythingDirty) return
@@ -238,6 +285,7 @@ export function useStalenessTracking(
   return {
     sfcDirtySince,
     hsfDirtySince,
+    pushDirtySince,
     now,
   }
 }

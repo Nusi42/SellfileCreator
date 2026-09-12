@@ -6,6 +6,7 @@ import {
   stalenessColor,
   stalenessDurationParts,
   resolveDirtySince,
+  anyStampPending,
 } from '../../src/lib/stalenessRamp.js'
 import { STALENESS_TIER_MINUTES } from '../../src/lib/constants.js'
 
@@ -178,4 +179,49 @@ test('keepStamp does not affect ordinary edit edges', () => {
     dirty: true, wasDirty: false, current: NOW - 95 * 60_000, restorePending: false, keepStamp: false, now: NOW,
   })
   assert.equal(edited.next, NOW)
+})
+
+// The tick gate. Every dot ages off ONE interval, and that interval only runs while
+// something is pending — so a dot whose stamp is not in this predicate silently stops
+// ramping. The push dot was exactly that case: it lived outside the hook, the gate only
+// knew the two SAVED documents, and under SfcFileAsSellfile a push goes stale while both
+// of those stay clean (an override answer rewrites the pushed rules, not the raw
+// document). `now` then froze and the dot kept its mount-time colour indefinitely.
+test('anyStampPending keeps the clock running for ANY pending stamp', () => {
+  // Nothing pending: the interval must stay off so a saved session pays nothing.
+  assert.equal(anyStampPending(null, null, null), false)
+  assert.equal(anyStampPending(), false)
+  assert.equal(anyStampPending(undefined, null), false)
+
+  // Each stamp alone is enough — including the third, non-persisted one.
+  assert.equal(anyStampPending(NOW, null, null), true, 'the SFC stamp alone ticks')
+  assert.equal(anyStampPending(null, NOW, null), true, 'the HSF stamp alone ticks')
+  assert.equal(
+    anyStampPending(null, null, NOW),
+    true,
+    'a stale push must tick even while both saved documents are clean',
+  )
+})
+
+// The push stamp runs the SAME edge resolver as the other two rather than a hand-rolled
+// if/else, so its ages cannot drift from theirs. It passes no restore grace: nothing
+// persists it, so there is no restored stamp to shield from the boot-time clean read and
+// a dirty->clean edge is always a real push.
+test('the ephemeral push stamp rises, holds, and clears on the shared resolver', () => {
+  let prevDirty = false
+  let cur: number | null = null
+  const step = (dirty: boolean, now: number) => {
+    cur = resolveDirtySince({ dirty, wasDirty: prevDirty, current: cur, restorePending: false, now }).next
+    prevDirty = dirty
+    return cur
+  }
+
+  assert.equal(step(false, NOW), null, 'a clean mount stamps nothing')
+  assert.equal(step(true, NOW), NOW, 'the clean->dirty edge stamps the divergence moment')
+  // Still dirty: the ORIGINAL moment is the age, so the dot keeps ramping instead of
+  // restarting on every unrelated re-render.
+  assert.equal(step(true, NOW + 60_000), NOW, 'a held dirty state keeps its first stamp')
+  assert.equal(step(false, NOW + 90_000), null, 'a successful push clears it')
+  // No restore grace means a clean read really clears, and the next divergence is new.
+  assert.equal(step(true, NOW + 120_000), NOW + 120_000, 'the next divergence stamps fresh')
 })

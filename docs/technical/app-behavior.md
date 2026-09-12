@@ -703,14 +703,35 @@ therefore encodes *how long* the document has been unsaved.
   the tick never armed either since it is gated on the stamp being non-null. `wasDirty`,
   `restorePending`, the recovery stamp and `now` are therefore all captured as constants before
   `setSfcDirtySince`/`setHsfDirtySince` is called. Pinned by `tests/unit/sfc-dirty-provenance.test.ts`.
-- **Clock ownership.** `hooks/useStalenessTracking.ts` stamps the clean→dirty edges, mirrors both
-  stamps to `sellfileCreator.stalenessSince.v1` (see
-  [Settings & Persistence](settings-and-persistence.md#connection--language--first-run--data)),
-  and runs one coarse `STALENESS_TICK_MS` (30 s) interval — only while something is unsaved. The
-  `now` it produces is passed *down* to both badges, so every dot ages off one clock and
+- **Clock ownership.** `hooks/useStalenessTracking.ts` stamps the clean→dirty edges for all
+  **three** dots, mirrors the two SAVED-document stamps to `sellfileCreator.stalenessSince.v1`
+  (see [Settings & Persistence](settings-and-persistence.md#connection--language--first-run--data)),
+  and runs one coarse `STALENESS_TICK_MS` (30 s) interval — only while something is pending. The
+  `now` it produces is passed *down* to the badges, so every dot ages off one clock and
   `DirtyBadge` stays a pure function of its props (no clock read during render). Edge trackers are
   seeded from the *restored* stamps, not from `false`, so a session that comes back already dirty
   keeps its real age instead of resetting to zero.
+- **The push stamp is ephemeral but still ages.** `pushDirtySince` is the hook's third stamp: the
+  moment the document a PUSH would send diverged from what the client holds. It is deliberately
+  **never persisted** — a push baseline cannot survive a reload (the receiver is a live socket and
+  `lastPushedSfcHash` starts `null`), so a restored stamp would resume an age against a client that
+  never got the document. It still lives in the hook rather than in `App.tsx` so it shares the one
+  `resolveDirtySince` edge resolver and the one tick. Kept outside, it was invisible to the tick
+  gate: under `SfcFileAsSellfile` a push goes stale while both saved documents stay clean (an
+  override answer rewrites the pushed rules without touching the raw document), so the interval
+  never armed, `now` froze, and the push dot held its mount-time colour while its tooltip's span
+  stopped counting. `anyStampPending` (`lib/stalenessRamp.ts`) is now the single definition of
+  "something is aging", so a fourth dot cannot forget to enrol. Pinned by
+  `tests/unit/staleness-ramp.test.ts`.
+- **The dot words itself after the button's action, gated on the upload capability.**
+  `PreviewHeaderActions` switches the badge to `pushDirty`/`pushDirtySince` and the push wording
+  (`dirtyBadgeUnpushed*`) only when the push is active **and** `SfcFileAsSellfile` is present —
+  the same capability read that decides which document the push uploads, so dot and payload cannot
+  disagree. Without that gate a legacy client took the push branch too, where `pushDirty` *is*
+  `hsfDirty`: identical flag, but the ephemeral stamp, discarding the persisted age and labelling
+  an `.hsf` upload "not pushed" when it is exactly the export. `{time}` is in every shape the
+  moment of divergence, never the moment of the last save/push, so no catalog may word it as
+  "last saved <time>".
 - **A recovery edge resumes its stamp instead of restarting the clock.** Accepting the autosave
   restore drives the SFC flag clean→dirty, and a rising edge normally means "a real edit — stamp
   now". That would reset an hours-old unsaved document to a fresh dot at the exact moment the user

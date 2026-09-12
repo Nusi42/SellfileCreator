@@ -61,7 +61,16 @@ export function formatLocalDateTime(
  *  - a known start but still fresh → "Unsaved changes — not saved since <time>".
  *  - no timestamp at all → plain "Unsaved changes".
  *
- * Centralized so the SFC and HSF badges stay worded and formatted identically.
+ * `describesPush` swaps all three for their push-worded twins ("Not pushed for …"),
+ * because a dot over a PUSH button describes a document the client has not received,
+ * not an unsaved file — and a push has no file to save. Whole keys, never a spliced
+ * sentence, so a translator reorders freely.
+ *
+ * `{time}` is in every shape the moment the document DIVERGED, never the moment of the
+ * last save or push (there may have been none), so no catalog may word it as "last
+ * saved <time>".
+ *
+ * Centralized so the SFC, HSF and push badges stay worded and formatted identically.
  * `translate` is the i18n `t` function; the time uses the app-wide medium-date/
  * short-time format. `now` is passed in so the wording rides the same staleness
  * tick as the dot's colour and the two can never disagree.

@@ -87,7 +87,7 @@ const catalog: Catalog = {
   dirtyBadgeUnsavedFor: "Sem salvar há {duration} — não salvo desde {time}",
   dirtyBadgeNotPushedSince: "Alterações não enviadas — não enviadas desde {time}",
   dirtyBadgeUnpushed: "Alterações não enviadas",
-  dirtyBadgeUnpushedFor: "Sem enviar há {duration} — último envio {time}",
+  dirtyBadgeUnpushedFor: "Sem enviar há {duration} — não enviado desde {time}",
   dirtyBadgeDurationHours: "{hours} h {minutes} min",
   dirtyBadgeDurationMinutes: "{minutes} min",
   pushMergedSellfile: "Enviar Sellfile mesclado para o {client}",

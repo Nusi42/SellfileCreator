@@ -1176,13 +1176,18 @@ export default function PreviewHeaderActions(props: {
   // affordance. A flex row with a 1px gap keeps the theme's contained styling on
   // both halves (no ButtonGroup); the gap reads as a seam.
   // The dot describes the state THIS button clears, which is not always the export.
-  // When the button pushes, it sends the document the client receives — under
-  // SfcFileAsSellfile that is the `.sfc`, tracked by pushDirty — so a dot wired to
-  // hsfDirty reported an .hsf staleness the push could not clear (and stayed lit
-  // after a successful push, or stayed dark while the pushed document had diverged).
-  // Falls back to the export signal whenever the caller tracks no push state, which
-  // is also the download case: then the button really does write the .hsf.
-  const dotTracksPush = pushActive && pushDirty !== undefined
+  // When the button pushes the `.sfc`, it sends a document the export signal does not
+  // describe — tracked by pushDirty — so a dot wired to hsfDirty reported an .hsf
+  // staleness the push could not clear (it stayed lit after a successful push, and
+  // stayed dark while the pushed document had diverged).
+  //
+  // Gated on `pushesSfcFile`, the SAME capability read that decides which document a
+  // push uploads, so the dot and the payload cannot disagree. Without that gate a
+  // legacy client (push active, capability absent) took the push branch too — and
+  // there pushDirty IS hsfDirty, so the flag was identical but the stamp was the
+  // ephemeral push one, throwing away the persisted age that survives a restart and
+  // labelling an .hsf upload "not pushed" when it is exactly the export.
+  const dotTracksPush = pushActive && pushesSfcFile && pushDirty !== undefined
   const exportDirtyActive = dotTracksPush ? pushDirty : hsfDirty
   const exportDirtySince = dotTracksPush ? pushDirtySince : hsfDirtySince
   // Localized "not pushed/saved since <time>" tooltip for the badge dot.

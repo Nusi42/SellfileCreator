@@ -4579,40 +4579,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // (so an age survives a restart — the in-memory stamps alone reset on reload, which
   // is how a user lost an hour of edits with the dot still looking calm), and the
   // coarse tick that re-renders both badges as time passes. Ramp: lib/stalenessRamp.ts.
+  // The push stamp rides along as the hook's third dot. It is the moment the PUSHED
+  // document last diverged from what the client holds, so the push button's dot ages
+  // from the moment the push went stale rather than the moment the file went unsaved —
+  // different facts, since saving to disk does not push and a push does not save.
+  // The hook keeps it EPHEMERAL (never persisted, because a push baseline cannot
+  // survive a reload) while still sharing the one edge resolver and the one tick; a
+  // stamp kept out here was invisible to that tick and its dot stopped ramping
+  // whenever both saved documents were clean. See useStalenessTracking.
   const {
     sfcDirtySince,
     hsfDirtySince,
+    pushDirtySince,
     now: stalenessNow,
-  } = useStalenessTracking(isDirty, hsfDirty, sfcRecovery)
-  // When the PUSHED document last diverged from what the client holds, so the push
-  // button's dot ages from the moment the push went stale — not from the moment the
-  // file went unsaved. Those are different facts: saving to disk does not push, and a
-  // push does not save, so reusing hsfDirtySince here made the dot describe the .hsf
-  // export while the button beside it pushed the .sfc.
-  //
-  // Deliberately NOT part of useStalenessTracking: that hook persists its two stamps
-  // to localStorage and carries the autosave-recovery adoption, both of which are
-  // about UNSAVED WORK surviving a restart. A push baseline cannot survive one — the
-  // receiver is a live socket and lastPushedSfcHash starts null — so a persisted push
-  // stamp would resume an age against a client that never got the document.
-  const [pushDirtySince, setPushDirtySince] = useState<number | null>(null)
-  const prevPushDirtyForStampRef = useRef(false)
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler,
-     react-you-might-not-need-an-effect/no-chain-state-updates -- the stamp is derived
-     from a TRANSITION (clean<->dirty), which no render can compute from pushDirty alone:
-     it needs the previous render's value. This is the same edge pattern
-     useStalenessTracking uses for the other two dots, and the auto-push effect below
-     uses for the push itself. */
-  useEffect(() => {
-    const wasDirty = prevPushDirtyForStampRef.current
-    prevPushDirtyForStampRef.current = pushDirty
-    // Rising edge only: while it stays dirty the original moment is the age, and a
-    // push (or a fresh baseline adoption) clears it.
-    if (pushDirty && !wasDirty) setPushDirtySince(Date.now())
-    else if (!pushDirty && wasDirty) setPushDirtySince(null)
-  }, [pushDirty])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler,
-     react-you-might-not-need-an-effect/no-chain-state-updates */
+  } = useStalenessTracking(isDirty, hsfDirty, sfcRecovery, pushDirty)
   // Mirrored into a ref so buildAutosavePayload can stamp the divergence moment without
   // taking the stamp as a dependency — that would rebuild the payload callback (and so
   // reschedule autosave) every time the clock advanced.

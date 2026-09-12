@@ -47,6 +47,24 @@ export function dirtyStampIsClean(dirtySince: number | null | undefined): boolea
 }
 
 /**
+ * Whether the staleness clock must keep ticking — true as soon as ANY stamp is pending.
+ *
+ * The one definition of "something is aging", so adding a dot cannot forget to enrol it
+ * in the tick. That is not hypothetical: the push dot was first tracked outside the
+ * staleness hook, so the hand-written OR chain here never saw its stamp. Under
+ * SfcFileAsSellfile a push goes stale while both SAVED documents stay clean (answering
+ * an override question rewrites the pushed rules without touching the raw document), so
+ * the interval stayed off, `now` froze, and that dot kept its mount-time colour while its
+ * tooltip's span stopped counting.
+ *
+ * Whether a stamp PERSISTS is a separate question — the push stamp is deliberately
+ * ephemeral — and has no bearing on whether it ages.
+ */
+export function anyStampPending(...stamps: Array<number | null | undefined>): boolean {
+  return stamps.some((stamp) => !dirtyStampIsClean(stamp))
+}
+
+/**
  * Minutes elapsed since `dirtySince`, or null when nothing is pending. Negative
  * clock skew (a stamp from the future, e.g. after a system clock change) clamps
  * to 0 so a bad stamp reads as "just edited" rather than as instantly critical.
