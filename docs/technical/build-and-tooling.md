@@ -503,14 +503,33 @@ Note this only shows up on an override-resolved document: the raw sellfile leave
 unset on the affected recipes and the overrides are what write it, so comparing the DLL
 against the app on a file whose overrides were never applied hides the bug.
 
-**Known gap: accessory safeguard rescues.** 8,314 of 8,388 pieces on a real vault now agree.
-The recipe side is effectively closed (2 disagreements); the remaining 72 are all the app
-rescuing a piece the DLL does not, through accessory safeguards (`Protect: % Ring`,
-`Protect: % Banner`, `Protect: Speed Banner - Across Sets` and friends), and 56 of the 74 are
-in ring/amulet/banner slots. Safeguard injection is still short of the app's
-(17,196 against 17,362). Start at the accessory bucket key — faction and the no-set sentinel
-both participate in it — rather than at the quota arithmetic, which the expected-bucket domain
-already matched byte-for-byte.
+**A safeguard threshold must reach detection.** `improvementChanceThreshold` EXPANDS a rule's
+protected set beyond its base quota: on top of the top-N the quota covers, the rule also keeps
+every candidate whose chance of landing in ITS OWN top-N clears the bar
+(`safeguards/mod.rs`, the `improvement_chances` lookup). That expansion reads a
+`(artifact, rule_ordinal) -> chance` map, and an EMPTY map disables it silently — the rule
+still runs and still fills its quota, it just never expands. `detect_safeguards` passed an
+empty map, so on a real vault (132 of 155 rules thresholded) 75 pieces the app rescues were
+sold instead.
+
+Two things make this affordable. The pass is gated on
+`safeguard_rules_have_improvement_threshold`, mirroring the app's own `hasThreshold` gate, so
+a sellfile that sets no threshold skips it entirely: measured on the same vault, detection
+stays at ~277 ms without thresholds and rises to ~635 ms with them (decision total 889 ms vs
+1250 ms). And the chances are keyed PER RULE via `flatten_improvement_chances_by_rule` — the
+per-artifact maximum would let one rule's required count inflate another rule's expansion set.
+
+The app pays the same ~300 ms but memoizes it across pipeline runs; `sfc_decide` is a
+stateless one-shot, so the cost is inherent here rather than cacheable.
+
+**Parity status.** On a real 8,388-piece vault, the DLL and the app now agree on the
+keep/sell decision for EVERY piece, with identical rule composition (26,380 recipe rules,
+5 catch-all, 10,846 safeguard placeholders, 6,516 safeguard artifact keeps). The one
+remaining difference is the `safeguarded` FLAG on 43 pieces, all of which both sides KEEP:
+the app names a safeguard as the deciding rule where the DLL names a recipe. That is the
+`safeguarded` semantics question — the app defines it as "the deciding rule's source is
+safeguards" (`isMatchKeptBySafeguard`), while this crate defines it as a rescue (kept, with
+the baseline selling). The two disagree only when a recipe and a safeguard both keep a piece.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before

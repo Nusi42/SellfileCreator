@@ -2113,6 +2113,39 @@ fn build_chance_debug(
 /// Compute improvement-chance percentages for every non-maxed artifact in `rows`.
 /// Returns an empty vec when `!enabled`, when there are no substat rules,
 /// or when there are no non-maxed artifacts with applicable scenarios.
+/// True when any safeguard rule carries a per-level improvement-chance threshold.
+///
+/// The gate for "detection needs improvement chances at all". Computing them is the most
+/// expensive stage in the chain (~300 ms on a full vault), so a sellfile that sets no
+/// threshold must not pay for it — but one that DOES set a threshold cannot be decided
+/// without them, because the threshold expands each rule's protected set beyond its base
+/// quota (see the `improvement_chances` lookup in mod.rs).
+///
+/// Mirror of `safeguardRulesHaveImprovementThreshold` in src/lib/safeguards.ts, which gates
+/// the app's own pre-detection pass the same way.
+pub fn safeguard_rules_have_improvement_threshold(rules: &[SafeguardWasmRuleIn]) -> bool {
+    rules.iter().any(|rule| rule.improvement_chance_threshold.is_some())
+}
+
+/// Flatten per-artifact chance entries into the `(artifact_id, rule_ordinal) -> chance` map
+/// the protection core consumes.
+///
+/// Each rule must consult the chance of the artifact landing in ITS OWN top-N, never the
+/// global maximum across rules — otherwise raising one rule's required count inflates
+/// another's expansion set. `chances_by_rule_ordinal` already carries that breakdown; this
+/// only reshapes it. Same flattening the wasm boundary does for the app
+/// (`flatten_improvement_chances` in rule_engine_wasm), kept here so both callers share one
+/// definition.
+pub fn flatten_improvement_chances_by_rule(entries: &[ImprovementChanceEntry]) -> BTreeMap<(i64, i64), f64> {
+    let mut out: BTreeMap<(i64, i64), f64> = BTreeMap::new();
+    for entry in entries {
+        for per_rule in &entry.chances_by_rule_ordinal {
+            out.insert((entry.artifact_id, per_rule.rule_ordinal), per_rule.chance_percent);
+        }
+    }
+    out
+}
+
 pub fn compute_improvement_chance_core(
     rows: &[SafeguardCollectRowIn],
     rules: Vec<SafeguardWasmRuleIn>,
@@ -2805,5 +2838,78 @@ mod boundary_reduction_tests {
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests — the two gates detection depends on.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod threshold_gate_tests {
+    use super::*;
+    use crate::safeguards::ImprovementChanceThresholdIn;
+
+    // Build a bare rule; only the threshold field matters here.
+    fn rule_with_threshold(threshold: Option<ImprovementChanceThresholdIn>) -> SafeguardWasmRuleIn {
+        let mut rule: SafeguardWasmRuleIn =
+            serde_json::from_str(r#"{"requiredCount":1,"activation":"always"}"#).expect("bare rule");
+        rule.improvement_chance_threshold = threshold;
+        rule
+    }
+
+    // The gate decides whether detection pays for the chance pass at all (~300 ms on a full
+    // vault). Saying "no" when a rule IS thresholded silently disables that rule's expansion;
+    // saying "yes" when none is makes every sellfile pay for a map nothing reads.
+    #[test]
+    fn the_gate_follows_threshold_presence() {
+        assert!(
+            !safeguard_rules_have_improvement_threshold(&[rule_with_threshold(None)]),
+            "no threshold means the chance pass must be skipped"
+        );
+        let thresholded = rule_with_threshold(Some(ImprovementChanceThresholdIn::Array([40.0, 40.0, 40.0, 40.0])));
+        assert!(
+            safeguard_rules_have_improvement_threshold(std::slice::from_ref(&thresholded)),
+            "a thresholded rule cannot be decided without per-rule chances"
+        );
+        // One thresholded rule among many is enough — the pass is all-or-nothing.
+        assert!(
+            safeguard_rules_have_improvement_threshold(&[rule_with_threshold(None), thresholded]),
+            "a single thresholded rule turns the pass on for the whole file"
+        );
+        // An empty file has nothing to threshold.
+        assert!(!safeguard_rules_have_improvement_threshold(&[]));
+    }
+
+    // Each rule must consult the chance of an artifact landing in ITS OWN top-N. Collapsing to
+    // the per-artifact maximum would let one rule's required count inflate another rule's
+    // expansion set — the reason the per-rule breakdown exists at all.
+    #[test]
+    fn flattened_chances_stay_keyed_by_rule() {
+        let entries = vec![ImprovementChanceEntry {
+            artifact_id: 7,
+            chance_percent: 90.0,
+            has_matching_safeguard: true,
+            matched_rule_ordinal: Some(2),
+            chances_by_rule_ordinal: vec![
+                ImprovementChanceRuleEntry {
+                    rule_ordinal: 1,
+                    chance_percent: 10.0,
+                },
+                ImprovementChanceRuleEntry {
+                    rule_ordinal: 2,
+                    chance_percent: 90.0,
+                },
+            ],
+            debug: None,
+        }];
+        let map = flatten_improvement_chances_by_rule(&entries);
+        assert_eq!(map.len(), 2, "one entry per (artifact, rule) pair");
+        assert_eq!(
+            map.get(&(7, 1)),
+            Some(&10.0),
+            "rule 1 must see its OWN chance, not the artifact's maximum"
+        );
+        assert_eq!(map.get(&(7, 2)), Some(&90.0));
     }
 }

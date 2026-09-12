@@ -14,8 +14,9 @@ use std::time::Instant;
 
 use rule_engine_core::{
     build_hsf_rules_for_recipe, collect_and_compute_safeguard_protection_core, compute_improvement_chance_core,
-    compute_merged_rules_core, configure_engine, evaluate_engine, normalize_safeguard_expected_bucket_domain_core,
-    recipe_id_for_index, safeguard_bucket_key_from_artifact, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
+    compute_merged_rules_core, configure_engine, evaluate_engine, flatten_improvement_chances_by_rule,
+    normalize_safeguard_expected_bucket_domain_core, recipe_id_for_index, safeguard_bucket_key_from_artifact,
+    safeguard_rules_have_improvement_threshold, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
     ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn, SafeguardWasmExpectedBucketDomainIn,
     SafeguardWasmExpectedBucketsPayloadIn, SafeguardWasmSnapshotOut, SfcParsed, ACCESSORY_COMPATIBLE_SET_IDS,
     ALLOWED_MAINS_BY_SLOT, ALL_FACTION_IDS, ARTIFACT_COMPATIBLE_SET_IDS, PREFERRED_ARTIFACT_TYPE_ORDER,
@@ -238,6 +239,23 @@ fn detect_safeguards(
     if !parsed.safeguards_enabled || parsed.safeguard_rules.is_empty() || rows.is_empty() {
         return Ok(None);
     }
+    // Improvement chances, but ONLY when some rule actually sets a threshold.
+    //
+    // A threshold EXPANDS a rule's protected set beyond its base quota: the rule also keeps
+    // every candidate whose chance of landing in its own top-N clears the bar. An empty map
+    // disables that expansion outright, so passing one here silently under-protected every
+    // sellfile using the feature -- 132 of the 155 rules in one real file, and 75 pieces the
+    // app rescues that this crate sold.
+    //
+    // The gate matters as much as the fix: this is the most expensive stage in the chain
+    // (~300 ms on a full vault), so a sellfile that sets no threshold must not pay for it. The
+    // app gates its own pre-detection pass the same way (`hasThreshold` in ruleCacheWorker).
+    let improvement_chances = if safeguard_rules_have_improvement_threshold(&parsed.safeguard_rules) {
+        let (entries, _diag) = compute_improvement_chance_core(rows, parsed.safeguard_rules.clone(), true, false);
+        flatten_improvement_chances_by_rule(&entries)
+    } else {
+        BTreeMap::new()
+    };
     let combined = collect_and_compute_safeguard_protection_core(
         rows.to_vec(),
         custom_rules.to_vec(),
@@ -249,8 +267,8 @@ fn detect_safeguards(
         // gear on hand (see expected_bucket_domain_payload).
         Some(expected_bucket_domain_payload()),
         true,
-        0.0,             // now (timestamp; not used for rule logic)
-        BTreeMap::new(), // improvement_chances: empty = threshold gating disabled
+        0.0, // now (timestamp; not used for rule logic)
+        improvement_chances,
     )
     .map_err(|e| format!("Safeguard detection error: {e}"))?;
     Ok(Some(combined.detection))

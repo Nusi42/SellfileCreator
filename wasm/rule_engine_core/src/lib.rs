@@ -112,8 +112,8 @@ pub use hsf_builder_execution::{
 pub use recipe_builder::build_hsf_rules_for_recipe;
 pub use safeguards::groups::{resolve_safeguard_groups, SafeguardGroupEntryIn, SafeguardGroupsOut};
 pub use safeguards::improvement_chance::{
-    compute_improvement_chance_core, ImprovementChanceDebug, ImprovementChanceEntry, ImprovementChancePerfDiag,
-    ImprovementChanceRuleEntry,
+    compute_improvement_chance_core, flatten_improvement_chances_by_rule, safeguard_rules_have_improvement_threshold,
+    ImprovementChanceDebug, ImprovementChanceEntry, ImprovementChancePerfDiag, ImprovementChanceRuleEntry,
 };
 pub use sfc_reader::{parse_sfc, ReadableRecipeParsed, SfcParsed, SubstatTargetTableIn};
 
