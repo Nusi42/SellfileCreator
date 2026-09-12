@@ -178,23 +178,30 @@ export function coerceGearInspectorRarity(value: unknown, fallback: 1 | 2 | 3 | 
   return fallback
 }
 
-/** Map raw level to the nearest milestone (0/4/8/12/16). */
+/**
+ * Map a raw level onto the milestone whose BAND it is in (0-3, 4-7, 8-11, 12-15, 16).
+ *
+ * The milestones are range boundaries, not points to round to — `LevelRange` names them
+ * `{ min, max }`, and a rule saying "+12 to +16" means a piece has REACHED +12. Snapping to
+ * the nearest instead promoted the top of every band: a +15 was judged as +16, so "keep only
+ * +16" kept gear that is not +16 and "sell below +16" spared it. Levels 3, 7, 11 and 15 are
+ * the affected ones — 74 of 76,309 pieces across the sample accounts.
+ *
+ * So: floor to the band, and clamp outside the range (a bad row carrying 32764 exists in
+ * real data and must read as +16, not overflow past it).
+ */
 export function coerceGearInspectorLevel(value: unknown, fallback: LevelMilestone = LEVEL_MILESTONES[0]!): LevelMilestone {
   const num = Number(value)
   if (!Number.isFinite(num)) return fallback
   const minMilestone = LEVEL_MILESTONES[0] ?? fallback
   const maxMilestone = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1] ?? minMilestone
   const clamped = Math.max(minMilestone, Math.min(maxMilestone, Math.round(num)))
-  let closest: LevelMilestone = fallback
-  let minDiff = Number.POSITIVE_INFINITY
+  // The highest milestone at or below the level: its band.
+  let band: LevelMilestone = fallback
   for (const milestone of LEVEL_MILESTONES) {
-    const diff = Math.abs(milestone - clamped)
-    if (diff < minDiff) {
-      closest = milestone
-      minDiff = diff
-    }
+    if (milestone <= clamped) band = milestone
   }
-  return closest
+  return band
 }
 
 /**

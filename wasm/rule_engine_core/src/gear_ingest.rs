@@ -157,23 +157,30 @@ pub fn resolve_set_id(slot: i64, raw_set_kind_id: i64) -> i64 {
     }
 }
 
-// Snap a live gear level to the nearest milestone, ties going DOWN.
+// Snap a live gear level to the milestone whose BAND it is in: 0-3, 4-7, 8-11, 12-15, 16.
 //
-// Mirrors the app's `coerceGearInspectorLevel`, whose scan keeps the FIRST minimum.
-// Passing a raw level through instead makes every off-milestone piece unmatchable: a +9
-// piece compared against a rule's `LVLForCheck: 8` under exact equality misses every
-// level rule and falls through to "nothing matched". Levels 1-3, 5-7, 9-11 and 13-15 are
-// ordinary gear, so this reaches a large share of any vault.
+// Mirrors the app's `coerceGearInspectorLevel`. Passing a raw level through instead makes
+// every off-milestone piece unmatchable: a +9 piece compared against a rule's
+// `LVLForCheck: 8` under exact equality misses every level rule and falls through to
+// "nothing matched". Levels 1-3, 5-7, 9-11 and 13-15 are ordinary gear, so this reaches a
+// large share of any vault.
+//
+// The milestones bound RANGES rather than marking points to round to — a rule naming
+// "+12 to +16" means the piece has REACHED +12 — so this floors to the band. Snapping to
+// the nearest promoted the top of each band instead, judging a +15 as +16: "keep only +16"
+// then kept gear that is not +16, and "sell below +16" spared it. Levels 3, 7, 11 and 15
+// are the ones that moved, 74 of 76,309 pieces across the sample accounts.
 pub fn snap_level_to_milestone(level: i64) -> i64 {
     let lowest = LEVEL_MILESTONES[0];
     let highest = LEVEL_MILESTONES[LEVEL_MILESTONES.len() - 1];
     let clamped = level.clamp(lowest, highest);
-    // min_by_key keeps the FIRST minimum, so an exact tie resolves to the LOWER
-    // milestone — the same side the TS scan lands on.
+    // The highest milestone at or below the level. Clamping first is what keeps a bad row
+    // (a real account carries lvl 32764) reading as +16 rather than running past the top.
     *LEVEL_MILESTONES
         .iter()
-        .min_by_key(|milestone| (**milestone - clamped).abs())
-        .expect("LEVEL_MILESTONES is never empty")
+        .filter(|milestone| **milestone <= clamped)
+        .next_back()
+        .unwrap_or(&lowest)
 }
 
 // True when a variant is one the engine treats as an anomalous mode-damage substat.
@@ -206,14 +213,48 @@ mod tests {
         assert_eq!(finalize_stat_component(STAT_ID_HP, true, raw), 0.0);
     }
 
-    // Ties snap DOWN, matching the TS scan's first-minimum behaviour.
+    // A level belongs to the band it has REACHED: 0-3, 4-7, 8-11, 12-15, 16.
     #[test]
-    fn level_snapping_breaks_ties_downward() {
-        assert_eq!(snap_level_to_milestone(9), 8);
-        assert_eq!(snap_level_to_milestone(2), 0, "an exact tie resolves downward");
-        assert_eq!(snap_level_to_milestone(6), 4, "an exact tie resolves downward");
-        assert_eq!(snap_level_to_milestone(15), 16);
+    fn a_level_snaps_to_the_band_it_reached() {
+        for (level, band) in [
+            (0, 0),
+            (1, 0),
+            (2, 0),
+            (3, 0),
+            (4, 4),
+            (5, 4),
+            (6, 4),
+            (7, 4),
+            (8, 8),
+            (9, 8),
+            (10, 8),
+            (11, 8),
+            (12, 12),
+            (13, 12),
+            (14, 12),
+            (15, 12),
+            (16, 16),
+        ] {
+            assert_eq!(snap_level_to_milestone(level), band, "+{level} is in the +{band} band");
+        }
+    }
+
+    // The top of a band must NOT be promoted into the next one: a +15 is not a +16, so a
+    // rule keeping only +16 gear must not keep it.
+    #[test]
+    fn the_top_of_a_band_is_not_promoted() {
+        assert_eq!(snap_level_to_milestone(15), 12, "a +15 has not reached +16");
+        assert_eq!(snap_level_to_milestone(3), 0);
+        assert_eq!(snap_level_to_milestone(7), 4);
+        assert_eq!(snap_level_to_milestone(11), 8);
+    }
+
+    // Out-of-range levels clamp rather than escaping the milestone list. 32764 is not
+    // hypothetical — a real sample account carries it.
+    #[test]
+    fn a_level_outside_the_range_clamps() {
         assert_eq!(snap_level_to_milestone(99), 16, "above the top milestone clamps");
+        assert_eq!(snap_level_to_milestone(32764), 16, "a bad row still reads as +16");
         assert_eq!(snap_level_to_milestone(-3), 0, "below the bottom milestone clamps");
     }
 
