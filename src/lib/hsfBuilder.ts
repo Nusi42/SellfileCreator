@@ -49,6 +49,7 @@ import {
   AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE,
   SUBSTAT_ROLL_RANGES_BY_STAR as GENERATED_ROLL_RANGES,
 } from './generated/domainConstants'
+import { isRecipeOwnedRuleId } from './ruleRecipeIndex'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 // Rank-5 factory target seed for the mode-damage substats.
 import { anomalousRollValueForRank, ANOMALOUS_SUBSTAT_VARIANTS } from './anomalousAccessories'
@@ -391,9 +392,10 @@ export function buildHsfRules(
     ? Math.max(1, Math.floor(options.limit))
     : null
   // Propagate recipe metadata so exported HSF rows retain their builder lineage.
-  const recipeId = (options && typeof options.recipeId === 'number' && Number.isFinite(options.recipeId) && options.recipeId > 0)
-    ? Math.floor(options.recipeId)
-    : null
+  // `isRecipeOwnedRuleId` is the one definition of "this id names a builder recipe";
+  // non-positive ids are the safeguard sentinel range and own no recipe.
+  const rawRecipeId = options?.recipeId
+  const recipeId = isRecipeOwnedRuleId(rawRecipeId) ? Math.floor(rawRecipeId) : null
 
   // Apply slot/main constraints before preparing substat permutations in wasm.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({

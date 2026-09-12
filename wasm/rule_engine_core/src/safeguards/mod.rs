@@ -2733,7 +2733,7 @@ pub fn build_safeguard_rules_core(
             continue;
         }
 
-        // Recipe IDs descend from the provided sentinel base (-1 in app code).
+        // Recipe IDs descend from the provided sentinel base (SAFEGUARD_RECIPE_ID_BASE).
         let recipe_id = recipe_id_base - safeguard_rule_offset;
         safeguard_rule_offset += 1;
         let normalized_name = safeguard_trim_name(rule.name.as_deref().unwrap_or(""));

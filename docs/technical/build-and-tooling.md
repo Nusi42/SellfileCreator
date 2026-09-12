@@ -403,20 +403,53 @@ that ever changes, the numbers above are the baseline to beat.
 
 **`RecipeID` is 1-based — the recipe-mode gate depends on it.**
 
-A generated rule's `RecipeID` is *not* a raw index. Emission drops any value `<= 0`
-(`hsf_builder_execution`: `RecipeID: input.recipe_id.filter(|v| *v > 0)`), and the evaluator
-recovers the recipe's position as `RecipeID - 1` to look it up in `recipe_modes`
-(`matcher_evaluator::prepare_rule`). Build the id with
-`matcher_evaluator::recipe_id_for_index`; `recipe_index_from_id` is its inverse, and the two
-are the single definition of that offset. The app's TS builder stamps the same convention
-(`recipeIdForExport = recipeIdx + 1`, `merge.ts`).
+A generated rule's `RecipeID` is *not* a raw index. Emission drops any id that does not name
+a recipe (`matcher_evaluator::is_recipe_owned_rule_id`, used by `hsf_builder_execution`), and
+the evaluator recovers the recipe's position as `RecipeID - 1` to look it up in
+`recipe_modes` (`matcher_evaluator::prepare_rule`). Three helpers are the single definition
+of that convention, and every producer and reader goes through them:
+
+| helper | answers |
+| --- | --- |
+| `recipe_id_for_index` | the id a recipe at 0-based index must carry |
+| `recipe_index_from_id` | the index an id refers to (its inverse) |
+| `is_recipe_owned_rule_id` | whether an id names a builder recipe at all |
+
+The app mirrors all three in `src/lib/ruleRecipeIndex.ts` (`recipeIdForIndex`,
+`getRuleRecipeIndex`, `isRecipeOwnedRuleId`) — never spell `+ 1`, `- 1`, or `> 0` inline on
+either side. Safeguard rows sit in the non-positive sentinel range, counting down from
+`SAFEGUARD_RECIPE_ID_BASE` (defined in both languages), which is why the positive test is
+what separates a builder recipe's rule from an injected one.
 
 Stamping the 0-based enumeration index instead breaks the gate twice over: recipe 0 loses its
-id to the `> 0` filter, and every later recipe reads its *predecessor's* entry in
+id to the positive test, and every later recipe reads its *predecessor's* entry in
 `recipe_modes`. A sellfile whose list is headed by a separator, or that contains any disabled
 recipe, then has the following *active* recipe silenced — the DLL keeps gear the app's
 preview sells, which reads as "the DLL decides almost nothing". This shipped once; the
 regression is pinned by `decide_parity.rs::a_disabled_recipe_silences_only_itself`.
+
+**`IgnoredBySafeguards` reaches the collector.**
+
+A recipe carrying this flag opts its *keeps* out of counting as safeguard coverage, so the
+safeguard still treats the piece as at-risk and rescues it. The DLL used to parse the flag
+in `sfc_reader` and then drop it, passing `None` for the collector's ignore list — so it
+disagreed with the app on every sellfile using the flag. `pipeline::derive_recipe_modes` has
+a sibling, `derive_ignore_safeguard_recipe_indices`, index-aligned with it and with the rule
+order `build_rules` emits; `sfc_reader::resolve_ignored_by_safeguards` resolves the field
+with the same field-beats-legacy-tag precedence as the rework gate. Pinned by
+`decide_parity.rs::a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard`, which
+compares the injected keep-rule count with the flag on and off — the two runs must differ,
+or the ignore list is not arriving.
+
+**Known gap: the expected-bucket domain.** A quota is
+`required_per_bucket * bucket_count`, and the app precomputes the bucket *domain* from
+TS-only catalogs (`buildSafeguardExpectedBucketDomain`: every faction id, set/slot
+compatibility) so the count reflects the buckets that *could* exist. The DLL passes
+`expected_payload: None`, so its count comes from the buckets *observed* in the gear on
+hand — a "keep 1 per slot" safeguard over six slots can therefore rescue a different number
+of pieces than the app's preview. Closing this needs those catalogs generated into
+`generated_domain_constants.rs` first; the call site in `pipeline::detect_safeguards` carries
+the same note.
 
 **Gating.** `npm run test:unit` runs `cargo test -p sfc_engine`, so a
 `rule_engine_core` change that breaks the DLL fails the standard pre-handoff gate. Before

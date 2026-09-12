@@ -524,6 +524,11 @@ pub struct ReadableRecipeParsed {
     pub artifact_meta_set_names: Vec<String>,
     // Rework gate resolved from the recipe field, or a legacy tag (ORE_ANY when ungated).
     pub ore: i64,
+    // True when the recipe opts its KEEPS out of counting as safeguard coverage, resolved
+    // from the recipe field or a legacy tag. Read by the safeguard collector's ignore list;
+    // the flag was parsed and then dropped before, so the DLL silently disagreed with the
+    // app on every sellfile that uses it.
+    pub ignored_by_safeguards: bool,
     pub early_keep_mode: String, // "early" | "late"
     pub auto_rarity_supplements_threshold: Option<String>,
 }
@@ -640,6 +645,34 @@ pub fn resolve_chaos_ore_value(gate: Option<&str>, tags: Option<&[String]>, sour
         (false, true) => ORE_NOT_ORED,
         (false, false) => ORE_ANY,
     }
+}
+
+/// True when a recipe opts its keeps out of counting as safeguard coverage.
+///
+/// Mirror of `isIgnoredBySafeguards` + the `ignoredBySafeguards` half of
+/// `transcodeLegacyRecipeTags` in src/lib/recipeFlags.ts, and shaped exactly like
+/// `resolve_chaos_ore_value` above so the two flags cannot drift in precedence: the explicit
+/// field wins when present, and a legacy tag is honoured only inside the legacy window (a
+/// legacy-looking tag on a current file is a deliberate user label, and reading it as
+/// behaviour here would make the DLL disagree with the TS loader about the same file).
+fn resolve_ignored_by_safeguards(flag: Option<bool>, tags: Option<&[String]>, source_version: Option<&str>) -> bool {
+    // An explicit field is authoritative in BOTH directions: a current build that wrote
+    // `false` means it, and must beat a stale legacy tag left in the same file.
+    if let Some(flag) = flag {
+        return flag;
+    }
+    // Outside the legacy window the tags carry no behaviour.
+    if !uses_legacy_behaviour_tags(source_version) {
+        return false;
+    }
+    // No tags at all leaves the recipe counting as ordinary coverage.
+    let Some(tags) = tags else { return false };
+    // Match the TS tag grammar: trim padding, compare case-insensitively, and accept every
+    // shipped spelling so a pre-rename file keeps its opt-out.
+    tags.iter().any(|raw| {
+        let normalized = raw.trim().to_lowercase();
+        LEGACY_TAGS_IGNORED_BY_SAFEGUARDS.iter().any(|t| *t == normalized)
+    })
 }
 
 /// Minimal substat target table parsed from SFC Minima section.
@@ -1016,6 +1049,12 @@ fn parse_readable_recipe(rec: &ReadableRecipe, source_version: Option<&str>) -> 
         artifact_meta_set_names,
         // Resolve the chaos-ore tags once here so every downstream builder call agrees.
         ore: resolve_chaos_ore_value(rec.rework_gate.as_deref(), rec.tags.as_deref(), source_version),
+        // Same precedence for the safeguard-coverage opt-out, resolved once here too.
+        ignored_by_safeguards: resolve_ignored_by_safeguards(
+            rec.ignored_by_safeguards,
+            rec.tags.as_deref(),
+            source_version,
+        ),
         early_keep_mode,
         auto_rarity_supplements_threshold,
     })

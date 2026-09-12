@@ -257,7 +257,7 @@ pub fn finish_merge_with_generated(
             build_safeguard_rules_core(
                 &parsed_safeguard_rules,
                 safeguard_detection.as_ref(),
-                safeguard_recipe_id_base.unwrap_or(-1),
+                safeguard_recipe_id_base.unwrap_or(crate::matcher_evaluator::SAFEGUARD_RECIPE_ID_BASE),
             )
         } else {
             Vec::<RuleRaw>::new()

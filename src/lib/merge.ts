@@ -43,6 +43,7 @@ import {
   RULE_SOURCE_SFC,
   RULE_SOURCE_SAFEGUARDS,
 } from './ruleSources'
+import { recipeIdForIndex } from './ruleRecipeIndex'
 import type { RuleSource } from './ruleSources'
 export {
   KEEP_OVERRIDE_RULE_SOURCES,
@@ -110,8 +111,10 @@ export function buildRulesForRecipe(params: {
 }, options?: { limit?: number; onLimit?: () => void; finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn }): HsfRuleWithRecipe[] {
   const { recipe, metasets, substatTargets, recipeIdx } = params
   // Carry a stable 1-based recipe identifier through builder → HSF exports.
+  // `recipeIdForIndex` is the one definition of that offset (and its inverse lives beside
+  // it), so the stamp here cannot drift from the readers that subtract 1 again.
   const recipeIdForExport = (typeof recipeIdx === 'number' && Number.isFinite(recipeIdx) && recipeIdx >= 0)
-    ? (Math.floor(recipeIdx) + 1)
+    ? recipeIdForIndex(recipeIdx)
     : null
   // Expand metasets and remove explicit exclusions before rule generation.
   const resolvedSets = resolveArtifactSetSelections({

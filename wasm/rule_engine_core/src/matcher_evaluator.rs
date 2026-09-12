@@ -705,6 +705,15 @@ pub const RECIPE_MODE_DISABLED: &str = "disabled";
 /// A layout-only entry in the recipe list. It produces no rules at all.
 pub const RECIPE_MODE_SEPARATOR: &str = "separator";
 
+/// The `RecipeID` safeguard-injected rules count DOWN from.
+///
+/// Safeguard rows carry ids at or below this sentinel so they never collide with a builder
+/// recipe's positive id (`recipe_id_for_index`) and `is_recipe_owned_rule_id` rejects them.
+/// This is the ONE definition on the Rust side; the app spells the same value as
+/// `SAFEGUARD_RECIPE_ID_BASE` and passes it across the wasm boundary, so callers that omit
+/// it fall back here rather than to a bare literal.
+pub const SAFEGUARD_RECIPE_ID_BASE: i64 = -1;
+
 /// The `RecipeID` a recipe at 0-based `index` must carry.
 ///
 /// `RecipeID` is 1-BASED: the builder drops any value <= 0
@@ -716,13 +725,25 @@ pub fn recipe_id_for_index(index: usize) -> i64 {
     index as i64 + 1
 }
 
+/// Whether a raw `RecipeID` names a builder recipe at all.
+///
+/// The one definition of the "positive means a real recipe" predicate: non-positive ids
+/// are the safeguard sentinel range (see `SAFEGUARD_RECIPE_ID_BASE`), so they map to no
+/// `recipe_modes` entry. An ABSENT id belongs to a base/HSF row and maps to no entry
+/// either; callers holding an `Option` therefore test it through `recipe_index_from_id`
+/// or `Option::is_some_and`. Emission and the gate both ask this rather than re-spelling
+/// `> 0`.
+pub fn is_recipe_owned_rule_id(recipe_id: i64) -> bool {
+    recipe_id > 0
+}
+
 /// The 0-based recipe index a `RecipeID` refers to, or `None` when it names no recipe.
 ///
-/// The inverse of `recipe_id_for_index`, and the one definition of that offset: a
-/// non-positive id (absent, or a safeguard's sentinel) belongs to no recipe, so it gates
-/// against no `recipe_modes` entry.
+/// The inverse of `recipe_id_for_index`, and the one definition of that offset: an id that
+/// `is_recipe_owned_rule_id` rejects belongs to no recipe, so it gates against no
+/// `recipe_modes` entry.
 pub fn recipe_index_from_id(recipe_id: Option<i64>) -> Option<i64> {
-    recipe_id.and_then(|id| if id > 0 { Some(id - 1) } else { None })
+    recipe_id.filter(|id| is_recipe_owned_rule_id(*id)).map(|id| id - 1)
 }
 
 // Recipe visibility gate (disabled/separator modes + explicit exclusions). SSOT here;

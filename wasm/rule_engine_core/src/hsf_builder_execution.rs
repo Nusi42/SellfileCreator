@@ -504,7 +504,11 @@ fn sort_artifact_types(values: &[i64]) -> Option<Vec<i64>> {
 // Build the selector-only base rule once so all runtime branches clone it.
 fn build_hsf_rules_base_rule(input: &BuildHsfRulesRuntimeIn) -> RuleRaw {
     RuleRaw {
-        RecipeID: input.recipe_id.filter(|value| *value > 0),
+        // One predicate decides whether an id names a builder recipe; a sentinel/absent
+        // id is dropped here so no reader has to re-test it.
+        RecipeID: input
+            .recipe_id
+            .filter(|id| crate::matcher_evaluator::is_recipe_owned_rule_id(*id)),
         RecipeName: None,
         Keep: input.keep,
         IsRuleTypeAND: None,

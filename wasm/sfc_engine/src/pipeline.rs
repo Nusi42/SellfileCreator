@@ -17,7 +17,7 @@ use rule_engine_core::{
     compute_merged_rules_core, configure_engine, evaluate_engine, recipe_id_for_index,
     safeguard_bucket_key_from_artifact, ComputeMergedRulesIn, EvaluateItemRaw, EvaluateOptionsRaw,
     ImprovementChanceEntry, RuleRaw, SafeguardCollectRowIn, SafeguardWasmSnapshotOut, SfcParsed, RECIPE_MODE_ACTIVE,
-    RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR,
+    RECIPE_MODE_DISABLED, RECIPE_MODE_SEPARATOR, SAFEGUARD_RECIPE_ID_BASE,
 };
 
 use crate::artifact_log::NativeArtifactIn;
@@ -123,6 +123,29 @@ fn derive_recipe_modes(parsed: &SfcParsed) -> Vec<String> {
         .collect()
 }
 
+// The 0-based indices of recipes that opted their KEEPS out of counting as safeguard
+// coverage (`IgnoredBySafeguards`). Index-aligned with `derive_recipe_modes` and with the
+// rule order `build_rules` emits, which is what the collector and evaluator index by.
+//
+// The app supplies the same list (buildIgnoreSafeguardRecipeIndices); the DLL used to pass
+// `None`, so the reader parsed the flag and then dropped it and the two disagreed on every
+// sellfile that uses it — a recipe that keeps rework fodder read as real coverage, and the
+// safeguard stood down instead of rescuing the piece the app rescues.
+//
+// `None` rather than an empty Vec when nothing is flagged: the collector treats the absent
+// list as "no recipe opts out", so an empty list would only cost a needless allocation.
+fn derive_ignore_safeguard_recipe_indices(parsed: &SfcParsed) -> Option<Vec<i64>> {
+    let indices: Vec<i64> = parsed
+        .recipes
+        .iter()
+        .enumerate()
+        .filter(|(_, recipe)| recipe.ignored_by_safeguards)
+        .map(|(idx, _)| idx as i64)
+        .collect();
+    // Empty means the same thing as absent here, and absent is the cheaper spelling.
+    (!indices.is_empty()).then_some(indices)
+}
+
 // Build the HSF rules for every recipe, stamping each with its recipe id so the
 // recipe-mode gate and safeguard bucketing can attribute a rule back to the recipe that
 // produced it.
@@ -182,8 +205,15 @@ fn detect_safeguards(
         rows.to_vec(),
         custom_rules.to_vec(),
         recipe_modes,
-        None, // ignore_safeguard_recipe_indices
+        // The recipes that opted out of counting as coverage, same list the app passes.
+        derive_ignore_safeguard_recipe_indices(parsed),
         parsed.safeguard_rules.clone(),
+        // NOT at parity with the app, which precomputes an expected-bucket DOMAIN from
+        // TS-only catalogs (all faction ids, set-slot compatibility) this crate has no
+        // generated equivalent of. Without it a quota counts the buckets OBSERVED in the
+        // gear on hand instead of the buckets that COULD exist, so a "keep 1 per slot"
+        // safeguard over six slots can rescue a different number of pieces than the app's
+        // preview does. Closing this needs those catalogs generated into Rust first.
         None, // expected_payload
         true,
         0.0,             // now (timestamp; not used for rule logic)
@@ -224,7 +254,9 @@ fn merge_rules_with(
         safeguard_enabled: options.safeguards && parsed.safeguards_enabled,
         safeguard_rules: parsed.safeguard_rules.clone(),
         safeguard_detection: detection,
-        safeguard_recipe_id_base: None,
+        // Name the sentinel rather than letting the merge fall back to a bare literal;
+        // this is the same value the app passes across the wasm boundary.
+        safeguard_recipe_id_base: Some(SAFEGUARD_RECIPE_ID_BASE),
     })
     .map_err(|e| format!("Merge error: {e}"))
 }
@@ -360,6 +392,12 @@ pub fn evaluate_verdicts(
     // configure_engine + evaluate_engine share a thread-local engine state, so they run
     // here back to back on one thread.
     configure_engine(merged_rules, recipe_modes);
+    // No `baseline_exclude_sources` here, deliberately: the evaluator seeds
+    // `first_non_excluded_match` from the PRE-override `first_match`, so the baseline
+    // channel already reads the sellfile without the safeguard keeps. The extra option only
+    // triggers a second `evaluate_item` pass whose result is discarded in this shape, and
+    // measuring it here showed no verdict changes either way — the app passes it because
+    // its own caller reuses baseline matches for chip rendering, which this crate does not.
     let results = evaluate_engine(items, EvaluateOptionsRaw::default())?;
 
     let mut verdicts = Vec::with_capacity(results.len());

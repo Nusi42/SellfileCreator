@@ -9,6 +9,7 @@
 // irreversibly, which is why these assert the decision rather than merely that a pipeline
 // ran: "plausible" is not the standard, agreeing with the app's own preview is.
 
+use rule_engine_core::RULE_SOURCE_SAFEGUARDS;
 use sfc_engine::artifact_log::{build_equipped_by_artifact_map, parse_artifact_log_array, RawArtifactLogRow};
 use sfc_engine::pipeline::{decide, Verdict};
 
@@ -576,11 +577,8 @@ fn concurrent_calls_agree_with_a_single_call() {
 // A sellfile with a safeguard but NO rule that would sell the safeguarded piece.
 //
 // The distinction from `sfc_with_spd_safeguard` is deliberate: there, a blanket sell rule
-// matches first, so `first_non_excluded_match` is seeded from that sell and the baseline
-// reads SELL whether or not the caller asked for a baseline pass. Here the recipe cannot
-// reach the piece, so the safeguard rule is the ONLY match — and a baseline computed
-// without `baseline_exclude_sources` reports that same safeguard keep as the baseline,
-// which is the app's own pre-safeguard verdict read wrong.
+// condemns the piece, so a rescue is possible. Here the recipe cannot reach the piece, so
+// the safeguard rule is the ONLY match and there was nothing to rescue it from.
 fn sfc_safeguarding_an_otherwise_unmatched_piece() -> String {
     json!({
         "Version": "1.0",
@@ -619,8 +617,11 @@ fn sfc_safeguarding_an_otherwise_unmatched_piece() -> String {
 // `safeguarded` must mean "a rule would have sold this and a safeguard re-kept it", so a
 // piece no recipe condemns must NOT be flagged — it was never at risk.
 //
-// This is the half of the baseline read that a missing `baseline_exclude_sources` gets
-// RIGHT by accident, pinned so the fix cannot invert it.
+// The baseline channel is what keeps this honest: the evaluator seeds
+// `first_non_excluded_match` from the PRE-override match, so a safeguard's own keep never
+// stands in for "what the sellfile decides on its own". Pinned so that seeding cannot
+// regress into reporting the override as the baseline, which would flag every safeguard
+// keep as a rescue.
 #[test]
 fn an_unthreatened_piece_is_not_flagged_as_rescued() {
     let sfc = sfc_safeguarding_an_otherwise_unmatched_piece();
@@ -643,22 +644,25 @@ fn an_unthreatened_piece_is_not_flagged_as_rescued() {
 // read and then dropped: the app and the DLL disagreed on every sellfile using it.
 //
 // Semantics pinned here: the flag says a KEEP from this recipe does not count as coverage,
-// so the safeguard must still rank and rescue candidates rather than standing down because
-// the recipe already keeps them.
-#[test]
-fn a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard() {
-    // One recipe KEEPS every chestplate, and opts out of counting as safeguard coverage.
-    // A second recipe sells them, placed after the keep so first-match still keeps.
-    let sfc = json!({
+// so the safeguard must still treat the piece as at-risk and rescue it, rather than standing
+// down because the recipe already keeps it.
+//
+// The test discriminates on `safeguarded`, which is the observable the flag actually moves:
+// `safeguard_ranks` is non-empty either way (ranking happens before coverage is resolved),
+// so asserting only on that would pass with the flag dropped and pin nothing.
+fn sfc_with_an_ignored_keep_recipe(ignored: bool) -> String {
+    // One recipe KEEPS every chestplate. When it opts out of counting as safeguard
+    // coverage, the safeguard must still rescue the piece on its own account.
+    json!({
         "Version": "1.0",
         "Recipes": [
             {
-                "appearance": { "name": "Keep chestplates (not coverage)" },
+                "appearance": { "name": "Keep chestplates" },
                 "keep": true,
                 "Rank": "Any",
                 "Rarity": "Any",
                 "artifactTypeNames": ["Chestplate"],
-                "IgnoredBySafeguards": true,
+                "IgnoredBySafeguards": ignored,
                 "substats": [],
                 "minCount": 0,
             },
@@ -682,17 +686,44 @@ fn a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard() {
         }],
         "SafeguardsEnabled": true,
     })
-    .to_string();
+    .to_string()
+}
 
+// Count the safeguard-injected KEEP rules the chain emits. That is the observable the
+// ignore list actually moves: a recipe keep that counts as coverage leaves the piece
+// off the at-risk set, so detection selects nothing and injects no keep rule, while an
+// opted-out keep puts the piece back at risk and the safeguard emits its rescue.
+//
+// `safeguard_ranks` is NOT the observable — every row is ranked before coverage is
+// resolved, so it holds at the same length either way and asserting on it would pin
+// nothing.
+fn injected_safeguard_keep_rule_count(sfc: &str) -> usize {
     let raw: Vec<RawArtifactLogRow> = serde_json::from_value(json!(spd_ladder())).expect("rows");
     let compact = parse_artifact_log_array(&raw, &build_equipped_by_artifact_map(&[]));
-    let outcome = decide(&sfc, &compact).expect("decision chain");
+    let outcome = decide(sfc, &compact).expect("decision chain");
+    outcome
+        .rules
+        .iter()
+        .filter(|rule| rule.source.as_deref() == Some(RULE_SOURCE_SAFEGUARDS))
+        .count()
+}
 
-    // The safeguard must have ranked candidates. With the ignore list dropped, the keep
-    // recipe reads as coverage and detection stands down, leaving this empty.
+#[test]
+fn a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard() {
+    // Flag ON: the keep does not count as coverage, so the piece is still at risk and the
+    // safeguard injects its own keep for it.
+    let opted_out = injected_safeguard_keep_rule_count(&sfc_with_an_ignored_keep_recipe(true));
+    // Flag OFF on the SAME sellfile: the keep IS ordinary coverage, so nothing is at risk
+    // and the safeguard injects nothing. Comparing the two runs is what makes this
+    // discriminate — with the ignore list dropped both runs collapse onto this second one.
+    let covered = injected_safeguard_keep_rule_count(&sfc_with_an_ignored_keep_recipe(false));
     assert!(
-        !outcome.safeguard_ranks.is_empty(),
-        "the recipe opted out of coverage, so the safeguard must still rank its candidates"
+        opted_out > covered,
+        "the opt-out must put the piece back at risk so the safeguard rescues it; got {opted_out} injected keep rules with the flag set vs {covered} without, so the ignore list is not reaching the collector and the DLL disagrees with the app"
+    );
+    assert_eq!(
+        covered, 0,
+        "without the opt-out the recipe's keep is coverage, so nothing needed rescuing"
     );
 }
 
@@ -702,12 +733,15 @@ fn a_recipe_ignored_by_safeguards_does_not_suppress_the_safeguard() {
 // `required_total = required_per_bucket * bucket_count`, and the app always supplies a
 // bucket domain (buildSafeguardExpectedBucketDomain) so the count comes from the catalog:
 // a "keep 1 per slot" safeguard over all six slots has a quota of 6 regardless of what the
-// player owns. The DLL passed `expected_payload: None`, so the count fell back to the
-// buckets OBSERVED in the gear on hand — a different quota, and so a different number of
-// pieces rescued, for the same sellfile and the same vault.
+// player owns.
 //
-// Pinned on a rule whose tuple names several slots while the gear fills only one, which is
-// the case where observed and expected bucket counts must differ.
+// KNOWN GAP — the DLL still passes `expected_payload: None` (see the note at that call site
+// in pipeline.rs), so its count comes from the buckets OBSERVED in the gear on hand. This
+// test therefore pins the PER-BUCKET arithmetic that both sides agree on — a per-slot quota
+// of 1 rescues one chestplate and the empty slot buckets lend it nothing — and NOT the
+// expected-vs-observed domain, which is still open. Closing that needs the TS-only catalogs
+// (all faction ids, set/slot compatibility) generated into Rust first; when they are, extend
+// this test to compare two vaults that differ only in which buckets they fill.
 #[test]
 fn a_quota_counts_the_expected_bucket_domain_not_the_observed_one() {
     // Keep 1 per SLOT, over a tuple naming all six gear slots.

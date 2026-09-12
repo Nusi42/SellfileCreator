@@ -5,7 +5,28 @@ type RuleWithRecipeMetadata = {
   RecipeName?: string
 }
 
-const normalizeRecipeId = (recipeIdx: number): number => Math.floor(recipeIdx) + 1
+/**
+ * The `RecipeID` a recipe at 0-based `recipeIdx` must carry — the ONE definition of that
+ * offset on the TS side, mirroring `recipe_id_for_index` in the Rust core.
+ *
+ * `RecipeID` is 1-BASED. Emission drops any non-positive value (it is the safeguard
+ * sentinel range, see SAFEGUARD_RECIPE_ID_BASE), so a 0-based id would erase recipe 0's
+ * identity, and `getRuleRecipeIndex` recovers the index by subtracting 1. Never write
+ * `recipeIdx + 1` inline: the offset and its inverse must not drift apart.
+ */
+export const recipeIdForIndex = (recipeIdx: number): number => Math.floor(recipeIdx) + 1
+
+/**
+ * Whether a raw `RecipeID` names a builder recipe at all — the ONE definition of the
+ * "positive means a real recipe" predicate, mirroring the Rust core's `> 0` filter.
+ *
+ * Non-positive ids are the safeguard sentinel range and absent ids belong to base/HSF
+ * rows, so neither maps to a `recipeModes` entry.
+ */
+export const isRecipeOwnedRuleId = (recipeId: number | null | undefined): recipeId is number => (
+  typeof recipeId === 'number' && Number.isFinite(recipeId) && Math.floor(recipeId) > 0
+)
+
 const sanitizeName = (name?: string | null): string | undefined => {
   if (typeof name !== 'string') return undefined
   const trimmed = name.trim()
@@ -20,11 +41,9 @@ export function normalizeRecipeName(name?: string | null): string | undefined {
 export function getRuleRecipeIndex(rule: RuleWithRecipeMetadata | null | undefined): number | null {
   // Rules should already be normalized at HSF IO boundaries.
   const rawId = rule?.RecipeID
-  if (typeof rawId === 'number' && Number.isFinite(rawId)) {
-    const recipeId = Math.floor(rawId)
-    if (recipeId > 0) return recipeId - 1
-  }
-  return null
+  // One predicate decides "is this a builder recipe's id"; one offset inverts it.
+  if (!isRecipeOwnedRuleId(rawId)) return null
+  return Math.floor(rawId) - 1
 }
 
 export function applyRecipeIndexMutable(rule: RuleWithRecipeMetadata, recipeIdx: number, recipeName?: string | null): void {
@@ -35,7 +54,7 @@ export function applyRecipeIndexMutable(rule: RuleWithRecipeMetadata, recipeIdx:
     }
     return
   }
-  rule.RecipeID = normalizeRecipeId(recipeIdx)
+  rule.RecipeID = recipeIdForIndex(recipeIdx)
   const nextName = sanitizeName(recipeName ?? rule.RecipeName)
   if (nextName) {
     rule.RecipeName = nextName
@@ -54,7 +73,7 @@ export function cloneRuleWithRecipeIndex(rule: HsfRuleWithRecipe, recipeIdx: num
   const nextName = sanitizeName(recipeName ?? rule.RecipeName)
   const clone: HsfRuleWithRecipe = {
     ...rule,
-    RecipeID: normalizeRecipeId(recipeIdx),
+    RecipeID: recipeIdForIndex(recipeIdx),
     ...(nextName ? { RecipeName: nextName } : {}),
   }
   return clone

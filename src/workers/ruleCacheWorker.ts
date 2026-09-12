@@ -8,6 +8,7 @@ import {
   configureMergedRulesFromComponents,
   type MergedRulesComponents,
 } from '../lib/merge'
+import { isRecipeOwnedRuleId } from '../lib/ruleRecipeIndex'
 import { recipesForRuleBuild, recipeNamesForExport } from '../lib/ruleCacheHelpers'
 import { composeRuleCacheKey } from './ruleCacheKey'
 import { computeExportedHsfFingerprint } from '../lib/hsfIO'
@@ -339,12 +340,13 @@ const buildRulesByRecipeIndices = (
   mergedRulesFinal: HsfRuleWithRecipe[],
 ): Array<[number, number[]]> => {
   // Build lookup: "RecipeID:lineIdx" → position in mergedRulesFinal.
-  // Skip safeguard rules (RecipeID <= 0) and base rules (RecipeID absent).
+  // Skip safeguard rules (sentinel ids) and base rules (RecipeID absent) — the
+  // "names a builder recipe" test is `isRecipeOwnedRuleId`, not a second inline compare.
   const positionMap = new Map<string, number>()
   for (let i = 0; i < mergedRulesFinal.length; i++) {
     const rule = mergedRulesFinal[i]!
     const recipeId = rule.RecipeID
-    if (typeof recipeId !== 'number' || recipeId <= 0) continue
+    if (!isRecipeOwnedRuleId(recipeId)) continue
     positionMap.set(`${recipeId}:${rule.__lineIdx ?? -1}`, i)
   }
   // For each recipe, resolve positions in mergedRulesFinal preserving prebuiltCustomRules order.
@@ -353,7 +355,7 @@ const buildRulesByRecipeIndices = (
     const indices: number[] = []
     for (const rule of rules) {
       const recipeId = rule.RecipeID
-      if (typeof recipeId !== 'number' || recipeId <= 0) continue
+      if (!isRecipeOwnedRuleId(recipeId)) continue
       const idx = positionMap.get(`${recipeId}:${rule.__lineIdx ?? -1}`)
       if (idx !== undefined) indices.push(idx)
     }
