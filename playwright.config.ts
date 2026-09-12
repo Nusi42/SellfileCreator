@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { cpus } from 'node:os';
 import { PLAYWRIGHT_TIMEOUTS } from './tests/playwright/timeouts';
 
 // Shared root for Playwright artifact output so per-browser runs stay isolated.
@@ -15,6 +16,24 @@ const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 // (e.g. truncated chips, overflow handling, alternative column counts). FHD projects record
 // video at this same size so the captured frames match what the test actually saw.
 const FHD_VIEWPORT = { width: 1920, height: 1080 };
+
+// Upper bound on local workers, independent of core count.
+//
+// A bare "50%" over-subscribes a high-core workstation: each worker drives its own
+// Chromium against the ~15 MB single-file bundle, so on a 32-core box that is 16 browsers
+// competing for memory bandwidth and the GPU process. The app then misses ordinary
+// action budgets and tests fail on wall-clock, not on behavior — a false red that looks
+// exactly like a product regression. Measured on this repo: note-overrides-preset-file,
+// simple-mode-custom-tab and safeguard-groups failed 2-3 of 24 at 16 workers, and passed
+// 24/24 at 4, same commit and machine.
+//
+// 8 keeps the speedup on 8-16 core machines (where 50% already lands at or under the cap,
+// so nothing changes) while stopping the runaway above that. Raising this is not the fix
+// for a slow spec — see the timeout policy in docs/TECHNICAL.md.
+const LOCAL_WORKER_CAP = 8;
+
+// Half the cores, clamped to the cap, and never below 1 on a single-core machine.
+const LOCAL_WORKER_CAP_APPLIED = Math.max(1, Math.min(LOCAL_WORKER_CAP, Math.floor(cpus().length / 2)));
 
 // Specs that must stay serialized (workers=1) — either because they measure wall-clock
 // latency / heap growth (timing perturbed by CPU contention) or because they load a
@@ -101,11 +120,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 1,
-  /* Worker count: 50% of CPU cores locally for a healthy speedup that still leaves
-     headroom for Vite + the OS; cap CI runners at 2 to avoid OOM on shared hardware.
-     The `<browser>-perf` project is launched separately with --workers=1 so timing
-     and heap-growth assertions stay free of CPU contention. */
-  workers: process.env.CI ? 2 : '50%',
+  /* Worker count: half the CPU cores locally, but never more than LOCAL_WORKER_CAP;
+     cap CI runners at 2 to avoid OOM on shared hardware. The `<browser>-perf` project
+     is launched separately with --workers=1 so timing and heap-growth assertions stay
+     free of CPU contention. */
+  workers: process.env.CI ? 2 : LOCAL_WORKER_CAP_APPLIED,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   // Keep console output detailed while still writing the HTML report to disk.
   reporter: [

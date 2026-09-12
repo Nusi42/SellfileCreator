@@ -144,7 +144,19 @@ Notes:
   - Dev vs. release iteration counts live in `tests/playwright/iteration-counts.ts` (the single `E2E_FULL` toggle); specs import named counts from there. Lower a count there, never inline per-spec.
   - `npm run test:e2e:all` aliases `test:e2e:full`; `npm test` runs `test:all` (unit + dev e2e tier); `npm run test:all:full` runs unit + full e2e tier.
   - Keep e2e specs browser-agnostic; avoid per-browser `test.skip` unless a true platform limitation exists.
-- Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
+- **Worker count is capped, and the cap is load-bearing.** `playwright.config.ts` runs half the
+  CPU cores locally, clamped to `LOCAL_WORKER_CAP` (8); CI stays at 2, and the `*-perf` project
+  is launched separately with `--workers=1`. The cap exists because a bare `'50%'`
+  over-subscribes a high-core workstation: every worker drives its own Chromium against the
+  ~15 MB single-file bundle, so a 32-core box ran 16 browsers competing for memory bandwidth
+  and the GPU process. The app then misses ordinary action budgets and specs fail on
+  wall-clock rather than behavior — **a false red that reads exactly like a product
+  regression**. Measured here: `note-overrides-preset-file`, `simple-mode-custom-tab` and
+  `safeguard-groups` failed 2–3 of 24 at 16 workers and passed 24/24 at 4, on the same commit
+  and machine; the full FHD suite is 90/90 at the capped 8. Machines at 16 cores or fewer are
+  unaffected (50% already lands at or under the cap). If specs go unstable on a new machine,
+  check the resolved worker count (Playwright prints `Running N tests using W workers`) before
+  suspecting the app — and never "fix" it by raising a timeout.
 - Timeout policy:
   - Timeouts are centralized in `tests/playwright/timeouts.ts`; adjust them there instead of hardcoding new values.
   - `testDefault` is 3s and should cover most UI specs; only rule rebuild or matcher workflows may use `testLong` (15s).
