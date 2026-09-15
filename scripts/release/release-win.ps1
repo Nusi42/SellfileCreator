@@ -12,10 +12,25 @@
   package.json - the switch only chooses the number developed against next, so
   a feature release is `npm run release:win -- -Bump minor`, not a hand edit.
   Ignored with -DevBuild, which never bumps.
+
+  A RELEASE BUILDS FROM ZERO: `npm run wasm:clean` (cargo clean on the wasm
+  workspace) plus a wipe of dist.app, and the `npm ci` below replaces
+  node_modules from the lockfile. That is the point of a release build - what
+  ships is built from the commit, never from whatever an incremental tree
+  happened to be holding, and a stale artifact is exactly the failure nobody
+  finds until a user does. It costs a full Rust rebuild, which is the price
+  rather than something to opt into.
+
+  Two ways past it, both explicit: -DevBuild, which is not a release at all,
+  and -NoClean, which is one that knowingly gives up the guarantee - a re-run
+  after a late failure, or an iteration where the cold rebuild costs more than
+  it proves. What ships from a -NoClean run is NOT known to come from the
+  commit alone.
 #>
 
 param(
   [switch]$DevBuild,
+  [switch]$NoClean,
   [ValidateSet('patch', 'minor', 'major')][string]$Bump = 'patch'
 )
 
@@ -166,6 +181,30 @@ try {
       Write-Host ''
       Write-Warning "Could not read console input (non-interactive session?); defaulting to run tests."
     }
+  }
+
+  # Build from zero. The DEFAULT for a release: what ships is built from the
+  # commit rather than from whatever an incremental tree was holding.
+  # -DevBuild is not a release, and -NoClean is one that gives the guarantee up
+  # on purpose. Before the install and the build, because both produce exactly
+  # what this throws away.
+  #
+  # What it does NOT touch, all three deliberately:
+  #   node_modules  - `npm ci` below already replaces it from the lockfile on
+  #                   every non-dev release, so a second wipe is redundant.
+  #   tmp/tsc       - scratch this very run writes (export:l10n compiles into
+  #                   it a few steps down), so clearing it would be undone.
+  #   old_releases  - the KEPT history of past built HTMLs, which this run adds
+  #                   to rather than replaces. Build output is disposable;
+  #                   that folder is a record, and a clean is not a delete.
+  if (-not $DevBuild -and -not $NoClean) {
+    Write-Host 'Clean build: wasm workspace + dist.app...'
+    npm run --silent wasm:clean
+    if ($LASTEXITCODE -ne 0) {
+      throw "wasm:clean failed with exit code $LASTEXITCODE"
+    }
+    $distApp = Join-Path $RepoRoot 'dist.app'
+    if (Test-Path -LiteralPath $distApp) { Remove-Item -LiteralPath $distApp -Recurse -Force }
   }
 
   # Sync node_modules to the committed lockfile so the release is built from
