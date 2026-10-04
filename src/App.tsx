@@ -16,6 +16,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
+import { nextFrame } from './lib/nextFrame'
 import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices, buildRawDocumentSlices, type OverrideAppliedDocumentSlices } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
 import { runHeadlessRuleCachePipeline } from './lib/headlessRuleCachePipeline'
@@ -6982,20 +6983,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const endpointPushQueueClosedRef = useRef(false)
   // Timestamp (ms) when the last apply+settle cycle completed; 0 = never.
   const lastEndpointAppliedAtRef = useRef(0)
-  // Animation-frame helper allows waiting for paint/commit boundaries.
-  const waitForAnimationFrame = useCallback(() => (
-    new Promise<void>((resolve) => {
-      if (typeof window === 'undefined') {
-        resolve()
-        return
-      }
-      window.requestAnimationFrame(() => resolve())
-    })
-  ), [])
   // Wait for worker + preview/Gear Inspector commits before processing the next push.
+  // Paint waits go through nextFrame, never a bare rAF: a hidden embed gets no frames, and
+  // the queue must keep draining there (see lib/nextFrame.ts).
   const waitForEndpointPushSettle = useCallback(async () => {
     // Let React commit immediate state updates before polling pipeline refs.
-    await waitForAnimationFrame()
+    await nextFrame()
     const startedAt = Date.now()
     while (!endpointPushQueueClosedRef.current) {
       // Pending debounce/abort refs indicate the worker pipeline still has queued work.
@@ -7012,9 +7005,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
     }
     // Give HSF preview + Gear Inspector grid one extra paint turn before dequeuing.
-    await waitForAnimationFrame()
-    await waitForAnimationFrame()
-  }, [waitForAnimationFrame])
+    await nextFrame()
+    await nextFrame()
+  }, [])
   // Apply one queued endpoint push and wait for full pipeline/UI settle.
   const applyEndpointPushCommand = useCallback(async (cmd: EndpointPushCommand) => {
     if (cmd.kind === 'gearDbFileBinary') {
@@ -9818,16 +9811,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!queuedSellfileExport) return
     // Worker still busy; wait for the next state change.
     if (isSellfileExportBlockedByWorker()) return
-    // Run on the next frame so transition commits land before payload capture.
-    const frameId = window.requestAnimationFrame(() => {
-      if (isSellfileExportBlockedByWorker()) return
+    // Run on the next frame so transition commits land before payload capture — via
+    // nextFrame, so a queued auto-push still goes out while the app is not on screen.
+    let cancelled = false
+    void nextFrame().then(() => {
+      if (cancelled || isSellfileExportBlockedByWorker()) return
       // Capture toast intent before clearing so the export sees the correct flag.
       const wasSilent = queuedSellfileExport === 'silent'
       setQueuedSellfileExport(false)
       if (!exportRulesCountRef.current) return
       void runSellfileExportNow(false, wasSilent)
     })
-    return () => window.cancelAnimationFrame(frameId)
+    return () => { cancelled = true }
   }, [
     isSellfileExportBlockedByWorker,
     queuedSellfileExport,
