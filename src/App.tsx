@@ -16,6 +16,7 @@ import { readHsfFile, buildHsfFileFromMerged, hsfToBlob, HSF_EXPORT_CONTENT_TYPE
 import { getSimpleMode, getPushEndpoint } from './lib/runtimeConfig'
 import { accountDisplayLabel, buildAccountRpcParams, classifyInboundAccountStamp, getActiveAccount, getUnstampedDefaultAccount, takeAccountMergeCarry } from './lib/accounts'
 import { claimAutoPushOwnership, refreshAutoPushOwnershipIfOwner } from './lib/autoPushOwnership'
+import { keptAttemptedHash, shouldAutoPush } from './lib/autoPushTrigger'
 import { nextFrame } from './lib/nextFrame'
 import { buildDocumentOverridesView, buildOverrideAppliedDocumentSlices, buildRawDocumentSlices, type OverrideAppliedDocumentSlices } from './lib/documentOverrides'
 import { createBackgroundAccountPushService, type BackgroundAccountPushService } from './lib/backgroundAccountPush'
@@ -9746,8 +9747,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (queueSellfileExportIfNeeded()) return
     void runSellfileExportNow()
   }, [queueSellfileExportIfNeeded, runSellfileExportNow])
-  // Silent variant used by auto-push — same logic but suppresses the success toast.
-  const handleExportSellfileSilent = useCallback(() => {
+  // Silent variant used by auto-push — same logic but suppresses the success toast. Resolves
+  // once the push has settled, so auto-push can keep exactly one upload in flight.
+  const handleExportSellfileSilent = useCallback(async () => {
     // Both guards below exist to protect the COMPILED payload: "no rules" means an .hsf export
     // would be empty, and the worker gate keeps it from serializing mid-rebuild. Neither
     // applies when the upload is the .sfc document — it is serialized straight from live
@@ -9757,35 +9759,46 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (!exportRulesCountRef.current) return
       if (queueSellfileExportIfNeeded(true)) return
     }
-    void runSellfileExportNow(false, true)
+    await runSellfileExportNow(false, true)
   }, [pushWatchesSfc, queueSellfileExportIfNeeded, runSellfileExportNow])
-  // Auto-push: fire on the rising edge of pushDirty (or when autoPushEnabled turns on while
-  // already dirty). pushDirty — not hsfDirty — because the edge must track the document this
-  // client actually receives; under SfcFileAsSellfile that is the .sfc (see its definition).
-  const prevPushDirtyRef = useRef(false)
-  const prevAutoPushRef = useRef(false)
+  // Auto-push: push whenever the document has moved past the one auto-push last TRIED (see
+  // lib/autoPushTrigger.ts for why an edge trigger lost edits). The fingerprint is the one
+  // pushDirty compares — the .sfc under SfcFileAsSellfile, the compiled rules otherwise.
+  const pushDocHash = pushWatchesSfc ? currentSfcHash : currentMergedRulesHash
+  const autoPushAttemptedHashRef = useRef<string | null>(null)
+  const autoPushInFlightRef = useRef(false)
+  // Bumped when an auto-push settles. Its only job is to re-run the effect below, which is
+  // when an edit made during the upload gets its own push.
+  const [autoPushSettledSeq, setAutoPushSettledSeq] = useState(0)
   useEffect(() => {
-    const wasDirty = prevPushDirtyRef.current
-    const wasAutoPush = prevAutoPushRef.current
-    prevPushDirtyRef.current = pushDirty
-    prevAutoPushRef.current = autoPushEnabled
-    const shouldPush = autoPushEnabled && pushDirty && !!pushExportEndpoint
-    // Only act on state transitions to avoid repeated pushes while conditions hold.
-    const justBecameDirty = pushDirty && !wasDirty
-    const justEnabledAutoPush = autoPushEnabled && !wasAutoPush
-    // Rising-edge detection requires tracking prev values across renders; an event handler
-    // cannot observe the transition from false→true without this effect pattern.
+    const inputs = {
+      enabled: autoPushEnabled,
+      connected: !!pushExportEndpoint,
+      dirty: pushDirty,
+      inFlight: autoPushInFlightRef.current,
+      docHash: pushDocHash,
+      attemptedHash: autoPushAttemptedHashRef.current,
+    }
+    // Drop a stale attempt while off/offline, so switching on or reconnecting retries it.
+    autoPushAttemptedHashRef.current = keptAttemptedHash(inputs)
+    // Watching a derived document fingerprint is the only way to see "it moved past the
+    // last try"; no single event handler owns every edit that can move it.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+    if (!shouldAutoPush(inputs)) return
     // Single-owner gate (per account): with two tabs open each would otherwise auto-push
     // this tab's active account. Only the tab that owns THIS account's auto-push acts; a
     // second tab on the same account stands down (manual push and receiving data are
-    // unaffected). The claim doubles as the owner's heartbeat. Evaluated inline so the push
-    // call stays the last statement (the rising-edge effect pattern below).
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
-    if (shouldPush && (justBecameDirty || justEnabledAutoPush) && claimAutoPushOwnership(getActiveAccount().id)) {
-      // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
-      handleExportSellfileSilent()
-    }
-  }, [pushDirty, autoPushEnabled, pushExportEndpoint, handleExportSellfileSilent])
+    // unaffected). The claim doubles as the owner's heartbeat.
+    if (!claimAutoPushOwnership(getActiveAccount().id)) return
+    autoPushAttemptedHashRef.current = pushDocHash
+    autoPushInFlightRef.current = true
+    // Started from a microtask, not the effect body: the export may queue itself (a state
+    // write), and that belongs after this render's effects, not inside one.
+    void Promise.resolve().then(handleExportSellfileSilent).finally(() => {
+      autoPushInFlightRef.current = false
+      setAutoPushSettledSeq((n) => n + 1)
+    })
+  }, [pushDirty, pushDocHash, autoPushEnabled, autoPushSettledSeq, pushExportEndpoint, handleExportSellfileSilent])
   // Keep this tab's auto-push claim warm while the user is looking at it, so the tab in
   // focus stays the auto-push owner without a steady heartbeat (lazy by design — friendly
   // to background-tab freezing). Only refreshes an existing claim; never steals ownership.
