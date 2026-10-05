@@ -11,7 +11,11 @@
     "noImplicitOverride": true,
     "alwaysStrict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    // vite.config.ts imports its plugins with explicit .ts extensions, which Vite's native
+    // config loader requires. TS only permits that when nothing is emitted as JS.
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true
   },
   "include": ["vite.config.ts"]
 }

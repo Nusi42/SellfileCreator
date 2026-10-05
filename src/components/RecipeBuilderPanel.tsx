@@ -904,18 +904,15 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   // Close the substat menu when the active menu info disappears — the React-blessed
   // "Storing information from previous renders" pattern (https://react.dev/reference/react/useState#storing-information-from-previous-renders).
   // The setters below are guarded by an inequality check, so React skips the second render
-  // when nothing changed. The lint rule does not distinguish this guarded render-time use
-  // from unguarded setState-in-effect, so we disable it for the whole guarded block.
+  // when nothing changed.
   const [prevActiveMenuInfo, setPrevActiveMenuInfo] = React.useState(activeMenuInfo)
   if (activeMenuInfo !== prevActiveMenuInfo) {
-    /* eslint-disable @eslint-react/set-state-in-effect -- see block comment above */
     setPrevActiveMenuInfo(activeMenuInfo)
     if (substatMenu && !activeMenuInfo) {
       setSubstatMenu(null)
       setSubstatMenuDraft(null)
       resetSubstatMenuChipWidths()
     }
-    /* eslint-enable @eslint-react/set-state-in-effect */
   }
   const menuOpen = Boolean(substatMenu && activeMenuInfo)
   const menuAnchor = substatMenu?.anchor ?? { x: 0, y: 0 }
@@ -1212,7 +1209,6 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const rawSetKey = buildArtifactSetSelectionKey(recipe.artifactSets ?? [])
   const [prevSanitizedSetKey, setPrevSanitizedSetKey] = React.useState(sanitizedSetKey)
   if (sanitizedSetKey !== prevSanitizedSetKey) {
-    // eslint-disable-next-line @eslint-react/set-state-in-effect -- guarded render-time state adjustment, see substat-menu block above for full rationale
     setPrevSanitizedSetKey(sanitizedSetKey)
     // Notify the parent only when pruning actually changed the selection.
     if (rawSetKey !== sanitizedSetKey) {
@@ -1229,7 +1225,6 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   )
   const nextStatKeys = `${sanitizedMainStatsKey}|${sanitizedSubstatsKey}`
   if (nextStatKeys !== prevSanitizedStatKeys) {
-    // eslint-disable-next-line @eslint-react/set-state-in-effect -- guarded render-time state adjustment, see substat-menu block above for full rationale
     setPrevSanitizedStatKeys(nextStatKeys)
     const mainChanged = rawMainStatsKey !== sanitizedMainStatsKey
     const subChanged  = rawSubstatsKey  !== sanitizedSubstatsKey
@@ -2670,12 +2665,10 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
   const attentionTriggerKey = `${JSON.stringify(recipe)}|${interactionNonce}|${isDirty}`
   const [prevAttentionTriggerKey, setPrevAttentionTriggerKey] = useState(attentionTriggerKey)
   if (attentionTriggerKey !== prevAttentionTriggerKey) {
-    /* eslint-disable @eslint-react/set-state-in-effect -- guarded render-time state adjustment, see substat-menu block above for full rationale */
     setPrevAttentionTriggerKey(attentionTriggerKey)
     if (attentionState.phase || attentionState.burst) {
       setAttentionState({ phase: false, burst: false })
     }
-    /* eslint-enable @eslint-react/set-state-in-effect */
   }
   // Arm idle timer when dirty and reset whenever builder changes or user interacts.
   // The effect only manages the timer; state reset happens at render time above.

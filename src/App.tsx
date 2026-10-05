@@ -6202,7 +6202,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     pendingEndpointSelectionFilterRef.current = false
     const visibleIds = new Set(gearEntriesForTable.map(row => row.artifact.id))
     const contextMap = gearInspectorContextGroupById
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-derived-state
     setSelectedGearItemIds(prev => {
       if (prev.size === 0) return prev
       const pruned = new Set([...prev].filter(id => {
@@ -9365,7 +9365,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // immediately makes the flow crash-safe (a failed import never replays on the next launch).
   const [accountMergeCarry] = useState(takeAccountMergeCarry)
   const accountMergeCarryConsumedRef = useRef(false)
-  /* eslint-disable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect -- the carry is EXTERNAL state (localStorage written by the previous account's session before the reload); it can only be surfaced after the restore flow settles, which is inherently an effect, and the consumed-ref guarantees a single fire. */
+  /* eslint-disable react-hooks/set-state-in-effect -- the carry is EXTERNAL state (localStorage written by the previous account's session before the reload); it can only be surfaced after the restore flow settles, which is inherently an effect, and the consumed-ref guarantees a single fire. */
   useEffect(() => {
     // Wait until the startup restore flow settles so the import applies to the target
     // account's restored document, then surface the carry through the existing
@@ -9388,7 +9388,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return () => { if (failureToastTimer !== null) window.clearTimeout(failureToastTimer) }
   }, [accountMergeCarry, restoreDlgOpen, metasets, substatTargets, setPendingSfcShiftDialogImport, showToast, t])
-  /* eslint-enable react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect */
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // SFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (

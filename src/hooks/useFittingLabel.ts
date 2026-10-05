@@ -129,12 +129,10 @@ export function useFittingLabel({
       viewportContent - controlsWidth - leadingReservedPx - fixedWidth - ownMargin - trailingReservedPx - reservedPx - FIT_SAFETY_PX
     const next = chooseTier(tiers, fontEl, available)
     const full = tiers[0] ? measureTextWidth(tiers[0], fontEl) + reservedPx : 0
-    // Functional updates: skip the re-render when nothing changed (resize jitter). The rule
-    // flags setState because measure() runs synchronously in the layout effect below —
-    // intended: the pre-paint fit avoids a wrong-width flash.
-    // eslint-disable-next-line @eslint-react/set-state-in-effect
+    // Functional updates: skip the re-render when nothing changed (resize jitter). measure()
+    // runs synchronously in the layout effect below on purpose: the pre-paint fit avoids a
+    // wrong-width flash.
     setText((prev) => (prev === next ? prev : next))
-    // eslint-disable-next-line @eslint-react/set-state-in-effect
     setIdealWidth((prev) => (Math.abs(prev - full) < 1 ? prev : Math.ceil(full)))
   }, [tiers, reservedPx, trailingReservedPx, leadingReservedPx, viewportRef])
 

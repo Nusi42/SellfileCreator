@@ -302,7 +302,7 @@ export function GearAnalyticsRadar({ title, description, data, referenceData, se
     if (!peerDanceTrigger || danceVariantRef.current) return
     // Peer-triggered dances favour 'wave', 'nervous', 'heartbeat' — they look "sympathetic".
     const PEER_VARIANTS: RadarDance[] = ['wave', 'nervous', 'heartbeat', 'wave', 'nervous']
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change, @eslint-react/set-state-in-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-adjust-state-on-prop-change
     setDanceVariant(PEER_VARIANTS[Math.floor(Math.random() * PEER_VARIANTS.length)] ?? 'wave')
   }, [peerDanceTrigger])
 

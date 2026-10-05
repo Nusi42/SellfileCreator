@@ -5417,7 +5417,7 @@ export default function NoteDialog({
   // The ref guard fires it EXACTLY ONCE: without it, a later drawerWidthPx change (splitter drag) would
   // re-run and clobber a width the user set after going expert.
   const goExpertWidthPersistedRef = useRef(false)
-  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect -- panelWidth is NOT derived state here: it is normally user-owned (drag/resize) and persisted; this is a one-shot imperative reset triggered by an external event (the Go Expert click, surfaced via the module arm flag) that only becomes observable once useFloatingPanel flips. It cannot be computed during render (no render input encodes "the user just clicked Go Expert"), and it must both setState and write localStorage, so it belongs in an effect. The ref guard makes it fire once. */
+  /* eslint-disable react-you-might-not-need-an-effect/no-derived-state -- panelWidth is NOT derived state here: it is normally user-owned (drag/resize) and persisted; this is a one-shot imperative reset triggered by an external event (the Go Expert click, surfaced via the module arm flag) that only becomes observable once useFloatingPanel flips. It cannot be computed during render (no render input encodes "the user just clicked Go Expert"), and it must both setState and write localStorage, so it belongs in an effect. The ref guard makes it fire once. */
   React.useEffect(() => {
     if (!useFloatingPanel || !goExpertDemoArmed || goExpertWidthPersistedRef.current) return
     goExpertWidthPersistedRef.current = true
@@ -5426,7 +5426,7 @@ export default function NoteDialog({
     setPanelWidth(defaultWidth)
     savePanelSnap({ side: panelSideRef.current, width: defaultWidth })
   }, [useFloatingPanel, drawerWidthPx])
-  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state, @eslint-react/set-state-in-effect */
+  /* eslint-enable react-you-might-not-need-an-effect/no-derived-state */
 
   // One-time "go-expert demo" slide (see lib/goExpertDemo.ts). When the user leaves simple mode via
   // Go Expert, the note dialog becomes this floating panel overlaying the just-revealed builders —
@@ -6351,7 +6351,7 @@ function NoteEditorContent({
     // cannot be queried before mount, so useState initialisation here is correct.
     const root = editWrapRef.current
     const el = root?.querySelector<HTMLElement>('.w-md-editor-text') ?? null
-    // eslint-disable-next-line react-you-might-not-need-an-effect/no-initialize-state, @eslint-react/set-state-in-effect
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-initialize-state
     setEditorTextEl(el)
   }, [])
 

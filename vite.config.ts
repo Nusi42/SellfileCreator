@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, relative, resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
-import { assetsPlugin } from './scripts/vite/assetsPlugin';
-import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
-import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
-import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin'
-import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin'
-import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin'
-import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin'
+import { assetsPlugin } from './scripts/vite/assetsPlugin.ts';
+import { singleFilePlugin } from './scripts/vite/singleFilePlugin.ts';
+import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin.ts';
+import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlugin.ts'
+import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin.ts'
+import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin.ts'
+import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin.ts'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));

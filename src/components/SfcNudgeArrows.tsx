@@ -58,9 +58,8 @@ function SfcNudgeArrows({ active, fading, targetRef }: SfcNudgeArrowsProps) {
   // rendered through a PORTAL — see the rationale on the wrapper below.
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
 
-  /* eslint-disable @eslint-react/set-state-in-effect -- the anchor is MEASURED from the
-     live DOM (getBoundingClientRect), which is only available after commit. There is no
-     render-time value to derive it from. */
+  // The anchor is MEASURED from the live DOM (getBoundingClientRect), which only exists
+  // after commit, so there is no render-time value to derive it from.
   useEffect(() => {
     // No stale-anchor reset needed on deactivate: the guard below renders nothing
     // while inactive, and the next activation re-measures before painting.
@@ -80,7 +79,6 @@ function SfcNudgeArrows({ active, fading, targetRef }: SfcNudgeArrowsProps) {
       window.removeEventListener('scroll', measure, true)
     }
   }, [active, targetRef])
-  /* eslint-enable @eslint-react/set-state-in-effect */
 
   if (!active || !anchor) return null
   return createPortal(

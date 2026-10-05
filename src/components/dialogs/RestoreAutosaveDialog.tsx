@@ -118,7 +118,6 @@ export default function RestoreAutosaveDialog({
   // above (https://react.dev/reference/react/useState#storing-information-from-previous-renders).
   const mergedSelection = open ? mergeStoredSelection(defaultSelection, persistedSelection) : selection
   if (open && !selectionsEqual(selection, mergedSelection)) {
-    // eslint-disable-next-line @eslint-react/set-state-in-effect -- see comment above
     setSelection(mergedSelection)
   }
 

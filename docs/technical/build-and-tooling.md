@@ -823,6 +823,9 @@ If `initRuleEngineWasm()` (or `warmupWasmRuleEngine()`) rejects, the cached prom
   - Plugins: `@typescript-eslint`, `react`, `import`, `react-hooks`, `react-you-might-not-need-an-effect`
   - Key rules: `@typescript-eslint/no-explicit-any: error`, `react/jsx-no-undef: error`, `react/react-in-jsx-scope: off`, `react/prop-types: off`, `react-you-might-not-need-an-effect/*: warn`
   - Scripts: `npm run lint`, `npm run typecheck`
+- Held-back dependencies (re-check on every dependency refresh):
+  - `typescript` stays on 6.x: `typescript-eslint` 8.x peers `typescript <6.1.0`, and TS 7 no longer ships the classic compiler API that the lint/checker tooling loads.
+  - `eslint-plugin-react-you-might-not-need-an-effect` stays on 0.9.x: from 0.10 `no-event-handler` also flags props and reports at the usage line, which surfaces ~44 new warnings across ~40 effects and orphans the existing suppressions. Moving to 1.x needs its own triage pass (refactor or re-justify each effect); `no-empty-effect` is gone in 1.x, and `no-initialize-state` joins `recommended`.
 - Rust (the `wasm/` workspace):
   - Formatting: `wasm/rustfmt.toml` (`max_width = 120`, edition 2021). `npm run fmt:rust` formats, `npm run fmt:rust:check` is the read-only gate. Only stable rustfmt keys belong in that file — `ignore` is nightly-only, so `generated_domain_constants.rs` cannot be excluded, and it does not need to be: `generate-domain-constants.mjs` pipes its Rust output through rustfmt (same config) before writing, so the generated file lands already formatted and a later format run is a no-op. Regenerating and formatting are therefore safe in one commit.
   - Clippy: `cargo clippy --workspace --all-targets` must be warning-free. Prefer a targeted `#[allow(...)]` on the item, with the reason in a comment, over a crate-wide `#![allow(...)]` — a blanket allow also silences every future occurrence, which is how an unrelated lint gets hidden.
