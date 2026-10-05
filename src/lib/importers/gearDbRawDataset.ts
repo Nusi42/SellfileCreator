@@ -75,6 +75,12 @@ export const applyGearDbPartToSlots = (parts: GearDbRawParts, cmd: GearDbPartCom
  * `artifacts` slot map), so a `cID != null` guard would skip every artifact and wipe
  * equip associations. The map only contains real equips, so a hit is authoritative.
  * Shared by App's snapshot synthesis AND the background account-push flow.
+ *
+ * A MISS is authoritative too: an id absent from the map is unequipped, so its cID is
+ * cleared, never kept. Rows reach this function already patched — an accepted snapshot
+ * writes its patched rows back into the parts accumulator — so keeping a miss's cID
+ * pinned an UNEQUIPPED piece to the champion it had just left, forever (only equips
+ * ever landed). Without a map the rows' own cID (e.g. a SQL import's) stands.
  */
 export const patchArtifactRowsCID = (
   rows: GearDbArtifactRow[],
@@ -82,8 +88,8 @@ export const patchArtifactRowsCID = (
 ): GearDbArtifactRow[] => {
   if (!equippedBy || equippedBy.size === 0) return rows
   return rows.map((row) => {
-    const championId = equippedBy.get(row.ID)
-    return championId ? { ...row, cID: championId } : row
+    const championId = equippedBy.get(row.ID) ?? 0
+    return row.cID === championId ? row : { ...row, cID: championId }
   })
 }
 

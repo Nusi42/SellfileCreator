@@ -13,6 +13,7 @@ import {
   applyGearDbPartToSlots,
   buildRestoredGearDbBaselines,
   createDatasetFromSnapshot,
+  patchArtifactRowsCID,
   type GearDbRawParts,
 } from '../../src/lib/importers/gearDbRawDataset.js'
 import type {
@@ -340,6 +341,18 @@ test('a champions packet after an equip push still wins on equips', () => {
     equippedByArtifact: new Map([[9001, 502]]),
   })
   assert.equal(parts.equippedByArtifact?.get(9001), 502, 'champions packet updates the equip map')
+})
+
+test('an unequip clears cID on a row an earlier snapshot already patched', () => {
+  // The accumulator holds rows a previous snapshot patched (cID 127013); the new equip
+  // map no longer lists the piece. It must come out unequipped, not pinned to its old
+  // champion — the live bug: equips landed, unequips never did.
+  const stamped = [{ ID: 251567, cID: 127013 }, { ID: 9001, cID: 0 }] as unknown as Parameters<typeof patchArtifactRowsCID>[0]
+  const out = patchArtifactRowsCID(stamped, new Map([[9001, 502]]))
+  assert.equal(out[0]!.cID, 0, 'absent from the map means unequipped')
+  assert.equal(out[1]!.cID, 502, 'present in the map is equipped there')
+  // No map at all: the rows' own cID (a SQL import's) stands.
+  assert.equal(patchArtifactRowsCID(stamped, null)[0]!.cID, 127013)
 })
 
 export {}
