@@ -40,6 +40,14 @@ typedef char *(*sfc_build_hsf_fn)(const char *);
 typedef char *(*sfc_version_fn)(void);
 typedef void (*sfc_free_fn)(char *);
 
+/* All four together, so the steps below can be handed the library in one piece. */
+typedef struct {
+    sfc_decide_fn decide;
+    sfc_build_hsf_fn build_hsf;
+    sfc_version_fn version;
+    sfc_free_fn release;
+} sfc_api;
+
 /*
  * A small sell file using all three sources, so the switches further down have something
  * to separate: a rule that sells 5-star Epic pieces with a Speed substat, a safeguard that
@@ -346,19 +354,125 @@ static void print_last_error(const char *what)
     fprintf(stderr, "%s failed (error %lu): %s\n", what, (unsigned long)code, message);
 }
 
+/*
+ * Ask for the decisions and print them. Returns 1 on success, 0 on failure.
+ *
+ * Each buffer is released as soon as it is no longer needed, so every way out of this
+ * function is a plain return with nothing left to clean up.
+ */
+static int print_decisions(const sfc_api *api)
+{
+    char *request = build_request();
+    char *answer = NULL;
+    int ok = 0;
+
+    if (!request) {
+        fprintf(stderr, "Out of memory building the request.\n");
+        return 0;
+    }
+
+    answer = api->decide(request);
+    /* The request buffer is ours, so it uses the ordinary free(). */
+    free(request);
+    if (!answer) {
+        /* Documented never to happen, so this means something is badly wrong. */
+        fprintf(stderr, "The library returned nothing at all.\n");
+        return 0;
+    }
+
+    /* Check for a reported problem before reading anything else.
+     *
+     * A failure reply is the whole object - {"error":"..."} and nothing else - so look for
+     * it at the START. Searching the whole text would also match the word inside a rule
+     * name, and report a problem on a perfectly good answer. */
+    if (strncmp(answer, "{\"error\"", 8) == 0) {
+        fprintf(stderr, "The library reported a problem:\n%s\n", answer);
+    } else {
+        printf("Decisions:\n");
+        print_verdicts(answer);
+        ok = 1;
+    }
+
+    /* Strings from the library are released with its own sfc_free, never free(). */
+    api->release(answer);
+    return ok;
+}
+
+/*
+ * Ask for one sell file and report it. `switches` is passed to build_hsf_request as-is:
+ * empty for the complete file, or the parts to leave out.
+ */
+static void print_sell_file(const sfc_api *api, const char *label, const char *switches)
+{
+    char *request = build_hsf_request(switches);
+    char *answer = NULL;
+
+    if (!request) {
+        fprintf(stderr, "  %-24s out of memory building the request.\n", label);
+        return;
+    }
+
+    answer = api->build_hsf(request);
+    free(request);
+    if (!answer) {
+        fprintf(stderr, "  %-24s the library returned nothing at all.\n", label);
+        return;
+    }
+
+    report_sell_file(label, answer);
+    api->release(answer);
+}
+
+/* Steps 3 to 6, once the library's functions are in hand. Returns the exit code. */
+static int run(const sfc_api *api)
+{
+    char *version_text = NULL;
+
+    /* 3. Check the version before trusting anything it returns.
+     *
+     * A real program should parse the number and compare it to
+     * EXPECTED_SCHEMA_VERSION, stopping on a mismatch. Printing it is enough here. */
+    version_text = api->version();
+    if (version_text) {
+        printf("Library version: %s\n", version_text);
+        printf("This example expects schema %d.\n\n", EXPECTED_SCHEMA_VERSION);
+        api->release(version_text);
+    }
+
+    /* 4 and 5. Ask for the decisions and use the answer. */
+    if (!print_decisions(api)) {
+        return 1;
+    }
+
+    /* 6. Ask for sell files the helper app could load.
+     *
+     * Three times over the SAME sell file and the same gear, to show what the switches
+     * are for: the complete file, then the two halves it splits into. Together the halves
+     * hold every entry of the complete one, so writing both covers everything the single
+     * file would. The only thing they can share is a keep: a piece a keep rule already
+     * keeps and a safeguard would also save is kept again in the safeguard half.
+     *
+     * The switches have to be chosen HERE. A finished sell file is just a list of rules
+     * and does not record which part each one came from, so there is nothing left to
+     * sort out afterwards. */
+    printf("\nSell files:\n");
+
+    /* No switches: every source the sell file asks for. */
+    print_sell_file(api, "everything", "");
+    /* One half: the rules the user wrote, plus the closing sell. */
+    print_sell_file(api, "recipes + final sell", ", \"safeguards\": false");
+    /* The other half: only the pieces the safeguards rescue. */
+    print_sell_file(api, "safeguards only", ", \"recipes\": false, \"finalSell\": false");
+
+    printf("\nTo save one, write its \"hsf\" text to a file ending in .hsf, as it stands.\n");
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     const char *library_path = (argc > 1) ? argv[1] : DEFAULT_LIBRARY_NAME;
     HMODULE library = NULL;
-    sfc_decide_fn decide = NULL;
-    sfc_build_hsf_fn build_hsf = NULL;
-    sfc_version_fn version = NULL;
-    sfc_free_fn release = NULL;
-    char *request = NULL;
-    char *version_text = NULL;
-    char *answer = NULL;
-    char *hsf_request = NULL;
-    char *hsf_answer = NULL;
+    sfc_api api;
     int exit_code = 1;
 
     /* 1. Load the library. */
@@ -371,123 +485,19 @@ int main(int argc, char *argv[])
     }
 
     /* 2. Find the functions. */
-    decide = (sfc_decide_fn)GetProcAddress(library, "sfc_decide");
-    build_hsf = (sfc_build_hsf_fn)GetProcAddress(library, "sfc_build_hsf");
-    version = (sfc_version_fn)GetProcAddress(library, "sfc_version");
-    release = (sfc_free_fn)GetProcAddress(library, "sfc_free");
-    if (!decide || !build_hsf || !version || !release) {
+    api.decide = (sfc_decide_fn)GetProcAddress(library, "sfc_decide");
+    api.build_hsf = (sfc_build_hsf_fn)GetProcAddress(library, "sfc_build_hsf");
+    api.version = (sfc_version_fn)GetProcAddress(library, "sfc_version");
+    api.release = (sfc_free_fn)GetProcAddress(library, "sfc_free");
+    if (!api.decide || !api.build_hsf || !api.version || !api.release) {
         fprintf(stderr, "The library loaded but does not have the expected functions.\n");
         fprintf(stderr, "It is probably an older or unrelated file.\n");
-        goto cleanup;
+    } else {
+        exit_code = run(&api);
     }
 
-    /* 3. Check the version before trusting anything it returns.
-     *
-     * A real program should parse the number and compare it to
-     * EXPECTED_SCHEMA_VERSION, stopping on a mismatch. Printing it is enough here. */
-    version_text = version();
-    if (version_text) {
-        printf("Library version: %s\n", version_text);
-        printf("This example expects schema %d.\n\n", EXPECTED_SCHEMA_VERSION);
-        release(version_text);
-        version_text = NULL;
-    }
-
-    /* 4. Ask for the decisions. */
-    request = build_request();
-    if (!request) {
-        fprintf(stderr, "Out of memory building the request.\n");
-        goto cleanup;
-    }
-
-    answer = decide(request);
-    if (!answer) {
-        /* Documented never to happen, so this means something is badly wrong. */
-        fprintf(stderr, "The library returned nothing at all.\n");
-        goto cleanup;
-    }
-
-    /* 5. Use the answer. Check for a reported problem before reading anything else.
-     *
-     * A failure reply is the whole object - {"error":"..."} and nothing else - so look for
-     * it at the START. Searching the whole text would also match the word inside a rule
-     * name, and report a problem on a perfectly good answer. */
-    if (strncmp(answer, "{\"error\"", 8) == 0) {
-        fprintf(stderr, "The library reported a problem:\n%s\n", answer);
-        goto cleanup;
-    }
-
-    printf("Decisions:\n");
-    print_verdicts(answer);
-
-    /* 6. Ask for sell files the helper app could load.
-     *
-     * Three times over the SAME sell file and the same gear, to show what the switches
-     * are for: the complete file, then the two halves it splits into. The halves do not
-     * overlap and together they hold exactly the entries of the complete one, so writing
-     * both covers everything the single file would.
-     *
-     * The switches have to be chosen HERE. A finished sell file is just a list of rules
-     * and does not record which part each one came from, so there is nothing left to
-     * sort out afterwards. */
-    printf("\nSell files:\n");
-
-    /* No switches: every source the sell file asks for. */
-    hsf_request = build_hsf_request("");
-    if (hsf_request) {
-        hsf_answer = build_hsf(hsf_request);
-        if (hsf_answer) {
-            report_sell_file("everything", hsf_answer);
-            release(hsf_answer);
-            hsf_answer = NULL;
-        }
-        free(hsf_request);
-        hsf_request = NULL;
-    }
-
-    /* One half: the rules the user wrote, plus the closing sell. */
-    hsf_request = build_hsf_request(", \"safeguards\": false");
-    if (hsf_request) {
-        hsf_answer = build_hsf(hsf_request);
-        if (hsf_answer) {
-            report_sell_file("recipes + final sell", hsf_answer);
-            release(hsf_answer);
-            hsf_answer = NULL;
-        }
-        free(hsf_request);
-        hsf_request = NULL;
-    }
-
-    /* The other half: only the pieces the safeguards rescue. */
-    hsf_request = build_hsf_request(", \"recipes\": false, \"finalSell\": false");
-    if (hsf_request) {
-        hsf_answer = build_hsf(hsf_request);
-        if (hsf_answer) {
-            report_sell_file("safeguards only", hsf_answer);
-            release(hsf_answer);
-            hsf_answer = NULL;
-        }
-        free(hsf_request);
-        hsf_request = NULL;
-    }
-
-    printf("\nTo save one, write its \"hsf\" text to a file ending in .hsf, as it stands.\n");
-    exit_code = 0;
-
-cleanup:
-    /* Strings from the library are released with its own sfc_free, never free(). */
-    if (answer && release) {
-        release(answer);
-    }
-    if (version_text && release) {
-        release(version_text);
-    }
-    if (hsf_answer && release) {
-        release(hsf_answer);
-    }
-    /* The request buffers are ours, so they use the ordinary free(). */
-    free(request);
-    free(hsf_request);
+    /* Every path after a successful load comes back here, so the library is always
+     * unloaded exactly once. */
     FreeLibrary(library);
     return exit_code;
 }

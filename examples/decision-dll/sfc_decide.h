@@ -55,9 +55,9 @@ extern "C" {
  *                       safeguard rules treat worn gear differently. Shape below.
  *
  *   improvementChances  Off by default. Adds a per-piece "how likely is this to get
- *                       better" projection. It costs several times more than the whole
- *                       decision on a full inventory and changes no keep-or-sell
- *                       answer, so leave it off unless you display it.
+ *                       better" projection. It adds to the time each call takes and
+ *                       changes no keep-or-sell answer, so leave it off unless you
+ *                       display it.
  *
  *   rules               On by default. Set false if you only want decisions and never
  *                       write a sell file of your own - a real sell file compiles to
@@ -80,8 +80,8 @@ extern "C" {
  *     "level":            16,     // the REAL upgrade level, 0-16. Do not round it -
  *                                 // the library snaps it to the level rules can name.
  *     "setKindId":        0,      // the set, for EVERY slot including accessories.
- *                                 // 0 means no set; the library turns that into the
- *                                 // right thing per slot (see "no set" below).
+ *                                 // 0 means no set, which only accessories have; the
+ *                                 // library handles it for you (see "no set" below).
  *     "requiredFraction": 12,     // accessory faction code, 0 when none. This is a
  *                                 // FACTION, never a set - do not put a set id here.
  *     "rerollsCount":     null,   // times reworked with chaos ore; null means never.
@@ -100,7 +100,7 @@ extern "C" {
  *   7 Ring     8 Amulet       9 Banner
  *
  * Rings, amulets and banners are the accessories: only they carry a faction, and only
- * they treat "no set" as a kind of its own.
+ * they can come without a set.
  *
  * ---------------------------------------------------------------------------
  * A stat (the "primary" object, and each entry of "secondary")
@@ -161,13 +161,12 @@ extern "C" {
  * rows. A piece listed here counts as worn. Empty slots can be left out or set to 0.
  *
  * ---------------------------------------------------------------------------
- * "No set" is not the same on every slot
+ * Accessories with "no set"
  * ---------------------------------------------------------------------------
  *
- * Send setKindId 0 whenever a piece has no set and the library does the right thing:
- * a ring, amulet or banner with no set is a KIND of its own that rules name directly,
- * while a chestplate with no set is simply setless and no rule names it. They look
- * identical on the wire and must not be treated alike. This is handled for you - it is
+ * Send setKindId 0 whenever a ring, amulet or banner has no set, exactly as the game
+ * reports it. Rules treat that "no set" as a set of its own and name it directly, and the
+ * library turns the 0 into the value those rules expect. This is handled for you - it is
  * described here only so you do not try to "fix" it before sending.
  *
  * ===========================================================================
@@ -312,9 +311,11 @@ char *sfc_decide(const char *input_json);
  *   { ..., "recipes": false, "finalSell": false }   the safeguards on their own
  *   { ... }                                         all three together
  *
- * The two parts do not overlap, and together they hold exactly the entries of the
- * complete file - nothing is duplicated and nothing is lost. So you can write them as
- * separate files and still have covered everything the complete one would.
+ * Together the two parts hold every entry of the complete file, so you can write them as
+ * separate files and still have covered everything the complete one would. They can share
+ * one kind of entry: when a keep rule the user wrote already keeps a piece a safeguard
+ * would also save, the safeguard part keeps it again. That repeats a keep and never
+ * changes what happens to a piece.
  *
  * You must choose HERE. The finished file does not record which entry came from where,
  * so you cannot sort them out afterwards - a written sell file is just a list of rules.

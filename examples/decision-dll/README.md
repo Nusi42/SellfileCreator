@@ -16,36 +16,25 @@ with separate switches for the recipes, the safeguards, and the closing "sell th
 
 | File | What it is |
 |---|---|
+| `sfc_engine.dll` | The library itself. Ship it alongside your program. |
 | `sfc_decide.h` | The interface. Four functions, all documented in the file. |
 | `sfc_sample.c` | A complete working program: loads the library, gets decisions, prints them, and splits a sell file into parts. |
 | `build.bat` | Builds the example. Finds your compiler for you. |
-
-The library itself (`sfc_engine.dll`) is **not** in this folder — it is built from the
-`wasm/` workspace, or taken from a release. Copy it next to the example, or pass its path
-when you run it.
 
 ## Try it
 
 ```
 build.bat
-sfc_sample.exe path\to\sfc_engine.dll
-```
-
-You should see a version line, the decisions for two example pieces, and the size of
-three sell files — the complete one and the two halves it splits into. With the library
-copied in beside the example, the path can be left off:
-
-```
 sfc_sample.exe
 ```
 
-Building it yourself, from the repository root:
+You should see a version line, the decisions for two example pieces, and the size of
+three sell files — the complete one and the two halves it splits into. The example finds
+the library beside it; if you move it elsewhere, pass its path instead:
 
 ```
-cargo build --release --manifest-path wasm/Cargo.toml --target x86_64-pc-windows-msvc -p sfc_engine
+sfc_sample.exe path\to\sfc_engine.dll
 ```
-
-which writes `wasm\target\x86_64-pc-windows-msvc\release\sfc_engine.dll`.
 
 You need a C compiler. The free Community edition of Visual Studio with the
 "Desktop development with C++" option is enough, and `build.bat` will find it.
@@ -89,9 +78,9 @@ Levels between the named ones are ordinary gear and a large part of many invento
 this reaches a lot of pieces.
 
 **Send the set exactly as the game gives it, including "no set".** Rings, amulets and
-banners with no set are their own kind of item and rules name them specifically; armour
-with no set is simply setless. They look alike but must not be treated alike, and the
-library keeps them apart.
+banners can come without a set, and rules name that "no set" specifically, as a set of its
+own. The library turns the game's "no set" into the value those rules expect, so pass it
+through unchanged rather than leaving the set out or replacing it.
 
 **Send who is wearing what.** It is optional, but safeguard rules treat worn gear
 differently, so leaving it out can change an answer.
@@ -107,8 +96,7 @@ answers applied, so it decides here exactly as it does there.
 A file the user **saved** from the app does not. It holds the rules as authored plus the
 answers, and applying one to the other is the app's own step. Judged straight, such a file
 decides by the authored defaults, which can differ sharply from the app's preview of the
-very same file — on one real document, 570 of 8,451 pieces. There is no error and nothing
-looks wrong.
+very same file. There is no error and nothing looks wrong.
 
 So prefer a pushed document. If you must take a saved one, look at `NoteRecipeOverridesDisabled`:
 `true` means the user switched the overrides off, the authored rules are what the app uses too,
@@ -163,9 +151,11 @@ time:
 | `{ …, "recipes": false, "finalSell": false }` | the safeguards on their own |
 | `{ … }` | all three together |
 
-The two parts do not overlap, and together they hold exactly the entries of the complete
-file — nothing duplicated, nothing lost. So you can write them as separate files and still
-have covered everything the complete one would.
+Together the two parts hold every entry of the complete file, so you can write them as
+separate files and still have covered everything the complete one would. They can share
+one kind of entry: when a keep rule the user wrote already keeps a piece a safeguard would
+also save, the safeguard part keeps it again. That repeats a keep and never changes what
+happens to a piece.
 
 You have to choose here, though: a finished sell file is just a list of rules and does not
 record which part each one came from, so there is nothing to sort out afterwards.
@@ -178,17 +168,18 @@ Write the returned text to a file ending in `.hsf` exactly as it stands. Do not 
 
 ## Speed
 
-A full inventory of around 8,000 pieces against a large sell file takes roughly two thirds
-of a second. Most of that is turning the sell file into rules, which has to happen every
-time because safeguard rules depend on the gear itself.
+A full inventory of around 8,000 pieces against a large sell file takes roughly a second
+and a half. Most of that is checking the safeguard rules against your gear and turning the
+sell file into rules, which has to happen every time because safeguard rules depend on the
+gear itself.
 
 Every call is independent — nothing is remembered between calls, so there is no session to
 open or state to invalidate. Call it whenever your gear changes.
 
 Two things worth knowing:
 
-- The optional `improvementChances` projection costs several times more than the decision
-  and changes no keep-or-sell answer. Leave it off unless you show it.
+- The optional `improvementChances` projection adds a little more time and changes no
+  keep-or-sell answer. Leave it off unless you show it.
 - Calls are safe to make from several threads at once, and each is self-contained. That
   helps when you have separate requests to answer; it does not make a single answer
   arrive sooner, because each call does the whole job from scratch.

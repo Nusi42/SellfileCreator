@@ -366,13 +366,15 @@ holds no mutable global, so concurrent `sfc_decide` calls cannot observe or corr
 other — each thread builds its own engine.
 `decide_parity.rs::concurrent_calls_agree_with_a_single_call` pins it against a sellfile
 with an active safeguard, so the placeholder store is exercised too. Note what this does
-NOT buy: each thread re-runs the full chain including rule generation (the dominant cost),
-so threads help throughput across independent requests, never latency on a single one.
+NOT buy: each thread re-runs the full chain including rule generation and safeguard
+detection (the dominant costs), so threads help throughput across independent requests,
+never latency on a single one.
 
 **Cost knobs.** `improvementChances` is opt-IN (default false) and `rules` opt-OUT (default
-true) on the input. The improvement-chance projection costs several times the whole decision
-chain and feeds no verdict — detection runs with threshold gating disabled — so a consumer
-that does not display it must not pay for it. See the measured split below.
+true) on the input. The improvement-chance projection adds roughly 15% to the decision chain
+and feeds no verdict — detection computes its own per-rule chances when a rule sets a
+threshold — so a consumer that does not display it should not pay for it. See the measured
+split below.
 
 **Build commands**
 
@@ -393,22 +395,26 @@ Output locations:
 `wasm/target/` is gitignored, so the release script copies the DLL into the archive rather
 than the repo carrying a built binary.
 
-**Performance** (release build, 8,255-piece vault, `presets/lategame.sfc` — 195 recipes,
-153 safeguard entries, compiling to ~34.9k rules; `npm run sfc-engine:bench`):
+**Performance** (release build, v1.0.48, 7,733-piece vault + 1,430 champions from
+`docs/orig/sampleLog/packet_01_artifacts_*.json` / `packet_03_champions_*.json`,
+`presets/lategame.sfc` compiling to ~34.9k rules; `npm run sfc-engine:bench -- <sfc>
+<artifacts> <champions>`):
 
 | Stage | Time |
 |---|---|
-| JSON parse + normalise | ~17 ms |
+| JSON parse | ~133 ms |
+| normalise | ~2 ms |
 | `parse_sfc` | ~5 ms |
-| build rules | ~370 ms |
-| safeguard detection | ~127 ms |
-| merge rules | ~66 ms |
-| evaluate verdicts | ~64 ms |
-| **decision total** | **~650 ms** |
-| improvement chance (opt-in) | ~2,800 ms |
+| build rules | ~400 ms |
+| safeguard detection | ~550 ms |
+| merge rules | ~200 ms (~48.1k merged) |
+| evaluate verdicts | ~118 ms |
+| **decision total** | **~1,400 ms** |
+| improvement chance (opt-in) | +~190 ms |
 
-Rule building dominates, and it is **gear-dependent** (safeguard rules are minted per
-artifact), so caching the parsed `.sfc` would not help the expensive path. The ABI is
+Safeguard detection and rule building dominate, and both are **gear-dependent** (safeguard
+rules are minted per artifact), so caching the parsed `.sfc` would not help the expensive
+path. The ABI is
 deliberately **stateless**: no handle, no session, no cached gear. Crossing an ABI with a
 cache means owning invalidation across a boundary the caller can restart at any time; if
 that ever changes, the numbers above are the baseline to beat.

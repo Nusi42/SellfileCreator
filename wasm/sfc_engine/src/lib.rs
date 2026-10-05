@@ -64,8 +64,8 @@ struct NativeInput {
     #[serde(default)]
     champions: Vec<RawChampionRow>,
     // Opt IN to the per-artifact improvement-chance projection. Off by default because it
-    // costs more than the whole keep/sell chain on a real vault and does not change a
-    // single verdict; a caller that does not display it should leave it off.
+    // adds real time on a full vault and does not change a single verdict; a caller that
+    // does not display it should leave it off.
     #[serde(default)]
     improvement_chances: bool,
     // Opt OUT of returning the merged rule list, for a caller that only wants decisions

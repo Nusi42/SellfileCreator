@@ -489,10 +489,10 @@ pub fn evaluate_verdicts(
 #[derive(Debug, Clone, Copy)]
 pub struct DecideOptions {
     // Per-artifact improvement-chance percentages. OFF by default: it is an upgrade
-    // projection over every artifact x every safeguard milestone, and on a real vault it
-    // costs more than the entire keep/sell chain put together. It does NOT feed the
-    // verdict — detection runs with threshold gating disabled — so a consumer asking only
-    // "keep or sell" gets the same answer either way, far sooner.
+    // projection over every artifact x every safeguard milestone, adding roughly 15% to the
+    // keep/sell chain on a real vault. It does NOT feed the verdict — detection computes its
+    // own per-rule chances when a rule sets a threshold — so a consumer asking only
+    // "keep or sell" gets the same answer either way, sooner.
     pub improvement_chances: bool,
     // The merged HSF rule list. ON by default: it is already built (the verdicts are
     // evaluated against it) and only costs the serialisation.
