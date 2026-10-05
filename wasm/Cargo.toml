@@ -11,7 +11,7 @@ resolver = "2"
 # truth: the release script rewrites both together (see scripts/release/release-win.ps1),
 # so never hand-edit this to a value package.json does not have.
 [workspace.package]
-version = "1.0.48"
+version = "1.0.49-dev"
 
 # TALC-PATCH: use the vendored copy of talc so we can apply our correctness patches.
 # Fixes a talc 5.0.3 bug where the tag byte overlaps the end-size MSB, causing is_allocated()

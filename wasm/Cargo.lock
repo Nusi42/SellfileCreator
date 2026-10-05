@@ -108,7 +108,7 @@ dependencies = [
 
 [[package]]
 name = "rule_engine_core"
-version = "1.0.48"
+version = "1.0.49-dev"
 dependencies = [
  "serde",
  "serde_json",
@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "rule_engine_dsim_wasm"
-version = "1.0.48"
+version = "1.0.49-dev"
 dependencies = [
  "rule_engine_core",
  "serde",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "rule_engine_wasm"
-version = "1.0.48"
+version = "1.0.49-dev"
 dependencies = [
  "rule_engine_core",
  "serde",
@@ -207,7 +207,7 @@ dependencies = [
 
 [[package]]
 name = "sfc_engine"
-version = "1.0.48"
+version = "1.0.49-dev"
 dependencies = [
  "rule_engine_core",
  "serde",
