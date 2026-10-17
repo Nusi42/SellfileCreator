@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: MIT
+ *
  * sfc_decide.h — the decision library's C interface.
  *
  * Drop this header next to your own code and load the library at run time (see

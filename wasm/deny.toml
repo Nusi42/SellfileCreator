@@ -1,0 +1,24 @@
+# cargo-deny configuration: dependency license policy (`npm run check:licenses`).
+#
+# The project is AGPL-3.0-or-later and also offered under other terms by its maintainer, so
+# no dependency may carry a copyleft license that would bind those other editions: every
+# third-party crate must be under one of the permissive licenses below. The project's own
+# crates are the only AGPL code.
+
+[graph]
+all-features = true
+
+[licenses]
+confidence-threshold = 0.93
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+]
+exceptions = [
+  { allow = ["AGPL-3.0-or-later"], crate = "rule_engine_core" },
+  { allow = ["AGPL-3.0-or-later"], crate = "rule_engine_wasm" },
+  { allow = ["AGPL-3.0-or-later"], crate = "rule_engine_dsim_wasm" },
+  { allow = ["AGPL-3.0-or-later"], crate = "sfc_engine" },
+]

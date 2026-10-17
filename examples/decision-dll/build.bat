@@ -1,4 +1,5 @@
 @echo off
+REM SPDX-License-Identifier: MIT
 REM Builds the example against the decision library.
 REM
 REM Run this from a Developer Command Prompt, or just double-click it - it looks for

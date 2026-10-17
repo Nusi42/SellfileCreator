@@ -127,10 +127,11 @@ Notes:
 | ---- | ---- | ------- |
 | `pre-commit` | `check-private.mjs --staged` | private-list matches in staged content and file names; `originSessionId:` lines |
 | `commit-msg` | `check-commit-msg.mjs <file>`, then `check-private.mjs --message <file>` | messages that break the commit message rules (CLAUDE.md); private-list matches in the message and in the author/committer identity about to be recorded (`git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT`) |
-| `pre-push` | `check-private.mjs --push` | private-list matches in the identities, messages, file names and added lines of every commit being pushed |
+| `pre-push` | `check-private.mjs --push`, then `npm run check` | private-list matches in the identities, messages, file names and added lines of every commit being pushed; any failure of the full local check (there is no hosted CI) |
 
 - **The private list** lives outside every repository: `%USERPROFILE%\.sfc-private\patterns.txt` (or the file named by `$SFC_PRIVATE_PATTERNS`), one JavaScript regular expression per line, `#` comments, matched case-insensitively. Literal patterns are also searched in their base64 forms. Without the file the check passes, so clones on other machines work unchanged. Findings are always printed masked (first character + asterisks). Core: `scripts/tooling/lib/private-patterns.mjs`; tests use synthetic patterns only (`tests/unit/private-patterns.test.ts`).
-- **Full checks**: `npm run check:private` scans every tracked file and file name; `npm run check:commit-msg` checks every commit message reachable from `HEAD` (rules: `scripts/tooling/lib/commit-message.mjs`, tests: `tests/unit/commit-message.test.ts`). `npm run test:all` starts with `check:private`.
+- **Full checks**: `npm run check:private` scans every tracked file and file name; `npm run check:commit-msg` checks every commit message reachable from `HEAD` (rules: `scripts/tooling/lib/commit-message.mjs`, tests: `tests/unit/commit-message.test.ts`); `npm run check:licenses` refuses GPL-family dependencies (npm packages, and Rust crates via `cargo deny` with `wasm/deny.toml`).
+- **`npm run check`** is the full local check the `pre-push` hook runs: private data, licenses, commit messages, typecheck, lint, Rust formatting and unit tests. **`npm run test:all`** is the complete run before a release: private data, licenses, unit and end-to-end suites.
 - Never bypass a hook with `--no-verify`; fix the finding instead.
 
 ### Playwright Harness

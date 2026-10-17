@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: MIT
+ *
  * sfc_sample.c — a complete, working example of calling the decision library
  * from C on Windows.
  *

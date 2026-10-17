@@ -320,6 +320,12 @@ try {
   if (-not (Test-Path -LiteralPath $historySrc)) { throw "Release history not found: $historySrc" }
   Copy-Item -LiteralPath $historySrc -Destination (Join-Path $staging 'HISTORY.txt') -Force
 
+  # The project license (AGPL-3.0-or-later) ships at the archive root: AGPL section 6 requires
+  # conveyed copies to carry it; the READMEs' License section points to the source code.
+  $licenseSrc = Join-Path $RepoRoot 'LICENSE'
+  if (-not (Test-Path -LiteralPath $licenseSrc)) { throw "License file not found: $licenseSrc" }
+  Copy-Item -LiteralPath $licenseSrc -Destination (Join-Path $staging 'LICENSE.txt') -Force
+
   # Include third-party notices to satisfy attribution requirements (generated into userDocs/ above)
   $noticesSrc = Join-Path $userDocsDir 'THIRD_PARTY_NOTICES.txt'
   if (-not (Test-Path -LiteralPath $noticesSrc)) { throw "Third-party notices file not found: $noticesSrc" }
@@ -449,10 +455,11 @@ try {
   if (-not (Test-Path $decisionDir)) { New-Item -ItemType Directory -Path $decisionDir | Out-Null }
   Copy-Item -LiteralPath $decisionDllSrc -Destination (Join-Path $decisionDir 'sfc_engine.dll') -Force
 
-  # The integration sample: header, a complete C program, a build script and a README.
+  # The integration sample: header, a complete C program, a build script, a README and its
+  # MIT license (the kit is MIT so integrators can copy it into any program).
   # Sources only - the archive never carries a prebuilt .exe or .obj.
   $decisionSampleSrc = Join-Path $RepoRoot 'examples\decision-dll'
-  foreach ($sampleFile in @('sfc_decide.h', 'sfc_sample.c', 'build.bat', 'README.md')) {
+  foreach ($sampleFile in @('sfc_decide.h', 'sfc_sample.c', 'build.bat', 'README.md', 'LICENSE')) {
     $filePath = Join-Path $decisionSampleSrc $sampleFile
     if (-not (Test-Path -LiteralPath $filePath)) {
       throw "Decision sample file not found: $filePath"

@@ -5,27 +5,9 @@ account. RSL Helper exports and endpoint captures come from real players, so the
 enter the repository raw. This page is the home for how they are reduced, where the
 results live, and how tests get at them.
 
-## Decision: no raw account exports in the repository
-
-Context: the repository is being prepared for a public GitHub home. Until then it carried
-34 raw RSL Helper `.db` exports (3 test fixtures, 4 example accounts, 27 more accounts
-under `examples/OtherAccounts/` that no test read), a 79 MB sample log of near-duplicate
-JSON packets, and two capture archives whose frames named the player.
-
-Decision:
-
-- Gear databases are committed as **SQL dumps of only the tables the importer reads**;
-  the binary `.db` is built on demand into a gitignored cache.
-- Capture sessions are **anonymized when packed**; the sample log is one more packed
-  session.
-- Account-named fixture files are renamed to neutral names (`account-a…d`,
-  `sample2-bundle`); unused account exports are deleted.
-- Built releases (`old_releases/`) are no longer committed; the folder stays a local,
-  gitignored copy written by the release script.
-
-Artifact and champion ids are kept as exported. They are per-account counters inside the
-game and identify nobody without the player id, and keeping them means every expected
-output stays byte-identical, so the test suite proves the conversion changed nothing.
+Artifact and champion instance ids are kept as exported: they are per-account counters that
+identify nobody without the player id, and keeping them keeps every expected test output
+byte-identical.
 
 ## Gear-DB fixtures
 

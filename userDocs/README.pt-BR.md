@@ -408,6 +408,12 @@ a **[SP] Panda** pelos seus Sellfiles,
 a **KruYseN** pelos vídeos de limpeza de equipamento,  
 e claro a **Farbstoff** pelo RSL Helper!
 
+## Licença
+
+O Sellfile Creator é software livre sob a GNU Affero General Public License, versão 3 ou posterior (AGPL-3.0-or-later). Você pode usá-lo, compartilhá-lo e modificá-lo. Se você distribuir uma versão modificada, ou deixar que outras pessoas a usem por uma rede, precisa disponibilizar o código-fonte dela sob a mesma licença.
+Código-fonte e texto completo da licença: https://github.com/Nusi42/SellfileCreator
+Outros termos de licença estão disponíveis com o autor.
+
 ## Autor
 Criado por [STBL] Nusi㊷  
 Localização por AI

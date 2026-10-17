@@ -197,3 +197,10 @@ That turns a version mismatch into a clear message rather than fields quietly re
 
 Selling gear cannot be undone. Show the user what will be sold and let them confirm before
 acting on any decision — the same preview-then-confirm the app itself uses.
+
+## License
+
+The files in this folder (the header, the sample program, the build script and this README)
+are under the MIT license (see `LICENSE`): copy them into your own program, open or closed.
+The decision library itself, `sfc_engine.dll`, is part of Sellfile Creator and is licensed
+under the GNU Affero General Public License, version 3 or later.

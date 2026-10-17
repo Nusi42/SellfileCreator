@@ -366,6 +366,12 @@ Sellfile’ları için **[SP] Panda**’ya,
 ekipman temizliği videoları için **KruYseN**’e,  
 ve elbette RSL Helper için **Farbstoff**’a teşekkürler!
 
+## Lisans
+
+Sellfile Creator, GNU Affero General Public License sürüm 3 veya sonrası (AGPL-3.0-or-later) kapsamında özgür bir yazılımdır. Programı kullanabilir, paylaşabilir ve değiştirebilirsin. Değiştirilmiş bir sürümü dağıtırsan ya da başkalarının bir ağ üzerinden kullanmasına izin verirsen, kaynak kodunu aynı lisansla paylaşman gerekir.
+Kaynak kod ve lisansın tam metni: https://github.com/Nusi42/SellfileCreator
+Farklı lisans koşulları için yazarla iletişime geçebilirsin.
+
 ## Yazar
 Hazırlayan [STBL] Nusi㊷  
 Yerelleştirme AI
