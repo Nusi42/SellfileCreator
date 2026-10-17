@@ -973,7 +973,7 @@ Game artwork is **not** part of the repository. Builds read it from an asset pac
   - `reference/` — lossless masters, sprites and source screenshots (not read by the build).
 - **App side**: `src/lib/iconMaps/gameIcons.ts` is the only module that imports `virtual:game-icons`. It also holds the fallbacks: lettered placeholder tiles (`placeholderIconUrl`) for crests, set icons and the no-set marker, and the project's own slot glyphs (`OWN_SLOT_GLYPHS`). Champion portraits and set-slot art have no placeholder; their callers already fall back (no portrait, plain slot glyph). The icon map modules (`championIconMap`, `factionIconMap`, `gearsetIconMap`, `setSlotIconMap`, `artifactTypeIcons`, `NoGearSetIcon`) map domain ids to pack file stems.
 - **Node test runs** have no Vite: `patch-esm-specifiers.cjs` points `virtual:game-icons` at an emitted stub with the no-pack shape.
-- **New set**: add the art to the pack (convert masters to `.webp` with `cwebp` or ImageMagick; the pack's `reference/scripts/png2webp.ps1` batches it) and add the set's stem to `GEARSET_ICON_STEMS`.
+- **New set**: add the art to the pack (in the pack, `npm install` then `npm run convert` re-creates the `.webp` icons from the masters) and add the set's stem to `GEARSET_ICON_STEMS`.
 
 ## Release Notes Workflow
 
