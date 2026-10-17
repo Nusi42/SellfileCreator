@@ -963,7 +963,7 @@ Localization status
 
 Game artwork is **not** part of the repository. Builds read it from an asset pack; a clone without the pack builds and runs with the project's own placeholder art. Only the project's own `ico/favicon.svg` is tracked.
 
-- **Configuring the pack**: set `SFC_GAME_ASSETS_DIR=<pack root>` in the gitignored `.env.local` (or the environment). `scripts/vite/gameIconsPlugin.ts` serves `virtual:game-icons` from it; the build logs which mode it uses. Release builds set `SFC_REQUIRE_GAME_ASSETS=1` (release-win.ps1, non-dev builds) and fail without the pack.
+- **Configuring the pack**: write the pack root once into `%USERPROFILE%\.config\sellfilecreator\game-assets-dir.txt` (first non-comment line); every clone on the machine then finds it. `SFC_GAME_ASSETS_DIR` in the environment or a clone's gitignored `.env.local` overrides that file for one clone, and an explicitly empty value forces a placeholder build (`scripts/vite/gameAssetsDir.ts`). `scripts/vite/gameIconsPlugin.ts` serves `virtual:game-icons` from it; the build logs which mode it uses. Release builds set `SFC_REQUIRE_GAME_ASSETS=1` (release-win.ps1, non-dev builds) and fail without the pack.
 - **Pack layout** (mirrors the former in-repo folders, so the web build's `ico/<group>/` → `img/<group>/` routing is unchanged):
   - `ico/champs/<heroId>.webp` — champion portraits.
   - `ico/faction/<stem>.webp` — faction crests keyed by slugified faction names (`banner-lords`, `shadowkin`, …).

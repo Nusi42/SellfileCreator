@@ -11,6 +11,7 @@ import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin.ts'
 import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin.ts'
 import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin.ts'
 import { gameIconsPlugin } from './scripts/vite/gameIconsPlugin.ts'
+import { resolveGameAssetsDir } from './scripts/vite/gameAssetsDir.ts'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -83,13 +84,15 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // and writes to dist.app/ for direct file:// opening on Windows.
   const isWebBuild = mode === 'web'
 
-  // Asset pack with the game artwork (see scripts/vite/gameIconsPlugin.ts): read from
-  // the environment or the gitignored .env.local. Release builds set SFC_REQUIRE_GAME_ASSETS=1
+  // Asset pack with the game artwork (see scripts/vite/gameIconsPlugin.ts and
+  // scripts/vite/gameAssetsDir.ts for where it is looked up). Release builds set SFC_REQUIRE_GAME_ASSETS=1
   // so they can never ship placeholder icons by accident.
   const sfcEnv = { ...loadEnv(mode, VITE_CONFIG_ROOT, 'SFC_'), ...process.env }
   // One factory for the app and the worker bundles: workers reach the icon maps through
   // shared modules, so both must resolve `virtual:game-icons` the same way.
-  const gameIcons = () => gameIconsPlugin({ assetsDir: sfcEnv.SFC_GAME_ASSETS_DIR, require: sfcEnv.SFC_REQUIRE_GAME_ASSETS === '1' })
+  // Pack location: environment / .env.local, else the user-level file every clone shares.
+  const gameAssetsDir = resolveGameAssetsDir(sfcEnv)
+  const gameIcons = () => gameIconsPlugin({ assetsDir: gameAssetsDir, require: sfcEnv.SFC_REQUIRE_GAME_ASSETS === '1' })
 
   // Playwright runs the dev server via the Playwright `webServer` hook.
   // Why: `vite-plugin-checker` can be noisy/unstable in this harness, and the e2e runs already gate on `npm run typecheck`.

@@ -7,8 +7,8 @@ import { searchForWorkspaceRoot, type Plugin } from 'vite'
  *
  * The game's artwork (champion portraits, faction crests, set and set-slot icons, slot
  * glyphs) is not part of the repository. It lives in an
- * asset pack whose root is named by `SFC_GAME_ASSETS_DIR` (usually set in the
- * gitignored `.env.local`). The pack mirrors the old in-repo layout:
+ * asset pack, located by scripts/vite/gameAssetsDir.ts (`SFC_GAME_ASSETS_DIR`, else the
+ * user-level `game-assets-dir.txt` shared by every clone). The pack mirrors the old in-repo layout:
  *
  *   <pack>/ico/champs/<heroId>.webp     champion portraits
  *   <pack>/ico/faction/<stem>.webp      faction crests
