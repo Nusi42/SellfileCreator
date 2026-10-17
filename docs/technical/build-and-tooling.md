@@ -119,6 +119,10 @@ Notes:
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
+### README Media
+
+The front-page images (`docs/readme/overview-{dark,light}.png`, `docs/readme/demo.gif`) are recorded, not drawn: `npm run readme:media` runs `tests/readme/readme-media.spec.ts` under `playwright.readme.config.ts` (always a build **without** the asset pack, so only placeholder art appears) on the shipped lategame preset and the `sample` gear-DB fixture, then `scripts/readme/encode-gif.mjs` turns the frames into a small GIF (shared palette, frame diffing). Re-run it after visible UI changes. `docs/readme/banner.svg` is hand-written (CSS animation, static under `prefers-reduced-motion`).
+
 ### Git Hooks and Repository Checks
 
 `npm install` / `npm ci` runs `prepare` → `scripts/tooling/install-git-hooks.mjs`, which points `core.hooksPath` at the tracked `.githooks/` (idempotent; a no-op outside a git work tree). The hooks:

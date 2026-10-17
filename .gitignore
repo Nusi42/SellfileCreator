@@ -41,6 +41,8 @@ Thumbs.db
 
 # Gear-DB fixtures built from tests/fixtures/gear-db/*.sql (scripts/test/gear-db-fixtures.mjs).
 /tmp/fixtures/
+# Frames recorded for the README animation (npm run readme:media).
+/tmp/readme-media/
 
 # Dev-only inbound-endpoint packet captures (see scripts/vite/packetCapturePlugin.ts).
 # Live session recordings AND the local unpack cache for committed capture fixtures.
