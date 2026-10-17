@@ -70,7 +70,7 @@ test('findings and names are reported masked, never verbatim', () => {
 
 test('the patterns path honors the override variable', () => {
   assert.equal(patternsPath({ SFC_PRIVATE_PATTERNS: '/tmp/list.txt' }), '/tmp/list.txt')
-  assert.match(patternsPath({}), /\.sfc-private[\\/]patterns\.txt$/)
+  assert.match(patternsPath({}), /\.config[\\/]sellfilecreator[\\/]private-patterns\.txt$/)
 })
 
 test('push sections cover identities, message, file names and only added lines', () => {

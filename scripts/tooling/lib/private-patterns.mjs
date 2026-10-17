@@ -3,7 +3,7 @@
  *
  * The maintainer's private details (real name, addresses, account names, local folder
  * layout, unrelated projects) must never reach git. The patterns live OUTSIDE every
- * repository, in %USERPROFILE%\.sfc-private\patterns.txt or the file named by
+ * repository, in %USERPROFILE%\.config\sellfilecreator\private-patterns.txt or the file named by
  * $SFC_PRIVATE_PATTERNS: one JavaScript regular expression per line, `#` starts a comment,
  * matched case-insensitively. Never copy that file or any value from it into the
  * repository; tests use synthetic patterns only. Findings are always reported masked.
@@ -18,9 +18,9 @@ export const PATTERNS_ENV = 'SFC_PRIVATE_PATTERNS'
 /** Encoded forms shorter than this are not searched (they match random base64 too often). */
 export const MIN_ENCODED_LENGTH = 5
 
-/** Where the patterns file is: $SFC_PRIVATE_PATTERNS, else %USERPROFILE%\.sfc-private\patterns.txt. */
+/** Where the patterns file is: $SFC_PRIVATE_PATTERNS, else %USERPROFILE%\.config\sellfilecreator\private-patterns.txt. */
 export const patternsPath = (env = process.env) =>
-  env[PATTERNS_ENV] ?? path.join(os.homedir(), '.sfc-private', 'patterns.txt')
+  env[PATTERNS_ENV] ?? path.join(os.homedir(), '.config', 'sellfilecreator', 'private-patterns.txt')
 
 /**
  * Reads the patterns file; `undefined` when it does not exist, so CI and other machines
