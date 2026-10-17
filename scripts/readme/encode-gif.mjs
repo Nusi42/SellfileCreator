@@ -54,8 +54,11 @@ const { w, h } = images[0]
 // One palette from a sample of frames (first, middle, last), padded so TRANSPARENT is free.
 const sample = new Uint8ClampedArray(images[0].rgba.length * 3)
 ;[0, Math.floor(images.length / 2), images.length - 1].forEach((k, i) => sample.set(images[k].rgba, i * images[0].rgba.length))
-const palette = quantize(sample, 255)
-while (palette.length < 256) palette.push([0, 0, 0])
+// Pixels are mapped against the 255 real colours only, so no pixel can ever land on the
+// transparent slot; the slot itself is appended afterwards.
+const colours = quantize(sample, 255)
+const palette = [...colours]
+while (palette.length < 256) palette.push([255, 0, 255])
 
 // Merge identical consecutive frames; delays come from the recorded timestamps.
 const gif = GIFEncoder()
@@ -63,11 +66,13 @@ let prev = null
 let pending = null
 const flush = (delay) => {
   if (!pending) return
-  gif.writeFrame(pending.index, w, h, { palette, delay: Math.max(20, Math.round(delay / 10) * 10), transparent: pending.diffed, transparentIndex: TRANSPARENT, repeat: 0 })
+  // dispose 1 = keep the previous frame: the transparent (unchanged) pixels show through.
+  // The palette goes out once, as the global colour table, with the first frame.
+  gif.writeFrame(pending.index, w, h, { palette: written === 0 ? palette : undefined, delay: Math.max(20, Math.round(delay / 10) * 10), transparent: pending.diffed, transparentIndex: TRANSPARENT, dispose: 1, repeat: 0 })
 }
 let written = 0
 for (let k = 0; k < images.length; k++) {
-  const index = applyPalette(images[k].rgba, palette)
+  const index = applyPalette(images[k].rgba, colours)
   const startAt = frames[k].at
   if (prev && prev.every((v, i) => v === index[i])) continue // identical: the previous frame just lasts longer
   if (pending) { flush(startAt - pending.at); written++ }

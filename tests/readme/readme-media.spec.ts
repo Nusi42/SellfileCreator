@@ -6,6 +6,7 @@
  * every image shows the project's own placeholder art. Input is the shipped lategame preset and
  * the `sample` gear-DB fixture (game data only, no player identity). Outputs:
  *   docs/readme/overview-dark.png, docs/readme/overview-light.png   stills (both colour schemes)
+ *   docs/readme/note-dark.png, docs/readme/note-light.png           the preset's note dialog
  *   tmp/readme-media/frames/*.png + frames.json                      animation frames, encoded into
  *                                                                    docs/readme/demo.gif by
  *                                                                    scripts/readme/encode-gif.mjs
@@ -107,6 +108,22 @@ for (const scheme of ['dark', 'light'] as const) {
     await page.evaluate(() => { document.getElementById("__readme_pointer")?.remove() })
     fs.mkdirSync(README_DIR, { recursive: true })
     await page.screenshot({ path: path.join(README_DIR, `overview-${scheme}.png`) })
+    await context.close()
+  })
+}
+
+for (const scheme of ['dark', 'light'] as const) {
+  test(`note dialog still (${scheme})`, async ({ browser }) => {
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
+    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1440, height: 860 } })
+    const page = await context.newPage()
+    await loadSample(page, scheme)
+    // The preset's note: its guide text plus the dynamic overrides that tailor the rules.
+    await page.getByRole('button', { name: /Note & Dynamic Overrides/i }).click()
+    await page.getByRole('dialog').first().waitFor({ state: 'visible' })
+    await settleWorkload(page)
+    await page.evaluate(() => { document.getElementById('__readme_pointer')?.remove() })
+    await page.screenshot({ path: path.join(README_DIR, `note-${scheme}.png`) })
     await context.close()
   })
 }

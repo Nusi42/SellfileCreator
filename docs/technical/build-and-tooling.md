@@ -121,7 +121,7 @@ Notes:
 
 ### README Media
 
-The front-page images (`docs/readme/overview-{dark,light}.png`, `docs/readme/demo.gif`) are recorded, not drawn: `npm run readme:media` runs `tests/readme/readme-media.spec.ts` under `playwright.readme.config.ts` (always a build **without** the asset pack, so only placeholder art appears) on the shipped lategame preset and the `sample` gear-DB fixture, then `scripts/readme/encode-gif.mjs` turns the frames into a small GIF (shared palette, frame diffing). Re-run it after visible UI changes. `docs/readme/banner.svg` is hand-written (CSS animation, static under `prefers-reduced-motion`).
+The front-page images (`docs/readme/overview-{dark,light}.png`, `docs/readme/note-{dark,light}.png`, `docs/readme/demo.gif`) are recorded, not drawn: `npm run readme:media` runs `tests/readme/readme-media.spec.ts` under `playwright.readme.config.ts` (always a build **without** the asset pack, so only placeholder art appears) on the shipped lategame preset and the `sample` gear-DB fixture, then `scripts/readme/encode-gif.mjs` turns the frames into a small GIF (shared palette, frame diffing). Re-run it after visible UI changes. `docs/readme/banner.svg` is hand-written (CSS animation, static under `prefers-reduced-motion`).
 
 ### Git Hooks and Repository Checks
 

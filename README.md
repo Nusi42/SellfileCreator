@@ -31,9 +31,17 @@ preview shows the result before anything is sold.
   rule that decided it.
 - **Diff** — see exactly which pieces change verdict while you edit.
 - **Export** — a ready-to-use RSL Helper sell file in one click, or pushed straight to RSL Helper.
-- **Presets and languages** — a shipped late-game preset to start from; the app speaks 10 languages.
+- **Presets with notes** — a shipped late-game preset to start from. Each preset carries a note
+  that explains it and asks a few questions (your account level, how to treat Chaos Ore, how
+  strict the safeguards are); the answers tailor its rules to your account.
+- **10 languages** — the whole app and its guide.
 - **Decision library** — the same keep/sell engine as a native library for other programs
   ([integration kit](examples/decision-dll/README.md), MIT-licensed).
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/readme/note-light.png">
+  <img src="docs/readme/note-dark.png" alt="The late-game preset's note: guidance plus the questions whose answers tailor the preset's rules" width="100%">
+</picture>
 
 <p align="center">
   <img src="docs/readme/demo.gif" alt="From the compiled rules to the Gear Inspector, then picking a recipe in the builder" width="960">
