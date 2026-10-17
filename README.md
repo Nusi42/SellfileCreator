@@ -18,7 +18,6 @@ preview shows the result before anything is sold.
 </picture>
 
 > Independent, fan-made tool; not affiliated with Plarium, Raid: Shadow Legends or RSL Helper.
-> The images show a build without an asset pack, which uses the app's own placeholder icons.
 
 ## Features
 

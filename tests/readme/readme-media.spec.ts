@@ -2,8 +2,8 @@
 /**
  * readme-media — records the images on the repository's front page (`npm run readme:media`).
  *
- * Runs under playwright.readme.config.ts, which always builds WITHOUT the asset pack, so
- * every image shows the project's own placeholder art. Input is the shipped lategame preset and
+ * Runs under playwright.readme.config.ts, which builds with the asset pack (the game's icons, as
+ * players see the app; README_PLACEHOLDERS=1 records placeholders). Input is the shipped lategame preset and
  * the `sample` gear-DB fixture (game data only, no player identity). Outputs:
  *   docs/readme/overview-dark.png, docs/readme/overview-light.png   stills (both colour schemes)
  *   docs/readme/note-dark.png, docs/readme/note-light.png           the preset's note dialog
