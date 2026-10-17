@@ -7,29 +7,28 @@
  * Any item sold in an earlier tier must also be sold in every later tier.
  * Equivalently: later tiers may only add to the sell set, never remove from it.
  *
- * Run against all three example databases so coverage spans different account
- * inventories. Expects the PRESET_LATEGAME_SFC_PATH fixture to include the Midgame,
+ * Runs against the account gear-db fixtures listed in SAMPLE_DBS below (currently one;
+ * see the exclusion notes there). Expects the PRESET_LATEGAME_SFC_PATH fixture to include the Midgame,
  * Lategame, and Endgame recipe override checkboxes in lategame.sfc.
  */
-import path from 'node:path'
 import { type Browser, type Page } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { closeNoteDialog, setNoteOverrideCheckbox, waitForWorkloadIdle } from './note-overrides-helpers'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
+import { GEAR_DB_FIXTURES, gearDbPathFor } from '../../scripts/test/gear-db-fixtures.mjs'
 import { SFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 
-// Example database bundled in the repo for smoke coverage.
-// account-d (68 MB) excluded: WASM eval takes 25–50 s under CI load, exceeding the
+// Account gear-db fixtures for smoke coverage (built by the Playwright global setup).
+// account-d (~8.4k artifacts) excluded: WASM eval takes 25–50 s under CI load, exceeding the
 //   effective 30 s step budget (workloadIdle 15 s + waitForGearInspectorResults 15 s).
-// account-c (34 MB) excluded for the same reason: 34 MB WASM takes 30–50 s under load,
+// account-c (~5.5k artifacts) excluded for the same reason: WASM takes 30–50 s under load,
 //   which pushed the sequential 3× beforeAll past testXL in stress runs.
-// account-b (26 MB) is the fastest DB and completes WASM reliably in < 25 s.
-const EXAMPLES_DIR = path.resolve(process.cwd(), 'examples')
+// account-b (~5.4k artifacts) completes WASM reliably in < 25 s.
 const SAMPLE_DBS = [
-  { name: 'account-b', path: path.join(EXAMPLES_DIR, 'um85268209_RSLHelper.db') },
+  { name: GEAR_DB_FIXTURES.accountB, path: gearDbPathFor(GEAR_DB_FIXTURES.accountB) },
 ]
 
 // Account levels ordered from most permissive (midgame) to most strict (endgame).

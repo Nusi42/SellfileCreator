@@ -48,7 +48,7 @@ const fixedPoint = (percent: number): number => Math.round((percent / 100) * STA
 
 // An Amulet (slot 8) whose s1 carries one anomalous line at its rank's line value.
 // Rank 6 to match the any-rank recipe's target tier (anyRankDefaultsTo). Shaped after
-// ID 264536 in examples/um109288203_RSLHelper.db (a rank-5 piece at 1.25%).
+// ID 264536 in the account-d gear-db fixture (a rank-5 piece at 1.25%).
 const rowWithAnomalousSubstat = (statId: number, percent: number): GearDbArtifactRow => ({
   ID: 1, rank: 6, type: 8, rarity: 5, lvl: 0, aset: 58, accset: 15,
   mid: 3, mfl: 1, mlvlid: fixedPoint(2500),

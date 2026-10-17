@@ -24,7 +24,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
    - Up to `--sample` rows per table for quick per-column reconnaissance
 3. **Review the output** – annotate column purposes, flag unknown enums, and capture value ranges. Store the findings alongside this doc so future runs can diff for schema changes.
 
-## Schema Snapshot (tests/data/sample.db)
+## Schema Snapshot (`sample` fixture source export)
 
 | Table | Rows | Notes |
 | ----- | ---- | ----- |
@@ -32,15 +32,15 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 | `InboxArtifacts` | 358 | Pending drops in the inbox; same schema as `Artifacts` but `sum*` aggregates are zeroed until equipped. |
 | `Champs` | 1 688 | Champion roster, including equipped artifact IDs and faction codes. |
 | `LastUsedArtifacts` | varies | Stores `{ id, lastUse }` entries so we can show when a piece was last equipped (local timestamps). |
-| `AccRecords` | 218 | Arena/Clan Boss snapshot metadata. Carries a `ChampOverviewImage` BLOB our fixtures strip — see [Slimmed export format](#slimmed-export-format). The importer never reads this table. |
-| `CBLoot` | 146 | Clan Boss chest history. |
+| `AccRecords` | 218 | Arena/Clan Boss snapshot metadata (older exports also embed a `ChampOverviewImage` BLOB). The importer never reads this table. |
+| `CBLoot` | 146 | Clan Boss chest history; carries the player id as `UMID`. |
 | `ArtifactsBackup`, `LockedArtifacts`, `accessories`, `artifact_ids`, `accessory_ids`, `presets` | 0 | Present but empty in this dump. |
 
-Inspection output lives under `tmp/gear-db-inspection/` and is not committed. The raw fixture we ship for tests lives at `tests/data/sample.db`.
+Inspection output lives under `tmp/gear-db-inspection/` and is not committed.
 
-## Slimmed export format
+## Committed fixtures
 
-The importer reads only four tables — `Artifacts`, `InboxArtifacts`, `Champs`, `LastUsedArtifacts` — and never touches the `AccRecords.ChampOverviewImage` BLOB. To keep committed fixtures small, `scripts/test/strip-gear-db-blobs.mjs` drops that BLOB and `VACUUM`s each fixture (idempotent; run with no args to process the default set, or pass explicit paths). The `examples/um109288203_RSLHelper.db` fixture is a genuine capture already in the slim format.
+The importer reads only four tables — `Artifacts`, `InboxArtifacts`, `Champs`, `LastUsedArtifacts`. Committed fixtures keep exactly those, as SQL dumps under `tests/fixtures/gear-db/`; every other table (including the player id in `CBLoot`) is dropped. See [Test Data and Privacy](test-data.md#gear-db-fixtures).
 
 ## Key Findings
 
@@ -145,7 +145,7 @@ None of these affect rule evaluation; they exist for UI display and the Gear Ana
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (Gear Inspector `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
   - Level metadata: `level` keeps the milestone whose BAND the level is in (0/4/8/12/16 — floored, so a +15 is a +12) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). Both readings come from `gearInspectorDomain` (`coerceGearInspectorLevel` / `coerceExactGearLevel`), which is also what the grid card and the detail row use, so no view can disagree about the same piece. When `exactLevel` is present the UI displays that precise value; custom gear entries omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
-- Guardrails live in `tests/unit/gearDbNormalizer.test.ts`, using real rows from `tests/data/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
+- Guardrails live in `tests/unit/gearDbNormalizer.test.ts`, using real rows from the `sample` gear-DB fixture to assert slot, set, faction, and stat decoding (including ascension glyphs).
 - Drag-and-drop integration (and the Sellfile Preview “Load RSL Helper Sellfile” button): both accept `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting gear without forcing the Tools dialog’s Gear tab open.
 
   Regardless of whether the payload arrived via manual drop or an external `gearDbFile` command, the app diffs the incoming payload against whatever is already rendered. We fingerprint the full gear entry (slot, stats, preview extras, equipped metadata) to decide which rows already exist, remove entries whose fingerprints disappear, retain any pending chunks that are still needed, and only enqueue the delta. Diff application mutates the in-memory Gear Inspector snapshot synchronously before scheduling React state so rapid endpoint bursts cannot compute follow-up diffs from stale rows. Because the UI sorting is deterministic (with artifact id as the final tie-breaker), new items fall into place without thrashing the virtualization chunk size.

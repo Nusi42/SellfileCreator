@@ -19,10 +19,11 @@
 //   node --experimental-wasm-modules scripts/tooling/sim-vs-db.mjs \
 //     <old-hsf> <new-hsf> <output-md> <db-path> [<db-path>...]
 //
-// Example (compares old vs new Lategame across two example DBs):
+// Example (compares old vs new Lategame across two account gear-db fixtures;
+// build them first with npm run fixtures:gear-db:build):
 //   node --experimental-wasm-modules scripts/tooling/sim-vs-db.mjs \
 //     SFC-Compare/Old/Lategame.hsf SFC-Compare/New/lategame-sellfile.hsf \
-//     out.md examples/um53210834_RSLHelper.db examples/um85268209_RSLHelper.db
+//     out.md tmp/fixtures/gear-db/account-c.db tmp/fixtures/gear-db/account-b.db
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'

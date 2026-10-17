@@ -44,11 +44,13 @@ import {
   type SafeguardRule,
   type SafeguardsMergeInput,
 } from '../../src/lib/safeguards.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 import '../setup/wasm-warmup.js'
 
 const ROOT_DIR = process.cwd()
 const SFC_PATH = resolve(ROOT_DIR, 'presets', 'lategame.sfc')
-const DB_PATH = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
+// Largest account DB, built from its committed SQL dump.
+const DB_PATH = ensureGearDb(GEAR_DB_FIXTURES.accountD)
 const PAGE_16MIB = 16 * 1024 * 1024
 // Withhold this many artifacts from the seed, then reveal one per round (growing inventory).
 const WITHHELD = Number(process.env.REPRO_WITHHELD ?? '60')

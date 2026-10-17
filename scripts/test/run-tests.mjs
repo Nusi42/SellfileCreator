@@ -76,7 +76,7 @@ try {
   run(process.execPath, ['scripts/tooling/patch-esm-specifiers.cjs'])
   // Run the SFC fixture harness before node:test specs.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/sfc-fixtures.runner.js'])
-  // Run the sample2-bundle matcher regression harness to guard safeguard
+  // Run the sample2 matcher regression harness to guard safeguard
   // injection payload integrity and primary/base match invariants.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/sample2-matcher.runner.js'])
 

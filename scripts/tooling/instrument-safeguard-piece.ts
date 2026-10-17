@@ -51,6 +51,7 @@ import {
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 // Node shims + SFC/DB loaders shared by every headless tooling script.
 import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
@@ -91,7 +92,8 @@ const run = async (): Promise<void> => {
   await prepareHeadlessRuleEngine()
 
   const sfcPath = resolvePath(process.cwd(), 'presets/lategame.sfc')
-  const dbPath = resolvePath(process.cwd(), 'examples/um109288203_RSLHelper.db')
+  // Largest account gear-db fixture, built from its committed SQL dump.
+  const dbPath = ensureGearDb(GEAR_DB_FIXTURES.accountD)
   console.log(`SFC: ${sfcPath}`)
   console.log(`DB:  ${dbPath}`)
 

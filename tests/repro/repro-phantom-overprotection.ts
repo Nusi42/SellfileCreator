@@ -4,8 +4,8 @@
 //
 // `ignore_by_safeguards` recipes (Chaos Ore — gear kept only to reroll, so its current
 // main/substat combo is not really kept) make matching accessories at-risk, so the Best%/Unique
-// safeguards correctly protect them. The steady-state correct protected count for account
-// account-d + presets/lategame.sfc is the HIGH plateau (~1554). The bug: intermittently a build
+// safeguards correctly protect them. The steady-state correct protected count for the
+// account-d gear-db fixture + presets/lategame.sfc is the HIGH plateau (~1554). The bug: intermittently a build
 // detected base_match against the leftover FINAL ruleset from the prior matcher pass — whose
 // injected safeguard keep-rules give those Chaos Ore items a non-ignored keep, masking them as
 // "not at-risk" → the count DROPPED to ~1270 and the exported HSF LOST ~285 keep rules.

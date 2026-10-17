@@ -14,7 +14,7 @@
  * collapse is visible before any fix.
  *
  * Usage:
- *   PROBE_DB=examples/um109288203_RSLHelper.db PROBE_ORDINAL=49 \
+ *   PROBE_ORDINAL=49 \
  *   npx tsx-equivalent (run via the repro harness) tests/repro/probe-persubstat-flyout.ts
  */
 import { buildPipelineContext } from './gearInspectorProbe.js'
@@ -25,6 +25,7 @@ import {
 } from '../../src/lib/safeguards.js'
 import { SafeguardSubstatMatch } from '../../src/lib/safeguards.js'
 import { statVariantI18nKey } from '../../src/lib/types.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 
 // Human substat label without pulling i18n runtime: fall back to the raw variant id.
 function substatLabel(variant: number): string {
@@ -33,7 +34,8 @@ function substatLabel(variant: number): string {
 }
 
 async function main(): Promise<void> {
-  const dbPath = process.env.PROBE_DB ?? 'examples/um109288203_RSLHelper.db'
+  // Default: the largest account gear-db fixture, built from its committed SQL dump.
+  const dbPath = process.env.PROBE_DB ?? ensureGearDb(GEAR_DB_FIXTURES.accountD)
   const sfcPath = process.env.PROBE_SFC ?? 'presets/lategame.sfc'
   // 1-based UI ordinal; ordinal 49 == array[48].
   const ordinal = Number(process.env.PROBE_ORDINAL ?? '49')

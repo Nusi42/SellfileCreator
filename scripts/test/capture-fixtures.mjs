@@ -19,6 +19,10 @@
  * Compression is Node's BUILT-IN zstd (node:zlib, Node >= 22.15 / 23.8) — no native
  * binaries, works identically on Windows. Tar comes from the pure-JS `tar` package.
  *
+ * Packing anonymizes: RSL Helper frames name the player (`playerId`, `playerName`), and
+ * those values also leak into derived strings such as `savedAs` file names. `pack` swaps
+ * every occurrence for a placeholder before archiving, so no account reaches the repo.
+ *
  * CLI:
  *   node scripts/test/capture-fixtures.mjs pack <sessionDirOrName>...
  *   node scripts/test/capture-fixtures.mjs unpack [<sessionName>...]   # default: all archives
@@ -59,6 +63,45 @@ const assertZstdSupport = () => {
   }
 }
 
+/**
+ * The 2026-05-10 RSL Helper sample log: one full push of every endpoint type (artifacts,
+ * champions, inboxArtifacts, lastUsed, ArtifactByHeroID) replayed by the endpoint tests.
+ */
+export const SAMPLE_LOG_SESSION = 'session_260510_183951.731'
+
+// Identity fields RSL Helper puts into frames, and the placeholder each value becomes.
+// The id placeholder matches the example the UI shows for a Player ID.
+const IDENTITY_PLACEHOLDERS = {
+  playerId: (i) => `um${12345678 + i}`,
+  playerName: (i) => `[TAG]Player${i === 0 ? '' : i + 1}`,
+}
+// Any `"<identity key>": "<value>"` pair, pretty-printed or minified; values stay JSON-escaped.
+const IDENTITY_FIELD_RE = new RegExp(`"(${Object.keys(IDENTITY_PLACEHOLDERS).join('|')})"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`, 'g')
+
+/**
+ * Replacement pairs for every identity value found in `texts`, longest first so a value
+ * that contains another (a name embedding the id) is swapped whole before its parts.
+ */
+export function identityReplacements(texts) {
+  const found = new Map(Object.keys(IDENTITY_PLACEHOLDERS).map((key) => [key, []]))
+  for (const text of texts) {
+    for (const [, key, value] of text.matchAll(IDENTITY_FIELD_RE)) {
+      const seen = found.get(key)
+      // Empty values carry no identity; skip them and keep first-seen numbering stable.
+      if (value !== '' && !seen.includes(value)) seen.push(value)
+    }
+  }
+  // A value seen under several keys keeps its first mapping (e.g. an id echoed as a name).
+  const pairs = new Map()
+  for (const [key, values] of found) {
+    values.forEach((value, i) => { if (!pairs.has(value)) pairs.set(value, IDENTITY_PLACEHOLDERS[key](i)) })
+  }
+  return [...pairs].sort(([a], [b]) => b.length - a.length)
+}
+
+/** Apply `identityReplacements` pairs to one text. */
+export const anonymizeText = (text, pairs) => pairs.reduce((out, [from, to]) => out.split(from).join(to), text)
+
 /** Archive path for a session name (SSOT for the <name>.tar.zst convention). */
 export const archivePathFor = (session) => path.join(CAPTURE_ARCHIVE_DIR, `${session}.tar.zst`)
 
@@ -81,15 +124,32 @@ export async function packCaptureSession(sessionDirOrName) {
   const session = path.basename(dir)
   fs.mkdirSync(CAPTURE_ARCHIVE_DIR, { recursive: true })
   const out = archivePathFor(session)
-  // Stream tar → zstd → file so the ~1 GB session never sits in memory at once.
-  await pipeline(
-    tar.create({ cwd: path.dirname(dir), portable: true }, [session]),
-    zlib.createZstdCompress({ params: ZSTD_PACK_PARAMS }),
-    fs.createWriteStream(out),
-  )
+  const files = fs.readdirSync(dir)
+  // First pass collects every identity value in the session so numbering is session-wide.
+  const pairs = identityReplacements(files.map((f) => fs.readFileSync(path.join(dir, f), 'utf8')))
+  // Anonymized copy goes to a staging tree; the live capture dir is never modified.
+  const staging = path.join(CAPTURE_ARCHIVE_DIR, `.pack-${process.pid}`)
+  fs.rmSync(staging, { recursive: true, force: true })
+  fs.mkdirSync(path.join(staging, session), { recursive: true })
+  try {
+    // One frame at a time keeps memory bounded by the largest frame, not the session.
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(dir, f), 'utf8')
+      fs.writeFileSync(path.join(staging, session, f), anonymizeText(text, pairs))
+    }
+    // Stream tar → zstd → file so the ~1 GB session never sits in memory at once.
+    await pipeline(
+      tar.create({ cwd: staging, portable: true }, [session]),
+      zlib.createZstdCompress({ params: ZSTD_PACK_PARAMS }),
+      fs.createWriteStream(out),
+    )
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
+  }
   const mb = (n) => `${(n / 1048576).toFixed(1)} MB`
-  const rawBytes = fs.readdirSync(dir).reduce((s, f) => s + fs.statSync(path.join(dir, f)).size, 0)
-  console.log(`[capture-fixtures] packed ${session}: ${mb(rawBytes)} -> ${mb(fs.statSync(out).size)} (${out})`)
+  const rawBytes = files.reduce((s, f) => s + fs.statSync(path.join(dir, f)).size, 0)
+  console.log(`[capture-fixtures] packed ${session}: ${mb(rawBytes)} -> ${mb(fs.statSync(out).size)}, `
+    + `${pairs.length} identity value(s) anonymized (${out})`)
   return out
 }
 

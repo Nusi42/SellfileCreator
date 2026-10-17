@@ -194,9 +194,10 @@ try {
   #                   every non-dev release, so a second wipe is redundant.
   #   tmp/tsc       - scratch this very run writes (export:l10n compiles into
   #                   it a few steps down), so clearing it would be undone.
-  #   old_releases  - the KEPT history of past built HTMLs, which this run adds
-  #                   to rather than replaces. Build output is disposable;
-  #                   that folder is a record, and a clean is not a delete.
+  #   old_releases  - the local (gitignored) copy of past built HTMLs, which
+  #                   this run adds to rather than replaces. Build output is
+  #                   disposable; that folder is a record, and a clean is not
+  #                   a delete.
   if (-not $DevBuild -and -not $NoClean) {
     Write-Host 'Clean build: wasm workspace + dist.app...'
     npm run --silent wasm:clean
@@ -544,7 +545,8 @@ public static class Crc32Helper {
     throw
   }
 
-  # Also persist the built HTML to old_releases for quick access/auditing.
+  # Also persist the built HTML to the local, gitignored old_releases folder for quick
+  # access/auditing (published builds live as GitHub release assets, not in the repo).
   try {
     $oldReleases = Join-Path $RepoRoot 'old_releases'
     if (-not (Test-Path $oldReleases)) { New-Item -ItemType Directory -Path $oldReleases | Out-Null }

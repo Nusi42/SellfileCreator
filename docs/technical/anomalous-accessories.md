@@ -2,7 +2,7 @@
 
 **Status: exporting.** RSL Helper dumps Anomalous Accessories into its gear
 database *and* writes them into sellfiles, and we now have both sides:
-`examples/um109288203_RSLHelper.db` (artifacts 264537–264539) for the gear
+the `account-d` gear-DB fixture (artifacts 264537–264539) for the gear
 model, and **`docs/orig/anomalous.hsf`** for the rule encoding. That sample —
 eight rules matching a screenshot one-for-one — confirmed all eight stat ids
 (including the four that had been inferred) and fixed the wire format, which
@@ -66,7 +66,7 @@ exports.
 | Per-line value = **1.25%** at rank 5, **1.5%** at rank 6 | Observed. The step is uniform (0.25 per rank) and FIXED — no roll variance — so the full table extrapolates: 1★ 0.25 … 6★ 1.5, bottoming out exactly on `minTargetValue`. The game does not currently offer anomalous accessories below rank 5, so ranks 1–4 are forward-looking. SSOT: `anomalousAccessories.rollValueByRank` |
 | Not glyphable | Observed. `statSupportsGlyphs` answers no, which also keeps them out of the glyph-potential half of `substatNormalizedContribution` |
 | A rank-5 **Banner** with a set (Supersonic) exists — Banner eligibility confirmed | Observed |
-| **`variantId = 1` flags the piece as anomalous** — an intrinsic item property, independent of which substats rolled. Present on both paths: `variantId` on the wire row, `VARIANTID` in the SQL dump | Observed (capture `session_260820_205150.539` and `examples/um109288203_RSLHelper.db`: same account, both report 32 of 8,428) |
+| **`variantId = 1` flags the piece as anomalous** — an intrinsic item property, independent of which substats rolled. Present on both paths: `variantId` on the wire row, `VARIANTID` in the SQL dump | Observed (capture `session_260820_205150.539` and the export behind the `account-d` gear-DB fixture: same account, both report 32 of 8,428) |
 
 #### `variantId` — the authoritative anomalous flag
 
@@ -104,7 +104,7 @@ that is independent of rolls.
 
 **Both import paths carry the flag.** The SQL dump gained a matching column:
 `Artifacts.VARIANTID` and `InboxArtifacts.VARIANTID`, both `INT NOT NULL DEFAULT -1`
-(verified against `examples/um109288203_RSLHelper.db`, refreshed 2026-08-20). Its data
+(verified against the export behind the `account-d` gear-DB fixture, refreshed 2026-08-20). Its data
 matches the WebSocket capture of the same account exactly — 8,396 rows at `0`, 32 at `1`,
 22 inbox rows at `0` — and the two detections agree perfectly in both directions (all 32
 `VARIANTID = 1` rows carry ≥1 anomalous substat; no row with an anomalous substat has a

@@ -21,7 +21,7 @@
  * selection helpers the UI consumes (safeguardFocusBucketKeyFor, etc.).
  *
  * Script usage:
- *   PROBE_DB=examples/um109288203_RSLHelper.db \
+ *   PROBE_DB=tmp/fixtures/gear-db/account-d.db \
  *   PROBE_SFC=presets/lategame.sfc \
  *   PROBE_OVERRIDE=endgame \
  *   PROBE_QUERY='set=speed slot=weapon CDMG%=25 ACC=11 SPD=5 CR%=18' \

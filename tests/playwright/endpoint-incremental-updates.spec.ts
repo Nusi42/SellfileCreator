@@ -16,7 +16,7 @@
  * accumulation a fixed-size set (bumped revisions only) reaches steady state and hides.
  *
  * Faithful to the real protocol — RSL Helper streams JSON-RPC `artifacts` / `champions`
- * / `lastUsed` notifications (NOT binary; see docs/orig/sampleLog/). During farming all
+ * / `lastUsed` notifications (NOT binary; see the SAMPLE_LOG_SESSION capture). During farming all
  * three interleave: the growing artifacts feed, champion re-pushes (equipment moved between
  * heroes), and standalone lastUsed packets after each game round. We replay that mix.
  *
@@ -29,7 +29,7 @@
  *
  * Data source (entirely test-side — NO production code added, release stays clean):
  * we read the raw `Artifacts` / `Champs` / `LastUsedArtifacts` tables straight from the
- * real examples/um*.db captures with sql.js in Node. Those raw SQL columns map ~1:1 onto
+ * account-a…d gear-db fixtures with sql.js in Node. Those raw SQL columns map ~1:1 onto
  * the wire fields the app's inbound parser (parseArtifactLogRow / parseChampionRow in
  * src/lib/externalCommands.ts) consumes, so reconstructing wire objects here is a thin,
  * single-purpose inverse — no lossy round-trip through the importer's NormalizedGearArtifact
@@ -48,7 +48,7 @@ import { dismissBlockingDialogs } from './dialog-helpers'
 import { settleWorkload } from './workload-indicator'
 import { INCREMENTAL_REVEAL_ROUNDS } from './iteration-counts'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
-import { PRESET_LATEGAME_SFC_PATH, EXAMPLE_RSLHELPER_DB_PATHS } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH, ACCOUNT_DB_PATHS } from './fixture-paths'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 
 // RSL Helper default WebSocket endpoint.
@@ -210,7 +210,7 @@ test.describe('endpoint-incremental-updates', () => {
     // Reconstruct every real account's feed once, up front (Node disk + sql.js work
     // stays out of the hot loop). Swapping accounts mid-run varies inventory size + ids.
     const feeds: AccountFeed[] = []
-    for (const dbPath of EXAMPLE_RSLHELPER_DB_PATHS) {
+    for (const dbPath of ACCOUNT_DB_PATHS) {
       const feed = await readAccountFeed(dbPath)
       expect(feed.artifacts.length, `no artifacts read from ${dbPath}`).toBeGreaterThan(0)
       feeds.push(feed)

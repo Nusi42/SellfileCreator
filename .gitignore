@@ -28,7 +28,12 @@ Thumbs.db
 /releases/
 /scripts/mock-export.hsf
 
-old_releases/*-dev.html
+# Past built releases: a local convenience copy written by the release script, never
+# committed (published builds live as GitHub release assets).
+/old_releases/
+
+# Gear-DB fixtures built from tests/fixtures/gear-db/*.sql (scripts/test/gear-db-fixtures.mjs).
+/tmp/fixtures/
 
 # Dev-only inbound-endpoint packet captures (see scripts/vite/packetCapturePlugin.ts).
 # Live session recordings AND the local unpack cache for committed capture fixtures.

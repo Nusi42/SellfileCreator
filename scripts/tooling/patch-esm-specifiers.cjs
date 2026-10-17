@@ -58,6 +58,23 @@ function patchRawImports(source, compiledFilePath) {
   })
 }
 
+// Hand-written `.mjs` helpers (e.g. scripts/test/*-fixtures.mjs, typed by a sibling .d.mts)
+// are not emitted by tsc, so a relative `.mjs` import in a compiled file would point into
+// tmp/tsc where nothing exists. Re-aim each one at the source file it was authored against.
+function patchMjsImports(source, compiledFilePath) {
+  // Map the compiled file back to its repo-relative source directory via its output root.
+  const root = roots.find((r) => compiledFilePath.startsWith(r + path.sep))
+  if (root == null) return source
+  const sourceDir = path.join(repoRoot, path.dirname(path.relative(root, compiledFilePath)))
+  return source.replace(/from\s+(["'])(\.{1,2}\/[^'"\n]+?\.mjs)\1/g, (m, quote, spec) => {
+    const target = path.resolve(sourceDir, spec)
+    if (!fs.existsSync(target)) return m
+    // ESM specifiers always use forward slashes, and a sibling still needs the './' prefix.
+    const rel = path.relative(path.dirname(compiledFilePath), target).split(path.sep).join('/')
+    return `from ${quote}${rel.startsWith('.') ? rel : `./${rel}`}${quote}`
+  })
+}
+
 const existingRoots = roots.filter((r) => fs.existsSync(r))
 const files = existingRoots.flatMap((r) => walk(r))
 for (const p of files) {
@@ -65,10 +82,12 @@ for (const p of files) {
   // Resolve `?raw` imports BEFORE the extension pass so the shim specifier (already
   // ending in .js) is left alone by the extensionless-import rewrite below.
   s = patchRawImports(s, p)
+  s = patchMjsImports(s, p)
   // Replace extensionless relative imports with .js extensions.
   // Patch paths that start with './' or '../' and have no extension.
   s = s.replace(/from\s+(["'])(\.\.\/|\.\/)([^'"\n]+?)\1(?=;)/g, (m, quote, rel, mod) => {
-    if (mod.endsWith('.js')) return m
+    // Already-explicit ESM extensions (`.js`, or the `.mjs` helpers re-aimed above) stay as is.
+    if (/\.m?js$/.test(mod)) return m
     return `from ${quote}${rel}${mod}.js${quote}`
   })
   fs.writeFileSync(p, s)

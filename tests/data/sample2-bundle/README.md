@@ -1,7 +1,7 @@
 # Lategame + sample2 Fixture Bundle
 
 - Source SFC: `presets/lategame.sfc`
-- Shared DB fixture: `tests/data/sample2.db`
+- Shared gear DB fixture: `sample2` (`tests/fixtures/gear-db/sample2.sql`)
 
 ## Layout
 

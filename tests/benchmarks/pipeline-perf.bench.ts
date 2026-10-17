@@ -42,6 +42,7 @@ import {
   type SafeguardRule,
 } from '../../src/lib/safeguards.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 import '../setup/wasm-warmup.js'
 
 // ── timing helpers ────────────────────────────────────────────────────────────
@@ -102,8 +103,8 @@ function toArrayBuffer(bytes: Buffer): ArrayBuffer {
 const ROOT_DIR = process.cwd()
 // lategame.sfc has both recipes AND safeguards — simulates a realistic full pipeline.
 const SFC_PATH = resolve(ROOT_DIR, 'presets', 'lategame.sfc')
-// Largest sample DB for worst-case timing.
-const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
+// Largest account DB for worst-case timing (built from its committed SQL dump).
+const DB_PATH  = ensureGearDb(GEAR_DB_FIXTURES.accountD)
 
 console.log('\n[bench:pipeline-perf] loading fixtures…')
 const sfcRaw = JSON.parse(readFileSync(SFC_PATH, 'utf8'))

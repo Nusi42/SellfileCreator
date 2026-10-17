@@ -122,7 +122,7 @@ test.describe('Gear Inspector grid matches remain stable with large DB', () => {
     await page.goto('/', APP_GOTO_OPTIONS)
     // prepareApp seeds localStorage to suppress dialogs on boot; no call needed here.
 
-    // Load SFC + large gear DB from examples/.
+    // Load SFC + the largest account gear DB fixture.
     const sfcInput = page.locator(SFC_LOAD_INPUT_SELECTOR).first()
     await sfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await expect(sfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })

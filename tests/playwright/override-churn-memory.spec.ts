@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 /**
  * override-churn-memory — reproduce the OOM the user hits WITHOUT any endpoint:
- * with real gear loaded (examples/um109288203_RSLHelper.db + presets/lategame.sfc),
+ * with real gear loaded (the account-d gear-db fixture + presets/lategame.sfc),
  * rapidly flipping dynamic-override answers in the note dialog occasionally kills
  * the tab. Every flip changes the pipeline-cache key (it embeds the override
  * answers), so each one is a MISS that launches a full worker pipeline AND mints a

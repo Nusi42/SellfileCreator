@@ -1,19 +1,17 @@
 /* eslint import/no-unused-modules: off */
 import { strict as assert } from 'node:assert'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import test from 'node:test'
 
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
 import { diffGearInspectorItems, fingerprintGearInspectorItem, type GearInspectorItem } from '../../src/lib/gearInspectorSession.js'
 import type { TestItem } from '../../src/lib/ruleEval.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 
-// Use cwd so compiled tests still resolve repo assets.
-const repoRoot = process.cwd()
-// Prefer bundled fixtures so the test never skips in CI.
-const dbOnePath = join(repoRoot, 'tests', 'data', 'sample.db')
+// Prefer bundled fixtures (built from their committed SQL dumps) so the test never skips in CI.
+const dbOnePath = ensureGearDb(GEAR_DB_FIXTURES.sample)
 // Use the second fixture as the "newer" snapshot for diffing.
-const dbTwoPath = join(repoRoot, 'tests', 'data', 'sample2.db')
+const dbTwoPath = ensureGearDb(GEAR_DB_FIXTURES.sample2)
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   const copy = Uint8Array.from(buffer)

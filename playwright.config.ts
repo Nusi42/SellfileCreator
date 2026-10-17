@@ -104,6 +104,8 @@ const PREVIEW_BASE_URL = `http://127.0.0.1:${PREVIEW_PORT}`;
  */
 export default defineConfig({
   testDir: './tests/playwright',
+  // Builds the gear-DB fixtures and unpacks the sample log once, before any worker starts.
+  globalSetup: './tests/playwright/global-setup.ts',
   // Keep default timeouts tight so hung tests fail quickly.
   timeout: PLAYWRIGHT_TIMEOUTS.testDefault,
   // Align expect assertions with the default UI wait budget.

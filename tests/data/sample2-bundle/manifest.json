@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-02-13T00:12:09.007Z",
   "sourceSfc": "presets/lategame.sfc",
-  "sharedDb": "tests/data/sample2.db",
+  "sharedGearDb": "sample2",
   "profiles": [
     {
       "token": "lategame",

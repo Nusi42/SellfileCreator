@@ -3,7 +3,7 @@
  * repro-wasm-pipeline
  *
  * Headless Node harness that replays the rule-cache-worker pipeline against
- * the largest sample fixtures (presets/lategame.sfc + um109288203_RSLHelper.db).
+ * the largest sample fixtures (presets/lategame.sfc + the account-d gear-db fixture).
  * Goal: deterministically reproduce the `memory access out of bounds` crash
  * that shows up in-browser during the final compute_merged_rules_value call,
  * so we can iterate on fixes without browser reloads.
@@ -19,6 +19,7 @@ import { resolve } from 'node:path'
 import { parseSfcObject } from '../../src/lib/sfcIO.js'
 import { defaultSubstatTargets, type SellfileExportMode } from '../../src/lib/hsfBuilder.js'
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 import {
   buildMergedRulesComponents,
   computeMergedRulesFromComponents,
@@ -72,8 +73,8 @@ const ROOT_DIR = process.cwd()
 // lategame.sfc has 192 recipes + 66 safeguards + 12 metasets — same shape as
 // the broken autosave from real use that produces the talc OOB crash in browser.
 const SFC_PATH = resolve(ROOT_DIR, 'presets', 'lategame.sfc')
-// Largest sample DB — ~8000 artifacts, matching the user's gear inspector state.
-const DB_PATH  = resolve(ROOT_DIR, 'examples', 'um109288203_RSLHelper.db')
+// Largest account DB — ~8000 artifacts, matching the reported gear inspector state.
+const DB_PATH  = ensureGearDb(GEAR_DB_FIXTURES.accountD)
 
 console.log('\n[repro:wasm-pipeline] loading fixtures…')
 const sfcRaw = JSON.parse(readFileSync(SFC_PATH, 'utf8'))

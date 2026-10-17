@@ -1,5 +1,5 @@
 /* eslint import/no-unused-modules: off */
-// sample2-bundle matcher regression runner.
+// sample2 matcher regression runner.
 // This script guards the safeguard + primary/base match invariants that
 // previously regressed during wasm boundary refactors.
 
@@ -20,6 +20,7 @@ import {
 } from '../../src/lib/safeguards.js'
 import { evaluateMatchesByRecipe, type EvalResult } from '../../src/lib/ruleEval.js'
 import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 import '../setup/wasm-warmup.js'
 
 // Keep this runner fail-fast and explicit so CI errors stay actionable.
@@ -29,16 +30,17 @@ const assert = (condition: boolean, message: string): void => {
 
 // Parse unknown values into required manifest strings with one shared helper.
 const requireNonEmptyString = (value: unknown, fieldName: string): string => {
-  assert(typeof value === 'string' && value.length > 0, `sample2-bundle manifest is missing ${fieldName}`)
+  assert(typeof value === 'string' && value.length > 0, `sample2 bundle manifest is missing ${fieldName}`)
   return value as string
 }
 
 // Fixture metadata lives with the sample fixture bundle in tests/data.
 // We read only the paths needed for this runner so the manifest remains
-// the machine-readable source of truth for fixture locations.
+// the machine-readable source of truth for fixture locations. `sharedGearDb` names a
+// committed gear-db fixture (scripts/test/gear-db-fixtures.mjs), not a file path.
 type Sample2BundleManifest = {
   sourceSfc: string
-  sharedDb: string
+  sharedGearDb: string
 }
 
 // Resolve paths from repository root so compiled test output can move freely.
@@ -49,8 +51,8 @@ const MANIFEST_PATH = resolve(ROOT_DIR, 'tests', 'data', 'sample2-bundle', 'mani
 const loadManifest = (): Sample2BundleManifest => {
   const raw = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Partial<Sample2BundleManifest>
   const sourceSfc = requireNonEmptyString(raw.sourceSfc, 'sourceSfc')
-  const sharedDb = requireNonEmptyString(raw.sharedDb, 'sharedDb')
-  return { sourceSfc, sharedDb }
+  const sharedGearDb = requireNonEmptyString(raw.sharedGearDb, 'sharedGearDb')
+  return { sourceSfc, sharedGearDb }
 }
 
 // Convert Node Buffer slices into stable ArrayBuffer views for the importer.
@@ -86,7 +88,8 @@ const main = async (): Promise<void> => {
   // Load fixture pointers from manifest so path updates stay centralized.
   const manifest = loadManifest()
   const sfcPath = resolve(ROOT_DIR, manifest.sourceSfc)
-  const dbPath = resolve(ROOT_DIR, manifest.sharedDb)
+  // Builds the fixture from its committed SQL dump when the cached .db is missing or stale.
+  const dbPath = ensureGearDb(manifest.sharedGearDb)
 
   // Parse the source SFC exactly like app startup does.
   const sfcRaw = JSON.parse(readFileSync(sfcPath, 'utf8'))
@@ -95,7 +98,7 @@ const main = async (): Promise<void> => {
     substatTargets: defaultSubstatTargets(),
   })
   // Resolve metaset references up-front so safeguard inputs are explicit.
-  // sample2-bundle SFC always has safeguards; ?? [] is a type-system defensive fallback.
+  // The lategame SFC always has safeguards; ?? [] is a type-system defensive fallback.
   const rawSafeguardRules = parsed.safeguardRules ?? []
   const safeguardRules = resolveSafeguardRulesWithMetasets(rawSafeguardRules, parsed.metasets)
   // Metaset resolution must not drop rules that do not use metasets.
@@ -110,7 +113,7 @@ const main = async (): Promise<void> => {
   const dbBytes = readFileSync(dbPath)
   const imported = await importGearDatabaseFromArrayBuffer(toArrayBuffer(dbBytes))
   const artifacts = [...imported.artifacts, ...imported.inboxArtifacts]
-  assert(artifacts.length > 0, 'sample2-bundle matcher runner imported zero artifacts')
+  assert(artifacts.length > 0, 'sample2 matcher runner imported zero artifacts')
 
   // Build the baseline merged rules (with safeguard enabled but no detection yet).
   const baseMergedRules = computeMergedRules({
@@ -227,7 +230,7 @@ const main = async (): Promise<void> => {
 
   // Emit one compact success line so CI logs stay easy to scan.
   console.log(
-    `ok - sample2-bundle matcher invariants (artifacts=${artifacts.length}, keepRows=${keepRows.length})`,
+    `ok - sample2 matcher invariants (artifacts=${artifacts.length}, keepRows=${keepRows.length})`,
   )
 }
 

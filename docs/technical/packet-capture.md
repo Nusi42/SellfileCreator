@@ -74,11 +74,11 @@ docs/orig/sampleLog/captures/<session>/packet_<NN>_<method>_<YYMMDD>_<HHMMSS.mmm
 - The binary gear-DB push (`gearDbFileBinary`) is recorded as a metadata stub only — the raw
   SQLite bytes are not persisted.
 
-The committed reference session lives directly in `docs/orig/sampleLog/` (same
-`packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json` naming; the zero-padded `<index>` is
-the order in which RSL Helper emitted the packet). The current sample (captured
-2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7, `inboxArtifacts` ×6,
-`lastUsed` ×2, and `ArtifactByHeroID` ×1. (Not referenced from the user-facing
+The reference sample log is the committed capture session `session_260510_183951.731`
+(`SAMPLE_LOG_SESSION`; same `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json` naming, the
+zero-padded `<index>` being the order in which RSL Helper emitted the packet). The sample
+(captured 2026-05-10) contains 22 packets: `artifacts` ×6, `champions` ×7,
+`inboxArtifacts` ×6, `lastUsed` ×2, and `ArtifactByHeroID` ×1. (Not referenced from the user-facing
 `userDocs/websocket-jsonrpc.md` — `docs/orig/` is not shipped.)
 
 ### Outbound frame shape
@@ -144,19 +144,28 @@ npm run fixtures:captures:pack -- session_YYMMDD_HHMMSS.mmm
   with long-distance matching (128 MiB window) — the near-identical consecutive `artifacts`
   frames dedupe against each other. Tar comes from the pure-JS `tar` devDependency, so
   pack/unpack run identically on Windows. Implementation: `scripts/test/capture-fixtures.mjs`.
+- Packing **anonymizes** the frames: every `playerId` / `playerName` value is replaced,
+  wherever it occurs in the session, by a placeholder (`um12345678`, `[TAG]Player`, …).
+  The live capture directory is left untouched. See
+  [Test Data and Privacy](test-data.md#capture-sessions-and-the-sample-log).
 
 Consumers unpack on demand back to `docs/orig/sampleLog/captures/<session>/` (the
 gitignored live-captures dir doubles as the local unpack cache), so every path-based
 consumer works unchanged:
 
 - **Playwright**: `tests/playwright/capture-replay-memory.spec.ts` calls
-  `ensureCaptureSession()` in `beforeAll` — no manual step; unpack is idempotent and
+  `ensureCaptureSession()` in `beforeAll`, and `tests/playwright/global-setup.ts` unpacks
+  the sample log for the endpoint specs — no manual step; unpack is idempotent and
   skipped when the session dir already exists.
+- **Unit tests**: `tests/unit/gearDbEndpointReplay.test.ts` unpacks the sample log itself.
 - **Node repro harness**: run `npm run fixtures:captures:unpack` once (unpacks every
   committed archive), then `REPRO_SESSION=<session> npm run repro:capture-replay` as usual.
 
 Committed capture fixtures:
 
+- `session_260510_183951.731` — the 2026-05-10 RSL Helper sample log (one push of every
+  endpoint type; 79 MB raw, 0.3 MB packed). Replayed by `gearDbEndpointReplay.test.ts` and
+  `endpoint-replay.spec.ts`.
 - `session_260715_212027.627` — app started with `?capturePackets`, previous data restored,
   RSL Helper started afterwards; one farm run; ends at the live OOM crash (52 MB raw).
 - `session_260715_212207.259` — RSL Helper already running, app connected to the live

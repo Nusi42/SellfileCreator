@@ -5,7 +5,8 @@
  * Simulate safeguard improvement chance for a specific item at a modified
  * level/substat value, using the real SFC + DB pipeline.
  *
- * Usage: node sim-improvement-chance.js --sfc presets/lategame.sfc --db examples/um109288203_RSLHelper.db
+ * Usage: node sim-improvement-chance.js --sfc presets/lategame.sfc --db <gear.db>
+ * (--db defaults to the account-d gear-db fixture, built from its committed SQL dump)
  */
 import { resolve as resolvePath } from 'node:path'
 import {
@@ -21,6 +22,7 @@ import { buildSafeguardImprovementChanceByArtifactId } from '../../src/lib/safeg
 import { StatVariant } from '../../src/lib/types.js'
 import { normalizeSubstatByMax6 } from '../../src/lib/substatRollNormalization.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 // Node shims + SFC/DB loaders shared by every headless tooling script.
 import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
@@ -55,7 +57,7 @@ const run = async (): Promise<void> => {
 
   const args = process.argv.slice(2)
   const sfcPath = resolvePath(process.cwd(), args.includes('--sfc') ? args[args.indexOf('--sfc') + 1] ?? 'presets/lategame.sfc' : 'presets/lategame.sfc')
-  const dbPath = resolvePath(process.cwd(), args.includes('--db') ? args[args.indexOf('--db') + 1] ?? 'examples/um109288203_RSLHelper.db' : 'examples/um109288203_RSLHelper.db')
+  const dbPath = resolvePath(process.cwd(), args.includes('--db') ? args[args.indexOf('--db') + 1] ?? ensureGearDb(GEAR_DB_FIXTURES.accountD) : ensureGearDb(GEAR_DB_FIXTURES.accountD))
 
   console.log(`Loading SFC: ${sfcPath}`)
   console.log(`Loading DB:  ${dbPath}`)

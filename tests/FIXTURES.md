@@ -8,6 +8,10 @@ users can export from the app.
 > `npm run fixtures:captures:pack|unpack`), not SFC→HSF pairs. See
 > [`docs/technical/packet-capture.md`](../docs/technical/packet-capture.md)
 > ("Promoting a recording") for the workflow and the session inventory.
+>
+> `gear-db/` holds the gear-database fixtures as SQL dumps (`<name>.sql`), built on demand
+> into `tmp/fixtures/gear-db/`. See
+> [`docs/technical/test-data.md`](../docs/technical/test-data.md).
 
 ## File pairs
 - Each test case is a pair of files sharing the same base name.
@@ -93,10 +97,10 @@ users can export from the app.
 - `minima-default-factory.*` locks in the factory (in-game) minima we ship by default so we spot regressions if the base roll floors change again.
 - `auto-flex-epic-legendary-optionals.*` captures the Auto+Flex dual-branch pattern (locked SPD/CR%/CDMG% with wildcard fourth stats) so Epic rows still collapse at the early milestones while Legendary rows emit the 4-of minima once Epic’s +16 permutations appear.
 - `auto-flex-loose-optionals.*` exercises the same Auto+Flex pattern when the aggregate roll floor is below the locked trio, ensuring the Epic +16 and ≥Legendary branches keep the trio while allowing optional fourth-slot permutations only after additional rolls exist.
-- `tests/data/sample2-bundle/` now carries the large `presets/lategame.sfc` + `tests/data/sample2.db` fixture bundle for transcript-driven regression checks.
+- `tests/data/sample2-bundle/` carries the large `presets/lategame.sfc` + `sample2` gear-DB fixture bundle for transcript-driven regression checks.
 - `tests/data/sample2-bundle/recipes/` exports one fixture variant per source recipe and per major recipe-override profile (`lategame`, `endgame`, `endgame+`), then dedupes profile outputs when the effective recipe is identical; profile-to-variant mapping lives in `tests/data/sample2-bundle/manifest.json`.
-- `tests/data/sample2-bundle/safeguards/` exports one fixture variant per safeguard rule while keeping the full mixed keep/sell recipe list in place, so safeguard behavior is always evaluated in real rule context (including recipe-override profile effects).
-- `tests/integration/sample2-matcher.runner.ts` is executed by `npm run test:unit` via `scripts/test/run-tests.mjs`, using `tests/data/sample2-bundle/manifest.json` as source-of-truth for fixture paths. It asserts that safeguard injected rows are never empty and that matcher outputs always include both `firstMatch` and `firstNonExcludedMatch` for every artifact in the shared sample2 DB.
+- `tests/data/sample2-bundle/keep-uniques/` exports one fixture variant per Keep Uniques rule while keeping the full mixed keep/sell recipe list in place, so that rule is always evaluated in real rule context (including recipe-override profile effects).
+- `tests/integration/sample2-matcher.runner.ts` is executed by `npm run test:unit` via `scripts/test/run-tests.mjs`, using `tests/data/sample2-bundle/manifest.json` as source-of-truth for the SFC path and the gear-DB fixture name (`sharedGearDb`). It asserts that safeguard injected rows are never empty and that matcher outputs always include both `firstMatch` and `firstNonExcludedMatch` for every artifact in the shared sample2 DB.
 - When a scenario needs to cover both collapse and non-collapse behaviour, we keep two variants:
   - The `*-factory.*` pair pins `Minima` to the factory roll floors so the builder still collapses to a single rule (`auto-at-0-with-k-4-minreq4-factory.*`, `auto-banner-aggregate-window-factory.*`, `roll-target-collapsed-quad-factory.*`, etc.).
   - The legacy pair (without the suffix) retains the boosted minima used in the original test so we continue to exercise the expanded multi-rule path.

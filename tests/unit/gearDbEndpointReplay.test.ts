@@ -2,7 +2,7 @@
 /**
  * gearDbEndpointReplay
  *
- * Replays the committed RSL Helper sample log (docs/orig/sampleLog/) through the real
+ * Replays the committed RSL Helper sample log (capture session SAMPLE_LOG_SESSION) through the real
  * normalize + dataset pipeline — the same path the live app uses for per-type endpoint
  * pushes — and asserts the resulting dataset carries the metadata the UI needs:
  *   - champions resolve a baseHeroId (the champion-icon source), and
@@ -16,6 +16,7 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { SAMPLE_LOG_SESSION, ensureCaptureSession } from '../../scripts/test/capture-fixtures.mjs'
 
 import { normalizeExternalEvent } from '../../src/lib/externalCommands.js'
 import { createDatasetFromSnapshot } from '../../src/lib/importers/gearDbRawDataset.js'
@@ -26,7 +27,8 @@ import type {
   GearDbLastUsedRow,
 } from '../../src/lib/importers/gearDbNormalizer.js'
 
-const SAMPLE_DIR = resolve(process.cwd(), 'docs/orig/sampleLog')
+// The committed archive unpacks on first use (a no-op once the session dir exists).
+const SAMPLE_DIR = await ensureCaptureSession(SAMPLE_LOG_SESSION)
 
 // Read every packet_*.json envelope in send order (filename index is zero-padded).
 const loadPackets = (): Array<{ method: string; payload: unknown }> => {

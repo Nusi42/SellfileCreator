@@ -11,7 +11,7 @@
 // where even maximal values cannot clear the bar are REMOVED — nothing viable exists, so
 // fresh drops fall back to normal selling.
 //
-// Perf history (measured 2026-07-04 on the reference workload account-d, lategame tier,
+// Perf history (measured 2026-07-04 on the reference workload: account-d gear-DB fixture, lategame tier,
 // all rules on anticipateImprovements; instrumentation since removed): attach cost went
 // 36.2 s → 34.0 s with the value-independent synthetic gains + shared per-cell memo and
 // the cross-bucket corner cache (the cross-bucket dedupe ceiling was only 2.2% — 519k of
@@ -102,7 +102,7 @@ const WATCH_RARITY_MERGE_KEEP_BIASED: bool = true;
 // sharing sound, and why flooring is keep-biased: lower boundary → easier selection →
 // corner floors equal-or-lower → equal-or-more keeps, never extra sells). Coarser values
 // collapse more buckets onto shared cache cells at the cost of a slightly wider keep-net.
-// Default from the 2026-07-04 coarseness study (account-d + um12345678, lategame,
+// Default from the 2026-07-04 coarseness study (account-d fixture + a second account export, lategame,
 // all-improve; boundary-score distribution n=17.5k, min 1.0 / median 4.06 / p95 10.8):
 // 0.05 ≈ 1.2% of the median is the coarsest grid whose kept-drift stays single-digit on
 // both DBs (+1 and +2 pieces, ~2.5–3% detection speedup); 0.08 already drifted +7/+11

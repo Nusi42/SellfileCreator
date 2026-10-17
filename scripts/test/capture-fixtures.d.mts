@@ -5,6 +5,12 @@
  */
 export declare const CAPTURE_ARCHIVE_DIR: string
 export declare const CAPTURE_UNPACK_DIR: string
+/** The committed 2026-05-10 RSL Helper sample-log session (one push of every endpoint type). */
+export declare const SAMPLE_LOG_SESSION: string
+/** Replacement pairs for every playerId/playerName value found in `texts`, longest first. */
+export declare function identityReplacements(texts: readonly string[]): Array<[string, string]>
+/** Apply `identityReplacements` pairs to one text. */
+export declare const anonymizeText: (text: string, pairs: ReadonlyArray<readonly [string, string]>) => string
 /** Archive path for a session name (SSOT for the <name>.tar.zst convention). */
 export declare const archivePathFor: (session: string) => string
 /** Unpacked session dir for a session name. */

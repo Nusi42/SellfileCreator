@@ -10,15 +10,16 @@ import { settleWorkload } from './workload-indicator'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { REPLAY_ROUNDS, MEMORY_LEAK_ROUNDS } from './iteration-counts'
 import { PRESET_LATEGAME_SFC_PATH } from './fixture-paths'
+import { SAMPLE_LOG_SESSION, unpackedPathFor } from '../../scripts/test/capture-fixtures.mjs'
 
 // RSL Helper default WebSocket endpoint; app reads it from ?endpoint= query param.
 const ENDPOINT_URL = 'ws://localhost:8080/'
 // Sample log captured from RSL Helper on 2026-05-10: 22 packets in capture order —
 // 6× artifacts, 7× champions, 6× inboxArtifacts, 2× lastUsed, 1× ArtifactByHeroID. Each
-// file under `docs/orig/sampleLog/` is one full JSON-RPC envelope, named
+// file of the SAMPLE_LOG_SESSION capture is one full JSON-RPC envelope, named
 // `packet_<index>_<method>_<YYMMDD>_<HHMMSS.mmm>.json` where the zero-padded numeric
-// `<index>` dictates send order.
-const SAMPLE_LOG_DIR = path.resolve(process.cwd(), 'docs/orig/sampleLog')
+// `<index>` dictates send order. The Playwright global setup unpacks the committed archive.
+const SAMPLE_LOG_DIR = unpackedPathFor(SAMPLE_LOG_SESSION)
 // Loads every captured packet from the sample-log directory, sorted by the numeric
 // `<index>` prefix so we replay them in the exact order RSL Helper emitted them.
 const loadCapturedPackets = (): unknown[] => {

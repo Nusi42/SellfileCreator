@@ -45,6 +45,11 @@
 *.pdn    binary
 
 *.dll   binary
+*.zst   binary
+
+# Gear-DB fixtures are generated SQL dumps (scripts/test/gear-db-fixtures.mjs): plain LF
+# text so diffs stay readable, collapsed by default in GitHub's diff view.
+tests/fixtures/gear-db/*.sql text eol=lf linguist-generated
 
 # SVG is XML, so it stays text and diffs line by line like any other markup.
 *.svg text eol=lf

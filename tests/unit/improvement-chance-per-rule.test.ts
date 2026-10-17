@@ -8,7 +8,7 @@
  * `requiredCount` cannot inflate another rule's improvement_chance and therefore cannot
  * push items into an earlier rule's expansion set via threshold gating.
  *
- * Verifies via the user-reported scenario from a planning note:
+ * Verifies via a reported scenario on the account-d gear-db fixture:
  * raising rule B's count from 4 → 32 must NOT change rule A's per-rule chance for any
  * shared artifact, even though both rules target overlapping items.
  */

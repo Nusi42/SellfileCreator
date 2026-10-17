@@ -21,7 +21,7 @@
  * metadata notification followed by a raw SQLite frame. That is a SECONDARY transport
  * for direct binary DB loads; it is NOT how RSL Helper itself pushes updates. RSL
  * Helper streams JSON-RPC part notifications (`artifacts` / `champions` /
- * `inboxArtifacts` / `lastUsed`, see docs/orig/sampleLog/) — never binary, and never a
+ * `inboxArtifacts` / `lastUsed`, see the SAMPLE_LOG_SESSION capture) — never binary, and never a
  * single complete DB. We exercise the binary path here because it is a real ingest path
  * that still needs coverage AND it is the cheapest way to drive a full, size-varied
  * pipeline per case. Fragmentation lives in the WASM rule/eval allocator, which is
@@ -51,7 +51,7 @@ import {
 } from './note-overrides-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { FRAGMENTATION_DBS_PER_RULESET } from './iteration-counts'
-import { PRESET_LATEGAME_SFC_PATH, EXAMPLE_RSLHELPER_DB_PATHS } from './fixture-paths'
+import { PRESET_LATEGAME_SFC_PATH, ACCOUNT_DB_PATHS } from './fixture-paths'
 
 // RSL Helper default WebSocket endpoint.
 const ENDPOINT_URL = 'ws://localhost:8080/'
@@ -84,7 +84,7 @@ const buildCases = (): FragCase[] => {
   const cases: FragCase[] = []
   // Dev runs cap the DBs per rule-set (E2E_FULL → Infinity = every DB) so the matrix
   // stays size-varied — the fragmentation signal — while the dev loop stays short.
-  const dbsPerRuleSet = EXAMPLE_RSLHELPER_DB_PATHS.slice(0, FRAGMENTATION_DBS_PER_RULESET)
+  const dbsPerRuleSet = ACCOUNT_DB_PATHS.slice(0, FRAGMENTATION_DBS_PER_RULESET)
   for (const mode of ACCOUNT_MODES) {
     for (const keepLimited of [false, true]) {
       for (const dbPath of dbsPerRuleSet) {
@@ -108,7 +108,7 @@ test.describe('binary-endpoint-fragmentation', () => {
 
     // Pre-read every DB once so the hot loop only does WebSocket I/O, not disk I/O.
     const dbBuffers = new Map<string, Buffer>()
-    for (const dbPath of EXAMPLE_RSLHELPER_DB_PATHS) {
+    for (const dbPath of ACCOUNT_DB_PATHS) {
       dbBuffers.set(dbPath, fs.readFileSync(dbPath))
     }
 

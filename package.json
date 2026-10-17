@@ -47,6 +47,8 @@
                     "sfc-engine:parity":  "npm run sfc-engine:parity-expected \u0026\u0026 cargo test --manifest-path wasm/Cargo.toml -p sfc_engine",
                     "fixtures:captures:pack":  "node scripts/test/capture-fixtures.mjs pack",
                     "fixtures:captures:unpack":  "node scripts/test/capture-fixtures.mjs unpack",
+                    "fixtures:gear-db:build":  "node scripts/test/gear-db-fixtures.mjs build",
+                    "fixtures:gear-db:dump":  "node scripts/test/gear-db-fixtures.mjs dump",
                     "test:e2e:chromium":  "playwright test --project=chromium-fhd \u0026\u0026 playwright test --project=chromium-perf --workers=1",
                     "test:e2e:firefox":  "playwright test --project=firefox-fhd \u0026\u0026 playwright test --project=firefox-perf --workers=1",
                     "test:e2e:chromium:full":  "playwright test --project=chromium --project=chromium-fhd \u0026\u0026 playwright test --project=chromium-perf --workers=1",

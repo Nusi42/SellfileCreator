@@ -59,7 +59,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM, and mirrors `src/lib/wasm/generated/` into `tmp/tsc/tests/` (SSOT for the mirror — tsc emits no `.wasm`, and without a refresh here the repro/bench harnesses silently ran whatever engine binary an earlier `test:unit` run had left behind).
 - **`npm run test:unit` WIPES `tmp/tsc/tests`** (run-tests.mjs cleans before recompiling). Never run it while a long-lived harness that executes out of `tmp/tsc` (repro scripts, ad-hoc benchmarks) is still running — the harness loses its compiled modules mid-flight.
 - **Before/after benchmarking pattern** (for validating a pipeline optimization is output-identical and faster): create a `git worktree` of the baseline commit, symlink `node_modules`, build its WASM, compile its `tsconfig.tests.json`, and inject one shared harness `.mjs` into BOTH trees' `tmp/tsc/tests/tests/repro/` so serialization/hashing code is identical; the harness feature-detects post-change APIs (e.g. `configureMergedRulesFromComponents`) so each side runs its own worker sequence, records a `newApi` flag in its output (guards against running in the wrong tree — shell cwd persists between commands), fixes `now` for deterministic lastUse-windowed safeguards, and measures 3 runs per combo (discard the first, average the rest). Correctness = sha256 over `stableSerialize` of matches (incl. all per-recipe decisions), HSF export form, detection snapshot, baseline matches, and improvement-chance entries.
-- Example DB fixtures live in `examples/` and `examples/OtherAccounts/`, all named `<accountId>_RSLHelper.db`. Account ids are currently unique across the two directories, but a script that resolves a fixture by account id must search both — the split is by convention, not by id, so nothing guarantees a given id lives in only one of them.
+- Gear DB fixtures are committed as SQL dumps under `tests/fixtures/gear-db/` and built on demand into the gitignored `tmp/fixtures/gear-db/` (`scripts/test/gear-db-fixtures.mjs`, `npm run fixtures:gear-db:build|dump`); raw RSL Helper exports are never committed. See [Test Data and Privacy](test-data.md).
 - `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the SFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
 - `scripts/test/dump-tests-sfc.mjs` — extracts SFC‑readable recipes from compiled tests (`npm run tests:extract`).
 - `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated SFC cases.
@@ -128,7 +128,7 @@ Notes:
   - `note-overrides-helpers.ts` owns the override-questionnaire drivers: `setNoteOverrideCheckbox` for the expert dialog, and for the express dialog (which has no header toggle to re-open through) `expressOverrideRow` / `selectExpressOverride` plus the shared answer labels (`ENDGAME_ANSWER_LABEL`, …). `ui-selectors.ts` holds the stable selectors, including the two dirty-dot selectors; `autosave-storage.ts` reads the account-scoped autosave entry back from the page (`readStoredAutosavePayload`). Specs import these rather than re-declaring the locator chains or key suffixes.
   - `tests/data/sample-small.sfc` (3 recipes, no Safeguards) is the fast SFC fixture for most UI coverage; `tests/data/sample.sfc` remains the large fixture for scroll/perf scenarios.
   - `tests/data/sample-small-recipe-overrides-disabled.sfc` mirrors the small SFC fixture with recipe overrides disabled (used by note/recipe-override coverage).
-  - `tests/data/sample-small.db` is the slim Gear Inspector fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
+  - The `sample-small` gear-DB fixture (`SAMPLE_SMALL_DB_PATH`) is the slim Gear Inspector fixture for Playwright; `sample` stays reserved for unit tests and offline tooling. `tests/playwright/global-setup.ts` builds all gear-DB fixtures and unpacks the sample-log capture once before the workers start ([Test Data and Privacy](test-data.md)).
 - Specs:
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
   - `tests/playwright/recipe-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfc`, performing copy/paste, and verifying row ordering.
@@ -163,7 +163,7 @@ Notes:
   - Expect/wait budgets follow the same split: `expectDefault` (3s) for general UI, `expectLong` (15s) only when a rule rebuild or matcher run is the explicit action under test.
   - Initial app-shell mounts may use `appGoto` (15s) for the first visible control in perf/modal specs; the rest of the interactions must stick to the 3s defaults.
   - Long timeouts are justified only for app-shell boot, SFC imports, recipe rebuilds, or Gear Inspector matching; everything else must stay on the 3s defaults.
-  - If a test needs more than 15s, shrink the fixture (use `sample-small.sfc` / `sample-small.db`) or split the scenario; do not increase timeouts.
+  - If a test needs more than 15s, shrink the fixture (use `sample-small.sfc` / the `sample-small` gear-DB fixture) or split the scenario; do not increase timeouts.
   - Do not add new timeout tiers or increase these values; if a test exceeds 15s, reduce the workload, improve readiness checks, or split the scenario.
   - **Diagnose, never bump.** A longer timeout never makes a correct test pass faster and never fixes a broken one — it only makes the failure slower. When a spec is slow or flaky the cause is almost always a *wrong wait*, not a *short ceiling*. Find what is actually being waited on before touching any budget. The binary-endpoint specs once carried 10–20-minute ceilings purely to mask a `waitFor({ state: 'visible' })` that blocked its full timeout every time the spinner showed-and-hid before Playwright polled it; the fix was the wait, not the number.
   - **A vanished element can be correct app behavior, not a lost race.** Before treating "element(s) not found" as flake, check whether the app legitimately removed it. Both note-override helpers failed reproducibly on account-mode transitions in `binary-endpoint-fragmentation.spec.ts` for one shared reason: toggling an override rewrites the note's active recipe set, and when that resolves to a document with no note (e.g. unchecking the last active mode) App's `closeNoteAfterLoad` closes the dialog. `closeNoteDialog` hit it as "Close button not found"; `setNoteOverrideCheckbox` hit it as a 15s `waitForFunction` timeout scanning a page with no dialog. Neither a longer budget nor a retry would have fixed either — only identifying the auto-close did.
@@ -396,7 +396,9 @@ Output locations:
 than the repo carrying a built binary.
 
 **Performance** (release build, v1.0.48, 7,733-piece vault + 1,430 champions from
-`docs/orig/sampleLog/packet_01_artifacts_*.json` / `packet_03_champions_*.json`,
+the sample-log capture's `packet_01_artifacts_*.json` / `packet_03_champions_*.json`
+(`docs/orig/sampleLog/captures/session_260510_183951.731/` after
+`npm run fixtures:captures:unpack`),
 `presets/lategame.sfc` compiling to ~34.9k rules; `npm run sfc-engine:bench -- <sfc>
 <artifacts> <champions>`):
 
@@ -780,7 +782,7 @@ definition lives in the generated layer (which owns the id domain) and is re-exp
 **Real-data input harness**
 
 `tests/repro/native-dll-realdata-input.ts` lifts a captured raw endpoint `artifacts`
-packet (`docs/orig/sampleLog/packet_*_artifacts_*.json`) and optional `champions` packet
+packet (e.g. the sample-log capture's `packet_*_artifacts_*.json`) and optional `champions` packet
 straight into a `NativeInput` JSON (the DLL now parses the raw wire shape itself), pairs it
 with a `.sfc` preset, and writes the file the DLL consumes — used for the end-to-end
 run above.

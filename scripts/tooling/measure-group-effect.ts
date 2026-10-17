@@ -42,11 +42,12 @@ import {
   applySafeguardOverrides,
 } from '../../src/lib/noteSafeguardOverrides.js'
 import type { GearInspectorPreviewRow } from '../../src/types/gearInspectorPreview.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
 
 // ── Scenario knobs (env vars) — defaults reproduce the shipped-preset question ──
 // MGE_SFC           SFC to measure                       (presets/lategame.sfc)
-// MGE_DB            RSL Helper DB                        (examples/um109288203_RSLHelper.db)
+// MGE_DB            RSL Helper DB                        (account-d gear-db fixture)
 // MGE_GROUP         comma-separated Safeguards indices    (37,38,39,40)
 // MGE_MODE          account-mode option token for overrides, or "none" to skip the note
 //                   entirely, i.e. "dynamic overrides disabled" in the app   (lategame)
@@ -72,7 +73,7 @@ const envNumber = (key: string): number | null => {
   return value
 }
 const SFC_PATH = env('MGE_SFC') ?? 'presets/lategame.sfc'
-const DB_PATH = env('MGE_DB') ?? 'examples/um109288203_RSLHelper.db'
+const DB_PATH = env('MGE_DB') ?? ensureGearDb(GEAR_DB_FIXTURES.accountD)
 const GROUP_INDICES = (env('MGE_GROUP') ?? '37,38,39,40').split(',').map((raw) => {
   const index = Number(raw.trim())
   if (!Number.isInteger(index) || index < 0) throw new Error(`MGE_GROUP index '${raw}' is not a rule index`)

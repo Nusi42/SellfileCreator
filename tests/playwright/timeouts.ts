@@ -7,8 +7,8 @@ const TEST_TIMEOUT_DEFAULT_MS = 3_000
 const TEST_TIMEOUT_LONG_MS = 15_000
 // Extra-long timeout for heavy setup flows like autosave restores.
 const TEST_TIMEOUT_HEAVY_MS = 30_000
-// XL timeout for hooks that run multiple sequential WASM passes (e.g. 2× passes on a 68 MB DB
-// in large-db-duplication).
+// XL timeout for hooks that run multiple sequential WASM passes (e.g. 2× passes on the largest
+// account DB in large-db-duplication).
 // Budget: 2 × ~30 s per context under full-suite CPU load.
 const TEST_TIMEOUT_XL_MS = 90_000
 // XXL timeout for midgame-progression: 3 sequential fresh contexts × (boot + SFC + dialog + WASM + render).

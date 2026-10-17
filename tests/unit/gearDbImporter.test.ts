@@ -7,13 +7,14 @@ import test from 'node:test'
 import initSqlJs from 'sql.js'
 
 import { importGearDatabaseFromArrayBuffer } from '../../src/lib/importers/gearDbImporter.js'
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 
 // Use cwd so compiled tests still resolve repo assets.
 const repoRoot = process.cwd()
-// Keep large DB fixtures under tests/data to separate them from specs.
-const sampleDbPath = join(repoRoot, 'tests', 'data', 'sample.db')
-// Keep a fixture with REAL lastUse timestamps under versioned test data.
-const helperRealLastUseDbPath = join(repoRoot, 'tests', 'data', 'sample2.db')
+// Large DB fixture, built from its committed SQL dump.
+const sampleDbPath = ensureGearDb(GEAR_DB_FIXTURES.sample)
+// Fixture with REAL lastUse timestamps (some stored as TEXT in the REAL column).
+const helperRealLastUseDbPath = ensureGearDb(GEAR_DB_FIXTURES.sample2)
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   const copy = Uint8Array.from(buffer)
@@ -40,7 +41,7 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   const arrayBuffer = bufferToArrayBuffer(readFileSync(sampleDbPath))
   const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
 
-  // Snapshot taken from tests/data/sample.db (sqlite counts).
+  // Snapshot taken from the sample gear-DB fixture (sqlite counts).
   assert.equal(artifacts.length, 6900)
   assert.equal(inboxArtifacts.length, 358)
 
@@ -104,7 +105,7 @@ test('gear DB importer reads lastUse timestamps from sample2 fixture', async () 
   assert(existsSync(helperRealLastUseDbPath), `missing fixture: ${helperRealLastUseDbPath}`)
   const arrayBuffer = bufferToArrayBuffer(readFileSync(helperRealLastUseDbPath))
   const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  // Snapshot counts come from tests/data/sample2.db.
+  // Snapshot counts come from the sample2 gear-DB fixture.
   assert.equal(artifacts.length, 7676)
   // Inbox size anchors expectations for the importer output shape.
   assert.equal(inboxArtifacts.length, 86)

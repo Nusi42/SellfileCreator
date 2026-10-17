@@ -54,7 +54,7 @@ test.describe('binary-endpoint-memory', () => {
    * that each import cycle does not leave a permanent residue.
    *
    * NOTE: this is NOT how RSL Helper pushes updates — it streams JSON-RPC parts
-   * (artifacts / champions / inboxArtifacts / lastUsed, see docs/orig/sampleLog/),
+   * (artifacts / champions / inboxArtifacts / lastUsed, see the SAMPLE_LOG_SESSION capture),
    * never a complete binary DB.  The binary path is a separate direct-load ingest
    * that still needs leak coverage; it drives the same downstream WASM pipeline.
    *

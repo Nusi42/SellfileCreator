@@ -5,7 +5,7 @@
 // list the item.
 //
 // Ground-truth (from the headless gearInspectorProbe pipeline against the same fixtures):
-//   artifact 128768, lategame.sfc defaults (Lategame difficulty), um109288203_RSLHelper.db
+//   artifact 128768, lategame.sfc defaults (Lategame difficulty), account-d gear-db fixture
 //   → the ranked "Protect: Speed" row is safeguardRules[1] (ordinal 2), bucket rank #46,
 //     global rank #1636. Index 1: the Safeguards array opens with the "Speed" separator
 //     entry (index 0); this artifact ranks in the second Speed rule after it.
