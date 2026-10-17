@@ -5,9 +5,9 @@ The Tools dialog now includes a **Dungeon Drops** tab that simulates dungeon far
 ## Data Sources
 
 - Set availability is derived from the dungeon/set mapping in `docs/TECHNICAL.md` (Ice Golem, Fire Knight, Dragon, Spider).
-- Drop tables are sourced from the images under `docs/` (`Dungeons_LootTable_DropRates.jpg`, `Dungeons_LootTable_DropRates_Hard.jpg`, `SpiderDen_LootTable_DropRate.jpg`).
+- Drop tables are transcribed from published loot tables (normal, hard and Spider's Den dungeon tables). The source screenshots are third-party material and are not part of the repository.
 - Reference sources: Ayumilove loot table page (retrieved **2026-02-08**) and Tyrauku video (published **2024-08-22**).
-- Event dungeon drop anchors are sourced from `docs/EventDungeonDropRate.jpg` (Stage 20/24/30).
+- Event dungeon drop anchors are transcribed from the published event drop-rate table (Stage 20/24/30).
 
 ## Simulation Defaults
 
@@ -38,8 +38,8 @@ The Tools dialog now includes a **Dungeon Drops** tab that simulates dungeon far
 
 ## Stage Weights
 
-- Normal-mode rank/rarity weights come from `Dungeons_LootTable_DropRates.jpg`.
-- Hard-mode rank/rarity weights come from `Dungeons_LootTable_DropRates_Hard.jpg`.
+- Normal-mode rank/rarity weights come from the normal dungeon loot table.
+- Hard-mode rank/rarity weights come from the hard-mode dungeon loot table.
 - Event spotlight/accessory/5★/6★ rates are linearly interpolated between Stage **20 → 24 → 30** anchors.
 - Event spotlight/accessory anchors clamp to the nearest known stage outside **20–30**.
 - Event rarity uses normal tables through Stage **25**, then blends hard-mode tables for Stage **26–30**.

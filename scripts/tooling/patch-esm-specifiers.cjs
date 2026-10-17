@@ -75,6 +75,36 @@ function patchMjsImports(source, compiledFilePath) {
   })
 }
 
+// Vite virtual modules have no file on disk. Node runs of compiled code get a stub emitted
+// next to each output root instead; `virtual:game-icons` (scripts/vite/gameIconsPlugin.ts)
+// gets the shape of a build without the asset pack, so tests see placeholder art.
+const VIRTUAL_MODULE_STUBS = {
+  'virtual:game-icons': [
+    'export const configured = false',
+    'export const champions = Object.freeze({})',
+    'export const factions = Object.freeze({})',
+    'export const sets = Object.freeze({})',
+    'export const setSlots = Object.freeze({})',
+    'export const slotGlyphs = Object.freeze({})',
+    '',
+  ].join('\n'),
+}
+
+function patchVirtualImports(source, compiledFilePath) {
+  const root = roots.find((r) => compiledFilePath.startsWith(r + path.sep))
+  if (root == null) return source
+  return source.replace(/from\s+(["'])(virtual:[\w-]+)\1/g, (m, quote, id) => {
+    const stub = VIRTUAL_MODULE_STUBS[id]
+    if (stub === undefined) return m
+    // One stub file per output root; rewriting is idempotent across repeated patch runs.
+    const stubPath = path.join(root, '__virtual__', `${id.slice('virtual:'.length)}.js`)
+    fs.mkdirSync(path.dirname(stubPath), { recursive: true })
+    fs.writeFileSync(stubPath, stub)
+    const rel = path.relative(path.dirname(compiledFilePath), stubPath).split(path.sep).join('/')
+    return `from ${quote}${rel.startsWith('.') ? rel : `./${rel}`}${quote}`
+  })
+}
+
 const existingRoots = roots.filter((r) => fs.existsSync(r))
 const files = existingRoots.flatMap((r) => walk(r))
 for (const p of files) {
@@ -83,6 +113,7 @@ for (const p of files) {
   // ending in .js) is left alone by the extensionless-import rewrite below.
   s = patchRawImports(s, p)
   s = patchMjsImports(s, p)
+  s = patchVirtualImports(s, p)
   // Replace extensionless relative imports with .js extensions.
   // Patch paths that start with './' or '../' and have no extension.
   s = s.replace(/from\s+(["'])(\.\.\/|\.\/)([^'"\n]+?)\1(?=;)/g, (m, quote, rel, mod) => {

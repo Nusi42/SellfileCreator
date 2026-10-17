@@ -956,12 +956,19 @@ Localization status
 
 ### Icon Assets Catalogs
 
-- Runtime-ready icons live under `ico/`, broken into purpose-specific catalogs so the bundle only touches what each surface needs:
-  - `ico/slots/` — slot glyph SVGs (`Weapon.svg`, `Helm.svg`, `Schild.svg`, etc.) rendered via `artifactTypeIcons.tsx`.
-  - `ico/sets/` — the `.webp` glyphs for every artifact set plus the nested `ico/sets/slots/` directory that holds per-set/per-slot artwork. Artifact pieces follow `<setId>_<Slot>.webp` (slot is `Weapon`, `Helmet`, `Shield`, `Gauntlets`, `Chestplate`, or `Boots`) so numeric IDs stay aligned with the in-game order; accessory/faction pieces retain `SetName_Slot.webp` (spaces become underscores).
-  - `ico/faction/` — faction crests keyed by their slugified faction names (`banner-lords.webp`, `shadowkin.webp`, etc.).
-- The raw, lossless references sit in `docs/orig/ico-sets/ico-slots/` as `.png` exports following the same per-slot naming conventions. Update the PNG first, review it in-source, and then convert it to `.webp` when copying into `ico/sets/slots/` so the shipped bundle stays lean. (ImageMagick `magick <input.png> -quality 95 <output.webp>` or `cwebp` both keep the alpha channel intact; pick whichever tool you already use.)
-- When Plarium adds a new set, drop the source PNGs into `docs/orig/ico-sets/ico-slots/`, regenerate the corresponding `.webp` files under `ico/sets/slots/`, and wire the IDs through whatever UI consumes them. Keeping the twin directories in sync guarantees that artists and devs share one authoritative catalog.
+Game artwork is **not** part of the repository. Builds read it from an asset pack; a clone without the pack builds and runs with the project's own placeholder art. Only the project's own `ico/favicon.svg` is tracked.
+
+- **Configuring the pack**: set `SFC_GAME_ASSETS_DIR=<pack root>` in the gitignored `.env.local` (or the environment). `scripts/vite/gameIconsPlugin.ts` serves `virtual:game-icons` from it; the build logs which mode it uses. Release builds set `SFC_REQUIRE_GAME_ASSETS=1` (release-win.ps1, non-dev builds) and fail without the pack.
+- **Pack layout** (mirrors the former in-repo folders, so the web build's `ico/<group>/` → `img/<group>/` routing is unchanged):
+  - `ico/champs/<heroId>.webp` — champion portraits.
+  - `ico/faction/<stem>.webp` — faction crests keyed by slugified faction names (`banner-lords`, `shadowkin`, …).
+  - `ico/sets/<Set_Name>.webp` — set icons, plus `Spider.webp` (the no-set accessory marker).
+  - `ico/sets/slots/<Key>.webp` — per-set/per-slot art: `<Set_Name>_<Slot>` for artifact sets (slot is `Weapon`, `Helmet`, `Shield`, `Gloves`, `Chest`, `Boots`) and `<Faction>_<Accessory>` for faction accessories.
+  - `ico/slots/slot-glyphs.json` — slot glyph SVG data `{ Weapon: { viewBox, path }, … }`.
+  - `reference/` — lossless masters, sprites and source screenshots (not read by the build).
+- **App side**: `src/lib/iconMaps/gameIcons.ts` is the only module that imports `virtual:game-icons`. It also holds the fallbacks: lettered placeholder tiles (`placeholderIconUrl`) for crests, set icons and the no-set marker, and the project's own slot glyphs (`OWN_SLOT_GLYPHS`). Champion portraits and set-slot art have no placeholder; their callers already fall back (no portrait, plain slot glyph). The icon map modules (`championIconMap`, `factionIconMap`, `gearsetIconMap`, `setSlotIconMap`, `artifactTypeIcons`, `NoGearSetIcon`) map domain ids to pack file stems.
+- **Node test runs** have no Vite: `patch-esm-specifiers.cjs` points `virtual:game-icons` at an emitted stub with the no-pack shape.
+- **New set**: add the art to the pack (convert masters to `.webp` with `cwebp` or ImageMagick; the pack's `reference/scripts/png2webp.ps1` batches it) and add the set's stem to `GEARSET_ICON_STEMS`.
 
 ## Release Notes Workflow
 

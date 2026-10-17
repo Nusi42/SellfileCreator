@@ -1,41 +1,34 @@
-import { Faction, type FactionId } from '../types';
-import bannerLordsIcon from '../../../ico/faction/banner-lords.webp';
-import highElvesIcon from '../../../ico/faction/high-elves.webp';
-import sacredOrderIcon from '../../../ico/faction/sacred-order.webp';
-import barbariansIcon from '../../../ico/faction/barbarians.webp';
-import ogrynTribesIcon from '../../../ico/faction/ogryn-tribes.webp';
-import lizardmenIcon from '../../../ico/faction/lizardmen.webp';
-import skinwalkersIcon from '../../../ico/faction/skinwalkers.webp';
-import orcsIcon from '../../../ico/faction/orcs.webp';
-import demonspawnIcon from '../../../ico/faction/demonspawn.webp';
-import undeadHordesIcon from '../../../ico/faction/undead-hordes.webp';
-import darkElvesIcon from '../../../ico/faction/dark-elves.webp';
-import knightRevenantIcon from '../../../ico/faction/knight-revenant.webp';
-import dwarvesIcon from '../../../ico/faction/dwarves.webp';
-import shadowkinIcon from '../../../ico/faction/shadowkin.webp';
-import sylvanWatchersIcon from '../../../ico/faction/sylvan-watchers.webp';
-// Argonites faction crest for the new faction enum entry.
-import argonitesIcon from '../../../ico/faction/argonites.webp';
+import { Faction, factionCodeToName, type FactionId } from '../types';
+import { PACK_FACTION_ICONS, placeholderIconUrl } from './gameIcons';
 
-export const FACTION_ICON_MAP: Partial<Record<Faction, string>> = {
-  [Faction.BannerLords]: bannerLordsIcon,
-  [Faction.HighElves]: highElvesIcon,
-  [Faction.SacredOrder]: sacredOrderIcon,
-  [Faction.Barbarians]: barbariansIcon,
-  [Faction.OgrynTribes]: ogrynTribesIcon,
-  [Faction.Lizardmen]: lizardmenIcon,
-  [Faction.Skinwalkers]: skinwalkersIcon,
-  [Faction.Orcs]: orcsIcon,
-  [Faction.Demonspawn]: demonspawnIcon,
-  [Faction.UndeadHordes]: undeadHordesIcon,
-  [Faction.DarkElves]: darkElvesIcon,
-  [Faction.KnightRevenant]: knightRevenantIcon,
-  [Faction.Dwarves]: dwarvesIcon,
-  [Faction.Shadowkin]: shadowkinIcon,
-  [Faction.SylvanWatchers]: sylvanWatchersIcon,
-  // Keep the Argonites icon wired for faction filters and labels.
-  [Faction.Argonites]: argonitesIcon,
+// Crest file stem in the asset pack (<pack>/ico/faction/<stem>.webp) for each faction.
+const FACTION_ICON_STEMS: Record<Faction, string> = {
+  [Faction.BannerLords]: 'banner-lords',
+  [Faction.HighElves]: 'high-elves',
+  [Faction.SacredOrder]: 'sacred-order',
+  [Faction.Barbarians]: 'barbarians',
+  [Faction.OgrynTribes]: 'ogryn-tribes',
+  [Faction.Lizardmen]: 'lizardmen',
+  [Faction.Skinwalkers]: 'skinwalkers',
+  [Faction.Orcs]: 'orcs',
+  [Faction.Demonspawn]: 'demonspawn',
+  [Faction.UndeadHordes]: 'undead-hordes',
+  [Faction.DarkElves]: 'dark-elves',
+  [Faction.KnightRevenant]: 'knight-revenant',
+  [Faction.Dwarves]: 'dwarves',
+  [Faction.Shadowkin]: 'shadowkin',
+  [Faction.SylvanWatchers]: 'sylvan-watchers',
+  // Argonites crest for faction filters and labels.
+  [Faction.Argonites]: 'argonites',
 };
+
+// Pack crest when available, else a lettered placeholder named after the faction.
+export const FACTION_ICON_MAP: Partial<Record<Faction, string>> = Object.fromEntries(
+  (Object.entries(FACTION_ICON_STEMS) as Array<[string, string]>).map(([code, stem]) => [
+    code,
+    PACK_FACTION_ICONS[stem] ?? placeholderIconUrl(factionCodeToName(Number(code) as FactionId)),
+  ]),
+) as Partial<Record<Faction, string>>;
 
 export function factionIconUrl(code?: FactionId): string | undefined {
   if (code === undefined || code === null) return undefined;

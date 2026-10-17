@@ -8,9 +8,11 @@ import {
   type ArtifactTypeId,
   type FactionId,
 } from '../types'
-import { SET_SLOT_ASSETS } from './setSlotIconAssets'
+import { PACK_SET_SLOT_ICONS } from './gameIcons'
 
-const ICON_BY_KEY = new Map<string, string>(Object.entries(SET_SLOT_ASSETS))
+// Set x slot icons (`<Set>_<Slot>`, `<Faction>_<Accessory>`) come only from the asset pack;
+// without it every lookup misses and callers fall back to the plain set icon.
+const ICON_BY_KEY = new Map<string, string>(Object.entries(PACK_SET_SLOT_ICONS))
 
 const SLOT_TOKENS_BY_TYPE: Record<ArtifactType, readonly string[]> = {
   [ArtifactType.Weapon]: ['Weapon'],

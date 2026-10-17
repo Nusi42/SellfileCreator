@@ -1,4 +1,4 @@
-import { defineConfig, type UserConfig } from 'vite';
+import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, relative, resolve } from 'node:path';
@@ -10,6 +10,7 @@ import { pruneOrphanedAssetsPlugin } from './scripts/vite/pruneOrphanedAssetsPlu
 import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin.ts'
 import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin.ts'
 import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin.ts'
+import { gameIconsPlugin } from './scripts/vite/gameIconsPlugin.ts'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -82,6 +83,14 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // and writes to dist.app/ for direct file:// opening on Windows.
   const isWebBuild = mode === 'web'
 
+  // Asset pack with the game artwork (see scripts/vite/gameIconsPlugin.ts): read from
+  // the environment or the gitignored .env.local. Release builds set SFC_REQUIRE_GAME_ASSETS=1
+  // so they can never ship placeholder icons by accident.
+  const sfcEnv = { ...loadEnv(mode, VITE_CONFIG_ROOT, 'SFC_'), ...process.env }
+  // One factory for the app and the worker bundles: workers reach the icon maps through
+  // shared modules, so both must resolve `virtual:game-icons` the same way.
+  const gameIcons = () => gameIconsPlugin({ assetsDir: sfcEnv.SFC_GAME_ASSETS_DIR, require: sfcEnv.SFC_REQUIRE_GAME_ASSETS === '1' })
+
   // Playwright runs the dev server via the Playwright `webServer` hook.
   // Why: `vite-plugin-checker` can be noisy/unstable in this harness, and the e2e runs already gate on `npm run typecheck`.
   const isPlaywrightRun = (() => {
@@ -94,6 +103,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // certain environments when bundling the Vite config for production builds.
   plugins: [
     assetsPlugin(),
+    gameIcons(),
     sfcMinifyPlugin(),
     // Dev-only (apply: 'serve'): receives inbound endpoint packets from the browser
     // when ?capturePackets is active and writes them as sampleLog fixtures. Inert in
@@ -226,7 +236,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     // stubInlineBytes: true stubs ruleEngineWasmBytes so the worker IIFE does not embed
     // the 1.6 MB WASM binary — the worker receives a compiled WebAssembly.Module via
     // postMessage from the main thread and calls initSync() instead.
-    plugins: () => [suppressWasmUrlPlugin({ stubInlineBytes: true })],
+    plugins: () => [gameIcons(), suppressWasmUrlPlugin({ stubInlineBytes: true })],
     rollupOptions: isWebBuild
       ? {}
       : { output: { codeSplitting: false } },

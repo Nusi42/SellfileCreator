@@ -1,9 +1,11 @@
 import { Box } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
-// Use the shared Spider icon asset for the no-set accessory marker.
+import { PACK_SET_ICONS, placeholderIconUrl } from '../lib/iconMaps/gameIcons'
+
+// The no-set accessory marker: the pack's Spider icon, else a neutral placeholder tile.
 // Exported so other components (e.g. GearAnalyticsTabContent) can reference the same URL.
-export const NO_SET_SPIDER_SRC = new URL('../../ico/sets/Spider.webp', import.meta.url).href
+export const NO_SET_SPIDER_SRC = PACK_SET_ICONS.Spider ?? placeholderIconUrl('No set')
 
 const ICON_SIZE_PX: Record<'small' | 'medium' | 'large', number> = {
   small: 20,
@@ -34,7 +36,8 @@ export function NoGearSetIcon({ fontSize = 'small' }: NoGearSetIconProps) {
         objectFit: 'contain',
         userSelect: 'none',
         WebkitUserDrag: 'none',
-        // Spider.webp is white-on-transparent; invert in light mode so it draws on the light background.
+        // The pack's Spider.webp is white-on-transparent; invert in light mode so it draws on the
+        // light background. The placeholder tile is mid-grey, which inverts to a similar grey.
         ...theme.applyStyles('light', { filter: 'invert(1)' }),
       }}
     />

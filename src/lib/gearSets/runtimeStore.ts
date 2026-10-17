@@ -2,7 +2,8 @@ import { normalizePieceGroupValue } from './groups'
 import type { ArtifactSetPieceGroup as ArtifactSetPieceGroupValue } from './groups'
 import type { ArtifactSetDescription } from '../setDescriptions'
 import type { ArtifactSetId } from '../types'
-import { setRuntimeGearSetIcon } from '../iconMaps/gearsetIconMap'
+// The registry only, not the icon maps: this store is reachable from worker code via lib/types.
+import { setRuntimeGearSetIcon } from '../iconMaps/runtimeGearSetIcons'
 import { RUNTIME_GEAR_SETS_KEY } from '../constants'
 const STORAGE_KEY = RUNTIME_GEAR_SETS_KEY
 const FILE_VERSION = 1

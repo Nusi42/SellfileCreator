@@ -19,6 +19,7 @@
     "scripts/tooling/sim-improvement-chance.ts",
     "scripts/tooling/instrument-safeguard-piece.ts",
     "scripts/tooling/measure-group-effect.ts",
-    "src/types/globals.d.ts"
+    "src/types/globals.d.ts",
+    "src/types/virtual-game-icons.d.ts"
   ]
 }

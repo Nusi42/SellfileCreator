@@ -1,14 +1,12 @@
-const CHAMPION_ICON_MODULES = import.meta.glob('../../../ico/champs/*.webp', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
+import { PACK_CHAMPION_ICONS } from './gameIcons';
 
+// Champion portraits come only from the asset pack (keyed by hero id). Without the
+// pack the map stays empty and callers render their no-portrait fallback, as for any
+// hero id the pack does not know.
 const CHAMPION_ICON_MAP = new Map<number, string>();
 
-for (const [path, src] of Object.entries(CHAMPION_ICON_MODULES)) {
-  const match = path.match(/\/(\d+)\.webp$/);
-  if (!match) continue;
-  const id = Number(match[1]);
+for (const [stem, src] of Object.entries(PACK_CHAMPION_ICONS)) {
+  const id = Number(stem);
   if (!Number.isFinite(id) || id <= 0) continue;
   CHAMPION_ICON_MAP.set(id, src);
 }

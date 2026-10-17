@@ -262,9 +262,17 @@ try {
 
   # Build, stage, archive — on failure, restore original version.
   try {
-  # Build production assets
+  # Build production assets. Release builds must embed the game artwork from the private
+  # asset pack (SFC_GAME_ASSETS_DIR, see scripts/vite/gameIconsPlugin.ts); the build fails
+  # instead of shipping placeholder icons. Dev builds may run without the pack.
   Write-Host 'Building app (vite build)...'
-  npm run --silent build
+  $previousRequireAssets = $env:SFC_REQUIRE_GAME_ASSETS
+  if (-not $DevBuild) { $env:SFC_REQUIRE_GAME_ASSETS = '1' }
+  try {
+    npm run --silent build
+  } finally {
+    $env:SFC_REQUIRE_GAME_ASSETS = $previousRequireAssets
+  }
   if ($LASTEXITCODE -ne 0) {
     throw "Build failed with exit code $LASTEXITCODE"
   }

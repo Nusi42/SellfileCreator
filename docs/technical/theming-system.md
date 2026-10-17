@@ -210,6 +210,7 @@ The surface comes from the **runtime** scheme, never the frozen palette — `res
 - **Data sources / defaults** (`useSubstatColors`, `DEFAULT_SUBSTAT_COLORS_*`).
 - **`src/theme.ts` build-time palette derivations** — per-scheme `darken`/`lighten` building the two palettes (this is the one place `darken`/`lighten` and per-scheme `isDark` branching belong).
 - **Easter eggs** — intentionally **theme-agnostic**: fixed local colours, *not* sourced from the palette or `colorTints`, so the gag looks identical in both schemes.
+- **Placeholder icon tiles** (`PLACEHOLDER_FILL` / `PLACEHOLDER_TEXT` in `src/lib/iconMaps/gameIcons.ts`) — standalone SVG images (data URIs) that stand in for game art in builds without the asset pack; an `<img>` cannot read theme variables, so the tile carries one mid-grey that reads on both schemes.
 
 ### The mandate
 

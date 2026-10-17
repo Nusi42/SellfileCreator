@@ -32,6 +32,10 @@ Thumbs.db
 # committed (published builds live as GitHub release assets).
 /old_releases/
 
+# Local configuration, e.g. SFC_GAME_ASSETS_DIR (the asset pack, see
+# scripts/vite/gameIconsPlugin.ts). Never committed.
+/.env.local
+
 # Personal, untracked agent instructions (concrete local paths behind the docs' placeholders).
 /CLAUDE.local.md
 

@@ -278,7 +278,7 @@ const ACCESSORY_FACTIONS: readonly FactionId[] = [
 ] as const
 
 // Stage-specific rank distribution for normal dungeons (stage 1..25).
-// Sourced from docs/Dungeons_LootTable_DropRates.jpg (Ayumilove table).
+// Transcribed from the published normal dungeon loot table (Ayumilove).
 const NORMAL_RANK_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = {
   1: [60, 40, 0, 0, 0, 0],
   2: [30, 60, 10, 0, 0, 0],
@@ -340,7 +340,7 @@ const NORMAL_RARITY_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = (() =>
 })()
 
 // Stage-specific rank distribution for hard dungeons (stage 1..10).
-// Sourced from docs/Dungeons_LootTable_DropRates_Hard.jpg.
+// Transcribed from the published hard-mode dungeon loot table.
 const HARD_RANK_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = {
   1: [0, 0, 0, 0, 68, 32],
   2: [0, 0, 0, 0, 67.92, 32.08],
@@ -397,7 +397,7 @@ type EventDropRates = {
   sixStar: number
 }
 
-// Event dungeon anchor rates from docs/EventDungeonDropRate.jpg.
+// Event dungeon anchor rates, transcribed from the published event drop-rate table.
 const EVENT_DROP_ANCHORS: readonly (EventDropRates & { stage: number })[] = [
   { stage: 20, spotlight: 10.5, accessories: 28, nonSpotlight: 61.5, sixStar: 28 },
   { stage: 24, spotlight: 11, accessories: 29, nonSpotlight: 60, sixStar: 35.8 },

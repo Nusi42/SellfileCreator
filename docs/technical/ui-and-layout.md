@@ -818,7 +818,7 @@ this is the UI contract.
 
 - Use `labelOfVariant(variant)` for stat labels.
 - Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in UI code; reserve those conversions for IO helpers.
-- Slot icons: render via `src/components/artifactTypeIcons.tsx` to keep visuals consistent across surfaces. Base slot glyphs live under `ico/slots/*.svg`, set icons under `ico/sets/*.webp`, and the per-set slot art is staged under `ico/sets/slots/` (with raw PNGs in `docs/orig/ico-sets/ico-slots/`) using `<setId>_<Slot>` for numbered artifact sets and `SetName_Slot` for accessories/faction pieces, so future previews can look up the correct art without another translation layer.
+- Slot icons: render via `src/components/artifactTypeIcons.tsx` to keep visuals consistent across surfaces. Slot glyphs, set icons and the per-set slot art come from the asset pack, with the project's own placeholders when a build has no pack; see [Icon Assets Catalogs](build-and-tooling.md#icon-assets-catalogs).
 - Set icons: `SetIcon` preserves the source aspect ratio with `object-fit: contain`, so updated rectangular assets stay undistorted within the square layout footprint.
 - Set tooltips: `src/lib/setDescriptions.ts` + `WithSetTooltip`/`getSetTooltipContent` render localized descriptions with color-coded `{buff:}`/`{debuff:}` tags.
   - Variable-sized sets (`byPieces`) render numbered lines `1: …` through `9: …`.
