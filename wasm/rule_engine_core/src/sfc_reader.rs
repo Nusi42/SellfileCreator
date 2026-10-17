@@ -1076,9 +1076,7 @@ fn parse_readable_recipe(
             // ceilings are the generated domain constants rather than spelled-out literals:
             // a slot holds at most SUBSTAT_MAX_ROLLS_PER_SLOT rolls, and a max bound is
             // capped at the slot count it can be spread across.
-            let min_val = b
-                .min
-                .map(|v| v.clamp(0.0, SUBSTAT_MAX_ROLLS_PER_SLOT as f64).floor());
+            let min_val = b.min.map(|v| v.clamp(0.0, SUBSTAT_MAX_ROLLS_PER_SLOT as f64).floor());
             let max_val = b.max.map(|v| v.clamp(0.0, SUBSTAT_SLOT_COUNT as f64).floor());
             let any_flag = b.any_flag.unwrap_or(false);
             // Only record bounds when at least one constraint is meaningful.
@@ -2095,4 +2093,3 @@ mod label_tests {
         );
     }
 }
-

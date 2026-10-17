@@ -87,8 +87,15 @@ fn every_fixture_decides_exactly_as_the_app_does() {
             .unwrap_or_else(|e| panic!("fixture {name} must be readable at {}: {e}", path.display()));
 
         // `rules: true` so the rule composition can be compared, not just the verdicts.
-        let outcome = decide_with(&sfc, &compact, DecideOptions { rules: true, ..DecideOptions::default() })
-            .unwrap_or_else(|e| panic!("{name}: decision chain failed: {e}"));
+        let outcome = decide_with(
+            &sfc,
+            &compact,
+            DecideOptions {
+                rules: true,
+                ..DecideOptions::default()
+            },
+        )
+        .unwrap_or_else(|e| panic!("{name}: decision chain failed: {e}"));
 
         // Rule composition first: a build-side drift that happens not to move a verdict on
         // this small vault is still a divergence, and it points at the cause far better than

@@ -685,7 +685,11 @@ mod tests {
     #[test]
     fn an_unknown_substat_id_is_dropped_rather_than_invented() {
         let unknown = 200;
-        assert_eq!(sub_to_variant(unknown, 0), STAT_ID_ANY, "probe id must be unknown to the encoder");
+        assert_eq!(
+            sub_to_variant(unknown, 0),
+            STAT_ID_ANY,
+            "probe id must be unknown to the encoder"
+        );
         let (art, item) = normalize_artifact(&probe_artifact(Some(unknown), Some(0), Some(unknown), Some(0)));
         assert!(art.substats.is_empty(), "unknown substat id must not produce a substat");
         assert_eq!(item.main, None, "unknown main stat id must read as absent");
@@ -714,7 +718,6 @@ mod tests {
             "unknown field must be rejected"
         );
     }
-
 
     // Minimal SFC: one "keep 5★ Epic with any SPD" recipe, safeguards disabled.
     const MINIMAL_SFC: &str = r#"{
