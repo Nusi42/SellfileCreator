@@ -1,0 +1,3 @@
+#!/bin/sh
+# Refuse private data and session ids in the staged changes (scripts/tooling/check-private.mjs).
+exec node scripts/tooling/check-private.mjs --staged

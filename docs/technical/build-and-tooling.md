@@ -91,7 +91,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 ### Junction/Symlink Checkouts (`vite-realpath.mjs`)
 
-This checkout is commonly reached through a Windows junction — `<projects>` → `<projects>` — so every file has two equally valid spellings. Node keeps whichever spelling you launched from in `process.cwd()`, while `fs.realpathSync()` (and esbuild/Rollup, which resolve junctions the same way) report the `OneDrive` one.
+A checkout may be reached through a Windows junction (for example `<projects>` pointing into a synced folder such as OneDrive), so every file has two equally valid spellings. Node keeps whichever spelling you launched from in `process.cwd()`, while `fs.realpathSync()` (and esbuild/Rollup, which resolve junctions the same way) report the junction's target.
 
 Vite mixes the two conventions internally, so launching from the junction side breaks it in two different ways:
 
@@ -118,6 +118,20 @@ Notes:
   - All specs import `test`/`expect` from `tests/playwright/fixtures.ts`; that fixture streams browser console output and page errors to the CLI so debugging works even without an interactive browser.
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
+
+### Git Hooks and Repository Checks
+
+`npm install` / `npm ci` runs `prepare` → `scripts/tooling/install-git-hooks.mjs`, which points `core.hooksPath` at the tracked `.githooks/` (idempotent; a no-op outside a git work tree). The hooks:
+
+| Hook | Runs | Refuses |
+| ---- | ---- | ------- |
+| `pre-commit` | `check-private.mjs --staged` | private-list matches in staged content and file names; `originSessionId:` lines |
+| `commit-msg` | `check-commit-msg.mjs <file>`, then `check-private.mjs --message <file>` | messages that break the commit message rules (CLAUDE.md); private-list matches in the message and in the author/committer identity about to be recorded (`git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT`) |
+| `pre-push` | `check-private.mjs --push` | private-list matches in the identities, messages, file names and added lines of every commit being pushed |
+
+- **The private list** lives outside every repository: `%USERPROFILE%\.sfc-private\patterns.txt` (or the file named by `$SFC_PRIVATE_PATTERNS`), one JavaScript regular expression per line, `#` comments, matched case-insensitively. Literal patterns are also searched in their base64 forms. Without the file the check passes, so clones on other machines work unchanged. Findings are always printed masked (first character + asterisks). Core: `scripts/tooling/lib/private-patterns.mjs`; tests use synthetic patterns only (`tests/unit/private-patterns.test.ts`).
+- **Full checks**: `npm run check:private` scans every tracked file and file name; `npm run check:commit-msg` checks every commit message reachable from `HEAD` (rules: `scripts/tooling/lib/commit-message.mjs`, tests: `tests/unit/commit-message.test.ts`). `npm run test:all` starts with `check:private`.
+- Never bypass a hook with `--no-verify`; fix the finding instead.
 
 ### Playwright Harness
 

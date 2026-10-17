@@ -1,0 +1,5 @@
+#!/bin/sh
+# Enforce the commit message rules, then refuse private data in the message and in the
+# author/committer identity about to be recorded.
+node scripts/tooling/check-commit-msg.mjs "$1" || exit 1
+exec node scripts/tooling/check-private.mjs --message "$1"

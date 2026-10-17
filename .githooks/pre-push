@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuse private data in every commit about to be pushed (identities, messages, file names,
+# added lines). Git passes the ref lines on stdin; the check reads them from there.
+exec node scripts/tooling/check-private.mjs --push
