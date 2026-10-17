@@ -7,7 +7,7 @@ All color-scheme-aware styling must follow the patterns in this document to avoi
 
 ## The Gold Skin (visual language)
 
-The app wears the "gold molding" skin adapted from the host application: deep desaturated navy surfaces
+The app wears the "gold molding" skin, shared with a host application that embeds it: deep desaturated navy surfaces
 (dark) / parchment (light) framed by a thin gold molding with a lit inner glow, gold titles
 opened by a ◆ diamond, cyan reserved for the selected/focused thing, and gold corner brackets
 on major panels and dialogs. Key mechanics:

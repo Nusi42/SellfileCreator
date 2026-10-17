@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Launch Vite with the working directory spelled as its filesystem realpath.
 //
-// Why: this checkout is commonly reached through the Windows junction
-// `<projects>` -> `<projects>`, so every file has two
+// Why: a checkout may be reached through a Windows junction (e.g. a projects folder
+// that points into a synced folder such as OneDrive), so every file has two
 // valid spellings. Vite mixes the two conventions internally: it derives lookup keys
 // from the literal `process.cwd()`, while esbuild/Rollup report paths relative to the
 // realpath (junctions are resolved like Node does everywhere else). The mismatch shows
-// up as `vite:build-html` rejecting an entry emitted as `../../OneDrive/.../index.html`
+// up as `vite:build-html` rejecting an entry emitted as `../../<junction target>/.../index.html`
 // during `vite build`, and as `Cannot read properties of undefined (reading 'imports')`
 // from the dev dependency optimizer.
 //

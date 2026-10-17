@@ -157,9 +157,9 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   optimizeDeps: {
     // Exclusion globs, not a positive entry list.
     // Why exclusions: a positive `['index.html']` makes the entry list depend on how the
-    // project root was spelled on the command line. Reaching this checkout through the
-    // `<projects>` junction then yields a relative entry that escapes the root
-    // (`../../OneDrive/.../index.html`), which the dep scanner and `vite:build-html` both
+    // project root was spelled on the command line. Reaching a checkout through a Windows
+    // junction then yields a relative entry that escapes the root
+    // (`../../<junction target>/.../index.html`), which the dep scanner and `vite:build-html` both
     // reject. See scripts/tooling/vite-realpath.mjs for the other half of that fix.
     // Why any globs at all: `old_releases/*.html` are prebuilt self-contained releases whose
     // minified Prism regexes make esbuild's scanner fail ("Failed to scan for dependencies"),

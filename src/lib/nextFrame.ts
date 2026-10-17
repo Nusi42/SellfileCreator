@@ -5,7 +5,7 @@
  *
  * A browser delivers NO animation frames to a document it is not painting: a background
  * tab, and — the case that bit — a `display: none` cross-origin iframe, which is how
- * the host application keeps the embedded creator alive while another of its pages is on screen. A
+ * a host application keeps the embedded creator alive while another of its pages is on screen. A
  * bare `await requestAnimationFrame` there never resolves, so any data work sequenced on
  * it (the endpoint push queue) silently stalled until the user looked at the creator.
  *

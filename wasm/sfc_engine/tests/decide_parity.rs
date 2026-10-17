@@ -926,7 +926,7 @@ fn a_quota_counts_the_expected_bucket_domain_not_the_observed_one() {
 //
 // A file whose first recipe is a separator (the common way to head a list with a title)
 // therefore handed its "separator" mode to recipe 1, silencing a real sell recipe. That is
-// the "the host application sells almost nothing" shape: the rules exist, and the gate throws them away.
+// the "the host sells almost nothing" shape: the rules exist, and the gate throws them away.
 #[test]
 fn a_disabled_recipe_silences_only_itself() {
     // Three recipes: a separator title, a DISABLED sell-rings rule, and an ACTIVE

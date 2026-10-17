@@ -1,7 +1,7 @@
 # Line endings, declared once so every clone agrees.
 #
 # Without this, Git guesses per file from `core.autocrlf`, which is a LOCAL
-# setting — and this repo lives in several clones (.master/.win1/.win2), so a
+# setting — and a developer may keep several local clones, so a
 # guess made in one is not the guess made in the next. The symptom is the
 # "LF will be replaced by CRLF the next time Git touches it" warning on almost
 # every commit, and the risk is a whole-file diff when a clone with a different

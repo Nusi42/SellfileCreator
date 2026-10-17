@@ -32,6 +32,9 @@ Thumbs.db
 # committed (published builds live as GitHub release assets).
 /old_releases/
 
+# Personal, untracked agent instructions (concrete local paths behind the docs' placeholders).
+/CLAUDE.local.md
+
 # Gear-DB fixtures built from tests/fixtures/gear-db/*.sql (scripts/test/gear-db-fixtures.mjs).
 /tmp/fixtures/
 
