@@ -8,8 +8,8 @@
  *   docs/readme/overview-dark.png, docs/readme/overview-light.png   stills (both colour schemes)
  *   docs/readme/note-dark.png, docs/readme/note-light.png           the preset's note dialog
  *   tmp/readme-media/frames/*.png + frames.json                      animation frames, encoded into
- *                                                                    docs/readme/demo.gif by
- *                                                                    scripts/readme/encode-gif.mjs
+ *                                                                    docs/readme/demo.webp by
+ *                                                                    scripts/readme/encode-webp.mjs
  * Re-run after UI changes; the recording is deterministic apart from timing.
  */
 import fs from 'node:fs'
@@ -75,14 +75,14 @@ function recorder(page: Page) {
     // Hold the current picture for `ms` (one frame; the encoder turns the gap into a delay).
     async hold(ms: number) { await snap(); await page.waitForTimeout(ms) },
     // Glide the pointer to (x, y), recording along the way.
-    async glide(x: number, y: number, steps = 8) {
+    async glide(x: number, y: number, steps = 14) {
       const from = await page.evaluate(() => {
         const t = document.getElementById('__readme_pointer')?.style.transform.match(/-?[\d.]+/g)?.map(Number) ?? [0, 0]
         return { x: t[0] ?? 0, y: t[1] ?? 0 }
       })
       for (let i = 1; i <= steps; i++) {
         await page.mouse.move(from.x + ((x - from.x) * i) / steps, from.y + ((y - from.y) * i) / steps)
-        if (i % 2 === 0 || i === steps) await snap()
+        await snap()
       }
     },
     finish() { fs.writeFileSync(path.join(FRAMES_DIR, 'frames.json'), JSON.stringify({ frames, end: Date.now() - start })) },
@@ -155,7 +155,7 @@ test('demo animation frames', async ({ browser }) => {
   await rec.hold(800)
   // 3. Browse the cards.
   await rec.glide(1000, 360)
-  for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 220); await page.waitForTimeout(150); await rec.snap() }
+  for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 110); await page.waitForTimeout(80); await rec.snap() }
   await rec.hold(900)
   // 4. Back in the builder: pick a recipe from the list; the builder loads it for editing.
   const recipe = page.getByText(/Low Rank\/Rarity/).first()

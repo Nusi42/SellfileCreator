@@ -43,7 +43,7 @@ preview shows the result before anything is sold.
 </picture>
 
 <p align="center">
-  <img src="docs/readme/demo.gif" alt="From the compiled rules to the Gear Inspector, then picking a recipe in the builder" width="960">
+  <img src="docs/readme/demo.webp" alt="From the compiled rules to the Gear Inspector, then picking a recipe in the builder" width="960">
 </p>
 
 ## Getting started
