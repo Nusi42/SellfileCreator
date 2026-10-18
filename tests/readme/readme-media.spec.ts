@@ -6,10 +6,9 @@
  * players see the app; README_PLACEHOLDERS=1 records placeholders). Input is the shipped lategame preset and
  * the `sample` gear-DB fixture (game data only, no player identity). Outputs:
  *   docs/readme/overview-dark.png, docs/readme/overview-light.png   stills (both colour schemes)
- *   docs/readme/note-dark.png, docs/readme/note-light.png           the preset's note dialog
- *   tmp/readme-media/frames/*.png + frames.json                      animation frames, encoded into
- *                                                                    docs/readme/demo.webp by
- *                                                                    scripts/readme/encode-webp.mjs
+ *   tmp/readme-media/<name>/*.png + frames.json                      animation frames (demo, note),
+ *                                                                    encoded into docs/readme/<name>.webp
+ *                                                                    by scripts/readme/encode-webp.mjs
  * Re-run after UI changes; the recording is deterministic apart from timing.
  */
 import fs from 'node:fs'
@@ -25,7 +24,7 @@ import { ensureGearInspectorMode } from '../playwright/gear-inspector-mode'
 import { THEME_MODE_KEY } from '../../src/lib/constants'
 
 const README_DIR = path.resolve('docs/readme')
-const FRAMES_DIR = path.resolve('tmp/readme-media/frames')
+const FRAMES_DIR = path.resolve('tmp/readme-media')
 
 // A small drawn pointer that follows the real mouse, so recordings show where the action is.
 // Pure DOM overlay: pointer-events none, above everything, never part of the app.
@@ -59,15 +58,17 @@ async function loadSample(page: Page, scheme: 'dark' | 'light'): Promise<void> {
   await page.mouse.move(1400, 840)
 }
 
-// Frame recorder: screenshots with their real spacing, so the GIF plays at natural speed.
-function recorder(page: Page) {
-  fs.rmSync(FRAMES_DIR, { recursive: true, force: true })
-  fs.mkdirSync(FRAMES_DIR, { recursive: true })
+// Frame recorder for one animation (tmp/readme-media/<name>/): screenshots with their real
+// spacing, so the animation plays at natural speed.
+function recorder(page: Page, name: string) {
+  const dir = path.join(FRAMES_DIR, name)
+  fs.rmSync(dir, { recursive: true, force: true })
+  fs.mkdirSync(dir, { recursive: true })
   const frames: Array<{ file: string; at: number }> = []
   const start = Date.now()
   const snap = async (): Promise<void> => {
     const file = `f${String(frames.length).padStart(4, '0')}.png`
-    await page.screenshot({ path: path.join(FRAMES_DIR, file) })
+    await page.screenshot({ path: path.join(dir, file) })
     frames.push({ file, at: Date.now() - start })
   }
   return {
@@ -85,7 +86,17 @@ function recorder(page: Page) {
         await snap()
       }
     },
-    finish() { fs.writeFileSync(path.join(FRAMES_DIR, 'frames.json'), JSON.stringify({ frames, end: Date.now() - start })) },
+    // Drag with the button held from (x, y) by (dx, dy), recording along the way.
+    async drag(x: number, y: number, dx: number, dy: number, steps = 18) {
+      await page.mouse.move(x, y)
+      await page.mouse.down()
+      for (let i = 1; i <= steps; i++) {
+        await page.mouse.move(x + (dx * i) / steps, y + (dy * i) / steps)
+        await snap()
+      }
+      await page.mouse.up()
+    },
+    finish() { fs.writeFileSync(path.join(dir, 'frames.json'), JSON.stringify({ frames, end: Date.now() - start })) },
   }
 }
 
@@ -112,21 +123,48 @@ for (const scheme of ['dark', 'light'] as const) {
   })
 }
 
-for (const scheme of ['dark', 'light'] as const) {
-  test(`note dialog still (${scheme})`, async ({ browser }) => {
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
-    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1440, height: 860 } })
-    const page = await context.newPage()
-    await loadSample(page, scheme)
-    // The preset's note: its guide text plus the dynamic overrides that tailor the rules.
-    await page.getByRole('button', { name: /Note & Dynamic Overrides/i }).click()
-    await page.getByRole('dialog').first().waitFor({ state: 'visible' })
-    await settleWorkload(page)
-    await page.evaluate(() => { document.getElementById('__readme_pointer')?.remove() })
-    await page.screenshot({ path: path.join(README_DIR, `note-${scheme}.png`) })
-    await context.close()
-  })
-}
+test('note animation frames', async ({ browser }) => {
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
+  const context = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1280, height: 760 } })
+  const page = await context.newPage()
+  await loadSample(page, 'dark')
+  const rec = recorder(page, 'note')
+  await page.mouse.move(640, 600)
+  await rec.hold(600)
+  // 1. Open the preset's note: its guide text plus the questions that tailor the rules.
+  const open = page.getByRole('button', { name: /Note & Dynamic Overrides/i })
+  const o = await centre(page, open)
+  await rec.glide(o.x, o.y)
+  await open.click()
+  const dialog = page.getByRole('dialog').first()
+  await dialog.waitFor({ state: 'visible' })
+  await settleWorkload(page)
+  await rec.hold(1200)
+  // 2. The note floats: drag it by its title bar to the other side of the window, then back.
+  //    It snaps to a side, so the title is measured again before each drag.
+  const title = dialog.getByText('Note & Dynamic Overrides', { exact: true }).first()
+  for (const dx of [440, -440]) {
+    const t = await centre(page, title)
+    await rec.glide(t.x, t.y, 10)
+    await rec.drag(t.x, t.y, dx, 0)
+    await page.waitForTimeout(250)
+    await rec.hold(800)
+  }
+  // 3. Open and close the first two optional sections.
+  for (const label of [/^Optional 1\b/, /^Optional 2\b/]) {
+    const section = dialog.getByText(label).first()
+    const s = await centre(page, section)
+    await rec.glide(s.x, s.y, 10)
+    await section.click()
+    await page.waitForTimeout(250)
+    await rec.hold(1400)
+    await section.click()
+    await page.waitForTimeout(250)
+    await rec.hold(700)
+  }
+  rec.finish()
+  await context.close()
+})
 
 test('demo animation frames', async ({ browser }) => {
   test.setTimeout(PLAYWRIGHT_TIMEOUTS.testXL)
@@ -136,7 +174,7 @@ test('demo animation frames', async ({ browser }) => {
   // Loading gear opens the Gear Inspector; start the story from the rule preview instead.
   await page.getByRole('button', { name: /Sellfile Preview/i }).click()
   await settleWorkload(page)
-  const rec = recorder(page)
+  const rec = recorder(page, 'demo')
   await page.mouse.move(980, 420)
   await rec.hold(900)
   // 1. The preview lists every rule the recipes compile to.

@@ -37,10 +37,9 @@ preview shows the result before anything is sold.
 - **Decision library** — the same keep/sell engine as a native library for other programs
   ([integration kit](examples/decision-dll/README.md), MIT-licensed).
 
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/readme/note-light.png">
-  <img src="docs/readme/note-dark.png" alt="The late-game preset's note: guidance plus the questions whose answers tailor the preset's rules" width="100%">
-</picture>
+<p align="center">
+  <img src="docs/readme/note.webp" alt="The late-game preset's note: a floating panel that can be dragged aside, with optional sections that open and close" width="960">
+</p>
 
 <p align="center">
   <img src="docs/readme/demo.webp" alt="From the compiled rules to the Gear Inspector, then picking a recipe in the builder" width="960">
