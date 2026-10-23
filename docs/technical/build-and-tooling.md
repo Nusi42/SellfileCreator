@@ -37,7 +37,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
 - `npm run test:all` — run unit/integration plus Chromium Playwright
 - `npm run test:all:full` — run unit/integration plus full Playwright coverage
-- `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in `releases/` (gitignored)
+- `npm run release:win` — Windows: runs `npm ci` to sync `node_modules` to the committed lockfile (so the release is built from exactly what is in version control), then builds and creates a versioned zip archive in `releases/` (gitignored). Refuses a dirty working tree; on success commits the release, tags it `vX.Y.Z` and commits the next `-dev` version (see [Release commits and tags](#release-commits-and-tags))
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged, skips `npm ci` (uses whatever is installed locally), and creates a `-dev` suffixed archive
 - `npm run release-notes:catchup` — back-fill `userDocs/HISTORY.md` for past releases and refresh the in-progress version's entry (`-- --all` replays the whole backlog). Large releases use a map-reduce flow — see the [Release Notes Workflow](#release-notes-workflow) section for the pass/worker line thresholds and model overrides.
 - `npm run release-notes:catchup:win` — PowerShell equivalent of the above for Windows, with named parameters (`-All`, `-Note`, `-Branch`, `-Date`). `-Note "<text>"` injects a maintainer instruction into every prompt of the run.
@@ -955,7 +955,7 @@ Localization status
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the recipe can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator recipe name, recolors the inline name and context-menu icons.
 - `scripts/tooling/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled artifacts under `tmp/tsc/tests/src/` so Node can resolve them without a bundler. Runs as part of `npm run test:unit`.
 - `npm run tests:extract`: Generates `examples/tests.extracted.sfc` containing all SFC-readable recipes used by tests (useful to load/paste into the app).
-- `scripts/release/release-win.ps1`: Build-and-package script for Windows (type-checks, runs tests, builds, stages, archives). A fail-fast `npm run typecheck` runs before the test/build phases (both dev and release) so a scripts-tsconfig break surfaces in seconds rather than after a full build at the `export:l10n` step. Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
+- `scripts/release/release-win.ps1`: Build-and-package script for Windows (type-checks, runs tests, builds, stages, archives). A fail-fast `npm run typecheck` runs before the test/build phases (both dev and release) so a scripts-tsconfig break surfaces in seconds rather than after a full build at the `export:l10n` step. A release run also commits and tags itself (see [Release commits and tags](#release-commits-and-tags)). Pass `-DevBuild` to keep the current package.json version, suffix outputs with `-dev`, and leave git untouched.
 - `scripts/release/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
 
@@ -1010,6 +1010,17 @@ Worker scratch lives in `docs/.release-notes/<version>/` (gitignored, wiped on s
 
    The note supplements the prompt documents rather than overriding them — the rules in `docs/CREATE-RELEASE-NOTES.md` (no easter eggs, no dev-only features, plain language) still apply. Omitting `-Note` produces byte-identical prompt input to the bash driver.
 2. **Review the checklist** — Skim `PRE-RELEASE-CHECKLIST.md` for items the run flagged (unfinished cleanups, drifted docs, suspect regressions, schema concerns). Act on them or delete them; the file is intentionally a working document, not an archive.
-3. **Gate the release** — Before packaging, confirm `userDocs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs ahead of `npm run release:win` so the notes ship with the build.
+3. **Gate the release** — Before packaging, confirm `userDocs/HISTORY.md` already includes the upcoming `vX.Y.Z` entry and that `PRE-RELEASE-CHECKLIST.md` is empty (or only contains items you've consciously deferred). Review both diffs and **commit them** — `npm run release:win` refuses a dirty working tree, so the notes that ship are the notes in the tagged commit.
 
 Claude inspects diffs, not just commit messages — some commits run thousands of lines, which is why the chunker budgets by changed lines rather than commit count. Large asset updates under `examples/` are skipped unless they change player-facing behaviour. The final notes list English bullets first, then German translations covering the same points.
+
+### Release commits and tags
+
+A release is marked by an annotated **`vX.Y.Z` tag**, and only by the tag: the catch-up drivers list `git tag --list 'v[0-9]*' --merged <branch>` and never match commit subjects (subjects are prose, not a stable marker). Each release is two commits, both written by `npm run release:win`:
+
+1. `chore(release): release X.Y.Z` — `package.json` and the crate versions (`wasm/Cargo.toml`, `wasm/Cargo.lock`) at exactly `X.Y.Z`, plus any other tracked file the run itself changed (the tree was clean at the start, so `git add -u` stages only the run's own edits). **Tagged `vX.Y.Z`**; its tree is what the archive was built from.
+2. `chore(release): start N development` — only the bump to `N-dev` (`-Bump patch|minor|major` picks `N`).
+
+The run refuses to start on a dirty working tree (untracked files included), so nothing uncommitted can ship. It changes only the version line of `package.json`, so the release diffs stay one line. Pushing the commits and the tag (`git push github main --follow-tags`) and creating the GitHub release from the tag stay manual.
+
+Tags are the catch-up's only release source, so a clone without them must `git fetch --tags` first. With no tags reachable but a non-empty `userDocs/HISTORY.md`, the drivers stop with an error; without that guard the in-progress range would be the entire history.

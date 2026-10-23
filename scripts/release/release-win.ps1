@@ -13,6 +13,13 @@
   a feature release is `npm run release:win -- -Bump minor`, not a hand edit.
   Ignored with -DevBuild, which never bumps.
 
+  A RELEASE IS TWO COMMITS AND A TAG. The run refuses to start on a dirty tree,
+  so the build is exactly the committed sources plus the version change. After
+  packaging it commits `chore(release): release X.Y.Z` (the version files at
+  X.Y.Z, plus any other tracked file the run itself changed), tags that commit `vX.Y.Z`, then commits the -dev bump as
+  `chore(release): start N development`. The tag marks what shipped; the
+  release-notes catch-up finds releases by these tags. Pushing stays manual.
+
   A RELEASE BUILDS FROM ZERO: `npm run wasm:clean` (cargo clean on the wasm
   workspace) plus a wipe of dist.app, and the `npm ci` below replaces
   node_modules from the lockfile. That is the point of a release build - what
@@ -85,6 +92,23 @@ function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
   }
 }
 
+# Helper: set the package.json version by editing that one line. Re-serializing the
+# whole file (ConvertTo-Json) reformatted every line, so each release diff was noise.
+# The first "version" key is the top-level one: it sits right below "name".
+function Set-PackageVersion([string]$Path, [string]$Version) {
+  $raw = Get-Content -Raw -LiteralPath $Path
+  if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+  $pattern = '("version"\s*:\s*")[^"]*(")'
+  if ($raw -notmatch $pattern) { throw "Could not locate the version in $Path" }
+  Write-TextUtf8NoBom -Path $Path -Text ([regex]::Replace($raw, $pattern, "`${1}$Version`${2}", 1))
+}
+
+# Helper: run git, throwing on failure (git is native, so errors arrive as exit codes).
+function Invoke-GitChecked {
+  & git @args
+  if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') failed with exit code $LASTEXITCODE" }
+}
+
 # Helper: convert README markdown to a flat UTF-8 text file with injected version badge.
 function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [string]$VersionLabel) {
   if (-not (Test-Path -LiteralPath $SourcePath)) { return }
@@ -116,6 +140,17 @@ $staging = $null
 try {
   # Using built-in Compress-Archive; no external dependencies.
 
+  # A release must build from a commit: uncommitted edits (release notes, presets, ...)
+  # would ship without being in the tagged commit. Untracked files count too, since a
+  # stray preset or doc could be picked up by staging.
+  if (-not $DevBuild) {
+    $dirty = git status --porcelain
+    if ($LASTEXITCODE -ne 0) { throw "git status failed with exit code $LASTEXITCODE" }
+    if ($dirty) {
+      throw "The working tree has uncommitted changes. Commit or stash them (including userDocs/HISTORY.md) before a release:`n$($dirty -join "`n")"
+    }
+  }
+
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
   $pkgRaw = Get-Content -Raw -LiteralPath $pkgPath
@@ -137,9 +172,7 @@ try {
     # Clean version (strip any pre-release like -dev)
     if ($releaseVersion -ne $origVersion) {
       Write-Host "Cleaning version: $origVersion -> $releaseVersion"
-      $pkg.version = $releaseVersion
-      $json = $pkg | ConvertTo-Json -Depth 20
-      Write-TextUtf8NoBom -Path $pkgPath -Text $json
+      Set-PackageVersion -Path $pkgPath -Version $releaseVersion
       # The shipped crates carry the app version, so clean them in the same step.
       Set-CrateVersion -RepoRoot $RepoRoot -Version $releaseVersion
       $versionWasCleaned = $true
@@ -573,6 +606,17 @@ public static class Crc32Helper {
     Write-Warning "Failed to copy built HTML to old_releases: $_"
   }
 
+  # Record what shipped: the release commit carries the clean version plus anything this
+  # run regenerated (the tree was clean at the start, so every tracked change is ours).
+  if (-not $DevBuild) {
+    Write-Host "Committing and tagging release v$releaseVersion"
+    Invoke-GitChecked add -u
+    # --allow-empty: a package.json that already held the clean version leaves nothing
+    # to stage, yet the release still gets its own commit to tag.
+    Invoke-GitChecked commit --quiet --allow-empty -m "chore(release): release $releaseVersion"
+    Invoke-GitChecked tag -a "v$releaseVersion" -m "Release $releaseVersion"
+  }
+
 # After packaging: bump the -Bump component and add the -dev suffix. Which one
 # moves is the caller's choice - the ordinary case steps PATCH (1.0.0 -> 1.0.1),
 # and a release carrying a real feature steps MINOR. Everything below the
@@ -589,10 +633,10 @@ public static class Crc32Helper {
       }
       $next = "{0}.{1}.{2}-dev" -f $maj, $min, $pat
       Write-Host "Setting next development version: $next"
-      $pkg.version = $next
-      $json2 = $pkg | ConvertTo-Json -Depth 20
-      Write-TextUtf8NoBom -Path $pkgPath -Text $json2
+      Set-PackageVersion -Path $pkgPath -Version $next
       Set-CrateVersion -RepoRoot $RepoRoot -Version $next
+      Invoke-GitChecked add -u
+      Invoke-GitChecked commit --quiet -m ("chore(release): start {0}.{1}.{2} development" -f $maj, $min, $pat)
     } else {
       Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
     }

@@ -398,16 +398,28 @@ parse_history_versions
 BRANCH="$(select_branch)"
 echo "Release-notes catch-up: scanning ${BRANCH}" >&2
 
-# Collect every commit whose subject is exactly "vX.Y.Z" (the release commit).
+# Every release is a `vX.Y.Z` tag on the commit that shipped. Commit subjects are
+# deliberately not used: they are prose, not a stable marker.
+# Newest-first by version, which is also chronological order.
 release_commits=()
 release_dates=()
 release_versions=()
-while IFS= read -r line; do
-  IFS='|' read -r commit iso_date subject <<<"$line"
+while IFS= read -r tag; do
+  # Skip anything that is not a plain release tag (e.g. a prerelease name).
+  [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+  # Peel annotated tags to their commit; the commit date is the release date.
+  IFS='|' read -r commit iso_date < <(git log -1 --format='%H|%cs' "${tag}^{commit}")
   release_commits+=("$commit")
   release_dates+=("$iso_date")
-  release_versions+=("${subject#v}")
-done < <(git log --format='%H|%cs|%s' --grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' "$BRANCH")
+  release_versions+=("${tag#v}")
+done < <(git tag --list 'v[0-9]*' --merged "$BRANCH" --sort=-v:refname)
+
+# Without tags every commit would count as unreleased and the run would summarize the
+# entire history into one entry. An existing history proves tags should exist.
+if (( ${#release_versions[@]} == 0 )) && [[ -n "$latest_history_version" ]]; then
+  echo "No vX.Y.Z release tags are reachable from ${BRANCH}, but ${HISTORY_PATH} already lists v${latest_history_version}. Fetch the tags (git fetch --tags) before running the catch-up." >&2
+  exit 1
+fi
 
 missing_indices=()
 for idx in "${!release_versions[@]}"; do
@@ -470,7 +482,7 @@ fi
 pkg_version_is_prerelease="false"
 [[ "$pkg_version" == *-* ]] && pkg_version_is_prerelease="true"
 
-# Skip in-progress when the package version already has a release commit.
+# Skip in-progress when the package version is already released (tagged).
 release_index=""
 for idx in "${!release_versions[@]}"; do
   if [[ "${release_versions[$idx]}" == "$target_version" ]]; then
@@ -480,7 +492,7 @@ for idx in "${!release_versions[@]}"; do
 done
 
 if [[ -n "$release_index" ]]; then
-  echo "Latest package version (v${target_version}) already has a release commit; no in-progress notes to update." >&2
+  echo "Latest package version (v${target_version}) is already tagged as released; no in-progress notes to update." >&2
 else
   prev_commit=""
   if (( ${#release_commits[@]} > 0 )); then

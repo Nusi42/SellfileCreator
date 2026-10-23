@@ -3,8 +3,8 @@
   Release-notes catch-up driver (PowerShell port of run-release-notes-catchup.sh).
 
 .DESCRIPTION
-  Scans a branch for release commits (subject exactly `vX.Y.Z`), finds which ones
-  are missing from userDocs/HISTORY.md, and drives Claude to write the missing
+  Scans a branch for releases (the `vX.Y.Z` tags reachable from it), finds which
+  ones are missing from userDocs/HISTORY.md, and drives Claude to write the missing
   entries — plus the in-progress entry for the current package.json version.
 
   Small releases run single-pass; large ones fan out to map workers (bounded diff
@@ -577,19 +577,27 @@ try {
     Write-Host "Maintainer instruction for this run: $Note"
   }
 
-  # Collect every commit whose subject is exactly "vX.Y.Z" (the release commit).
-  # Newest-first, matching git log's default ordering.
+  # Every release is a `vX.Y.Z` tag on the commit that shipped. Commit subjects are
+  # deliberately not used: they are prose, not a stable marker.
+  # Newest-first by version, which is also chronological order.
   $releaseCommits = [System.Collections.Generic.List[string]]::new()
   $releaseDates = [System.Collections.Generic.List[string]]::new()
   $releaseVersions = [System.Collections.Generic.List[string]]::new()
-  foreach ($line in (Invoke-Git 'log' '--format=%H|%cs|%s' '--grep' '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' $scanBranch)) {
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-    $parts = $line -split '\|', 3
-    if ($parts.Count -lt 3) { continue }
+  foreach ($tag in (Invoke-Git 'tag' '--list' 'v[0-9]*' '--merged' $scanBranch '--sort=-v:refname')) {
+    # Skip anything that is not a plain release tag (e.g. a prerelease name).
+    if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { continue }
+    $version = $Matches[1]
+    # Peel annotated tags to their commit; the commit date is the release date.
+    $parts = ((Invoke-Git 'log' '-1' '--format=%H|%cs' "$tag^{commit}") | Select-Object -First 1) -split '\|', 2
     $releaseCommits.Add($parts[0])
     $releaseDates.Add($parts[1])
-    # Parenthesized: bare `-replace` inside an .Add() call parses as two arguments.
-    $releaseVersions.Add(($parts[2] -replace '^v', ''))
+    $releaseVersions.Add($version)
+  }
+
+  # Without tags every commit would count as unreleased and the run would summarize the
+  # entire history into one entry. An existing history proves tags should exist.
+  if ($releaseVersions.Count -eq 0 -and -not [string]::IsNullOrEmpty($script:LatestHistoryVersion)) {
+    throw "No vX.Y.Z release tags are reachable from $scanBranch, but $HistoryPath already lists v$($script:LatestHistoryVersion). Fetch the tags (git fetch --tags) before running the catch-up."
   }
 
   $missingIndices = [System.Collections.Generic.List[int]]::new()
@@ -598,7 +606,7 @@ try {
   }
 
   if (-not $processAll -and $missingIndices.Count -gt 1) {
-    # Lowest index = newest commit, since git log is newest-first.
+    # Lowest index = newest release, since the tags are listed newest-first.
     $newestIdx = ($missingIndices | Sort-Object)[0]
     Write-Host "Multiple release entries are missing; defaulting to the newest gap (v$($releaseVersions[$newestIdx])). Pass -All to backfill everything."
     $missingIndices = [System.Collections.Generic.List[int]]::new()
@@ -613,7 +621,7 @@ try {
     $version = $releaseVersions[$idx]
     $isoDate = $releaseDates[$idx]
 
-    # The next-older release commit is the range baseline; none for the first.
+    # The next-older release is the range baseline; none for the first.
     $prevCommit = ''
     if ($idx -lt ($releaseCommits.Count - 1)) { $prevCommit = $releaseCommits[$idx + 1] }
 
@@ -642,13 +650,13 @@ try {
   }
   $pkgVersionIsPrerelease = $pkgVersion.Contains('-')
 
-  # Skip in-progress when the package version already has a release commit.
-  $hasReleaseCommit = $releaseVersions -contains $targetVersion
+  # Skip in-progress when the package version is already released (tagged).
+  $isReleased = $releaseVersions -contains $targetVersion
 
-  if ($hasReleaseCommit) {
-    Write-Host "Latest package version (v$targetVersion) already has a release commit; no in-progress notes to update."
+  if ($isReleased) {
+    Write-Host "Latest package version (v$targetVersion) is already tagged as released; no in-progress notes to update."
   } else {
-    # Everything since the newest release commit is the in-progress window.
+    # Everything since the newest release is the in-progress window.
     $prevCommit = ''
     if ($releaseCommits.Count -gt 0) { $prevCommit = $releaseCommits[0] }
     $commitRange = if ($prevCommit) { "$prevCommit..HEAD" } else { 'HEAD' }
