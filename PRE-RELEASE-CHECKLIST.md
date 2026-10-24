@@ -1,4 +1,12 @@
-# Pre-Release Checklist
+﻿# Pre-Release Checklist
+
+## v1.0.49 — 2026-10-24
+
+- Docs and one script still point at `examples/*.db` gear databases that are not in the repo, although the fixture policy moved to `tests/fixtures/gear-db/`. Repoint them at the matching fixture, or say the local file is intended: `docs/technical/artifact-rules.md` (lines 85 and 90), `docs/technical/app-behavior.md` (line 60), `docs/technical/gear-db-import.md` (line 84), and the default path in `scripts/tooling/measure-gear-inspector.ts` (line 65). Found in 144fa6bb.
+
+- Release builds only check that the game asset pack folder exists, not that every icon is in it. A set, faction, or champion missing from the pack ships as a lettered placeholder tile with no error. Before the release, confirm every set, faction, and champion shows its real icon in the release build, or add a per-icon check to the asset plugin: `scripts/vite/gameIconsPlugin.ts`, `src/lib/iconMaps/gameIcons.ts`. Found in ccd6c5a4.
+
+- `docs/technical/tutorial.md` (line 9) and `docs/technical/ui-and-layout.md` (line 68) still describe the app as closed source, but the license change dropped that wording from the user-docs rules in CLAUDE.md. Reword both to match the public AGPL setup before the repository goes public. Found in f77b074a.
 
 ## v1.0.38 — 2026-07-16
 
