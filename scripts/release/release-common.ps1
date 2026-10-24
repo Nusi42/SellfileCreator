@@ -7,6 +7,14 @@
   tags exactly those commits even when either repository moved on since.
 #>
 
+# Helper: read a text file as UTF-8, dropping a BOM if there is one. Windows PowerShell's
+# Get-Content reads a BOM-less file as ANSI, which garbles every non-ASCII character that
+# is then written back (an em dash in wasm/Cargo.toml came out as mojibake).
+function Read-TextUtf8([string]$Path) {
+  $enc = New-Object System.Text.UTF8Encoding($false)
+  return [System.IO.File]::ReadAllText($Path, $enc)
+}
+
 # Helper: write text as UTF-8 without BOM (works in both Windows PowerShell and PowerShell 7+).
 function Write-TextUtf8NoBom([string]$Path, [string]$Text) {
   $enc = New-Object System.Text.UTF8Encoding($false)

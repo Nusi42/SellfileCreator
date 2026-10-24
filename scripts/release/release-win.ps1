@@ -69,7 +69,7 @@ function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
     Write-Warning "wasm/Cargo.toml not found; skipping crate version sync"
     return
   }
-  $raw = Get-Content -Raw -LiteralPath $cargoPath
+  $raw = Read-TextUtf8 $cargoPath
   # Only the version line inside [workspace.package] may move. Anchoring on that header
   # keeps dependency versions ("serde = { version = ... }") untouched.
   $pattern = '(?ms)(^\[workspace\.package\]\s*$.*?^version\s*=\s*")[^"]*(")'
@@ -97,7 +97,7 @@ function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
 # whole file (ConvertTo-Json) reformatted every line, so each release diff was noise.
 # The first "version" key is the top-level one: it sits right below "name".
 function Set-PackageVersion([string]$Path, [string]$Version) {
-  $raw = Get-Content -Raw -LiteralPath $Path
+  $raw = Read-TextUtf8 $Path
   if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
   $pattern = '("version"\s*:\s*")[^"]*(")'
   if ($raw -notmatch $pattern) { throw "Could not locate the version in $Path" }
@@ -128,8 +128,7 @@ function Write-NoAssetsNotice {
 # Helper: convert README markdown to a flat UTF-8 text file with injected version badge.
 function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [string]$VersionLabel) {
   if (-not (Test-Path -LiteralPath $SourcePath)) { return }
-  $raw = Get-Content -Raw -LiteralPath $SourcePath
-  if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+  $raw = Read-TextUtf8 $SourcePath
   $lines = $raw -split "\r?\n"
   # Match the app title in its current ("Sellfile Creator for RSL Helper") and legacy
   # ("RSL Helper Sellfile Creator") forms — the same pair the Help dialog strips at render.
@@ -164,13 +163,11 @@ try {
 
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
-  $pkgRaw = Get-Content -Raw -LiteralPath $pkgPath
-  if ($pkgRaw.Length -gt 0 -and $pkgRaw[0] -eq [char]0xFEFF) { $pkgRaw = $pkgRaw.Substring(1) }
+  $pkgRaw = Read-TextUtf8 $pkgPath
   $pkg = $pkgRaw | ConvertFrom-Json
   $origVersion = [string]$pkg.version
   if (-not $origVersion) { throw 'Unable to read version from package.json' }
   $releaseVersion = ($origVersion -split '-', 2)[0]
-  $versionWasCleaned = $false
 
   # The game artwork comes from the asset pack when one is configured; without it the
   # build uses placeholder icons, and the run says so at the start and the end. The
@@ -200,6 +197,16 @@ try {
     }
   }
 
+  # Everything from the version clean up to the release commit can fail (a locked file in
+  # the clean, a red test, a broken build). Snapshot the files the version clean rewrites,
+  # byte for byte, so a failure anywhere in that span puts them back exactly as committed
+  # and the tree is ready for the next run.
+  $versionFiles = @($pkgPath, (Join-Path $RepoRoot 'wasm\Cargo.toml'), (Join-Path $RepoRoot 'wasm\Cargo.lock'))
+  $versionSnapshot = @{}
+  foreach ($file in $versionFiles) {
+    if (Test-Path -LiteralPath $file) { $versionSnapshot[$file] = [System.IO.File]::ReadAllBytes($file) }
+  }
+  try {
   if ($DevBuild) {
     $devSuffix = ''
     if (-not $origVersion.ToLower().EndsWith('-dev')) {
@@ -215,7 +222,6 @@ try {
       Set-PackageVersion -Path $pkgPath -Version $releaseVersion
       # The shipped crates carry the app version, so clean them in the same step.
       Set-CrateVersion -RepoRoot $RepoRoot -Version $releaseVersion
-      $versionWasCleaned = $true
     }
 
     $packageLabel = $releaseVersion
@@ -333,8 +339,6 @@ try {
   if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
   New-Item -ItemType Directory -Path $staging | Out-Null
 
-  # Build, stage, archive — on failure, restore original version.
-  try {
   # Build production assets. When a pack was found the build must use it
   # (SFC_REQUIRE_GAME_ASSETS, see scripts/vite/gameIconsPlugin.ts): a configured pack
   # without its ico/ folder fails instead of quietly shipping placeholder icons.
@@ -621,13 +625,15 @@ public static class Crc32Helper {
   } catch {
     Write-Warning $_
     if (-not $DevBuild) {
-      Write-Host "Restoring original package.json version ($origVersion) due to failure" -ForegroundColor Yellow
-      Write-TextUtf8NoBom -Path $pkgPath -Text $pkgRaw
-      # Only undo the crate version when this run actually rewrote it. Restoring
-      # unconditionally wrote $origVersion (the "-dev" spelling) into a manifest the run
-      # never touched, dirtying wasm/Cargo.toml on any early failure.
-      if ($versionWasCleaned) {
-        Set-CrateVersion -RepoRoot $RepoRoot -Version $origVersion
+      Write-Host "Restoring the version files ($origVersion) after the failure" -ForegroundColor Yellow
+      # Write the snapshot back verbatim: re-running the version helpers would re-encode
+      # the files and could leave them subtly different from the commit.
+      foreach ($file in $versionSnapshot.Keys) { [System.IO.File]::WriteAllBytes($file, $versionSnapshot[$file]) }
+      # Anything else the run changed (e.g. regenerated notices) is left for review rather
+      # than discarded, since it may be worth keeping; name it so it is not a surprise.
+      $leftover = @(git status --porcelain)
+      if ($leftover.Count -gt 0) {
+        Write-Warning "The failed run left these changes; review or discard them before the next run:`n$($leftover -join "`n")"
       }
     }
     throw
