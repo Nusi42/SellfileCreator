@@ -13,4 +13,4 @@ resolver = "2"
 [workspace.package]
 # The project license (see LICENSE); members inherit it with `license.workspace = true`.
 license = "AGPL-3.0-or-later"
-version = "1.0.49"
+version = "1.0.50-dev"

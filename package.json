@@ -1,6 +1,6 @@
 {
   "name": "rsl-sellfile-creator",
-  "version": "1.0.49",
+  "version": "1.0.50-dev",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "repository": {
