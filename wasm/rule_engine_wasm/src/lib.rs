@@ -65,28 +65,12 @@ fn ts() -> String {
     format!("{:02}:{:02}:{:02}.{:03}", h, m, s, frac)
 }
 
-// Allocator: vendored talc 5.0.3 with three correctness patches applied.
-//
-// Root cause: in talc 5.0.3, the end-size field of a free gap is stored in the 4 bytes
-// immediately before the next chunk.  The last byte of that field overlaps with what would
-// be the allocation tag of a hypothetical chunk ending at that address.  For gaps ≥ 16 MiB
-// whose size has bit 24 set, the ALLOCATED flag bit appears set in that overlapping byte,
-// causing deallocate's below-gap check to misidentify the free gap as an allocated chunk.
-// This skips coalescing, leaves two adjacent free gaps in the free list, and eventually
-// causes an ABOVE_FREE flag to be cleared incorrectly, resulting in a later deallocate()
-// reading garbage user-data as a gap size and trapping with "memory access out of bounds".
-//
-// Patches (see grep TALC-PATCH in wasm/vendor/talc/src/base/):
-//   1. talc_gap_looks_valid(): cross-checks base-size vs end-size before trusting ABOVE_FREE.
-//      A real gap always has both equal; stale ABOVE_FREE produces a mismatch and the
-//      coalesce is silently skipped — no data loss, only a missed coalescing opportunity.
-//   2. ABOVE_FREE preservation in try_allocate / try_grow_in_place exact-fit path:
-//      when an allocation exactly fills a gap, the new tag write preserved any ABOVE_FREE
-//      that was legitimately set for an adjacent gap.
-//   3. Non-panicking set_above_free / clear_above_free: removed debug_assert! to prevent
-//      a recursive-panic crash when the panic handler itself allocates.
-//
-// 10/10 harness iterations pass with plain WasmDynamicTalc + all three patches.
+// Allocator: upstream talc (WasmDynamicTalc = WasmGrowAndExtend source).
+// talc 5.0.4 fixed the bug that once forced a patched copy here: a free gap's
+// end-size word overlapped the allocation tag byte, so gaps >= 16 MiB looked
+// allocated and later deallocations read garbage and trapped out of bounds.
+// Extending the heap instead of claiming fresh ones keeps large Vec regrowth
+// from scattering gaps across linear memory.
 #[cfg(all(not(target_feature = "atomics"), target_family = "wasm"))]
 #[global_allocator]
 static TALC: talc::wasm::WasmDynamicTalc = talc::wasm::new_wasm_dynamic_allocator();
@@ -103,7 +87,7 @@ pub fn log_talc_counters(label: &str) {
 // single contiguous block of `bytes` and immediately drops it.  This gives
 // talc a fresh large free chunk that satisfies the initial Vec capacity
 // without requiring block splits from a fragmented free-list — the specific
-// operation pattern that triggers talc 5.0.3's metadata corruption.
+// fragmentation-heavy operation pattern that drives the heap high-water mark up.
 //
 // Why this helps: serde_json builds Vec<T> by pushing items one at a time,
 // doubling capacity at each growth event (~15 doublings for 32k items).

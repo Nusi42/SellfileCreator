@@ -26,4 +26,5 @@ ts-rs = { version = "12", features = ["no-serde-warnings"] }
 serde_json = "1.0"
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"
-talc = { version = "5", default-features = false, features = ["counters"] }
+# talc 5.0.4+ fixes the gap/tag overlap for chunks >= 16 MiB that once forced a patched copy.
+talc = { version = "5.1.1", default-features = false }
