@@ -130,15 +130,18 @@ if (files.length > 0) {
   console.log('No ESM specifiers patched; no compiled artifacts under', roots.join(', '))
 }
 
-// Mirror the generated WASM bindings into the compiled test tree. tsc only emits .js/.d.ts,
-// so without this the .wasm binaries under tmp/tsc are whatever some earlier run left there —
-// a stale-engine trap: repro/bench harnesses would silently measure an OLD rule engine after
-// a wasm rebuild. Done here (the canonical post-tsc step every harness script runs) so every
-// consumer gets a fresh mirror; scripts/test/run-tests.mjs relies on this too.
+// Mirror the generated WASM bindings into each compiled tree (tests and scripts). tsc only
+// emits .js/.d.ts, so without this the bindings under tmp/tsc are missing or whatever some
+// earlier run left there — a stale-engine trap: repro/bench harnesses would silently measure
+// an OLD rule engine after a wasm rebuild. Done here (the canonical post-tsc step every
+// harness script runs) so every consumer gets a fresh mirror; scripts/test/run-tests.mjs
+// relies on this too.
 const wasmGeneratedSrc = path.join(__dirname, '..', '..', 'src', 'lib', 'wasm', 'generated')
-const wasmGeneratedOut = path.join(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'src', 'lib', 'wasm', 'generated')
-if (fs.existsSync(wasmGeneratedSrc) && fs.existsSync(path.dirname(wasmGeneratedOut))) {
+for (const tree of ['tests', 'scripts']) {
+  const wasmGeneratedOut = path.join(__dirname, '..', '..', 'tmp', 'tsc', tree, 'src', 'lib', 'wasm', 'generated')
+  // Only trees that tsc actually compiled (their src/lib/wasm folder exists) get a mirror.
+  if (!fs.existsSync(wasmGeneratedSrc) || !fs.existsSync(path.dirname(wasmGeneratedOut))) continue
   fs.mkdirSync(wasmGeneratedOut, { recursive: true })
   fs.cpSync(wasmGeneratedSrc, wasmGeneratedOut, { recursive: true })
-  console.log('Mirrored generated wasm bindings into tmp/tsc/tests')
+  console.log(`Mirrored generated wasm bindings into tmp/tsc/${tree}`)
 }
