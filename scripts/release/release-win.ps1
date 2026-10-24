@@ -78,15 +78,18 @@ function Set-CrateVersion([string]$RepoRoot, [string]$Version) {
   }
   $updated = [regex]::Replace($raw, $pattern, "`${1}$Version`${2}", 1)
   Write-TextUtf8NoBom -Path $cargoPath -Text $updated
-  # Refresh Cargo.lock so the committed lockfile records the new crate versions.
-  # Failure here is non-fatal: the build re-resolves the lockfile anyway.
+  # Refresh Cargo.lock so the committed lockfile records the new crate versions. Nothing
+  # builds between the post-release dev bump and its commit, so this is the only refresh
+  # that bump gets. `update --workspace` rewrites just the workspace crates' own entries
+  # (`metadata --no-deps` resolves nothing and left the lockfile stale); offline, since
+  # no dependency changes.
   Push-Location (Join-Path $RepoRoot 'wasm')
   try {
     # cargo is a native command: a non-zero exit sets $LASTEXITCODE but throws nothing, so
     # the failure has to be read from the exit code rather than caught.
-    cargo metadata --format-version 1 --no-deps --quiet > $null 2>&1
+    cargo update --workspace --offline --quiet > $null 2>&1
     if ($LASTEXITCODE -ne 0) {
-      Write-Warning "cargo metadata exited $LASTEXITCODE while refreshing Cargo.lock; the build re-resolves it anyway"
+      Write-Warning "cargo update exited $LASTEXITCODE while refreshing Cargo.lock; check that wasm/Cargo.lock carries version $Version before pushing"
     }
   } finally {
     Pop-Location
