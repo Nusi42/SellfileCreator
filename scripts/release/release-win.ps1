@@ -13,15 +13,17 @@
   a feature release is `npm run release:win -- -Bump minor`, not a hand edit.
   Ignored with -DevBuild, which never bumps.
 
-  A RELEASE IS TWO COMMITS AND A TAG. The run refuses to start on a dirty tree,
-  so the build is exactly the committed sources plus the version change. After
-  packaging it commits `chore(release): release X.Y.Z` (the version files at
-  X.Y.Z, plus any other tracked file the run itself changed), tags that commit
-  `vX.Y.Z`, then commits the -dev bump as `chore(release): start N development`. The tag marks what shipped; the
-  release-notes catch-up finds releases by these tags. The asset pack is
-  optional: without it the package has placeholder icons and the run says so at
-  its start and end; with it, the pack must be committed and gets the same
-  `vX.Y.Z` tag. Pushing stays manual.
+  A RELEASE IS TWO COMMITS, THEN A TAG ONCE PUBLISHED. The run refuses to start
+  on a dirty tree, so the build is exactly the committed sources plus the
+  version change. After packaging it commits `chore(release): release X.Y.Z`
+  (the version files at X.Y.Z, plus any other tracked file the run itself
+  changed), then commits the -dev bump as `chore(release): start N development`.
+  It does not tag: it writes releases/SellfileCreator_vX.Y.Z.release.json with
+  the release commit (and the asset pack's commit), and once the zip is checked
+  by hand, publish-release.ps1 tags those commits `vX.Y.Z`, pushes, and creates
+  the GitHub release. The asset pack is optional: without it the package has
+  placeholder icons and the run says so at its start and end; with it, the pack
+  must be committed.
 
   A RELEASE BUILDS FROM ZERO: `npm run wasm:clean` (cargo clean on the wasm
   workspace) plus a wipe of dist.app, and the `npm ci` below replaces
@@ -47,12 +49,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-
-# Helper: write text as UTF-8 without BOM (works in both Windows PowerShell and PowerShell 7+).
-function Write-TextUtf8NoBom([string]$Path, [string]$Text) {
-  $enc = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllText($Path, $Text, $enc)
-}
+# Git, tag and manifest helpers shared with publish-release.ps1.
+. (Join-Path $PSScriptRoot 'release-common.ps1')
 
 # Helper: write text as UTF-8 with BOM (required for release README files).
 function Write-TextUtf8WithBom([string]$Path, [string]$Text) {
@@ -106,25 +104,12 @@ function Set-PackageVersion([string]$Path, [string]$Version) {
   Write-TextUtf8NoBom -Path $Path -Text ([regex]::Replace($raw, $pattern, "`${1}$Version`${2}", 1))
 }
 
-# Helper: run git, throwing on failure (git is native, so errors arrive as exit codes).
-function Invoke-GitChecked {
-  & git @args
-  if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') failed with exit code $LASTEXITCODE" }
-}
-
 # Helper: refuse a release from a checkout with uncommitted or untracked files. Untracked
 # files count too: a stray preset or doc could be picked up by staging.
 function Assert-CleanWorkTree([string]$Dir, [string]$What) {
   $dirty = git -C $Dir status --porcelain
   if ($LASTEXITCODE -ne 0) { throw "git status failed for $What with exit code $LASTEXITCODE" }
   if ($dirty) { throw "$What has uncommitted changes. Commit or stash them before a release:`n$($dirty -join "`n")" }
-}
-
-# Helper: refuse a release whose tag already exists (a re-run after a late failure must
-# not move a published tag).
-function Assert-TagFree([string]$Dir, [string]$Tag, [string]$What) {
-  git -C $Dir rev-parse --verify --quiet "refs/tags/$Tag" > $null
-  if ($LASTEXITCODE -eq 0) { throw "$What already has a $Tag tag." }
 }
 
 # Helper: the banner for a build without the asset pack, shown at the start and the end
@@ -201,13 +186,17 @@ try {
   else { Write-NoAssetsNotice }
 
   # A used pack obeys the same rule as the app: committed, and tagged with the app's
-  # version once the release is packaged. Tags are checked now, before the slow steps,
+  # version once the release is published. Tags are checked now, before the slow steps,
   # rather than failing after the build.
+  $packCommit = $null
   if (-not $DevBuild) {
     Assert-TagFree -Dir $RepoRoot -Tag "v$releaseVersion" -What 'This repository'
     if ($withAssets) {
       Assert-CleanWorkTree -Dir $packDir -What 'The asset pack'
       Assert-TagFree -Dir $packDir -Tag "v$releaseVersion" -What 'The asset pack'
+      # Remember the artwork commit now: the pack may move on before the release is published.
+      $packCommit = [string](git -C $packDir rev-parse HEAD)
+      if ($LASTEXITCODE -ne 0) { throw "git rev-parse failed for the asset pack with exit code $LASTEXITCODE" }
     }
   }
 
@@ -234,7 +223,7 @@ try {
     $archiveName = "SellfileCreator_v$packageLabel.zip"
   }
   # Archives land in releases/ (gitignored) so build output never clutters the repo root.
-  $releasesDir = Join-Path $RepoRoot 'releases'
+  $releasesDir = Get-ReleasesDir $RepoRoot
   if (-not (Test-Path -LiteralPath $releasesDir)) { New-Item -ItemType Directory -Path $releasesDir | Out-Null }
   $archivePath = Join-Path $releasesDir $archiveName
 
@@ -660,14 +649,23 @@ public static class Crc32Helper {
   # Record what shipped: the release commit carries the clean version plus anything this
   # run regenerated (the tree was clean at the start, so every tracked change is ours).
   if (-not $DevBuild) {
-    Write-Host "Committing and tagging release v$releaseVersion"
+    Write-Host "Committing release $releaseVersion"
     Invoke-GitChecked add -u
     # --allow-empty: a package.json that already held the clean version leaves nothing
     # to stage, yet the release still gets its own commit to tag.
     Invoke-GitChecked commit --quiet --allow-empty -m "chore(release): release $releaseVersion"
-    Invoke-GitChecked tag -a "v$releaseVersion" -m "Release $releaseVersion"
-    # Same tag in the asset pack, on the artwork this build embedded.
-    if ($withAssets) { Invoke-GitChecked -C $packDir tag -a "v$releaseVersion" -m "Release $releaseVersion" }
+    $releaseCommit = [string](git rev-parse HEAD)
+    if ($LASTEXITCODE -ne 0) { throw "git rev-parse failed with exit code $LASTEXITCODE" }
+    # No tag yet: the zip still has to be checked by hand. The manifest tells
+    # publish-release.ps1 which commits to tag once it is.
+    $manifest = [ordered]@{
+      version   = $releaseVersion
+      archive   = $archiveName
+      commit    = $releaseCommit
+      assetPack = if ($withAssets) { [ordered]@{ dir = $packDir; commit = $packCommit } } else { $null }
+    }
+    $manifestPath = Get-ReleaseManifestPath -RepoRoot $RepoRoot -Version $releaseVersion
+    Write-TextUtf8NoBom -Path $manifestPath -Text ($manifest | ConvertTo-Json -Depth 3)
   }
 
 # After packaging: bump the -Bump component and add the -dev suffix. Which one
@@ -693,6 +691,10 @@ public static class Crc32Helper {
     } else {
       Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
     }
+  }
+
+  if (-not $DevBuild) {
+    Write-Host "Check $archiveName, then publish it with: npm run release:publish" -ForegroundColor Green
   }
 
   # Repeat the notice last, where it cannot scroll away behind the build output.
