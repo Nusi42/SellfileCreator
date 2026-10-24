@@ -117,7 +117,7 @@ Two sentinel/compat notes for whoever wires it:
 - **`-1` means "not reported", not "ordinary".** It is the column default for rows written
   before the column existed; it does not occur in the refreshed fixture's data. Treat it
   (and a missing field) as unknown rather than as `0`.
-- **Older DBs have no column at all.** The three July `examples/*.db` fixtures predate it,
+- **Older DBs have no column at all.** The `account-a`, `account-b` and `account-c` fixtures in `tests/fixtures/gear-db/` (and the `sample*` ones) predate it,
   so a DB import must tolerate its absence — the same "unknown" state as `-1`.
 
 **On the wire, inbox rows carry the flag only in the enveloped shape.** In the capture, the

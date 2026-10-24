@@ -34,10 +34,19 @@ import type { GearInspectorPreviewMatch, GearInspectorPreviewRow } from '../../s
 import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
 // Node shims + SFC/DB loaders shared by every headless tooling script.
 import { loadGear, loadSfc, prepareHeadlessRuleEngine } from './lib/headless-pipeline.js'
+// Committed gear-DB fixtures, built on demand into tmp/fixtures/gear-db/.
+import { GEAR_DB_FIXTURES, ensureGearDb } from '../../scripts/test/gear-db-fixtures.mjs'
 
 type ScenarioInput = {
   sfcPath: string
   gearDbPath: string
+}
+
+// Raw CLI input: the gear DB stays null until --db names one, so the default fixture is
+// only built when it is actually used.
+type ScenarioArgs = {
+  sfcPath: string
+  gearDbPath: string | null
 }
 
 type ScenarioData = {
@@ -59,10 +68,11 @@ type MatchPhaseResult = {
   sold: number
 }
 
-// Default pairing mirrors the user-reported heavy scenario.
-const DEFAULT_SCENARIO: ScenarioInput = {
+// Default pairing mirrors the user-reported heavy scenario: the late-game preset against
+// the large-roster fixture (account-d) when no --db is given.
+const DEFAULT_SCENARIO: ScenarioArgs = {
   sfcPath: 'presets/lategame.sfc',
-  gearDbPath: 'examples/251112_042110.db',
+  gearDbPath: null,
 }
 
 const formatMs = (value: number): string => `${value.toFixed(1)} ms`
@@ -75,7 +85,7 @@ const formatPerItem = (durationMs: number, count: number): string => {
 // Support --sfc/--db overrides so perf runs can target arbitrary fixtures.
 const parseArgs = (): ScenarioInput => {
   const args = process.argv.slice(2)
-  const result: ScenarioInput = { ...DEFAULT_SCENARIO }
+  const result: ScenarioArgs = { ...DEFAULT_SCENARIO }
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
     if (!arg) continue
@@ -102,7 +112,9 @@ const parseArgs = (): ScenarioInput => {
   }
   return {
     sfcPath: resolvePath(process.cwd(), result.sfcPath),
-    gearDbPath: resolvePath(process.cwd(), result.gearDbPath),
+    gearDbPath: result.gearDbPath === null
+      ? ensureGearDb(GEAR_DB_FIXTURES.accountD)
+      : resolvePath(process.cwd(), result.gearDbPath),
   }
 }
 

@@ -57,7 +57,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ### Gear Inspector measurements
 
-- `npm run measure:gear-inspector` compiles `scripts/tooling/measure-gear-inspector.ts` (via `tsconfig.scripts.json`) and replays the entire Gear Inspector pipeline (SFC load → merged rule build → matcher → Safeguard detection). The default pairing benchmarks `presets/lategame.sfc` against `examples/251112_042110.db`, mirroring the heavy user scenario so regressions show up immediately.
+- `npm run measure:gear-inspector` compiles `scripts/tooling/measure-gear-inspector.ts` (via `tsconfig.scripts.json`) and replays the entire Gear Inspector pipeline (SFC load → merged rule build → matcher → Safeguard detection). The default pairing benchmarks `presets/lategame.sfc` against the large-roster gear-DB fixture `account-d` (built on demand from `tests/fixtures/gear-db/account-d.sql`; override with `--db <path>`), mirroring the heavy user scenario so regressions show up immediately.
 - Override the inputs with `--sfc=/path/to/file.sfc` (legacy `.sfc` also works) and/or `--db=/path/to/raid.db`. The script echoes base matcher timings, Safeguard candidate/detection durations, emitted Safeguard rule counts, and the matcher timings after those rules are appended so optimizations can be compared without manual instrumentation.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
