@@ -21,7 +21,9 @@
  *
  * Packing anonymizes: RSL Helper frames name the player (`playerId`, `playerName`), and
  * those values also leak into derived strings such as `savedAs` file names. `pack` swaps
- * every occurrence for a placeholder before archiving, so no account reaches the repo.
+ * every occurrence for a placeholder before archiving, so no account reaches the repo. It
+ * also replaces every champion's identity in `champions` frames and drops champion type
+ * ids from the console log (roster-anonymizer.mjs), so the roster is not published either.
  *
  * CLI:
  *   node scripts/test/capture-fixtures.mjs pack <sessionDirOrName>...
@@ -33,6 +35,7 @@ import zlib from 'node:zlib'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
 import * as tar from 'tar'
+import { anonymizeCaptureText } from './roster-anonymizer.mjs'
 
 // Repo root = cwd; all npm scripts and Playwright specs run from the repo root.
 const ROOT = process.cwd()
@@ -135,7 +138,7 @@ export async function packCaptureSession(sessionDirOrName) {
     // One frame at a time keeps memory bounded by the largest frame, not the session.
     for (const f of files) {
       const text = fs.readFileSync(path.join(dir, f), 'utf8')
-      fs.writeFileSync(path.join(staging, session, f), anonymizeText(text, pairs))
+      fs.writeFileSync(path.join(staging, session, f), anonymizeCaptureText(f, anonymizeText(text, pairs)))
     }
     // Stream tar → zstd → file so the ~1 GB session never sits in memory at once.
     await pipeline(
@@ -149,7 +152,7 @@ export async function packCaptureSession(sessionDirOrName) {
   const mb = (n) => `${(n / 1048576).toFixed(1)} MB`
   const rawBytes = files.reduce((s, f) => s + fs.statSync(path.join(dir, f)).size, 0)
   console.log(`[capture-fixtures] packed ${session}: ${mb(rawBytes)} -> ${mb(fs.statSync(out).size)}, `
-    + `${pairs.length} identity value(s) anonymized (${out})`)
+    + `${pairs.length} identity value(s) and the champion roster anonymized (${out})`)
   return out
 }
 

@@ -145,8 +145,9 @@ npm run fixtures:captures:pack -- session_YYMMDD_HHMMSS.mmm
   frames dedupe against each other. Tar comes from the pure-JS `tar` devDependency, so
   pack/unpack run identically on Windows. Implementation: `scripts/test/capture-fixtures.mjs`.
 - Packing **anonymizes** the frames: every `playerId` / `playerName` value is replaced,
-  wherever it occurs in the session, by a placeholder (`um12345678`, `[TAG]Player`, …).
-  The live capture directory is left untouched. See
+  wherever it occurs in the session, by a placeholder (`um12345678`, `[TAG]Player`, …),
+  and every champion in `champions` frames gets a synthetic identity (only its id, storage
+  location and gear links are kept). The live capture directory is left untouched. See
   [Test Data and Privacy](test-data.md#capture-sessions-and-the-sample-log).
 
 Consumers unpack on demand back to `docs/orig/sampleLog/captures/<session>/` (the

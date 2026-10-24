@@ -7,13 +7,13 @@ results live, and how tests get at them.
 
 Artifact and champion instance ids are kept as exported: they are per-account counters that
 identify nobody without the player id, and keeping them keeps every expected test output
-byte-identical.
+byte-identical. Champions themselves carry a synthetic identity (see below).
 
 ## Gear-DB fixtures
 
 | Committed dump | Built database | Contents |
 | -------------- | -------------- | -------- |
-| `tests/fixtures/gear-db/<name>.sql` | `tmp/fixtures/gear-db/<name>.db` (gitignored) | `Artifacts`, `InboxArtifacts`, `Champs`, `LastUsedArtifacts`, verbatim |
+| `tests/fixtures/gear-db/<name>.sql` | `tmp/fixtures/gear-db/<name>.db` (gitignored) | `Artifacts`, `InboxArtifacts`, `LastUsedArtifacts` verbatim; `Champs` anonymized |
 
 - **Fixtures** (`GEAR_DB_FIXTURES` in `scripts/test/gear-db-fixtures.mjs`):
   `sample` (unit tests), `sample2` (unit tests and the sample2 matcher bundle),
@@ -25,14 +25,25 @@ byte-identical.
   id as `UMID`), `AccRecords`, `TeamNameChampionPresets` (hand-typed team names),
   `BattleLogs`, `FusionPlans`, and the optimizer tables. `GEAR_DB_KEPT_TABLES` is the
   list; extend it only together with the importer.
+- **Champion anonymization** (`scripts/test/roster-anonymizer.mjs`): a real roster tells a PvP
+  opponent which champions an account owns and how fast they are, so every champion keeps
+  only what keep/sell decisions read: its instance id, its storage location (`Vault`,
+  `RVault`; `inStorage` / `inBathhouse` on the endpoint) and its gear links (`cID`, slot
+  maps, `ArtifactByHeroID`). Type, name, rarity, affinity, faction, ascension, stars, level,
+  empowerment, blessing, masteries, skills, stats, power, battle times and team usage are
+  replaced by a synthetic identity (`Champion 0412`) drawn from a PRNG seeded with the
+  instance id alone: stable across a gear DB and a capture of the same account, idempotent,
+  and independent of the real champion. Gear stays real.
 - **Dump format**: the original `CREATE TABLE` statement (whitespace-normalized) plus one
   `INSERT` per row in `rowid` order, every value rendered by SQLite's `quote()`. That keeps
   each cell's storage class (RSL Helper writes some `lastUse` values as TEXT into a REAL
   column) and round-trips REALs exactly, so re-dumping the same source never churns.
 - **Adding or refreshing a fixture**:
-  `npm run fixtures:gear-db:dump -- <export.db> <name>` writes the dump, builds it, and
-  fails unless every kept table matches the source row for row (`EXCEPT` both ways plus
-  row counts). Add new names to `GEAR_DB_FIXTURES` (and its `.d.mts`).
+  `npm run fixtures:gear-db:dump -- <export.db> <name>` anonymizes a copy of the export,
+  writes its dump, builds it, and fails unless every kept table of the build matches the
+  anonymized copy row for row (`EXCEPT` both ways plus row counts). Add new names to
+  `GEAR_DB_FIXTURES` (and its `.d.mts`). After a change to the anonymizer,
+  `node scripts/test/gear-db-fixtures.mjs anonymize` re-dumps the committed fixtures.
 - **Building**: `ensureGearDb(name)` builds when the `.db` is missing or older than its
   `.sql` (a checkout or re-dump touches the `.sql`), into a temp file then renamed.
   Consumers:
@@ -58,7 +69,11 @@ into the gitignored `docs/orig/sampleLog/captures/<session>/`; see
   (`SFC_<playerId>.hsf`). `pack` collects every value of those two keys across the session
   and replaces each occurrence anywhere in the frames: ids become `um12345678`,
   `um12345679`, …; names become `[TAG]Player`, `[TAG]Player2`, …. The live capture
-  directory is never modified; the anonymized copy is staged and archived.
+  directory is never modified; the anonymized copy is staged and archived. `champions`
+  frames get the same champion anonymization as the gear DBs (re-serialized with their
+  original indentation; every other frame stays byte for byte), and the console log loses
+  champion type ids. To re-apply after an anonymizer change: `fixtures:captures:unpack`,
+  then `fixtures:captures:pack` each unpacked session.
 - **Sample log**: the 2026-05-10 RSL Helper sample log (one push of every endpoint type) is
   the session `SAMPLE_LOG_SESSION` (`session_260510_183951.731`). Its packets carry no
   player identity. Packed, it shrinks from 79 MB to 0.3 MB, because its repeated
@@ -72,5 +87,7 @@ into the gitignored `docs/orig/sampleLog/captures/<session>/`; see
   reads.
 - Gear DBs go through `fixtures:gear-db:dump`; captures through `fixtures:captures:pack`.
   Never commit a raw export or an unpacked capture.
+- Never name a champion from a real roster in code, comments, docs or test values; use
+  made-up names or the starter champions everyone owns.
 - Name fixtures after what they are (`account-e`, `sample3`), never after a player or a
   player id.

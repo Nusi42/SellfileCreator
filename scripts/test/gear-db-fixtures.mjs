@@ -4,8 +4,10 @@
  * Real RSL Helper `.db` exports carry far more than the importer reads: the player id
  * (`CBLoot.UMID`), hand-typed team names, battle logs, clan-boss loot history, and so on.
  * Fixtures therefore live in the repo as SQL dumps that keep ONLY the tables the gear
- * importer reads (src/lib/importers/gearDbImporter.ts), byte-for-byte as exported; every
- * other table is dropped. Tests build the binary `.db` on demand into a gitignored cache.
+ * importer reads (src/lib/importers/gearDbImporter.ts); every other table is dropped. The
+ * kept tables are byte-for-byte as exported except the `Champs` table, whose champions
+ * lose their identity (type, name, level, stats, …) on dump: see roster-anonymizer.mjs.
+ * Tests build the binary `.db` on demand into a gitignored cache.
  *
  * Layout:
  *   committed dump : tests/fixtures/gear-db/<name>.sql
@@ -14,11 +16,14 @@
  * CLI:
  *   node scripts/test/gear-db-fixtures.mjs dump <source.db> <name>   # write + verify a dump
  *   node scripts/test/gear-db-fixtures.mjs build [<name>...]          # default: all fixtures
+ *   node scripts/test/gear-db-fixtures.mjs anonymize [<name>...]      # re-dump committed fixtures
+ *                                                                     # through the anonymizer
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
+import { anonymizeGearDbChampions } from './roster-anonymizer.mjs'
 
 // Repo root = cwd; all npm scripts and Playwright specs run from the repo root.
 const ROOT = process.cwd()
@@ -143,13 +148,26 @@ export function ensureGearDb(name) {
 /** Ensure every committed fixture is built (run before suites that read them). */
 export const ensureAllGearDbs = () => Object.values(GEAR_DB_FIXTURES).map((name) => ensureGearDb(name))
 
-/** Write the dump for `sourcePath` as fixture `name`, rebuild it, and verify it against the source. */
+/**
+ * Write the dump for `sourcePath` as fixture `name`, rebuild it, and verify it. The dump
+ * is taken from an anonymized copy (champion identity removed); the source is never touched.
+ */
 export function dumpGearDb(sourcePath, name) {
   fs.mkdirSync(GEAR_DB_SQL_DIR, { recursive: true })
-  fs.writeFileSync(gearDbSqlPathFor(name), renderGearDbSql(sourcePath))
-  assertSameKeptTables(sourcePath, buildGearDb(name))
-  const kb = (p) => `${Math.round(fs.statSync(p).size / 1024)} KB`
-  console.log(`[gear-db-fixtures] ${name}: ${kb(sourcePath)} -> ${kb(gearDbSqlPathFor(name))} SQL (verified)`)
+  fs.mkdirSync(GEAR_DB_BUILD_DIR, { recursive: true })
+  // The copy also frees the source path, so a fixture can be re-dumped from its own build.
+  const anonymized = path.join(GEAR_DB_BUILD_DIR, `${name}.${process.pid}.anonymized.db`)
+  fs.copyFileSync(sourcePath, anonymized)
+  try {
+    const champions = anonymizeGearDbChampions(anonymized)
+    fs.writeFileSync(gearDbSqlPathFor(name), renderGearDbSql(anonymized))
+    assertSameKeptTables(anonymized, buildGearDb(name))
+    const kb = (p) => `${Math.round(fs.statSync(p).size / 1024)} KB`
+    console.log(`[gear-db-fixtures] ${name}: ${kb(sourcePath)} -> ${kb(gearDbSqlPathFor(name))} SQL, `
+      + `${champions} champion(s) anonymized (verified)`)
+  } finally {
+    fs.rmSync(anonymized, { force: true })
+  }
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────
@@ -160,9 +178,12 @@ const [, , command, ...args] = isCliEntry ? process.argv : []
 if (command === 'dump') {
   if (args.length !== 2) { console.error('usage: gear-db-fixtures.mjs dump <source.db> <name>'); process.exit(2) }
   dumpGearDb(path.resolve(args[0]), args[1])
+} else if (command === 'anonymize') {
+  // Re-dump committed fixtures from their own builds, e.g. after the anonymizer changed.
+  for (const name of args.length > 0 ? args : Object.values(GEAR_DB_FIXTURES)) dumpGearDb(ensureGearDb(name), name)
 } else if (command === 'build') {
   for (const p of args.length > 0 ? args.map((n) => ensureGearDb(n)) : ensureAllGearDbs()) console.log(`[gear-db-fixtures] ready ${p}`)
 } else if (command !== undefined) {
-  console.error(`unknown command "${command}" (expected dump|build)`)
+  console.error(`unknown command "${command}" (expected dump|build|anonymize)`)
   process.exit(2)
 }

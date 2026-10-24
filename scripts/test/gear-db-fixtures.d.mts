@@ -27,5 +27,5 @@ export declare function renderGearDbSql(sourcePath: string): string
 export declare function ensureGearDb(name: string): string
 /** Ensure every committed fixture is built; returns their paths. */
 export declare const ensureAllGearDbs: () => string[]
-/** Write, rebuild and verify the dump of `sourcePath` as fixture `name`. */
+/** Write, rebuild and verify the dump of `sourcePath` as fixture `name` (champions anonymized). */
 export declare function dumpGearDb(sourcePath: string, name: string): void
