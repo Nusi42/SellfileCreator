@@ -226,8 +226,6 @@ import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import SfcImportOptionsDialog, { type SfcImportModes, type SfcImportSelection } from './components/dialogs/SfcImportOptionsDialog'
 import RslHelperConnectButton from './components/RslHelperConnectButton'
-import PongFlyout from './components/PongFlyout'
-import SellfallFlyout from './components/SellfallFlyout'
 import { useAutosave } from './hooks/useAutosave'
 import { useStalenessTracking, type SfcRecoverySignal } from './hooks/useStalenessTracking'
 import { useClientCapability } from './hooks/useClientCapability'
@@ -435,7 +433,6 @@ import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys, cloneBuilderRecipe } from './lib/recipeMultiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useModalCleanup } from './hooks/useModalCleanup'
-import { useEasterEggTrigger } from './hooks/useEasterEggTrigger'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useSfcClipboard, type PendingImport } from './hooks/useSfcClipboard'
@@ -8853,12 +8850,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     </ToggleButtonGroup>
   )
 
-  // Easter egg hooks — declared here so the closures inside substatTargetsElement can reference them.
-  const recordFinalSellEasterEggClick = useEasterEggTrigger(10, 10_000)
-  const [pongOpen, setPongOpen] = useState(false)
-  const recordRecipesEasterEggClick = useEasterEggTrigger(10, 10_000)
-  const [sellfallOpen, setSellfallOpen] = useState(false)
-
   // Builder panel header right side: optional Substat Targets + global Recipes/FinalSell/Safeguards/Tools controls.
   const fsEnabled = (finalSellRemainder.artifacts || finalSellRemainder.accessories) && (finalSellRemainder.levels?.length ?? 0) > 0
   const safeguardsDisabledWarningForBuilder = builderMode === 'safeguard' && !safeguardsEnabled && safeguardRules.length > 0
@@ -8871,10 +8862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           value="recipesToggle"
           selected={recipesEnabled}
           size="small"
-          onClick={() => {
-              applyRecipesEnabledChange(!recipesEnabled)
-              if (recordRecipesEasterEggClick('sellfall')) setSellfallOpen(true)
-            }}
+          onClick={() => applyRecipesEnabledChange(!recipesEnabled)}
           aria-label={t('recipesToggleLabel')}
           aria-pressed={recipesEnabled}
           sx={(theme) => {
@@ -8939,7 +8927,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
                 return { ...cur, artifacts: false, accessories: false }
               }, { mode: 'quickToggle' })
-              if (recordFinalSellEasterEggClick('pong')) setPongOpen(true)
             }}
             aria-label={t('finalSellToggleLabel')}
             aria-pressed={fsEnabled}
@@ -11018,10 +11005,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onClose={handleFileFormatErrorClose}
         />
       ) : null}
-      {/* Easter egg: Pong flyout — opened by 10 rapid clicks on the Final Sell toggle button */}
-      {pongOpen && <PongFlyout onClose={() => setPongOpen(false)} />}
-      {/* Easter egg: Sellfall flyout — opened by 10 rapid clicks on the Recipes toggle button */}
-      {sellfallOpen && <SellfallFlyout onClose={() => setSellfallOpen(false)} />}
     </Container>
     </StatColorProvider>
     </RarityPaletteProvider>

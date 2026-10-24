@@ -143,7 +143,6 @@ Keys: `themeMode.v1`, `rslhEnabled.v1`, `colorScheme.v1`, `themeCustom.v1`,
 | Dungeon simulator selections | `sellfileCreator.dungeonDrops.v1` | `state/dungeonSimulatorPreferences.ts` |
 | **Runtime gear-set catalog** | `sellfileCreator.runtimeGearSets.v1` | `lib/gearSets/runtimeStore.ts` |
 | Seen markers (readme/tutorial/update/nudge/context hints) | `sellfileCreator.*.seen.*` | various |
-| Easter-egg high scores | `sellfileCreator.easterEgg.*.scores.v1` | (constants) |
 | **Unsaved-since stamps (staleness ramp)** | `sellfileCreator.stalenessSince.v1` (account-scoped) | `hooks/useStalenessTracking.ts` |
 
 > **`stalenessSince` exists so unsaved age survives a restart.** It holds one record —

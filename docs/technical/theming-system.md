@@ -25,7 +25,7 @@ on major panels and dialogs. Key mechanics:
   `theme.custom.goldInsetLine` at per-scheme `goldInsetAlpha`) + `backgroundImage: 'none'`
   (kills MUI's dark-mode elevation overlay that washed dialogs/menus grey). Depth = the
   frame, not elevation: stationary surfaces cast no shadow; floating layers (dialog, popover,
-  menu, autocomplete, tooltip papers + the floating note panel and easter-egg flyouts) wear
+  menu, autocomplete, tooltip papers + the floating note panel) wear
   `FLOATING_LAYER_SHADOW` (all in `themeCustomTokens.ts`, alongside the tooltip-only
   `TOOLTIP_SHADOW`) — do not reach for `theme.shadows[N]` on floating surfaces, and that
   includes controls sitting ON one: the ContextMenuPaper ✕ button carries no shadow at all

@@ -1009,9 +1009,6 @@ export const STALENESS_TICK_MS = 30 * 1000
 // restart instead of looking freshly clean. Account-scoped like the autosave it
 // describes. This addresses a finding from real use: work could be lost without the dot ever warning about it.
 export const STALENESS_SINCE_KEY = resolveAccountScopedKey(ACCOUNT_BASE_KEY_STALENESS_SINCE)
-// Easter-egg leaderboards: per-game high-score storage keys.
-export const EASTER_EGG_PONG_SCORES_KEY = 'sellfileCreator.easterEgg.pong.scores.v1'
-export const EASTER_EGG_SELLFALL_SCORES_KEY = 'sellfileCreator.easterEgg.sellfall.scores.v1'
 // Preview selection scroll sources.
 // Why: Auto-scroll should only fire from explicit user/command signals.
 export const SELECTION_SCROLL_SOURCE_USER = 'user' as const
