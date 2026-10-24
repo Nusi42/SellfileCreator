@@ -16,9 +16,12 @@
   A RELEASE IS TWO COMMITS AND A TAG. The run refuses to start on a dirty tree,
   so the build is exactly the committed sources plus the version change. After
   packaging it commits `chore(release): release X.Y.Z` (the version files at
-  X.Y.Z, plus any other tracked file the run itself changed), tags that commit `vX.Y.Z`, then commits the -dev bump as
-  `chore(release): start N development`. The tag marks what shipped; the
-  release-notes catch-up finds releases by these tags. Pushing stays manual.
+  X.Y.Z, plus any other tracked file the run itself changed), tags that commit
+  `vX.Y.Z`, then commits the -dev bump as `chore(release): start N development`. The tag marks what shipped; the
+  release-notes catch-up finds releases by these tags. The asset pack is
+  optional: without it the package has placeholder icons and the run says so at
+  its start and end; with it, the pack must be committed and gets the same
+  `vX.Y.Z` tag. Pushing stays manual.
 
   A RELEASE BUILDS FROM ZERO: `npm run wasm:clean` (cargo clean on the wasm
   workspace) plus a wipe of dist.app, and the `npm ci` below replaces
@@ -109,6 +112,34 @@ function Invoke-GitChecked {
   if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') failed with exit code $LASTEXITCODE" }
 }
 
+# Helper: refuse a release from a checkout with uncommitted or untracked files. Untracked
+# files count too: a stray preset or doc could be picked up by staging.
+function Assert-CleanWorkTree([string]$Dir, [string]$What) {
+  $dirty = git -C $Dir status --porcelain
+  if ($LASTEXITCODE -ne 0) { throw "git status failed for $What with exit code $LASTEXITCODE" }
+  if ($dirty) { throw "$What has uncommitted changes. Commit or stash them before a release:`n$($dirty -join "`n")" }
+}
+
+# Helper: refuse a release whose tag already exists (a re-run after a late failure must
+# not move a published tag).
+function Assert-TagFree([string]$Dir, [string]$Tag, [string]$What) {
+  git -C $Dir rev-parse --verify --quiet "refs/tags/$Tag" > $null
+  if ($LASTEXITCODE -eq 0) { throw "$What already has a $Tag tag." }
+}
+
+# Helper: the banner for a build without the asset pack, shown at the start and the end
+# of the run so a placeholder-icon package is never mistaken for the full version.
+function Write-NoAssetsNotice {
+  $rule = '  ' + ('*' * 66)
+  Write-Host ''
+  Write-Host $rule -ForegroundColor Yellow
+  Write-Host '  NO ASSET PACK: this package contains NO game artwork.' -ForegroundColor Yellow
+  Write-Host '  Champions, sets and factions show placeholder icons.' -ForegroundColor Yellow
+  Write-Host '  See "Icon Assets Catalogs" in docs/technical/build-and-tooling.md.' -ForegroundColor Yellow
+  Write-Host $rule -ForegroundColor Yellow
+  Write-Host ''
+}
+
 # Helper: convert README markdown to a flat UTF-8 text file with injected version badge.
 function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [string]$VersionLabel) {
   if (-not (Test-Path -LiteralPath $SourcePath)) { return }
@@ -141,14 +172,9 @@ try {
   # Using built-in Compress-Archive; no external dependencies.
 
   # A release must build from a commit: uncommitted edits (release notes, presets, ...)
-  # would ship without being in the tagged commit. Untracked files count too, since a
-  # stray preset or doc could be picked up by staging.
+  # would ship without being in the tagged commit.
   if (-not $DevBuild) {
-    $dirty = git status --porcelain
-    if ($LASTEXITCODE -ne 0) { throw "git status failed with exit code $LASTEXITCODE" }
-    if ($dirty) {
-      throw "The working tree has uncommitted changes. Commit or stash them (including userDocs/HISTORY.md) before a release:`n$($dirty -join "`n")"
-    }
+    Assert-CleanWorkTree -Dir $RepoRoot -What 'The working tree (commit userDocs/HISTORY.md too)'
   }
 
   # Read version from package.json and normalize depending on mode
@@ -160,6 +186,31 @@ try {
   if (-not $origVersion) { throw 'Unable to read version from package.json' }
   $releaseVersion = ($origVersion -split '-', 2)[0]
   $versionWasCleaned = $false
+
+  # The game artwork comes from the asset pack when one is configured; without it the
+  # build uses placeholder icons, and the run says so at the start and the end. The
+  # lookup is the build's own (print-game-assets-dir.mjs), so it names the pack the
+  # build embeds.
+  # Collect the output before picking the line: `| Select-Object -First 1` would stop
+  # the pipeline early, and Windows PowerShell then reports node's exit code as -1.
+  $packOut = @(node scripts/tooling/print-game-assets-dir.mjs)
+  if ($LASTEXITCODE -ne 0) { throw "Asset pack lookup failed with exit code $LASTEXITCODE" }
+  $packDir = if ($packOut.Count -gt 0) { [string]$packOut[0] } else { '' }
+  $withAssets = -not [string]::IsNullOrWhiteSpace($packDir)
+  if ($withAssets) { Write-Host 'Asset pack found: the build embeds the game artwork.' -ForegroundColor Green }
+  else { Write-NoAssetsNotice }
+
+  # A used pack obeys the same rule as the app: committed, and tagged with the app's
+  # version once the release is packaged. Tags are checked now, before the slow steps,
+  # rather than failing after the build.
+  if (-not $DevBuild) {
+    Assert-TagFree -Dir $RepoRoot -Tag "v$releaseVersion" -What 'This repository'
+    if ($withAssets) {
+      Assert-CleanWorkTree -Dir $packDir -What 'The asset pack'
+      Assert-TagFree -Dir $packDir -Tag "v$releaseVersion" -What 'The asset pack'
+    }
+  }
+
   if ($DevBuild) {
     $devSuffix = ''
     if (-not $origVersion.ToLower().EndsWith('-dev')) {
@@ -295,12 +346,12 @@ try {
 
   # Build, stage, archive — on failure, restore original version.
   try {
-  # Build production assets. Release builds must embed the game artwork from the private
-  # asset pack (SFC_GAME_ASSETS_DIR, see scripts/vite/gameIconsPlugin.ts); the build fails
-  # instead of shipping placeholder icons. Dev builds may run without the pack.
+  # Build production assets. When a pack was found the build must use it
+  # (SFC_REQUIRE_GAME_ASSETS, see scripts/vite/gameIconsPlugin.ts): a configured pack
+  # without its ico/ folder fails instead of quietly shipping placeholder icons.
   Write-Host 'Building app (vite build)...'
   $previousRequireAssets = $env:SFC_REQUIRE_GAME_ASSETS
-  if (-not $DevBuild) { $env:SFC_REQUIRE_GAME_ASSETS = '1' }
+  if ($withAssets) { $env:SFC_REQUIRE_GAME_ASSETS = '1' }
   try {
     npm run --silent build
   } finally {
@@ -615,6 +666,8 @@ public static class Crc32Helper {
     # to stage, yet the release still gets its own commit to tag.
     Invoke-GitChecked commit --quiet --allow-empty -m "chore(release): release $releaseVersion"
     Invoke-GitChecked tag -a "v$releaseVersion" -m "Release $releaseVersion"
+    # Same tag in the asset pack, on the artwork this build embedded.
+    if ($withAssets) { Invoke-GitChecked -C $packDir tag -a "v$releaseVersion" -m "Release $releaseVersion" }
   }
 
 # After packaging: bump the -Bump component and add the -dev suffix. Which one
@@ -641,6 +694,9 @@ public static class Crc32Helper {
       Write-Warning "Release version '$releaseVersion' is not x.y.z; skipping dev bump"
     }
   }
+
+  # Repeat the notice last, where it cannot scroll away behind the build output.
+  if (-not $withAssets) { Write-NoAssetsNotice }
 } finally {
   # Clean up staging folder to avoid clutter
   if ($staging -and (Test-Path $staging)) { Remove-Item $staging -Recurse -Force }

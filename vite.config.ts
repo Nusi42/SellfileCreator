@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, type UserConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, relative, resolve } from 'node:path';
@@ -11,7 +11,7 @@ import { suppressWasmUrlPlugin } from './scripts/vite/suppressWasmUrlPlugin.ts'
 import { sfcMinifyPlugin } from './scripts/vite/sfcMinifyPlugin.ts'
 import { packetCapturePlugin } from './scripts/vite/packetCapturePlugin.ts'
 import { gameIconsPlugin } from './scripts/vite/gameIconsPlugin.ts'
-import { resolveGameAssetsDir } from './scripts/vite/gameAssetsDir.ts'
+import { loadSfcEnv, resolveGameAssetsDir } from './scripts/vite/gameAssetsDir.ts'
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -87,7 +87,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // Asset pack with the game artwork (see scripts/vite/gameIconsPlugin.ts and
   // scripts/vite/gameAssetsDir.ts for where it is looked up). Release builds set SFC_REQUIRE_GAME_ASSETS=1
   // so they can never ship placeholder icons by accident.
-  const sfcEnv = { ...loadEnv(mode, VITE_CONFIG_ROOT, 'SFC_'), ...process.env }
+  const sfcEnv = loadSfcEnv(mode, VITE_CONFIG_ROOT)
   // One factory for the app and the worker bundles: workers reach the icon maps through
   // shared modules, so both must resolve `virtual:game-icons` the same way.
   // Pack location: environment / .env.local, else the user-level file every clone shares.

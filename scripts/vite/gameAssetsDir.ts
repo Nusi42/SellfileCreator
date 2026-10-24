@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { loadEnv } from 'vite'
 
 /**
  * Where the asset pack is (scripts/vite/gameIconsPlugin.ts), so that every clone of
@@ -15,6 +16,15 @@ export const GAME_ASSETS_ENV = 'SFC_GAME_ASSETS_DIR'
 
 /** User-level file naming the pack for every clone on this machine. */
 export const GAME_ASSETS_DIR_FILE = join(homedir(), '.config', 'sellfilecreator', 'game-assets-dir.txt')
+
+/**
+ * The SFC_ settings a build sees: the clone's .env files under `root` for `mode`,
+ * overridden by the process environment. Shared by vite.config.ts and the release
+ * script's pack lookup (scripts/tooling/print-game-assets-dir.mjs), so both name the same pack.
+ */
+export function loadSfcEnv(mode: string, root: string): Record<string, string | undefined> {
+  return { ...loadEnv(mode, root, 'SFC_'), ...process.env }
+}
 
 export function resolveGameAssetsDir(
   env: Readonly<Record<string, string | undefined>>,
