@@ -47,7 +47,7 @@ preview shows the result before anything is sold.
 
 ## Getting started
 
-**Use it:** download the [latest release](https://github.com/Nusi42/RslHelperSellfileCreator.Releases/releases/latest), unpack it and open `SellfileCreator.html` — or launch it
+**Use it:** download the [latest release](https://github.com/Nusi42/SellfileCreator/releases/latest), unpack it and open `SellfileCreator.html` — or launch it
 from RSL Helper. The [user guide](userDocs/README.md) explains every part of the app.
 
 **Build it from source:**

@@ -501,7 +501,7 @@ try {
   $watcherBatSrc = Join-Path $RepoRoot 'scripts\watchers\Stream-Helper-DB-to-Creator.bat'
   if (Test-Path $watcherBatSrc) {
     $watcherBatOut = Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat'
-    $watcherBatRaw = Get-Content -Raw -LiteralPath $watcherBatSrc
+    $watcherBatRaw = Read-TextUtf8 $watcherBatSrc
     # Rewrite the fixed app entry for packaged builds so runtime probing is unnecessary.
     $prodEntryLine = 'set "APP_ENTRY_PATH=!SCRIPT_DIR!..\SellfileCreator.html"'
     $watcherBatPatched = [regex]::Replace(

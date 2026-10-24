@@ -4,6 +4,7 @@ import type { Page } from '@playwright/test'
 import { LANG_KEY } from '../../src/lib/constants'
 import { ACCOUNT_BASE_KEY_AUTOSAVE_SFC } from '../../src/lib/accounts'
 import { DEFAULT_LANGUAGE } from '../../src/lib/i18n/types'
+import { latestReleaseApiUrl } from '../../src/lib/releaseRepo'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 
 // Resolve package.json from repo root so Playwright can move.
@@ -17,6 +18,14 @@ function readAppVersion(): string {
   const value = packageJsonRaw && typeof packageJsonRaw.version === 'string' ? packageJsonRaw.version : '0.0.0'
   cachedVersion = value
   return value
+}
+
+// The public repository (package.json `repository.url`), the source of the update-check URL.
+function readRepositoryUrl(): string {
+  const packageJsonRaw = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as { repository?: { url?: unknown } }
+  const url = packageJsonRaw.repository?.url
+  if (typeof url !== 'string' || url === '') throw new Error('package.json has no repository.url')
+  return url
 }
 
 type PrepareAppOptions = {
@@ -52,7 +61,8 @@ export const APP_GOTO_OPTIONS = {
 // rate limit (60/h/IP) the moment we enable parallel workers — every failed request prints
 // a `[pw:error] Failed to load resource: 403` line that drowns the real test output. We
 // fulfill with a tag matching the local version so the update banner stays hidden.
-const UPDATE_CHECK_URL = 'https://api.github.com/repos/Nusi42/RslHelperSellfileCreator.Releases/releases/latest'
+// Derived from package.json `repository.url`, exactly as the app derives it.
+const UPDATE_CHECK_URL = latestReleaseApiUrl(readRepositoryUrl())
 
 export async function prepareApp(page: Page, options: PrepareAppOptions = {}): Promise<void> {
   const version = readAppVersion()

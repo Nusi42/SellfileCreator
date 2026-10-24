@@ -151,18 +151,21 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     // bytes (verified: capturePackets/logWasmHeap strings were present in the release bundle).
     // The e2e build opts in via VITE_TEST_HOOKS=1 (see playwright.config webServer command).
     const allowTestHooks = process.env.VITE_TEST_HOOKS === '1';
-    // Read package.json version so we have a single source of truth
+    // Read package.json version and repository so we have a single source of truth
     try {
       const root = dirname(fileURLToPath(import.meta.url));
       const pkgPath = resolve(root, 'package.json');
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string; repository?: { url?: string } };
       return {
         __APP_VERSION__: JSON.stringify(pkg.version ?? '0.0.0'),
+        // The public repository: its GitHub releases are what the update check reads.
+        __RELEASE_REPO_URL__: JSON.stringify(pkg.repository?.url ?? ''),
         __ALLOW_TEST_HOOKS__: JSON.stringify(allowTestHooks),
       };
     } catch {
       return {
         __APP_VERSION__: JSON.stringify('0.0.0'),
+        __RELEASE_REPO_URL__: JSON.stringify(''),
         __ALLOW_TEST_HOOKS__: JSON.stringify(allowTestHooks),
       };
     }

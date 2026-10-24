@@ -13,14 +13,7 @@
 import { useEffect, useState } from 'react'
 import { APP_VERSION } from '../version'
 import { UPDATE_DISMISSED_VERSION_KEY } from '../lib/constants'
-
-// GitHub API endpoint — returns JSON with `tag_name` for the latest release.
-const RELEASES_API_URL =
-  'https://api.github.com/repos/Nusi42/RslHelperSellfileCreator.Releases/releases/latest'
-
-// Page the user is directed to when they click the update link.
-const RELEASES_PAGE_URL =
-  'https://github.com/Nusi42/RslHelperSellfileCreator.Releases/releases/latest'
+import { RELEASE_REPO_URL, latestReleaseApiUrl, latestReleasePageUrl } from '../lib/releaseRepo'
 
 export type UpdateCheckResult = {
   latestVersion: string
@@ -52,11 +45,13 @@ export function useUpdateCheck(): { update: UpdateCheckResult | null; dismiss: (
   const [update, setUpdate] = useState<UpdateCheckResult | null>(null)
 
   useEffect(() => {
+    // No repository configured (a build without package.json metadata): nothing to check.
+    if (!RELEASE_REPO_URL) return
     const controller = new AbortController()
 
     // credentials:'omit' ensures the request carries no cookies; GitHub's
     // Access-Control-Allow-Origin:* header then passes CORS even from file://.
-    fetch(RELEASES_API_URL, { credentials: 'omit', signal: controller.signal })
+    fetch(latestReleaseApiUrl(RELEASE_REPO_URL), { credentials: 'omit', signal: controller.signal })
       .then((r) => r.json() as Promise<unknown>)
       .then((data) => {
         if (typeof data !== 'object' || data === null) return
@@ -65,7 +60,7 @@ export function useUpdateCheck(): { update: UpdateCheckResult | null; dismiss: (
         // Skip if neither newer than the local build nor newer than the previously dismissed tag.
         if (!isRemoteNewer(tag, APP_VERSION)) return
         if (readDismissedTag() === tag) return
-        setUpdate({ latestVersion: tag.replace(/^v/, ''), releaseUrl: RELEASES_PAGE_URL })
+        setUpdate({ latestVersion: tag.replace(/^v/, ''), releaseUrl: latestReleasePageUrl(RELEASE_REPO_URL) })
       })
       .catch(() => { /* silently ignore — network error, CORS, rate limit, etc. */ })
 
