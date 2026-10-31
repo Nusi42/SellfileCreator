@@ -6,8 +6,9 @@
  * patterns configured"), so CI and other machines work unchanged. Findings name the
  * place; the matched text is always masked.
  *
- * Independently of the private list it refuses `originSessionId:` lines (session ids that
- * agent memory notes carry in their front matter) in --tree and --staged mode.
+ * Independently of the private list it refuses originSessionId lines (session ids that agent
+ * memory notes carry in their front matter, at the top level or indented under `metadata`)
+ * in --tree and --staged mode.
  *
  *   node scripts/tooling/check-private.mjs            every tracked file, content + name (`npm run check:private`)
  *   node scripts/tooling/check-private.mjs --staged   staged content + names (pre-commit hook)
@@ -23,12 +24,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, loadMatchers, maskAll, patternsPath, PUSH_LOG_FORMAT, pushSections, scanText } from './lib/private-patterns.mjs'
 import { messageText } from './lib/commit-message.mjs'
+import { hasCommit, parsePushLines, pushedRange } from './lib/push-plan.mjs'
 
 // The repository the hook or check runs in.
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
-const ZERO = /^0+$/
-// Session ids written into agent memory-note front matter; never committed.
-const SESSION_ID_LINE = /^originSessionId:/m
+// Session ids written into agent memory-note front matter (also indented); never committed.
+const SESSION_ID_LINE = /^[ \t]*originSessionId[ \t]*:/m
 
 const git = (args, input = '') => execFileSync('git', args, { cwd: root, input, maxBuffer: 1 << 30 })
 
@@ -44,9 +45,9 @@ const check = (where, text) => {
 const checkName = (name) => {
   for (const finding of scanText(name, matchers)) problems.push(describe(`${maskAll(name, matchers)} (file name)`, finding))
 }
-// Report an `originSessionId:` front-matter line.
+// Report an originSessionId front-matter line.
 const checkSessionId = (name, text) => {
-  if (SESSION_ID_LINE.test(text)) problems.push(`${maskAll(name, matchers)}: "originSessionId:" line (session ids are never committed)`)
+  if (SESSION_ID_LINE.test(text)) problems.push(`${maskAll(name, matchers)}: originSessionId line (session ids are never committed)`)
 }
 
 let scanned = ''
@@ -90,13 +91,11 @@ switch (mode) {
   }
   case '--push': {
     let commits = 0
-    for (const line of fs.readFileSync(0, 'utf8').split(/\r?\n/)) {
-      const [localRef, localSha, remoteRef, remoteSha] = line.trim().split(/\s+/)
-      if (localRef === undefined || localSha === undefined || ZERO.test(localSha)) continue
-      checkName(`${localRef} ${remoteRef ?? ''}`)
-      // Only commits the remote does not have yet.
-      const range = [localSha, '--not', '--remotes']
-      if (remoteSha !== undefined && !ZERO.test(remoteSha) && known(remoteSha)) range.push(remoteSha)
+    for (const ref of parsePushLines(fs.readFileSync(0, 'utf8'))) {
+      // Only commits the remote does not have yet; nothing for a deletion.
+      const range = pushedRange(ref, (sha) => hasCommit(root, sha))
+      if (range === undefined) continue
+      checkName(`${ref.localRef} ${ref.remoteRef}`)
       const log = git(['log', '--no-color', '--no-ext-diff', '-p', PUSH_LOG_FORMAT, ...range]).toString('utf8')
       for (const section of pushSections(log)) check(section.where, section.text)
       commits += log.split('\0commit ').length - 1
@@ -139,14 +138,4 @@ function readStaged(files) {
     at = headerEnd + 1 + size + 1
   }
   return blobs
-}
-
-// Whether `sha` names a commit this repository has.
-function known(sha) {
-  try {
-    git(['cat-file', '-e', `${sha}^{commit}`])
-    return true
-  } catch {
-    return false
-  }
 }

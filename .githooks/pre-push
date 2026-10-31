@@ -1,6 +1,5 @@
 #!/bin/sh
-# Refuse private data in every commit about to be pushed (identities, messages, file names,
-# added lines; git passes the ref lines on stdin), then run the full local check: there is
-# no hosted CI, so this hook is the gate.
-node scripts/tooling/check-private.mjs --push || exit 1
-exec npm run --silent check
+# Decide from this checkout's role and the remote's URL what the push runs, or refuse it
+# (scripts/tooling/pre-push.mjs, docs/technical/publishing.md). git passes the remote's name
+# and URL as arguments and the ref lines on stdin.
+exec node "$(dirname "$0")/../scripts/tooling/pre-push.mjs" "$@"

@@ -8,6 +8,8 @@ import { SUBJECT_MAX_LENGTH, commitMessageProblems, messageText } from '../../sc
 const CO_AUTHOR = 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
 // Assembled from parts so the repository itself never contains a session link.
 const SESSION_URL = ['https://claude', 'ai/code/session_x'].join('.')
+// Assembled too, so history scans for real session trailers do not hit this test.
+const SESSION_TRAILER = ['Claude', 'Session'].join('-')
 
 test('a conventional subject with body and the Claude trailer passes', () => {
   const message = ['fix(importer): keep text lastUse values', '', 'Some exports store them as TEXT.', '', CO_AUTHOR].join('\n')
@@ -41,7 +43,9 @@ test('the body must be separated by a blank line', () => {
 test('only the Claude co-author trailer is allowed', () => {
   assert.ok(commitMessageProblems('fix(x): a\n\nSigned-off-by: A <a@example.net>').some((p) => /trailer not allowed/.test(p)))
   assert.ok(commitMessageProblems('fix(x): a\n\nCo-Authored-By: Someone <s@example.net>').some((p) => /co-author line/.test(p)))
-  assert.ok(commitMessageProblems(`fix(x): a\n\nClaude-Session: ${SESSION_URL}\n${CO_AUTHOR}`).length >= 2)
+  assert.ok(commitMessageProblems(`fix(x): a\n\n${SESSION_TRAILER}: ${SESSION_URL}\n${CO_AUTHOR}`).length >= 2)
+  // The trailer alone (no link) is refused too.
+  assert.ok(commitMessageProblems(`fix(x): a\n\n${SESSION_TRAILER}: x\n${CO_AUTHOR}`).some((p) => /session trailers/.test(p)))
 })
 
 test('local logistics, planning jargon and principle acronyms are refused', () => {

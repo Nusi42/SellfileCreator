@@ -4,7 +4,9 @@
  * Every commit message is a Conventional Commit written for readers of a public history:
  *   - Subject `<type>(<scope>): <subject>` (an optional `!` before the colon marks a
  *     breaking change), imperative, lowercase start, no trailing period, at most
- *     SUBJECT_MAX_LENGTH characters. Merge commits read `Merge <what it brought>`.
+ *     SUBJECT_MAX_LENGTH characters. Branches are combined by rebasing; the pre-push hook
+ *     refuses new merge commits (scripts/tooling/check-linear.mjs). The merge commits already
+ *     in the history read `Merge <what it brought>` and stay accepted.
  *   - A blank line separates the subject from the body; the body explains what changed
  *     and why, in plain English.
  *   - The only trailer allowed is `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
@@ -32,7 +34,8 @@ const TRAILER_RE = /^[A-Za-z][A-Za-z-]*: \S/
  */
 export const FORBIDDEN_PHRASES = [
   { re: /claude\.ai/i, why: 'links to claude.ai pages (sessions, artifacts) stay out of the history' },
-  { re: /^Claude-Session:/im, why: 'session trailers are not recorded' },
+  // Written without the trailing colon so history scans for real trailers skip this rule.
+  { re: /^Claude-Session[ \t]*:/im, why: 'session trailers are not recorded' },
   { re: /\bwin\d+\b/i, why: 'local checkout names are not part of the project' },
   { re: /\bwork[- ]folders?\b/i, why: 'local checkout logistics are not part of the project' },
   { re: /\bmaster\b/i, why: 'branch and checkout names are not part of the project' },

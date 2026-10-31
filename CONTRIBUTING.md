@@ -10,7 +10,8 @@ accept the contributor license agreement below.
   tests with every change, no duplicated logic, comments and docs that match the code, and
   commit messages in the Conventional Commits style (the `commit-msg` hook checks them).
 - `npm install` installs the git hooks. Run the checks before you push: the `pre-push` hook
-  runs `npm run check`; also run the end-to-end specs that cover your change
+  runs `npm run check` and refuses merge commits (bring your branch up to date with
+  `git rebase`, not `git merge`); also run the end-to-end specs that cover your change
   (`npx playwright test --project=chromium-fhd`).
 - Pull requests are squash-merged: the pull request title becomes the commit message, so
   write it as a Conventional Commit, and accept the agreement below in the pull request.
