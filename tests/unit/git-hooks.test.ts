@@ -80,7 +80,9 @@ test('pre-commit: a staged file with a private value fails the commit', () => {
 test('pre-commit: a session id in a note\'s front matter fails the commit, also when indented', () => {
   withTempDir('sfc-hooks-', (base) => {
     const { work, hooked } = hookedRepos(base)
-    for (const line of ['originSessionId: 1234', 'metadata:\n  originSessionId: 1234']) {
+    // The front-matter line is assembled, so history scans for real ones do not hit this test.
+    const sessionLine = ['originSessionId', '1234'].join(': ')
+    for (const line of [sessionLine, `metadata:\n  ${sessionLine}`]) {
       writeFileSync(join(work, 'note.md'), `---\nname: x\n${line}\n---\nbody\n`)
       git(work, ['add', 'note.md'])
       const commit = hooked(work, ['commit', '-q', '-m', 'docs(x): add a note'])
